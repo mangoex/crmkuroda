@@ -125,7 +125,11 @@ const DOM = {
     
     // Sort Controls
     sortQuotesAsc: document.getElementById("sort-quotes-asc"),
-    sortQuotesDesc: document.getElementById("sort-quotes-desc")
+    sortQuotesDesc: document.getElementById("sort-quotes-desc"),
+    
+    // Theme Toggle
+    themeToggleBtn: document.getElementById("theme-toggle-btn"),
+    themeToggleIcon: document.getElementById("theme-toggle-icon")
 };
 
 /* ==========================================================================
@@ -971,14 +975,35 @@ function renderSalesChart(quotes) {
         state.salesChart.destroy();
     }
     
-    // Group quotes total by client name
+    // Group quotes total by seller
     const grouped = {};
     quotes.forEach(q => {
-        grouped[q.cliente_nombre] = (grouped[q.cliente_nombre] || 0) + q.total;
+        let sellerEmail = q.vendedor_id;
+        if (q.vendedor_id === state.user.id) {
+            sellerEmail = state.user.email;
+        } else {
+            const seller = state.vendedores.find(v => v.id === q.vendedor_id);
+            if (seller && seller.email) {
+                sellerEmail = seller.email;
+            }
+        }
+        const label = sellerEmail.includes("@") ? sellerEmail.split("@")[0] : sellerEmail;
+        grouped[label] = (grouped[label] || 0) + q.total;
     });
     
-    const labels = Object.keys(grouped);
-    const data = Object.values(grouped);
+    // Convert to sorted array descending by total
+    const sortedData = Object.keys(grouped).map(label => ({
+        label: label,
+        total: grouped[label]
+    })).sort((a, b) => b.total - a.total);
+    
+    const labels = sortedData.map(item => item.label);
+    const data = sortedData.map(item => item.total);
+    
+    // Determine dynamic styling based on active theme
+    const isLightMode = document.body.classList.contains("light-mode");
+    const tickColor = isLightMode ? '#333333' : '#abb2bf';
+    const gridColor = isLightMode ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.05)';
     
     const ctx = document.getElementById("salesChart").getContext("2d");
     state.salesChart = new Chart(ctx, {
@@ -993,18 +1018,21 @@ function renderSalesChart(quotes) {
                 borderWidth: 2,
                 borderRadius: 6,
                 hoverBackgroundColor: 'rgba(0, 242, 254, 0.5)',
-                hoverBorderColor: '#00f2fe'
+                hoverBorderColor: '#00f2fe',
+                maxBarThickness: 50,
+                barPercentage: 0.6,
+                categoryPercentage: 0.8
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { labels: { color: '#abb2bf' } }
+                legend: { labels: { color: tickColor } }
             },
             scales: {
-                x: { ticks: { color: '#abb2bf' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                y: { ticks: { color: '#abb2bf' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                x: { ticks: { color: tickColor }, grid: { color: gridColor } },
+                y: { ticks: { color: tickColor }, grid: { color: gridColor } }
             }
         }
     });
@@ -1037,6 +1065,11 @@ function renderGoalsChart(metas, quotes, sellers) {
     const targetData = sellerIds.map(sid => goalsBySeller[sid] || 0);
     const actualData = sellerIds.map(sid => actualsBySeller[sid] || 0);
     
+    // Determine dynamic styling based on active theme
+    const isLightMode = document.body.classList.contains("light-mode");
+    const tickColor = isLightMode ? '#333333' : '#abb2bf';
+    const gridColor = isLightMode ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.05)';
+    
     const ctx = document.getElementById("goalsChart").getContext("2d");
     state.goalsChart = new Chart(ctx, {
         type: 'radar',
@@ -1065,14 +1098,14 @@ function renderGoalsChart(metas, quotes, sellers) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { labels: { color: '#abb2bf' } }
+                legend: { labels: { color: tickColor } }
             },
             scales: {
                 r: {
-                    angleLines: { color: 'rgba(255,255,255,0.05)' },
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    pointLabels: { color: '#abb2bf' },
-                    ticks: { backdropColor: 'transparent', color: '#abb2bf' }
+                    angleLines: { color: gridColor },
+                    grid: { color: gridColor },
+                    pointLabels: { color: tickColor },
+                    ticks: { backdropColor: 'transparent', color: tickColor }
                 }
             }
         }
@@ -1585,6 +1618,13 @@ if (DOM.btnToggleSidebar) {
     });
 }
 
+// Theme Toggle Handler
+if (DOM.themeToggleBtn) {
+    DOM.themeToggleBtn.addEventListener("click", () => {
+        toggleTheme();
+    });
+}
+
 // User Profile Modal Handlers
 if (DOM.userAvatarBtn) {
     DOM.userAvatarBtn.addEventListener("click", () => {
@@ -1851,9 +1891,53 @@ if (outreachTrigger) {
 }
 
 /* ==========================================================================
+   THEME MANAGER
+   ========================================================================== */
+
+function initTheme() {
+    const savedTheme = localStorage.getItem("theme_mode");
+    const themeIcon = DOM.themeToggleIcon || document.getElementById("theme-toggle-icon");
+    if (savedTheme === "light") {
+        document.body.classList.add("light-mode");
+        if (themeIcon) {
+            themeIcon.className = "fa-solid fa-moon";
+        }
+    } else {
+        document.body.classList.remove("light-mode");
+        if (themeIcon) {
+            themeIcon.className = "fa-solid fa-sun";
+        }
+    }
+}
+
+function toggleTheme() {
+    const isLight = document.body.classList.toggle("light-mode");
+    localStorage.setItem("theme_mode", isLight ? "light" : "dark");
+    
+    // Update button icon
+    const themeIcon = DOM.themeToggleIcon || document.getElementById("theme-toggle-icon");
+    if (themeIcon) {
+        if (isLight) {
+            themeIcon.className = "fa-solid fa-moon";
+        } else {
+            themeIcon.className = "fa-solid fa-sun";
+        }
+    }
+    
+    // Re-render charts to update tick and grid colors dynamically
+    if (state.cotizaciones && state.cotizaciones.length > 0) {
+        renderSalesChart(state.cotizaciones);
+    }
+    if (state.metas && state.vendedores) {
+        renderGoalsChart(state.metas, state.cotizaciones, state.vendedores);
+    }
+}
+
+/* ==========================================================================
    INITIALIZATION
    ========================================================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
+    initTheme();
     initSession();
 });
