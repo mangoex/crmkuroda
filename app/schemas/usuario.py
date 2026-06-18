@@ -6,6 +6,8 @@ class UsuarioBase(BaseModel):
     email: EmailStr
     rol: str = Field(description="Rol del usuario: admin, gerente, vendedor")
     telefono_whatsapp: Optional[str] = Field(default=None, description="Número de teléfono de WhatsApp (ej. +521234567890)")
+    codigo_vendedor: Optional[str] = Field(default=None, description="Código de vendedor (ej. C01)")
+    nombre_completo: Optional[str] = Field(default=None, description="Nombre completo del vendedor")
 
 class UsuarioCreate(UsuarioBase):
     password: str = Field(min_length=6, description="Contraseña del usuario (mínimo 6 caracteres)")
@@ -14,6 +16,8 @@ class UsuarioUpdate(BaseModel):
     email: Optional[EmailStr] = None
     rol: Optional[str] = None
     telefono_whatsapp: Optional[str] = None
+    codigo_vendedor: Optional[str] = None
+    nombre_completo: Optional[str] = None
     password: Optional[str] = Field(default=None, min_length=6)
 
 class UsuarioResponse(BaseModel):
@@ -21,6 +25,8 @@ class UsuarioResponse(BaseModel):
     email: EmailStr
     rol: str
     telefono_whatsapp: Optional[str] = None
+    codigo_vendedor: Optional[str] = None
+    nombre_completo: Optional[str] = None
 
     class Config:
         from_attributes = True

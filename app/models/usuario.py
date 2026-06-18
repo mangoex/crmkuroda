@@ -12,6 +12,8 @@ class Usuario(Base):
     hashed_password = Column(String, nullable=False)
     rol = Column(String, nullable=False)  # 'admin', 'gerente', 'vendedor'
     telefono_whatsapp = Column(String, unique=True, index=True, nullable=True)
+    codigo_vendedor = Column(String, unique=True, index=True, nullable=True)  # e.g., 'C01'
+    nombre_completo = Column(String, nullable=True)
 
     # Relationships
     metas = relationship("Meta", back_populates="vendedor", cascade="all, delete-orphan")

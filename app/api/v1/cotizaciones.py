@@ -14,6 +14,24 @@ from app.agents.cotizaciones_agent import generate_proposal
 
 router = APIRouter()
 
+def serialize_cotizacion(c: Cotizacion) -> dict:
+    return {
+        "id": str(c.id),
+        "vendedor_id": str(c.vendedor_id),
+        "cliente_nombre": c.cliente_nombre,
+        "datos_contacto": c.datos_contacto,
+        "items": c.items,
+        "total": float(c.total),
+        "texto_propuesta": c.texto_propuesta,
+        "numero_cotizacion": c.numero_cotizacion,
+        "fecha_registro": c.fecha_registro.isoformat() if c.fecha_registro else None,
+        "canal": c.canal,
+        "numero_factura": c.numero_factura,
+        "fecha_factura": c.fecha_factura.isoformat() if c.fecha_factura else None,
+        "venta_perdida": c.venta_perdida,
+        "comentarios": c.comentarios
+    }
+
 @router.get("/", status_code=status.HTTP_200_OK)
 async def list_cotizaciones(
     vendedor_id: Optional[UUID] = None,
@@ -48,18 +66,7 @@ async def list_cotizaciones(
     res = await db.execute(query)
     cotizaciones = res.scalars().all()
 
-    data = [
-        {
-            "id": str(c.id),
-            "vendedor_id": str(c.vendedor_id),
-            "cliente_nombre": c.cliente_nombre,
-            "datos_contacto": c.datos_contacto,
-            "items": c.items,
-            "total": float(c.total),
-            "texto_propuesta": c.texto_propuesta
-        }
-        for c in cotizaciones
-    ]
+    data = [serialize_cotizacion(c) for c in cotizaciones]
 
     return {
         "status": "success",
@@ -95,15 +102,7 @@ async def get_cotizacion(
 
     return {
         "status": "success",
-        "data": {
-            "id": str(cotizacion.id),
-            "vendedor_id": str(cotizacion.vendedor_id),
-            "cliente_nombre": cotizacion.cliente_nombre,
-            "datos_contacto": cotizacion.datos_contacto,
-            "items": cotizacion.items,
-            "total": float(cotizacion.total),
-            "texto_propuesta": cotizacion.texto_propuesta
-        }
+        "data": serialize_cotizacion(cotizacion)
     }
 
 @router.post("/manual", status_code=status.HTTP_201_CREATED)
@@ -131,15 +130,7 @@ async def create_cotizacion_manual(
     return {
         "status": "success",
         "message": "Cotización creada manualmente con éxito.",
-        "data": {
-            "id": str(new_quote.id),
-            "vendedor_id": str(new_quote.vendedor_id),
-            "cliente_nombre": new_quote.cliente_nombre,
-            "datos_contacto": new_quote.datos_contacto,
-            "items": new_quote.items,
-            "total": float(new_quote.total),
-            "texto_propuesta": new_quote.texto_propuesta
-        }
+        "data": serialize_cotizacion(new_quote)
     }
 
 @router.post("/generate", status_code=status.HTTP_201_CREATED)
@@ -177,13 +168,5 @@ async def generate_cotizacion_agente(
     return {
         "status": "success",
         "message": "Cotización generada exitosamente por el Agente de Cotizaciones.",
-        "data": {
-            "id": str(new_quote.id),
-            "vendedor_id": str(new_quote.vendedor_id),
-            "cliente_nombre": new_quote.cliente_nombre,
-            "datos_contacto": new_quote.datos_contacto,
-            "items": new_quote.items,
-            "total": float(new_quote.total),
-            "texto_propuesta": new_quote.texto_propuesta
-        }
+        "data": serialize_cotizacion(new_quote)
     }

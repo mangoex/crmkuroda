@@ -435,7 +435,7 @@ async function loadCotizacionesData() {
     
     DOM.tableCotizaciones.innerHTML = "";
     if (quotes.length === 0) {
-        DOM.tableCotizaciones.innerHTML = `<tr><td colspan="6" style="text-align: center;">No hay cotizaciones registradas.</td></tr>`;
+        DOM.tableCotizaciones.innerHTML = `<tr><td colspan="10" style="text-align: center;">No hay cotizaciones registradas.</td></tr>`;
         return;
     }
     
@@ -444,12 +444,23 @@ async function loadCotizacionesData() {
         const contactInfo = `Email: ${c.datos_contacto.email || '-'}<br>Tel: ${c.datos_contacto.telefono || '-'}`;
         const itemsSummary = c.items.map(i => `${i.producto} (${i.cantidad})`).join(", ");
         
+        const dateStr = c.fecha_registro || '-';
+        const quoteNum = c.numero_cotizacion || '-';
+        const canal = c.canal || '-';
+        const lossPill = c.venta_perdida === "Si" ? 
+            `<span class="status-pill status-pendiente">Si</span>` : 
+            `<span class="status-pill status-completada">No</span>`;
+            
         const tr = document.createElement("tr");
         tr.innerHTML = `
+            <td><code>${quoteNum}</code></td>
+            <td>${dateStr}</td>
             <td><strong>${c.cliente_nombre}</strong></td>
             <td>${contactInfo}</td>
+            <td>${canal}</td>
             <td><strong>$${c.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong></td>
             <td>${sellerEmail}</td>
+            <td>${lossPill}</td>
             <td><span class="text-muted" title="${itemsSummary}">${itemsSummary.length > 35 ? itemsSummary.slice(0, 35) + "..." : itemsSummary}</span></td>
             <td>
                 <button class="btn btn-secondary btn-sm view-proposal-btn" data-id="${c.id}">
