@@ -358,6 +358,7 @@ async function loadSummaryData() {
     // Render Charts
     renderSalesChart(quotes);
     renderGoalsChart(metas, quotes, sellers);
+    renderQuotesHeatmap(quotes);
 }
 
 async function loadVendedoresData() {
@@ -1074,6 +1075,114 @@ function renderGoalsChart(metas, quotes, sellers) {
             }
         }
     });
+}
+
+function renderQuotesHeatmap(quotes) {
+    const gridEl = document.getElementById("heatmap-quotes-grid");
+    if (!gridEl) return;
+    gridEl.innerHTML = "";
+
+    const xCategories = [
+        { label: "0-7 días", minDays: 0, maxDays: 7 },
+        { label: "8-15 días", minDays: 8, maxDays: 15 },
+        { label: "16-30 días", minDays: 16, maxDays: 30 },
+        { label: "30+ días", minDays: 31, maxDays: 99999 }
+    ];
+
+    const yCategories = [
+        { label: "Bajo ($0-$10k)", minVal: 0, maxVal: 10000 },
+        { label: "Medio ($10k-$50k)", minVal: 10000, maxVal: 50000 },
+        { label: "Alto ($50k-$200k)", minVal: 50000, maxVal: 200000 },
+        { label: "Premium ($200k+)", minVal: 200000, maxVal: Infinity }
+    ];
+
+    // Initialize matrix
+    const matrix = Array(yCategories.length).fill(null).map(() => 
+        Array(xCategories.length).fill(null).map(() => ({ count: 0, sum: 0 }))
+    );
+
+    const refDate = new Date("2026-06-18T12:00:00Z");
+
+    quotes.forEach(q => {
+        let ageDays = 0;
+        if (q.fecha_registro) {
+            const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
+            ageDays = Math.floor((refDate - qDate) / (1000 * 60 * 60 * 24));
+            if (ageDays < 0) ageDays = 0;
+        } else {
+            ageDays = 999;
+        }
+
+        const amt = Number(q.total);
+
+        // Find Y category (quote amount)
+        const yIdx = yCategories.findIndex(c => amt >= c.minVal && amt < c.maxVal);
+        // Find X category (age days)
+        const xIdx = xCategories.findIndex(c => ageDays >= c.minDays && ageDays <= c.maxDays);
+
+        if (xIdx !== -1 && yIdx !== -1) {
+            matrix[yIdx][xIdx].count++;
+            matrix[yIdx][xIdx].sum += amt;
+        }
+    });
+
+    // 1. Create Corner cell
+    const corner = document.createElement("div");
+    corner.style.visibility = "hidden";
+    gridEl.appendChild(corner);
+
+    // 2. Render X-Axis Headers (Age Categories)
+    xCategories.forEach(cat => {
+        const header = document.createElement("div");
+        header.className = "heatmap-header-x";
+        header.textContent = cat.label;
+        gridEl.appendChild(header);
+    });
+
+    // 3. Render Matrix Rows (Y Headers + Cells)
+    // Render YCategories in reverse order (Premium first, Bajo last) to place higher amounts on top
+    for (let yIdx = yCategories.length - 1; yIdx >= 0; yIdx--) {
+        const yCat = yCategories[yIdx];
+        
+        // Y Header
+        const header = document.createElement("div");
+        header.className = "heatmap-header-y";
+        header.textContent = yCat.label;
+        gridEl.appendChild(header);
+
+        // Cells for this row
+        xCategories.forEach((xCat, xIdx) => {
+            const cellData = matrix[yIdx][xIdx];
+
+            // Determine temperature class based on count
+            let tempClass = "temp-0";
+            if (cellData.count > 0) {
+                if (cellData.count <= 2) tempClass = "temp-low";
+                else if (cellData.count <= 5) tempClass = "temp-medium";
+                else if (cellData.count <= 10) tempClass = "temp-high";
+                else tempClass = "temp-extreme";
+            }
+
+            const cell = document.createElement("div");
+            cell.className = `heatmap-cell ${tempClass}`;
+
+            const sumStr = cellData.sum > 0 ? 
+                `$${(cellData.sum / 1000).toFixed(1)}k` : 
+                "$0";
+
+            cell.innerHTML = `
+                <span class="heatmap-cell-count">${cellData.count}</span>
+                <span class="heatmap-cell-sum">${sumStr}</span>
+                <div class="heatmap-cell-tooltip">
+                    <strong>Monto:</strong> ${yCat.label}<br>
+                    <strong>Edad:</strong> ${xCat.label}<br>
+                    <strong>Cotizaciones:</strong> ${cellData.count}<br>
+                    <strong>Total:</strong> $${cellData.sum.toLocaleString('es-MX', { maximumFractionDigits: 0 })}
+                </div>
+            `;
+            gridEl.appendChild(cell);
+        });
+    }
 }
 
 /* ==========================================================================
