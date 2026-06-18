@@ -5,7 +5,7 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from app.core.database import async_session_maker
+from app.core.database import SessionLocal
 from app.models.usuario import Usuario
 from app.models.meta import Meta
 from app.models.cotizacion import Cotizacion
@@ -23,7 +23,7 @@ async def job_generar_seguimientos_diarios():
     logger.info("Iniciando generación de seguimientos diarios...")
     hoy = date.today()
 
-    async with async_session_maker() as session:
+    async with SessionLocal() as session:
         # Obtener todos los vendedores
         result = await session.execute(
             select(Usuario).filter(Usuario.rol == "vendedor").options(
