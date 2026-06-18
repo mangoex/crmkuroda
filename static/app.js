@@ -113,7 +113,8 @@ const DOM = {
     profilePassword: document.getElementById("profile-password"),
     inputProfileAvatar: document.getElementById("input-profile-avatar"),
     profileAvatarPreview: document.getElementById("profile-avatar-preview"),
-    profileAvatarPlaceholder: document.getElementById("profile-avatar-placeholder")
+    profileAvatarPlaceholder: document.getElementById("profile-avatar-placeholder"),
+    profileAvatarUploader: document.getElementById("profile-avatar-uploader")
 };
 
 /* ==========================================================================
@@ -1381,6 +1382,7 @@ if (DOM.userAvatarBtn) {
         DOM.profileEmail.value = state.user.email || "";
         DOM.profilePhone.value = state.user.telefono_whatsapp || "";
         DOM.profilePassword.value = "";
+        profileAvatarBase64 = null;
         
         // Preview avatar
         if (state.user.avatar) {
@@ -1406,6 +1408,13 @@ if (DOM.btnCancelProfile) DOM.btnCancelProfile.addEventListener("click", closePr
 if (DOM.profileModal) {
     DOM.profileModal.addEventListener("click", (e) => {
         if (e.target === DOM.profileModal) closeProfileModal();
+    });
+}
+
+// Click trigger for circular avatar uploader
+if (DOM.profileAvatarUploader && DOM.inputProfileAvatar) {
+    DOM.profileAvatarUploader.addEventListener("click", () => {
+        DOM.inputProfileAvatar.click();
     });
 }
 

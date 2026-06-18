@@ -70,25 +70,25 @@
             
             <nav class="sidebar-menu">
                 <a href="#" class="menu-item active" data-section="summary">
-                    <i class="fa-solid fa-chart-line"></i> Resumen
+                    <i class="fa-solid fa-chart-line"></i> <span>Resumen</span>
                 </a>
                 <a href="#" class="menu-item" data-section="vendedores" id="menu-vendedores">
-                    <i class="fa-solid fa-users"></i> Vendedores
+                    <i class="fa-solid fa-users"></i> <span>Vendedores</span>
                 </a>
                 <a href="#" class="menu-item" data-section="metas">
-                    <i class="fa-solid fa-bullseye"></i> Metas de Venta
+                    <i class="fa-solid fa-bullseye"></i> <span>Metas de Venta</span>
                 </a>
                 <a href="#" class="menu-item" data-section="cotizaciones">
-                    <i class="fa-solid fa-file-invoice-dollar"></i> Cotizaciones
+                    <i class="fa-solid fa-file-invoice-dollar"></i> <span>Cotizaciones</span>
                 </a>
                 <a href="#" class="menu-item" data-section="seguimiento">
-                    <i class="fa-solid fa-table-columns"></i> Seguimiento
+                    <i class="fa-solid fa-table-columns"></i> <span>Seguimiento</span>
                 </a>
             </nav>
             
             <div class="sidebar-footer">
                 <button id="logout-btn" class="btn btn-danger btn-block btn-sm">
-                    <i class="fa-solid fa-power-off"></i> Cerrar Sesión
+                    <i class="fa-solid fa-power-off"></i> <span>Cerrar Sesión</span>
                 </button>
             </div>
         </aside>
@@ -529,43 +529,56 @@
 
     <!-- User Profile Modal -->
     <div id="profile-modal" class="modal-wrapper hidden">
-        <div class="glass-card modal-card animate-scale-up">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 550px;">
             <div class="modal-header">
-                <h3>Editar Perfil de Usuario</h3>
+                <h3><i class="fa-solid fa-user-gear text-glow" style="margin-right: 8px;"></i>Editar Perfil de Usuario</h3>
                 <button id="btn-close-profile-modal" class="btn-icon"><i class="fa-solid fa-times"></i></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="padding: 24px 24px 10px 24px;">
                 <form id="profile-form">
                     <!-- Avatar Preview & Upload -->
-                    <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 20px;">
-                        <div class="avatar-circle" style="width: 80px; height: 80px; font-size: 30px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 2px solid hsl(var(--primary));">
-                            <img id="profile-avatar-preview" class="hidden" style="width: 100%; height: 100%; object-fit: cover;">
+                    <div class="profile-avatar-section">
+                        <div class="profile-avatar-upload-container" id="profile-avatar-uploader">
+                            <img id="profile-avatar-preview" class="hidden">
                             <i class="fa-solid fa-user-tie" id="profile-avatar-placeholder"></i>
+                            <div class="profile-avatar-upload-overlay">
+                                <i class="fa-solid fa-camera"></i>
+                                <span>Cambiar Foto</span>
+                            </div>
                         </div>
-                        <label for="input-profile-avatar" class="btn btn-secondary btn-sm" style="cursor: pointer; padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
-                            <i class="fa-solid fa-camera"></i> Subir Foto
-                        </label>
                         <input type="file" id="input-profile-avatar" accept="image/*" style="display: none;">
                     </div>
 
-                    <div class="input-group">
-                        <label for="profile-fullname">Nombre Completo</label>
-                        <input type="text" id="profile-fullname" placeholder="Ingresa tu nombre completo...">
+                    <!-- Seccion: Datos Personales -->
+                    <div class="form-section-title">
+                        <i class="fa-solid fa-id-card"></i> Datos Personales
                     </div>
-                    <div class="input-group" style="margin-top: 12px;">
-                        <label for="profile-email">Correo Electrónico</label>
+                    <div class="form-grid-2">
+                        <div class="input-group">
+                            <label for="profile-fullname"><i class="fa-solid fa-signature"></i> Nombre Completo</label>
+                            <input type="text" id="profile-fullname" placeholder="Ingresa tu nombre completo..." required>
+                        </div>
+                        <div class="input-group">
+                            <label for="profile-phone"><i class="fa-solid fa-phone"></i> Teléfono WhatsApp</label>
+                            <input type="text" id="profile-phone" placeholder="+52XXXXXXXXXX">
+                        </div>
+                    </div>
+                    
+                    <div class="input-group" style="margin-top: 8px;">
+                        <label for="profile-email"><i class="fa-solid fa-envelope"></i> Correo Electrónico</label>
                         <input type="email" id="profile-email" required>
                     </div>
-                    <div class="input-group" style="margin-top: 12px;">
-                        <label for="profile-phone">Teléfono de WhatsApp</label>
-                        <input type="text" id="profile-phone" placeholder="+52XXXXXXXXXX">
+
+                    <!-- Seccion: Seguridad y Acceso -->
+                    <div class="form-section-title" style="margin-top: 24px;">
+                        <i class="fa-solid fa-shield-halved"></i> Seguridad y Acceso
                     </div>
-                    <div class="input-group" style="margin-top: 12px;">
-                        <label for="profile-password">Nueva Contraseña (dejar en blanco para mantener la actual)</label>
+                    <div class="input-group">
+                        <label for="profile-password"><i class="fa-solid fa-key"></i> Nueva Contraseña (dejar en blanco para mantener)</label>
                         <input type="password" id="profile-password" placeholder="Mínimo 6 caracteres...">
                     </div>
 
-                    <div class="form-actions margin-top" style="margin-top: 20px;">
+                    <div class="form-actions margin-top" style="margin-top: 28px; justify-content: flex-end; display: flex; gap: 12px;">
                         <button type="button" id="btn-cancel-profile" class="btn btn-secondary">Cancelar</button>
                         <button type="submit" class="btn btn-glow">Guardar Cambios</button>
                     </div>
