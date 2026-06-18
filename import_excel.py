@@ -58,10 +58,24 @@ def parse_date(val):
         return None
 
 async def import_data():
+    from sqlalchemy import text
     print("Iniciando creación de tablas (si no existen)...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    print("Tablas de base de datos listas.")
+        
+        # Run column migrations if tables already exist
+        print("Ejecutando migraciones de columnas (ALTER TABLE)...")
+        await conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS codigo_vendedor VARCHAR;"))
+        await conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nombre_completo VARCHAR;"))
+        
+        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS numero_cotizacion VARCHAR;"))
+        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS fecha_registro DATE;"))
+        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS canal VARCHAR;"))
+        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS numero_factura VARCHAR;"))
+        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS fecha_factura DATE;"))
+        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS venta_perdida VARCHAR;"))
+        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS comentarios TEXT;"))
+    print("Tablas de base de datos migradas y listas.")
 
     # 1. Load Excel Workbook
     if not os.path.exists(EXCEL_PATH):

@@ -28,12 +28,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from sqlalchemy import text
+
 # Auto create database tables on startup (convenient for Railway zero-config)
 @app.on_event("startup")
 async def on_startup():
     async with engine.begin() as conn:
         # Create all tables defined in models
         await conn.run_sync(Base.metadata.create_all)
+        
+        # Run column migrations if tables already exist
+        await conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS codigo_vendedor VARCHAR;"))
+        await conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nombre_completo VARCHAR;"))
+        
+        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS numero_cotizacion VARCHAR;"))
+        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS fecha_registro DATE;"))
+        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS canal VARCHAR;"))
+        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS numero_factura VARCHAR;"))
+        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS fecha_factura DATE;"))
+        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS venta_perdida VARCHAR;"))
+        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS comentarios TEXT;"))
 
 # Standardized Error Handling
 @app.exception_handler(HTTPException)
