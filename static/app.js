@@ -13,7 +13,9 @@ const state = {
     salesChart: null,
     goalsChart: null,
     quotesCurrentPage: 1,
-    quotesPageSize: 15
+    quotesPageSize: 15,
+    quotesSortOrder: null, // 'asc', 'desc', or null
+    kanbanSortOrder: null  // 'asc', 'desc', or null
 };
 
 // UI Selectors
@@ -114,7 +116,13 @@ const DOM = {
     inputProfileAvatar: document.getElementById("input-profile-avatar"),
     profileAvatarPreview: document.getElementById("profile-avatar-preview"),
     profileAvatarPlaceholder: document.getElementById("profile-avatar-placeholder"),
-    profileAvatarUploader: document.getElementById("profile-avatar-uploader")
+    profileAvatarUploader: document.getElementById("profile-avatar-uploader"),
+    
+    // Sort Controls
+    sortQuotesAsc: document.getElementById("sort-quotes-asc"),
+    sortQuotesDesc: document.getElementById("sort-quotes-desc"),
+    sortKanbanAsc: document.getElementById("sort-kanban-asc"),
+    sortKanbanDesc: document.getElementById("sort-kanban-desc")
 };
 
 /* ==========================================================================
@@ -542,6 +550,15 @@ function renderQuotesTableFiltered() {
         });
     }
     
+    // 4. Sort by Total
+    if (state.quotesSortOrder) {
+        if (state.quotesSortOrder === "asc") {
+            filteredQuotes = [...filteredQuotes].sort((a, b) => Number(a.total) - Number(b.total));
+        } else if (state.quotesSortOrder === "desc") {
+            filteredQuotes = [...filteredQuotes].sort((a, b) => Number(b.total) - Number(a.total));
+        }
+    }
+    
     // Set up pagination
     const totalItems = filteredQuotes.length;
     const pageSize = state.quotesPageSize || 15;
@@ -746,6 +763,17 @@ function renderKanbanColumns() {
             stages.propuesta.push(q);
         }
     });
+    
+    // Sort columns if sort order is set
+    if (state.kanbanSortOrder) {
+        columns.forEach(col => {
+            if (state.kanbanSortOrder === "asc") {
+                stages[col].sort((a, b) => Number(a.total) - Number(b.total));
+            } else if (state.kanbanSortOrder === "desc") {
+                stages[col].sort((a, b) => Number(b.total) - Number(a.total));
+            }
+        });
+    }
     
     // Render columns
     const columns = ['propuesta', 'cotizado', 'vendido', 'vencido'];
@@ -1331,6 +1359,64 @@ if (DOM.kanbanFilterSeller) {
 }
 if (DOM.kanbanFilterDays) {
     DOM.kanbanFilterDays.addEventListener("change", () => {
+        renderKanbanColumns();
+    });
+}
+
+// Quotes Table Sorting listeners
+if (DOM.sortQuotesAsc) {
+    DOM.sortQuotesAsc.addEventListener("click", () => {
+        if (state.quotesSortOrder === "asc") {
+            state.quotesSortOrder = null;
+            DOM.sortQuotesAsc.classList.remove("active");
+        } else {
+            state.quotesSortOrder = "asc";
+            DOM.sortQuotesAsc.classList.add("active");
+            if (DOM.sortQuotesDesc) DOM.sortQuotesDesc.classList.remove("active");
+        }
+        renderQuotesTableFiltered();
+    });
+}
+
+if (DOM.sortQuotesDesc) {
+    DOM.sortQuotesDesc.addEventListener("click", () => {
+        if (state.quotesSortOrder === "desc") {
+            state.quotesSortOrder = null;
+            DOM.sortQuotesDesc.classList.remove("active");
+        } else {
+            state.quotesSortOrder = "desc";
+            DOM.sortQuotesDesc.classList.add("active");
+            if (DOM.sortQuotesAsc) DOM.sortQuotesAsc.classList.remove("active");
+        }
+        renderQuotesTableFiltered();
+    });
+}
+
+// Kanban Sorting listeners
+if (DOM.sortKanbanAsc) {
+    DOM.sortKanbanAsc.addEventListener("click", () => {
+        if (state.kanbanSortOrder === "asc") {
+            state.kanbanSortOrder = null;
+            DOM.sortKanbanAsc.classList.remove("active");
+        } else {
+            state.kanbanSortOrder = "asc";
+            DOM.sortKanbanAsc.classList.add("active");
+            if (DOM.sortKanbanDesc) DOM.sortKanbanDesc.classList.remove("active");
+        }
+        renderKanbanColumns();
+    });
+}
+
+if (DOM.sortKanbanDesc) {
+    DOM.sortKanbanDesc.addEventListener("click", () => {
+        if (state.kanbanSortOrder === "desc") {
+            state.kanbanSortOrder = null;
+            DOM.sortKanbanDesc.classList.remove("active");
+        } else {
+            state.kanbanSortOrder = "desc";
+            DOM.sortKanbanDesc.classList.add("active");
+            if (DOM.sortKanbanAsc) DOM.sortKanbanAsc.classList.remove("active");
+        }
         renderKanbanColumns();
     });
 }

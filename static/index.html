@@ -406,7 +406,13 @@
                                     <th>Cliente</th>
                                     <th>Contacto</th>
                                     <th>Canal</th>
-                                    <th>Total Cotizado</th>
+                                    <th>
+                                        Total Cotizado
+                                        <span class="sort-arrows-container">
+                                            <i class="fa-solid fa-caret-up sort-arrow" id="sort-quotes-asc" title="Ordenar de menor a mayor"></i>
+                                            <i class="fa-solid fa-caret-down sort-arrow" id="sort-quotes-desc" title="Ordenar de mayor a menor"></i>
+                                        </span>
+                                    </th>
                                     <th>Vendedor Asignado</th>
                                     <th>Venta Perdida?</th>
                                     <th>Ítems</th>
@@ -454,6 +460,14 @@
                                     <option value="30">Últimos 30 días</option>
                                     <option value="60">Últimos 60 días</option>
                                 </select>
+                            </div>
+                            
+                            <div class="input-group-inline">
+                                <label>Ordenar por Total:</label>
+                                <div class="sort-arrows-container" style="display: flex; flex-direction: row; gap: 12px; font-size: 16px; align-items: center; justify-content: center; height: 38px;">
+                                    <i class="fa-solid fa-caret-up sort-arrow" id="sort-kanban-asc" title="Menor a mayor total" style="cursor: pointer;"></i>
+                                    <i class="fa-solid fa-caret-down sort-arrow" id="sort-kanban-desc" title="Mayor a menor total" style="cursor: pointer;"></i>
+                                </div>
                             </div>
                         </div>
                     </div>

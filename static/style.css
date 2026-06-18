@@ -1316,3 +1316,30 @@ h1, h2, h3, h4, h5, h6 {
     }
 }
 
+/* ==========================================================================
+   SORT ARROWS & HEADERS
+   ========================================================================== */
+
+.sort-arrows-container {
+    display: inline-flex;
+    flex-direction: column;
+    vertical-align: middle;
+    margin-left: 8px;
+    font-size: 11px;
+    line-height: 0.6;
+}
+
+.sort-arrow {
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.3);
+    transition: color var(--transition-fast) ease;
+}
+
+.sort-arrow:hover {
+    color: hsl(var(--primary));
+}
+
+.sort-arrow.active {
+    color: hsl(var(--primary)) !important;
+    text-shadow: 0 0 8px rgba(var(--primary-glow));
+}
