@@ -11,7 +11,9 @@ const state = {
     metas: [],
     cotizaciones: [],
     salesChart: null,
-    goalsChart: null
+    goalsChart: null,
+    quotesCurrentPage: 1,
+    quotesPageSize: 15
 };
 
 // UI Selectors
@@ -69,7 +71,10 @@ const DOM = {
     btnCancelAiQuote: document.getElementById("btn-cancel-ai-quote"),
     btnCloseAiQuote: document.getElementById("btn-close-ai-quote"),
     searchQuoteClient: document.getElementById("search-quote-client"),
+    filterQuoteSeller: document.getElementById("filter-quote-seller"),
+    filterQuoteDays: document.getElementById("filter-quote-days"),
     tableCotizaciones: document.querySelector("#table-cotizaciones tbody"),
+    pagCotizaciones: document.getElementById("pag-cotizaciones"),
     
     // Proposal Modal
     proposalModal: document.getElementById("proposal-modal"),
@@ -263,7 +268,7 @@ async function loadSummaryData() {
     const metasRes = await apiRequest("/api/v1/metas/?limit=100");
     const metas = metasRes.data || [];
     
-    const quotesRes = await apiRequest("/api/v1/cotizaciones/?limit=100");
+    const quotesRes = await apiRequest("/api/v1/cotizaciones/?limit=3000");
     const quotes = quotesRes.data || [];
     
     state.vendedores = sellers;
@@ -419,27 +424,90 @@ async function loadMetasData() {
     });
 }
 
-async function loadCotizacionesData() {
-    const searchVal = DOM.searchQuoteClient.value.toLowerCase();
-    let endpoint = "/api/v1/cotizaciones/?limit=50";
-    
-    const res = await apiRequest(endpoint);
-    let quotes = res.data || [];
-    
-    // Client-side search filtering
-    if (searchVal) {
-        quotes = quotes.filter(q => q.cliente_nombre.toLowerCase().includes(searchVal));
+async function loadCotizacionesData(forceRefresh = true) {
+    // Make sure vendedores are loaded so we can resolve emails and populate the dropdown filter
+    if (state.user.rol !== "vendedor" && state.vendedores.length === 0) {
+        const sellersRes = await apiRequest("/api/v1/vendedores/?limit=100");
+        state.vendedores = sellersRes.data || [];
     }
     
-    state.cotizaciones = quotes;
+    // Dynamically populate the sellers select if it hasn't been populated yet (or has only the default option)
+    if (DOM.filterQuoteSeller && DOM.filterQuoteSeller.options.length <= 1) {
+        state.vendedores.forEach(v => {
+            const opt = document.createElement("option");
+            opt.value = v.id;
+            opt.textContent = v.email;
+            DOM.filterQuoteSeller.appendChild(opt);
+        });
+    }
+
+    if (forceRefresh || state.cotizaciones.length === 0) {
+        let endpoint = "/api/v1/cotizaciones/?limit=3000";
+        const res = await apiRequest(endpoint);
+        state.cotizaciones = res.data || [];
+    }
+    
+    // Reset current page when loading fresh section
+    state.quotesCurrentPage = 1;
+    
+    renderQuotesTableFiltered();
+}
+
+function renderQuotesTableFiltered() {
+    const searchVal = DOM.searchQuoteClient.value.toLowerCase();
+    const sellerVal = DOM.filterQuoteSeller.value;
+    const daysVal = DOM.filterQuoteDays.value;
+    
+    let filteredQuotes = state.cotizaciones;
+    
+    // 1. Filter by Client Search
+    if (searchVal) {
+        filteredQuotes = filteredQuotes.filter(q => q.cliente_nombre.toLowerCase().includes(searchVal));
+    }
+    
+    // 2. Filter by Seller
+    if (sellerVal) {
+        filteredQuotes = filteredQuotes.filter(q => q.vendedor_id === sellerVal);
+    }
+    
+    // 3. Filter by Vencimiento / Antigüedad
+    if (daysVal) {
+        const daysLimit = parseInt(daysVal);
+        const refDate = new Date("2026-06-18T12:00:00Z");
+        filteredQuotes = filteredQuotes.filter(q => {
+            if (!q.fecha_registro) return false;
+            const quoteDate = new Date(`${q.fecha_registro}T12:00:00Z`);
+            const diffTime = refDate - quoteDate;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays >= 0 && diffDays <= daysLimit;
+        });
+    }
+    
+    // Set up pagination
+    const totalItems = filteredQuotes.length;
+    const pageSize = state.quotesPageSize || 15;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    
+    // Correct current page if out of bounds
+    if (state.quotesCurrentPage > totalPages) {
+        state.quotesCurrentPage = totalPages;
+    }
+    if (state.quotesCurrentPage < 1) {
+        state.quotesCurrentPage = 1;
+    }
+    
+    const startIndex = (state.quotesCurrentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const pageQuotes = filteredQuotes.slice(startIndex, endIndex);
     
     DOM.tableCotizaciones.innerHTML = "";
-    if (quotes.length === 0) {
-        DOM.tableCotizaciones.innerHTML = `<tr><td colspan="10" style="text-align: center;">No hay cotizaciones registradas.</td></tr>`;
+    if (pageQuotes.length === 0) {
+        DOM.tableCotizaciones.innerHTML = `<tr><td colspan="10" style="text-align: center;">No hay cotizaciones registradas con los filtros seleccionados.</td></tr>`;
+        renderPagination(totalPages);
         return;
     }
     
-    quotes.forEach(c => {
+    pageQuotes.forEach(c => {
         const sellerEmail = c.vendedor_id === state.user.id ? state.user.email : (state.vendedores.find(v => v.id === c.vendedor_id)?.email || c.vendedor_id);
         const contactInfo = `Email: ${c.datos_contacto.email || '-'}<br>Tel: ${c.datos_contacto.telefono || '-'}`;
         const itemsSummary = c.items.map(i => `${i.producto} (${i.cantidad})`).join(", ");
@@ -481,6 +549,47 @@ async function loadCotizacionesData() {
             }
         });
     });
+    
+    renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+    if (!DOM.pagCotizaciones) return;
+    
+    DOM.pagCotizaciones.innerHTML = `
+        <div class="pag-info">
+            Mostrando página <span>${state.quotesCurrentPage}</span> de <span>${totalPages}</span>
+        </div>
+        <div class="pag-controls">
+            <button class="btn btn-secondary btn-sm" id="btn-quote-prev" ${state.quotesCurrentPage === 1 ? 'disabled' : ''}>
+                <i class="fa-solid fa-chevron-left"></i> Anterior
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btn-quote-next" ${state.quotesCurrentPage === totalPages ? 'disabled' : ''}>
+                Siguiente <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+    `;
+    
+    const prevBtn = DOM.pagCotizaciones.querySelector("#btn-quote-prev");
+    const nextBtn = DOM.pagCotizaciones.querySelector("#btn-quote-next");
+    
+    if (prevBtn) {
+        prevBtn.addEventListener("click", () => {
+            if (state.quotesCurrentPage > 1) {
+                state.quotesCurrentPage--;
+                renderQuotesTableFiltered();
+            }
+        });
+    }
+    
+    if (nextBtn) {
+        nextBtn.addEventListener("click", () => {
+            if (state.quotesCurrentPage < totalPages) {
+                state.quotesCurrentPage++;
+                renderQuotesTableFiltered();
+            }
+        });
+    }
 }
 
 function showProposalModal(quote) {
@@ -865,7 +974,20 @@ DOM.aiQuoteForm.addEventListener("submit", async (e) => {
     }
 });
 
-DOM.searchQuoteClient.addEventListener("input", loadCotizacionesData);
+DOM.searchQuoteClient.addEventListener("input", () => {
+    state.quotesCurrentPage = 1;
+    renderQuotesTableFiltered();
+});
+
+DOM.filterQuoteSeller.addEventListener("change", () => {
+    state.quotesCurrentPage = 1;
+    renderQuotesTableFiltered();
+});
+
+DOM.filterQuoteDays.addEventListener("change", () => {
+    state.quotesCurrentPage = 1;
+    renderQuotesTableFiltered();
+});
 
 /* --- Proposal Modal Handlers --- */
 function closeModal() {

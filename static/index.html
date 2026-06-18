@@ -369,6 +369,25 @@
                                 <label for="search-quote-client">Buscar Cliente:</label>
                                 <input type="text" id="search-quote-client" placeholder="Buscar por empresa o contacto...">
                             </div>
+                            
+                            <div class="input-group-inline">
+                                <label for="filter-quote-seller">Vendedor:</label>
+                                <select id="filter-quote-seller" style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: #fff; font-size: 14px;">
+                                    <option value="">Todos los vendedores</option>
+                                    <!-- Loaded dynamically -->
+                                </select>
+                            </div>
+                            
+                            <div class="input-group-inline">
+                                <label for="filter-quote-days">Vencimiento / Antigüedad:</label>
+                                <select id="filter-quote-days" style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: #fff; font-size: 14px;">
+                                    <option value="">Cualquier fecha</option>
+                                    <option value="7">Últimos 7 días</option>
+                                    <option value="15">Últimos 15 días</option>
+                                    <option value="30">Últimos 30 días</option>
+                                    <option value="60">Últimos 60 días</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
