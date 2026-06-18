@@ -1,0 +1,84 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  background-color: #f4f7f6;
+  color: #333;
+}
+
+.dashboard-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.header h1 {
+  color: #2c3e50;
+  margin-bottom: 5px;
+}
+
+.card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px 30px;
+  margin-bottom: 25px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.card h2 {
+  color: #2980b9;
+  margin-top: 0;
+}
+
+.btn-primary {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.btn-primary:hover {
+  background-color: #2980b9;
+}
+
+.btn-primary:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+}
+
+.btn-whatsapp {
+  background-color: #25D366;
+  color: white;
+  padding: 6px 12px;
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 14px;
+  margin-left: 10px;
+  transition: background 0.3s;
+}
+
+.btn-whatsapp:hover {
+  background-color: #128C7E;
+}
+
+.resumen-box {
+  margin-top: 20px;
+  background: #ecf0f1;
+  padding: 15px;
+  border-radius: 6px;
+}
+
+.resumen-box pre {
+  white-space: pre-wrap;
+  font-family: inherit;
+  line-height: 1.5;
+}

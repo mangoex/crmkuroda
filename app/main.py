@@ -12,6 +12,7 @@ from app.api.v1.vendedores import router as vendedores_router
 from app.api.v1.metas import router as metas_router
 from app.api.v1.cotizaciones import router as cotizaciones_router
 from app.api.v1.webhooks import router as webhooks_router
+from app.api.v1.analisis import router as analisis_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -31,6 +32,8 @@ app.add_middleware(
 from sqlalchemy import text
 
 # Auto create database tables on startup (convenient for Railway zero-config)
+from app.core.scheduler import start_scheduler
+
 @app.on_event("startup")
 async def on_startup():
     async with engine.begin() as conn:
@@ -49,6 +52,9 @@ async def on_startup():
         await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS fecha_factura DATE;"))
         await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS venta_perdida VARCHAR;"))
         await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS comentarios TEXT;"))
+
+    # Iniciar el planificador de tareas en segundo plano
+    start_scheduler()
 
 # Standardized Error Handling
 @app.exception_handler(HTTPException)
@@ -108,6 +114,7 @@ app.include_router(vendedores_router, prefix="/api/v1/vendedores", tags=["Vended
 app.include_router(metas_router, prefix="/api/v1/metas", tags=["Metas"])
 app.include_router(cotizaciones_router, prefix="/api/v1/cotizaciones", tags=["Cotizaciones"])
 app.include_router(webhooks_router, prefix="/api/v1/webhooks", tags=["Webhooks"])
+app.include_router(analisis_router, prefix="/api/v1/analisis", tags=["Analisis"])
 
 # Mount Static Files (CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")

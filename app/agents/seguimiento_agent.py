@@ -44,48 +44,27 @@ async def generate_followup_message(
     )
     return message.strip()
 
-async def send_whatsapp_message(to_number: str, message: str) -> bool:
+import urllib.parse
+
+def generate_whatsapp_link(to_number: str, message: str) -> str:
     """
-    Sends a WhatsApp message via Meta Cloud API using the injected credentials.
-    Returns True if successful, False otherwise.
+    Generates a wa.me link with a pre-filled message so the administrator
+    can send the message manually.
     """
-    if not settings.META_WHATSAPP_TOKEN or not settings.META_PHONE_NUMBER_ID:
-        logger.warning("META_WHATSAPP_TOKEN o META_PHONE_NUMBER_ID no configurados. Saltando envío real de WhatsApp.")
-        # Simula éxito para no interrumpir el flujo si no están configurados en Railway
-        return True
-        
-    url = f"https://graph.facebook.com/v19.0/{settings.META_PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {settings.META_WHATSAPP_TOKEN}",
-        "Content-Type": "application/json"
-    }
-    
     # Standardize recipient phone format (remove symbols if present)
-    clean_number = "".join(char for char in to_number if char.isdigit() or char == "+")
+    clean_number = "".join(char for char in to_number if char.isdigit())
     
-    payload = {
-        "messaging_product": "whatsapp",
-        "recipient_type": "individual",
-        "to": clean_number,
-        "type": "text",
-        "text": {
-            "preview_url": False,
-            "body": message
-        }
-    }
+    encoded_message = urllib.parse.quote(message)
+    wa_link = f"https://wa.me/{clean_number}?text={encoded_message}"
     
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(url, json=payload, headers=headers)
-            if response.status_code in [200, 201]:
-                logger.info(f"Mensaje de WhatsApp enviado exitosamente a {clean_number}")
-                return True
-            else:
-                logger.error(f"Fallo al enviar WhatsApp ({response.status_code}): {response.text}")
-                return False
-        except Exception as e:
-            logger.error(f"Excepción al enviar WhatsApp: {str(e)}")
-            return False
+    logger.info(f"Enlace de WhatsApp generado para {clean_number}")
+    return wa_link
+
+async def send_whatsapp_message(to_number: str, message: str) -> str:
+    """
+    Alias to generate a wa.me link. The frontend or caller should use this URL to redirect the user.
+    """
+    return generate_whatsapp_link(to_number, message)
 
 async def process_incoming_whatsapp_message(
     vendedor_nombre: str,
