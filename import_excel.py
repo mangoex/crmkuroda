@@ -16,7 +16,11 @@ from app.models.usuario import Usuario
 from app.models.cotizacion import Cotizacion
 from app.core.security import get_password_hash
 
-EXCEL_PATH = "/Users/renatavictoriagonzalez/Documents/miguelgespino/CRMKuroda/MK01 2026.xlsx"
+# Dynamic path resolution to work in both local and cloud environments
+EXCEL_PATH = "MK01 2026.xlsx"
+if not os.path.exists(EXCEL_PATH):
+    EXCEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "MK01 2026.xlsx")
+
 DEFAULT_PASSWORD = "kuroda2026!"
 
 def clean_currency(val) -> Decimal:
