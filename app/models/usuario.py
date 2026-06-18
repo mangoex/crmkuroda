@@ -14,6 +14,7 @@ class Usuario(Base):
     telefono_whatsapp = Column(String, unique=True, index=True, nullable=True)
     codigo_vendedor = Column(String, unique=True, index=True, nullable=True)  # e.g., 'C01'
     nombre_completo = Column(String, nullable=True)
+    avatar = Column(String, nullable=True)
 
     # Relationships
     metas = relationship("Meta", back_populates="vendedor", cascade="all, delete-orphan")

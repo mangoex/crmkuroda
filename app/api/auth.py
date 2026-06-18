@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.core.database import get_db
-from app.core.security import verify_password, create_access_token, get_password_hash
+from app.core.security import verify_password, create_access_token, get_password_hash, get_current_user
 from app.models.usuario import Usuario
 from app.schemas.usuario import UsuarioCreate, Token
 from app.core.config import settings
@@ -86,4 +86,20 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
         "access_token": access_token,
         "token_type": "bearer",
         "rol": user.rol
+    }
+
+@router.get("/me", status_code=status.HTTP_200_OK)
+async def get_me(current_user: Usuario = Depends(get_current_user)):
+    """Retrieves the currently logged-in user's profile details."""
+    return {
+        "status": "success",
+        "data": {
+            "id": str(current_user.id),
+            "email": current_user.email,
+            "rol": current_user.rol,
+            "telefono_whatsapp": current_user.telefono_whatsapp,
+            "codigo_vendedor": current_user.codigo_vendedor,
+            "nombre_completo": current_user.nombre_completo,
+            "avatar": current_user.avatar
+        }
     }

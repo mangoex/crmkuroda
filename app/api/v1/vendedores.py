@@ -38,7 +38,10 @@ async def list_vendedores(
             "id": str(v.id),
             "email": v.email,
             "rol": v.rol,
-            "telefono_whatsapp": v.telefono_whatsapp
+            "telefono_whatsapp": v.telefono_whatsapp,
+            "codigo_vendedor": v.codigo_vendedor,
+            "nombre_completo": v.nombre_completo,
+            "avatar": v.avatar
         }
         for v in vendedores
     ]
@@ -102,7 +105,10 @@ async def create_vendedor(
             "id": str(new_seller.id),
             "email": new_seller.email,
             "rol": new_seller.rol,
-            "telefono_whatsapp": new_seller.telefono_whatsapp
+            "telefono_whatsapp": new_seller.telefono_whatsapp,
+            "codigo_vendedor": new_seller.codigo_vendedor,
+            "nombre_completo": new_seller.nombre_completo,
+            "avatar": new_seller.avatar
         }
     }
 
@@ -143,6 +149,12 @@ async def update_vendedor(
         user.rol = seller_update.rol
     if seller_update.telefono_whatsapp is not None:
         user.telefono_whatsapp = seller_update.telefono_whatsapp
+    if seller_update.codigo_vendedor is not None:
+        user.codigo_vendedor = seller_update.codigo_vendedor
+    if seller_update.nombre_completo is not None:
+        user.nombre_completo = seller_update.nombre_completo
+    if seller_update.avatar is not None:
+        user.avatar = seller_update.avatar
     if seller_update.password is not None:
         user.hashed_password = get_password_hash(seller_update.password)
 
@@ -156,6 +168,9 @@ async def update_vendedor(
             "id": str(user.id),
             "email": user.email,
             "rol": user.rol,
-            "telefono_whatsapp": user.telefono_whatsapp
+            "telefono_whatsapp": user.telefono_whatsapp,
+            "codigo_vendedor": user.codigo_vendedor,
+            "nombre_completo": user.nombre_completo,
+            "avatar": user.avatar
         }
     }

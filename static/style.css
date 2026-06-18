@@ -1154,3 +1154,53 @@ h1, h2, h3, h4, h5, h6 {
     color: #ef4444;
     border: 1px solid rgba(239, 68, 68, 0.3);
 }
+
+/* ==========================================================================
+   COLLAPSIBLE SIDEBAR LAYOUT
+   ========================================================================== */
+
+.sidebar-container {
+    transition: width var(--transition-normal);
+}
+
+.viewport-area {
+    transition: margin-left var(--transition-normal);
+}
+
+.sidebar-container.collapsed {
+    width: 70px;
+}
+
+.sidebar-container.collapsed + .viewport-area {
+    margin-left: 70px;
+}
+
+.sidebar-container.collapsed .logo span,
+.sidebar-container.collapsed .menu-item span,
+.sidebar-container.collapsed .sidebar-footer button span {
+    display: none !important;
+}
+
+.sidebar-container.collapsed .menu-item {
+    justify-content: center;
+    padding: 12px;
+}
+
+.sidebar-container.collapsed .sidebar-header {
+    justify-content: center !important;
+}
+
+.sidebar-container.collapsed #btn-toggle-sidebar {
+    transform: rotate(180deg);
+}
+
+.sidebar-container.collapsed .sidebar-footer {
+    padding: 16px 8px;
+}
+
+.sidebar-container.collapsed .sidebar-footer button {
+    padding: 8px;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}

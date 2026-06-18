@@ -95,7 +95,25 @@ const DOM = {
     modalProposalBody: document.getElementById("modal-proposal-body"),
     btnCopyProposal: document.getElementById("btn-copy-proposal"),
     btnCloseProposalModal: document.getElementById("btn-close-proposal-modal"),
-    btnCloseProposal: document.getElementById("btn-close-proposal")
+    btnCloseProposal: document.getElementById("btn-close-proposal"),
+    
+    // Sidebar Collapse & Profile Edit
+    btnToggleSidebar: document.getElementById("btn-toggle-sidebar"),
+    sidebar: document.querySelector(".sidebar-container"),
+    userAvatarBtn: document.getElementById("user-avatar-btn"),
+    userAvatarImg: document.getElementById("user-avatar-img"),
+    userAvatarPlaceholder: document.getElementById("user-avatar-placeholder"),
+    profileModal: document.getElementById("profile-modal"),
+    btnCloseProfileModal: document.getElementById("btn-close-profile-modal"),
+    btnCancelProfile: document.getElementById("btn-cancel-profile"),
+    profileForm: document.getElementById("profile-form"),
+    profileFullname: document.getElementById("profile-fullname"),
+    profileEmail: document.getElementById("profile-email"),
+    profilePhone: document.getElementById("profile-phone"),
+    profilePassword: document.getElementById("profile-password"),
+    inputProfileAvatar: document.getElementById("input-profile-avatar"),
+    profileAvatarPreview: document.getElementById("profile-avatar-preview"),
+    profileAvatarPlaceholder: document.getElementById("profile-avatar-placeholder")
 };
 
 /* ==========================================================================
@@ -142,15 +160,40 @@ function parseJwt(token) {
     }
 }
 
-function initSession() {
-    if (state.token && state.user) {
+async function initSession() {
+    if (state.token) {
+        try {
+            // Fetch fresh user profile
+            const profileRes = await apiRequest("/api/auth/me");
+            if (profileRes.status === "success" && profileRes.data) {
+                state.user = profileRes.data;
+                localStorage.setItem("crm_user", JSON.stringify(state.user));
+            }
+        } catch (e) {
+            console.error("Fallo al validar sesión:", e);
+            logout();
+            return;
+        }
+
         // Hide login, show dashboard
         DOM.authContainer.classList.add("hidden");
         DOM.dashboardContainer.classList.remove("hidden");
         
         // Set user badge
-        DOM.userDisplayName.textContent = state.user.email.split("@")[0].toUpperCase();
-        DOM.userRoleBadge.textContent = state.user.rol;
+        const displayName = state.user.nombre_completo || state.user.email.split("@")[0].toUpperCase();
+        DOM.userDisplayName.textContent = displayName;
+        DOM.userRoleBadge.textContent = state.user.rol.toUpperCase();
+        
+        // Show avatar image if exists
+        if (state.user.avatar) {
+            DOM.userAvatarImg.src = state.user.avatar;
+            DOM.userAvatarImg.classList.remove("hidden");
+            DOM.userAvatarPlaceholder.classList.add("hidden");
+        } else {
+            DOM.userAvatarImg.src = "";
+            DOM.userAvatarImg.classList.add("hidden");
+            DOM.userAvatarPlaceholder.classList.remove("hidden");
+        }
         
         // Manage visible menu entries based on role (vendedores is admin/gerente only)
         if (state.user.rol === "vendedor") {
@@ -162,7 +205,7 @@ function initSession() {
         }
         
         // Go to initial summary view
-        switchSection("summary");
+        switchSection(state.currentSection || "summary");
     } else {
         DOM.authContainer.classList.remove("hidden");
         DOM.dashboardContainer.classList.add("hidden");
@@ -1310,6 +1353,129 @@ DOM.btnCopyProposal.addEventListener("click", () => {
         showToast("Fallo al copiar texto", "error");
     });
 });
+
+/* ==========================================================================
+   SIDEBAR COLLAPSE & PROFILE MANAGEMENT
+   ========================================================================== */
+
+// Sidebar collapse persistence on load
+if (localStorage.getItem("sidebar_collapsed") === "true" && DOM.sidebar) {
+    DOM.sidebar.classList.add("collapsed");
+}
+
+if (DOM.btnToggleSidebar) {
+    DOM.btnToggleSidebar.addEventListener("click", () => {
+        if (DOM.sidebar) {
+            DOM.sidebar.classList.toggle("collapsed");
+            const isCollapsed = DOM.sidebar.classList.contains("collapsed");
+            localStorage.setItem("sidebar_collapsed", isCollapsed);
+        }
+    });
+}
+
+// User Profile Modal Handlers
+if (DOM.userAvatarBtn) {
+    DOM.userAvatarBtn.addEventListener("click", () => {
+        // Populate fields
+        DOM.profileFullname.value = state.user.nombre_completo || "";
+        DOM.profileEmail.value = state.user.email || "";
+        DOM.profilePhone.value = state.user.telefono_whatsapp || "";
+        DOM.profilePassword.value = "";
+        
+        // Preview avatar
+        if (state.user.avatar) {
+            DOM.profileAvatarPreview.src = state.user.avatar;
+            DOM.profileAvatarPreview.classList.remove("hidden");
+            DOM.profileAvatarPlaceholder.classList.add("hidden");
+        } else {
+            DOM.profileAvatarPreview.src = "";
+            DOM.profileAvatarPreview.classList.add("hidden");
+            DOM.profileAvatarPlaceholder.classList.remove("hidden");
+        }
+        
+        DOM.profileModal.classList.remove("hidden");
+    });
+}
+
+function closeProfileModal() {
+    DOM.profileModal.classList.add("hidden");
+}
+
+if (DOM.btnCloseProfileModal) DOM.btnCloseProfileModal.addEventListener("click", closeProfileModal);
+if (DOM.btnCancelProfile) DOM.btnCancelProfile.addEventListener("click", closeProfileModal);
+if (DOM.profileModal) {
+    DOM.profileModal.addEventListener("click", (e) => {
+        if (e.target === DOM.profileModal) closeProfileModal();
+    });
+}
+
+// Convert uploaded photo to Base64
+let profileAvatarBase64 = null;
+if (DOM.inputProfileAvatar) {
+    DOM.inputProfileAvatar.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                profileAvatarBase64 = event.target.result;
+                DOM.profileAvatarPreview.src = profileAvatarBase64;
+                DOM.profileAvatarPreview.classList.remove("hidden");
+                DOM.profileAvatarPlaceholder.classList.add("hidden");
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+}
+
+// Handle profile update submit
+if (DOM.profileForm) {
+    DOM.profileForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const payload = {
+            nombre_completo: DOM.profileFullname.value,
+            email: DOM.profileEmail.value,
+            telefono_whatsapp: DOM.profilePhone.value || null
+        };
+        
+        if (DOM.profilePassword.value) {
+            payload.password = DOM.profilePassword.value;
+        }
+        
+        if (profileAvatarBase64) {
+            payload.avatar = profileAvatarBase64;
+        }
+        
+        try {
+            const res = await apiRequest(`/api/v1/vendedores/${state.user.id}`, {
+                method: "PUT",
+                body: JSON.stringify(payload)
+            });
+            
+            showToast("Perfil actualizado correctamente.");
+            
+            // Save updated user state
+            state.user = res.data;
+            localStorage.setItem("crm_user", JSON.stringify(state.user));
+            
+            closeProfileModal();
+            
+            // Re-render display
+            const displayName = state.user.nombre_completo || state.user.email.split("@")[0].toUpperCase();
+            DOM.userDisplayName.textContent = displayName;
+            
+            if (state.user.avatar) {
+                DOM.userAvatarImg.src = state.user.avatar;
+                DOM.userAvatarImg.classList.remove("hidden");
+                DOM.userAvatarPlaceholder.classList.add("hidden");
+            }
+            
+            profileAvatarBase64 = null;
+        } catch (err) {
+            showToast(err.message, "error");
+        }
+    });
+}
 
 /* ==========================================================================
    INITIALIZATION

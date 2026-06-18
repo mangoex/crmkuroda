@@ -60,11 +60,12 @@
     <div id="dashboard-container" class="dashboard-wrapper hidden">
         <!-- Sidebar Navigation -->
         <aside class="sidebar-container">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <i class="fa-solid fa-brain-circuit sidebar-glow-icon"></i>
-                    <span>CRM Kuroda</span>
+            <div class="sidebar-header" style="justify-content: space-between;">
+                <div class="logo" style="overflow: hidden; white-space: nowrap;">
+                    <i class="fa-solid fa-cubes-split text-glow" style="min-width: 24px;"></i>
+                    <span style="transition: opacity var(--transition-fast); margin-left: 10px;">CRM Kuroda</span>
                 </div>
+                <button id="btn-toggle-sidebar" class="btn-icon" style="color: hsl(var(--text-secondary)); font-size: 16px;"><i class="fa-solid fa-chevron-left"></i></button>
             </div>
             
             <nav class="sidebar-menu">
@@ -103,8 +104,9 @@
                 
                 <div class="user-badge">
                     <span id="user-role-badge" class="badge badge-primary">Vendedor</span>
-                    <div class="avatar-circle">
-                        <i class="fa-solid fa-user-tie"></i>
+                    <div class="avatar-circle" id="user-avatar-btn" style="cursor: pointer; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                        <img id="user-avatar-img" class="hidden" style="width: 100%; height: 100%; object-fit: cover;">
+                        <i class="fa-solid fa-user-tie" id="user-avatar-placeholder"></i>
                     </div>
                 </div>
             </header>
@@ -521,6 +523,53 @@
             <div class="modal-footer">
                 <button id="btn-copy-proposal" class="btn btn-secondary"><i class="fa-solid fa-copy"></i> Copiar al Portapapeles</button>
                 <button id="btn-close-proposal" class="btn btn-primary">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Profile Modal -->
+    <div id="profile-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up">
+            <div class="modal-header">
+                <h3>Editar Perfil de Usuario</h3>
+                <button id="btn-close-profile-modal" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="profile-form">
+                    <!-- Avatar Preview & Upload -->
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 20px;">
+                        <div class="avatar-circle" style="width: 80px; height: 80px; font-size: 30px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 2px solid hsl(var(--primary));">
+                            <img id="profile-avatar-preview" class="hidden" style="width: 100%; height: 100%; object-fit: cover;">
+                            <i class="fa-solid fa-user-tie" id="profile-avatar-placeholder"></i>
+                        </div>
+                        <label for="input-profile-avatar" class="btn btn-secondary btn-sm" style="cursor: pointer; padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-camera"></i> Subir Foto
+                        </label>
+                        <input type="file" id="input-profile-avatar" accept="image/*" style="display: none;">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="profile-fullname">Nombre Completo</label>
+                        <input type="text" id="profile-fullname" placeholder="Ingresa tu nombre completo...">
+                    </div>
+                    <div class="input-group" style="margin-top: 12px;">
+                        <label for="profile-email">Correo Electrónico</label>
+                        <input type="email" id="profile-email" required>
+                    </div>
+                    <div class="input-group" style="margin-top: 12px;">
+                        <label for="profile-phone">Teléfono de WhatsApp</label>
+                        <input type="text" id="profile-phone" placeholder="+52XXXXXXXXXX">
+                    </div>
+                    <div class="input-group" style="margin-top: 12px;">
+                        <label for="profile-password">Nueva Contraseña (dejar en blanco para mantener la actual)</label>
+                        <input type="password" id="profile-password" placeholder="Mínimo 6 caracteres...">
+                    </div>
+
+                    <div class="form-actions margin-top" style="margin-top: 20px;">
+                        <button type="button" id="btn-cancel-profile" class="btn btn-secondary">Cancelar</button>
+                        <button type="submit" class="btn btn-glow">Guardar Cambios</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
