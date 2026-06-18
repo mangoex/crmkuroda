@@ -7,9 +7,42 @@ body {
 }
 
 .dashboard-container {
-  max-width: 900px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 20px;
+}
+
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #f4f7f6;
+}
+
+.login-card {
+  background: white;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-card h2 {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #2c3e50;
+}
+
+.login-card input {
+  margin-bottom: 15px;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
 }
 
 .header {
@@ -20,6 +53,16 @@ body {
 .header h1 {
   color: #2c3e50;
   margin-bottom: 5px;
+}
+
+.btn-logout {
+  background: none;
+  border: none;
+  color: #e74c3c;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 14px;
+  margin-left: 15px;
 }
 
 .card {
@@ -55,19 +98,102 @@ body {
   cursor: not-allowed;
 }
 
-.btn-whatsapp {
-  background-color: #25D366;
+.btn-secondary {
+  background-color: #95a5a6;
   color: white;
+  border: none;
   padding: 6px 12px;
-  text-decoration: none;
-  border-radius: 4px;
   font-size: 14px;
-  margin-left: 10px;
+  border-radius: 4px;
+  cursor: pointer;
   transition: background 0.3s;
 }
 
-.btn-whatsapp:hover {
-  background-color: #128C7E;
+.btn-secondary:hover {
+  background-color: #7f8c8d;
+}
+
+/* Tablas */
+.table-responsive {
+  overflow-x: auto;
+}
+
+.vendedores-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.vendedores-table th, .vendedores-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.vendedores-table th {
+  background-color: #f8f9fa;
+  color: #333;
+  font-weight: 600;
+}
+
+.vendedores-table tr:hover {
+  background-color: #f1f4f5;
+}
+
+/* Modales */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+.modal h3 {
+  margin-top: 0;
+  color: #2c3e50;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 600;
+  color: #555;
+  font-size: 14px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 25px;
 }
 
 .resumen-box {

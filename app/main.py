@@ -53,6 +53,25 @@ async def on_startup():
         await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS venta_perdida VARCHAR;"))
         await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS comentarios TEXT;"))
 
+    # Crear administrador por defecto si no existe
+    from app.core.database import SessionLocal
+    from app.models.usuario import Usuario
+    from app.core.security import get_password_hash
+    from sqlalchemy.future import select
+    
+    async with SessionLocal() as session:
+        res = await session.execute(select(Usuario).filter(Usuario.email == "admin@kuroda.com"))
+        admin_user = res.scalars().first()
+        if not admin_user:
+            nuevo_admin = Usuario(
+                email="admin@kuroda.com",
+                hashed_password=get_password_hash("admin123"),
+                rol="admin",
+                nombre_completo="Administrador General"
+            )
+            session.add(nuevo_admin)
+            await session.commit()
+
     # Iniciar el planificador de tareas en segundo plano
     start_scheduler()
 
