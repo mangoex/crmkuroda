@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM Kuroda Inteligente | Dashboard Agéntico</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark-theme">
+    
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Login View Container -->
+    <div id="auth-container" class="auth-wrapper">
+        <div class="glass-card login-card animate-fade-in">
+            <div class="login-header">
+                <div class="logo-circle">
+                    <i class="fa-solid fa-brain-circuit glow-icon"></i>
+                </div>
+                <h2>CRM Kuroda</h2>
+                <p>Ingresa tus credenciales para acceder al sistema agéntico</p>
+            </div>
+            
+            <form id="login-form">
+                <div class="input-group">
+                    <label for="login-email"><i class="fa-regular fa-envelope"></i> Correo Electrónico</label>
+                    <input type="email" id="login-email" placeholder="ejemplo@kuroda.com" required autocomplete="email">
+                </div>
+                
+                <div class="input-group">
+                    <label for="login-password"><i class="fa-solid fa-lock"></i> Contraseña</label>
+                    <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">
+                    Iniciar Sesión <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                </button>
+            </form>
+            <div class="login-footer">
+                <p>Acceso restringido para personal autorizado</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Workspace -->
+    <div id="dashboard-container" class="dashboard-wrapper hidden">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar-container">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fa-solid fa-brain-circuit sidebar-glow-icon"></i>
+                    <span>CRM Kuroda</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-menu">
+                <a href="#" class="menu-item active" data-section="summary">
+                    <i class="fa-solid fa-chart-line"></i> Resumen
+                </a>
+                <a href="#" class="menu-item" data-section="vendedores" id="menu-vendedores">
+                    <i class="fa-solid fa-users"></i> Vendedores
+                </a>
+                <a href="#" class="menu-item" data-section="metas">
+                    <i class="fa-solid fa-bullseye"></i> Metas de Venta
+                </a>
+                <a href="#" class="menu-item" data-section="cotizaciones">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> Cotizaciones
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button id="logout-btn" class="btn btn-danger btn-block btn-sm">
+                    <i class="fa-solid fa-power-off"></i> Cerrar Sesión
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Viewport Area -->
+        <main class="viewport-area">
+            <!-- Header bar -->
+            <header class="top-navbar">
+                <div class="welcome-text">
+                    <h1>Hola, <span id="user-display-name">Usuario</span></h1>
+                    <p>Bienvenido al centro de operaciones agénticas</p>
+                </div>
+                
+                <div class="user-badge">
+                    <span id="user-role-badge" class="badge badge-primary">Vendedor</span>
+                    <div class="avatar-circle">
+                        <i class="fa-solid fa-user-tie"></i>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Sections -->
+            <div class="content-body">
+                
+                <!-- Section 1: Summary / Dashboard -->
+                <section id="section-summary" class="dashboard-section active animate-fade-in">
+                    <!-- KPI Cards -->
+                    <div class="kpi-grid">
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon icon-blue">
+                                <i class="fa-solid fa-hand-holding-dollar"></i>
+                            </div>
+                            <div class="kpi-data">
+                                <h3>Total Cotizado</h3>
+                                <p id="kpi-total-sales">$0.00</p>
+                            </div>
+                        </div>
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon icon-purple">
+                                <i class="fa-solid fa-bullseye"></i>
+                            </div>
+                            <div class="kpi-data">
+                                <h3>Cumplimiento Metas</h3>
+                                <p id="kpi-active-goals">0 / 0</p>
+                            </div>
+                        </div>
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon icon-green">
+                                <i class="fa-solid fa-file-shield"></i>
+                            </div>
+                            <div class="kpi-data">
+                                <h3>Cotizaciones Realizadas</h3>
+                                <p id="kpi-total-quotes">0</p>
+                            </div>
+                        </div>
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon icon-orange">
+                                <i class="fa-solid fa-users"></i>
+                            </div>
+                            <div class="kpi-data">
+                                <h3>Vendedores Activos</h3>
+                                <p id="kpi-total-sellers">0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Grid -->
+                    <div class="charts-grid">
+                        <div class="glass-card chart-container">
+                            <div class="card-header">
+                                <h2>Rendimiento y Pipeline de Cotizaciones</h2>
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="salesChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="glass-card chart-container">
+                            <div class="card-header">
+                                <h2>Comparación de Metas vs Cierre Real</h2>
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="goalsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 2: Vendedores -->
+                <section id="section-vendedores" class="dashboard-section hidden animate-fade-in">
+                    <div class="panel-header">
+                        <h2>Gestión de Vendedores</h2>
+                        <button id="btn-add-seller" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Registrar Vendedor</button>
+                    </div>
+
+                    <!-- Add Seller Glass Form Modal / Section -->
+                    <div id="seller-form-wrapper" class="glass-card form-card hidden animate-fade-in margin-bottom">
+                        <div class="card-header-with-action">
+                            <h3>Registrar Nuevo Vendedor</h3>
+                            <button id="btn-close-seller-form" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+                        </div>
+                        <form id="seller-form">
+                            <div class="form-grid">
+                                <div class="input-group">
+                                    <label for="seller-email">Correo Electrónico</label>
+                                    <input type="email" id="seller-email" placeholder="vendedor@kuroda.com" required>
+                                </div>
+                                <div class="input-group">
+                                    <label for="seller-phone">Teléfono WhatsApp (Con prefijo de país, ej: +521...)</label>
+                                    <input type="text" id="seller-phone" placeholder="+521XXXXXXXXXX" required>
+                                </div>
+                                <div class="input-group">
+                                    <label for="seller-password">Contraseña Temporal</label>
+                                    <input type="password" id="seller-password" placeholder="••••••••" required>
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" id="btn-cancel-seller" class="btn btn-secondary">Cancelar</button>
+                                <button type="submit" class="btn btn-primary">Registrar Vendedor</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Sellers Table -->
+                    <div class="glass-card table-container">
+                        <table class="data-table" id="table-vendedores">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>ID de Usuario</th>
+                                    <th>WhatsApp Registrado</th>
+                                    <th>Rol</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Loaded dynamically -->
+                            </tbody>
+                        </table>
+                        <div class="table-pagination" id="pag-vendedores">
+                            <!-- Loaded dynamically -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 3: Metas -->
+                <section id="section-metas" class="dashboard-section hidden animate-fade-in">
+                    <div class="panel-header">
+                        <h2>Metas de Ventas</h2>
+                        <button id="btn-generate-goals-modal" class="btn btn-glow"><i class="fa-solid fa-wand-magic-sparkles"></i> Generar Metas con IA</button>
+                    </div>
+
+                    <!-- AI Goal Generator Card -->
+                    <div id="ai-goals-wrapper" class="glass-card form-card hidden animate-fade-in margin-bottom border-glow">
+                        <div class="card-header-with-action">
+                            <h3><i class="fa-solid fa-wand-magic-sparkles text-glow"></i> Definición de Metas Inteligentes (Agente 1)</h3>
+                            <button id="btn-close-ai-goals" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+                        </div>
+                        <form id="ai-goals-form">
+                            <div class="form-grid-full">
+                                <div class="input-group">
+                                    <label for="ai-goals-vendedor">Seleccionar Vendedor</label>
+                                    <select id="ai-goals-vendedor" required>
+                                        <!-- Loaded dynamically -->
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label for="ai-goals-global">Directrices y Objetivos Comerciales del Mes</label>
+                                    <textarea id="ai-goals-global" rows="3" placeholder="Ej: Aumentar la cartera de clientes industriales e incrementar un 15% el monto de cierre promedio por vendedor." required></textarea>
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" id="btn-cancel-ai-goals" class="btn btn-secondary">Cancelar</button>
+                                <button type="submit" id="btn-submit-ai-goals" class="btn btn-glow">
+                                    Analizar y Generar Meta con IA <i class="fa-solid fa-sparkles animate-pulse"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Filter panel -->
+                    <div class="glass-card filters-card margin-bottom">
+                        <div class="filters-layout">
+                            <div class="input-group-inline">
+                                <label for="filter-goal-status">Estado:</label>
+                                <select id="filter-goal-status">
+                                    <option value="">Todos los estados</option>
+                                    <option value="pendiente">Pendiente</option>
+                                    <option value="en_progreso">En Progreso</option>
+                                    <option value="completada">Completada</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Goals Table -->
+                    <div class="glass-card table-container">
+                        <table class="data-table" id="table-metas">
+                            <thead>
+                                <tr>
+                                    <th>Vendedor</th>
+                                    <th>Descripción de la Meta</th>
+                                    <th>Monto Objetivo</th>
+                                    <th>Inicio</th>
+                                    <th>Vencimiento</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Loaded dynamically -->
+                            </tbody>
+                        </table>
+                        <div class="table-pagination" id="pag-metas">
+                            <!-- Loaded dynamically -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 4: Cotizaciones -->
+                <section id="section-cotizaciones" class="dashboard-section hidden animate-fade-in">
+                    <div class="panel-header">
+                        <h2>Cotizaciones y Propuestas Comerciales</h2>
+                        <button id="btn-generate-quote-modal" class="btn btn-glow"><i class="fa-solid fa-wand-magic-sparkles"></i> Crear Cotización con IA</button>
+                    </div>
+
+                    <!-- AI Proposal Generator Form -->
+                    <div id="ai-quote-wrapper" class="glass-card form-card hidden animate-fade-in margin-bottom border-glow">
+                        <div class="card-header-with-action">
+                            <h3><i class="fa-solid fa-wand-magic-sparkles text-glow"></i> Generar Propuesta Comercial Inteligente (Agente 3)</h3>
+                            <button id="btn-close-ai-quote" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+                        </div>
+                        <form id="ai-quote-form">
+                            <div class="form-grid">
+                                <div class="input-group">
+                                    <label for="quote-client-name">Nombre del Cliente / Empresa</label>
+                                    <input type="text" id="quote-client-name" placeholder="Aceros y Construcciones de México" required>
+                                </div>
+                                <div class="input-group">
+                                    <label for="quote-client-email">Email del Contacto</label>
+                                    <input type="email" id="quote-client-email" placeholder="compras@cliente.com" required>
+                                </div>
+                                <div class="input-group">
+                                    <label for="quote-client-phone">Teléfono de Contacto</label>
+                                    <input type="text" id="quote-client-phone" placeholder="+52XXXXXXXXXX" required>
+                                </div>
+                            </div>
+                            
+                            <!-- Items Section -->
+                            <div class="items-builder-container">
+                                <h4>Ítems a Cotizar</h4>
+                                <div id="quote-items-list">
+                                    <div class="item-row">
+                                        <input type="text" class="item-product" placeholder="Descripción del Producto/Servicio" required>
+                                        <input type="number" class="item-qty" placeholder="Cant" min="1" required>
+                                        <input type="number" class="item-price" placeholder="Precio Unitario" min="0" step="0.01" required>
+                                        <button type="button" class="btn-remove-row btn-danger-icon"><i class="fa-solid fa-trash"></i></button>
+                                    </div>
+                                </div>
+                                <button type="button" id="btn-add-item-row" class="btn btn-secondary btn-sm margin-top">
+                                    <i class="fa-solid fa-plus"></i> Agregar Otro Item
+                                </button>
+                            </div>
+
+                            <div class="input-group margin-top">
+                                <label for="quote-extra-reqs">Requerimientos / Notas de Diseño Adicionales</label>
+                                <textarea id="quote-extra-reqs" rows="2" placeholder="Especifica si necesitan condiciones de envío especiales, descuentos particulares, o términos específicos de garantía."></textarea>
+                            </div>
+
+                            <div class="form-actions margin-top">
+                                <button type="button" id="btn-cancel-ai-quote" class="btn btn-secondary">Cancelar</button>
+                                <button type="submit" id="btn-submit-ai-quote" class="btn btn-glow">
+                                    Generar Propuesta y Calcular Totales <i class="fa-solid fa-sparkles animate-pulse"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Filter panel -->
+                    <div class="glass-card filters-card margin-bottom">
+                        <div class="filters-layout">
+                            <div class="input-group-inline">
+                                <label for="search-quote-client">Buscar Cliente:</label>
+                                <input type="text" id="search-quote-client" placeholder="Buscar por empresa o contacto...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quotes Table -->
+                    <div class="glass-card table-container">
+                        <table class="data-table" id="table-cotizaciones">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Contacto</th>
+                                    <th>Total Cotizado</th>
+                                    <th>Vendedor Asignado</th>
+                                    <th>Ítems</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Loaded dynamically -->
+                            </tbody>
+                        </table>
+                        <div class="table-pagination" id="pag-cotizaciones">
+                            <!-- Loaded dynamically -->
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- View Proposal Modal -->
+    <div id="proposal-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up">
+            <div class="modal-header">
+                <h3 id="modal-proposal-title">Propuesta Comercial</h3>
+                <button id="btn-close-proposal-modal" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body" id="modal-proposal-body">
+                <!-- Proposal text rendered dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button id="btn-copy-proposal" class="btn btn-secondary"><i class="fa-solid fa-copy"></i> Copiar al Portapapeles</button>
+                <button id="btn-close-proposal" class="btn btn-primary">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script src="/static/app.js"></script>
+</body>
+</html>

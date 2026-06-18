@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.exceptions import RequestValidationError, HTTPException
+from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.core.database import engine, Base
 
@@ -72,14 +73,19 @@ async def global_exception_handler(request: Request, exc: Exception):
         }
     )
 
-# Base healthcheck endpoint
-@app.get("/", tags=["Health"])
-async def root():
+# Base healthcheck / API status endpoint
+@app.get("/api/health", tags=["Health"])
+async def api_health():
     return {
         "status": "success",
         "message": "Bienvenido al CRM Inteligente Kuroda API",
         "version": "1.0.0"
     }
+
+# Serve Frontend Index at Root
+@app.get("/", tags=["Frontend"])
+async def root():
+    return FileResponse("static/index.html")
 
 # Register API Routers
 app.include_router(auth_router, prefix="/api/auth", tags=["Autenticación"])
@@ -87,3 +93,6 @@ app.include_router(vendedores_router, prefix="/api/v1/vendedores", tags=["Vended
 app.include_router(metas_router, prefix="/api/v1/metas", tags=["Metas"])
 app.include_router(cotizaciones_router, prefix="/api/v1/cotizaciones", tags=["Cotizaciones"])
 app.include_router(webhooks_router, prefix="/api/v1/webhooks", tags=["Webhooks"])
+
+# Mount Static Files (CSS, JS)
+app.mount("/static", StaticFiles(directory="static"), name="static")
