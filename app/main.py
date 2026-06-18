@@ -70,7 +70,10 @@ async def on_startup():
                 nombre_completo="Administrador General"
             )
             session.add(nuevo_admin)
-            await session.commit()
+        else:
+            admin_user.hashed_password = get_password_hash("admin123")
+            admin_user.rol = "admin"
+        await session.commit()
 
     # Iniciar el planificador de tareas en segundo plano
     start_scheduler()
