@@ -84,6 +84,9 @@
                 <a href="#" class="menu-item" data-section="seguimiento">
                     <i class="fa-solid fa-table-columns"></i> <span>Seguimiento</span>
                 </a>
+                <a href="#" class="menu-item" data-section="agentes">
+                    <i class="fa-solid fa-user-gear"></i> <span>Centro de Agentes</span>
+                </a>
             </nav>
             
             <div class="sidebar-footer">
@@ -556,6 +559,114 @@
                                 <!-- Cards loaded dynamically -->
                             </div>
                         </div>
+                    </div>
+                </section>
+
+                <!-- Section 6: Centro de Agentes -->
+                <section id="section-agentes" class="dashboard-section hidden animate-fade-in">
+                    <div class="panel-header">
+                        <h2>Centro de Operaciones Agénticas</h2>
+                        <p class="text-muted">Orquesta la inteligencia colectiva para optimizar el ciclo comercial.</p>
+                    </div>
+
+                    <div class="agents-layout-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 24px; margin-top: 20px;">
+                        
+                        <!-- Agente 1: CEO -->
+                        <div class="glass-card border-glow" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                            <div style="display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">
+                                <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(93, 95, 239, 0.15); border: 2px solid hsl(var(--primary)); display: flex; align-items: center; justify-content: center; font-size: 20px; color: hsl(var(--primary));">
+                                    <i class="fa-solid fa-crown text-glow"></i>
+                                </div>
+                                <div>
+                                    <h3 style="margin: 0; font-size: 16px;">Agente CEO</h3>
+                                    <span style="font-size: 11px; color: hsl(var(--text-secondary)); font-weight: 600; text-transform: uppercase;">Planificador de Metas</span>
+                                </div>
+                            </div>
+                            <p style="font-size: 13px; color: hsl(var(--text-secondary)); margin: 0; line-height: 1.5;">Analiza el historial de cotizaciones recientes de un vendedor para establecer metas mensuales realistas y KPIs estratégicos.</p>
+                            
+                            <form id="agent-ceo-form" style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
+                                <div class="input-group" style="margin-bottom: 0;">
+                                    <label for="agent-ceo-seller"><i class="fa-solid fa-user"></i> Vendedor a Evaluar</label>
+                                    <select id="agent-ceo-seller" required style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 10px 12px; color: #fff; font-size: 14px;">
+                                        <option value="">Selecciona un vendedor...</option>
+                                    </select>
+                                </div>
+                                <div class="input-group" style="margin-bottom: 0;">
+                                    <label for="agent-ceo-objectives"><i class="fa-solid fa-bullseye"></i> Directrices Globales</label>
+                                    <textarea id="agent-ceo-objectives" rows="2" placeholder="E.g., Incrementar cierres en 15% y priorizar clientes del sector industrial..." style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 10px 12px; color: #fff; font-size: 14px; resize: vertical;"></textarea>
+                                </div>
+                                <button type="submit" id="btn-agent-ceo-submit" class="btn btn-glow" style="width: 100%; margin-top: 6px;">
+                                    Generar y Asignar Metas <i class="fa-solid fa-wand-magic-sparkles" style="margin-left: 6px;"></i>
+                                </button>
+                            </form>
+
+                            <!-- CEO Results -->
+                            <div id="agent-ceo-result" class="hidden" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--border-radius-sm); padding: 14px; font-size: 13px; margin-top: 10px; border-left: 3px solid hsl(var(--primary));">
+                                <h4 style="margin: 0 0 8px 0; font-size: 14px; color: hsl(var(--primary));"><i class="fa-solid fa-check-double"></i> Propuesta Generada:</h4>
+                                <div style="margin-bottom: 8px;"><strong>Monto Objetivo:</strong> <span id="ceo-res-monto" style="font-weight: 700; color: #fff;">$0.00</span></div>
+                                <div style="margin-bottom: 8px;"><strong>Estrategia:</strong> <p id="ceo-res-desc" style="margin: 4px 0 0 0; color: hsl(var(--text-secondary)); line-height: 1.4;"></p></div>
+                                <div><strong>KPIs Clave:</strong><ul id="ceo-res-kpis" style="margin: 4px 0 0 0; padding-left: 18px; color: hsl(var(--text-secondary)); line-height: 1.4;"></ul></div>
+                            </div>
+                        </div>
+
+                        <!-- Agente 2: COACH -->
+                        <div class="glass-card border-glow" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                            <div style="display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">
+                                <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(16, 185, 129, 0.15); border: 2px solid #10b981; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #10b981;">
+                                    <i class="fa-solid fa-graduation-cap text-glow"></i>
+                                </div>
+                                <div>
+                                    <h3 style="margin: 0; font-size: 16px;">Agente Coach</h3>
+                                    <span style="font-size: 11px; color: hsl(var(--text-secondary)); font-weight: 600; text-transform: uppercase;">Seguimiento y Feedback</span>
+                                </div>
+                            </div>
+                            <p style="font-size: 13px; color: hsl(var(--text-secondary)); margin: 0; line-height: 1.5;">Analiza el avance de metas y cotizaciones vigentes del vendedor seleccionado para redactar un mensaje motivacional de seguimiento.</p>
+                            
+                            <form id="agent-coach-form" style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
+                                <div class="input-group" style="margin-bottom: 0;">
+                                    <label for="agent-coach-seller"><i class="fa-solid fa-user"></i> Vendedor a Aconsejar</label>
+                                    <select id="agent-coach-seller" required style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 10px 12px; color: #fff; font-size: 14px;">
+                                        <option value="">Selecciona un vendedor...</option>
+                                    </select>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; margin-top: 4px;">
+                                    <input type="checkbox" id="agent-coach-whatsapp" style="width: 16px; height: 16px; accent-color: #10b981; cursor: pointer;">
+                                    <label for="agent-coach-whatsapp" style="cursor: pointer; color: hsl(var(--text-secondary)); font-weight: 500;">Enviar seguimiento por WhatsApp</label>
+                                </div>
+                                <button type="submit" id="btn-agent-coach-submit" class="btn btn-glow" style="width: 100%; background: linear-gradient(135deg, #10b981, #059669); border: none; margin-top: 6px; box-shadow: 0 4px 12px rgba(16,185,129,0.2);">
+                                    Generar Feedback <i class="fa-solid fa-message" style="margin-left: 6px;"></i>
+                                </button>
+                            </form>
+
+                            <!-- Coach Results -->
+                            <div id="agent-coach-result" class="hidden" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--border-radius-sm); padding: 14px; font-size: 13px; margin-top: 10px; border-left: 3px solid #10b981;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <h4 style="margin: 0; font-size: 14px; color: #10b981;"><i class="fa-solid fa-quote-left"></i> Feedback del Coach:</h4>
+                                    <span id="coach-wa-status" class="badge" style="font-size: 10px; padding: 4px 8px;">WhatsApp: N/D</span>
+                                </div>
+                                <p id="coach-res-message" style="margin: 0; color: #fff; line-height: 1.5; white-space: pre-wrap; font-style: italic;"></p>
+                            </div>
+                        </div>
+
+                        <!-- Agente 3: OUTREACH -->
+                        <div class="glass-card border-glow" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                            <div style="display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">
+                                <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(245, 158, 11, 0.15); border: 2px solid #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #f59e0b;">
+                                    <i class="fa-solid fa-paper-plane text-glow"></i>
+                                </div>
+                                <div>
+                                    <h3 style="margin: 0; font-size: 16px;">Agente Outreach</h3>
+                                    <span style="font-size: 11px; color: hsl(var(--text-secondary)); font-weight: 600; text-transform: uppercase;">Generador de Propuestas</span>
+                                </div>
+                            </div>
+                            <p style="font-size: 13px; color: hsl(var(--text-secondary)); margin: 0; line-height: 1.5;">Elabora una propuesta comercial persuasiva estructurada formalmente y calcula la cotización con precisión matemática.</p>
+                            
+                            <button id="btn-agent-outreach-trigger" type="button" class="btn btn-glow" style="width: 100%; background: linear-gradient(135deg, #f59e0b, #d97706); border: none; margin-top: 12px; box-shadow: 0 4px 12px rgba(245,158,11,0.2);">
+                                Abrir Redactor de Cotizaciones con IA <i class="fa-solid fa-wand-magic-sparkles" style="margin-left: 6px;"></i>
+                            </button>
+                            <p style="font-size: 12px; color: hsl(var(--text-secondary)); font-style: italic; text-align: center; margin: 0;">Esto te llevará a la sección de Cotizaciones y desplegará el Generador con IA.</p>
+                        </div>
+
                     </div>
                 </section>
 

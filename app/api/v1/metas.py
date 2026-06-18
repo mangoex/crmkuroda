@@ -13,6 +13,7 @@ from app.models.meta import Meta
 from app.models.cotizacion import Cotizacion
 from app.schemas.meta import MetaCreate, MetaUpdate
 from app.agents.metas_agent import generate_seller_goals
+from app.agents.seguimiento_agent import generate_followup_message, send_whatsapp_message
 
 router = APIRouter()
 
@@ -185,6 +186,76 @@ async def generate_meta_agente(
             "fecha_limite": new_meta.fecha_limite.isoformat(),
             "estado": new_meta.estado,
             "kpis_clave": generated.get("kpis_clave", [])
+        }
+    }
+
+
+@router.post("/coach/{vendedor_id}", status_code=status.HTTP_200_OK)
+async def generate_coach_followup(
+    vendedor_id: UUID,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Triggers the Coach Agent to analyze active goals and recent quotes
+    of a salesperson and generate a motivational followup message.
+    Optionally sends it directly via WhatsApp if 'send_whatsapp' is True.
+    """
+    # Fetch seller
+    res = await db.execute(select(Usuario).filter(Usuario.id == vendedor_id))
+    vendedor = res.scalars().first()
+    if not vendedor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El vendedor especificado no existe."
+        )
+
+    # Fetch active/pending goals
+    metas_res = await db.execute(
+        select(Meta).filter(Meta.vendedor_id == vendedor_id, Meta.estado == "pendiente")
+    )
+    metas = metas_res.scalars().all()
+    metas_data = [
+        {
+            "descripcion": m.descripcion,
+            "monto_objetivo": float(m.monto_objetivo),
+            "estado": m.estado
+        }
+        for m in metas
+    ]
+
+    # Fetch recent quotes (last 10)
+    quotes_res = await db.execute(
+        select(Cotizacion).filter(Cotizacion.vendedor_id == vendedor_id).limit(10)
+    )
+    quotes = quotes_res.scalars().all()
+    quotes_data = [
+        {
+            "cliente_nombre": q.cliente_nombre,
+            "total": float(q.total)
+        }
+        for q in quotes
+    ]
+
+    # Call Coach Agent
+    message = await generate_followup_message(
+        vendedor_nombre=vendedor.nombre_completo or vendedor.email,
+        metas_vigentes=metas_data,
+        cotizaciones_recientes=quotes_data
+    )
+
+    whatsapp_sent = False
+    if payload.get("send_whatsapp") and vendedor.telefono_whatsapp:
+        whatsapp_sent = await send_whatsapp_message(vendedor.telefono_whatsapp, message)
+
+    return {
+        "status": "success",
+        "message": "Seguimiento motivacional generado por el Coach exitosamente.",
+        "data": {
+            "mensaje": message,
+            "vendedor_telefono": vendedor.telefono_whatsapp,
+            "whatsapp_enviado": whatsapp_sent
         }
     }
 

@@ -317,6 +317,8 @@ async function loadSectionData(sectionId) {
             await loadCotizacionesData();
         } else if (sectionId === "seguimiento") {
             await loadKanbanData();
+        } else if (sectionId === "agentes") {
+            await loadAgentesSectionData();
         }
     } catch (e) {
         showToast(e.message, "error");
@@ -1691,6 +1693,159 @@ if (DOM.profileForm) {
             profileAvatarBase64 = null;
         } catch (err) {
             showToast(err.message, "error");
+        }
+    });
+}
+
+/* ==========================================================================
+   CENTRALIZED AGENTS HANDLERS (CEO, COACH, OUTREACH)
+   ========================================================================== */
+
+async function loadAgentesSectionData() {
+    // We need sellers data to populate dropdowns. If state.vendedores is empty, fetch it.
+    if (state.vendedores.length === 0) {
+        if (state.user.rol !== "vendedor") {
+            const res = await apiRequest("/api/v1/vendedores/?limit=100");
+            state.vendedores = res.data || [];
+        } else {
+            state.vendedores = [state.user]; // Only themselves if they are a seller
+        }
+    }
+    
+    // Populate the dropdown selects
+    const ceoSellerSel = document.getElementById("agent-ceo-seller");
+    const coachSellerSel = document.getElementById("agent-coach-seller");
+    
+    if (ceoSellerSel) {
+        ceoSellerSel.innerHTML = '<option value="">Selecciona un vendedor...</option>';
+        state.vendedores.forEach(v => {
+            const opt = document.createElement("option");
+            opt.value = v.id;
+            opt.textContent = v.nombre_completo || v.email;
+            ceoSellerSel.appendChild(opt);
+        });
+    }
+    
+    if (coachSellerSel) {
+        coachSellerSel.innerHTML = '<option value="">Selecciona un vendedor...</option>';
+        state.vendedores.forEach(v => {
+            const opt = document.createElement("option");
+            opt.value = v.id;
+            opt.textContent = v.nombre_completo || v.email;
+            coachSellerSel.appendChild(opt);
+        });
+    }
+}
+
+// CEO Form Handler
+const ceoForm = document.getElementById("agent-ceo-form");
+if (ceoForm) {
+    ceoForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const sellerId = document.getElementById("agent-ceo-seller").value;
+        const objectives = document.getElementById("agent-ceo-objectives").value;
+        const submitBtn = document.getElementById("btn-agent-ceo-submit");
+        const resultContainer = document.getElementById("agent-ceo-result");
+        
+        if (!sellerId) return;
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Procesando... <i class="fa-solid fa-spinner animate-spin"></i>';
+        resultContainer.classList.add("hidden");
+        
+        try {
+            const res = await apiRequest(`/api/v1/metas/generate/${sellerId}`, {
+                method: "POST",
+                body: JSON.stringify({ objetivos_globales: objectives })
+            });
+            
+            showToast("Metas generadas y asignadas con éxito.");
+            
+            // Populate results
+            document.getElementById("ceo-res-monto").textContent = `$${res.data.monto_objetivo.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+            document.getElementById("ceo-res-desc").textContent = res.data.descripcion;
+            
+            const kpisUl = document.getElementById("ceo-res-kpis");
+            kpisUl.innerHTML = "";
+            (res.data.kpis_clave || []).forEach(kpi => {
+                const li = document.createElement("li");
+                li.textContent = kpi;
+                kpisUl.appendChild(li);
+            });
+            
+            resultContainer.classList.remove("hidden");
+        } catch (err) {
+            showToast(err.message, "error");
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Generar y Asignar Metas <i class="fa-solid fa-wand-magic-sparkles" style="margin-left: 6px;"></i>';
+        }
+    });
+}
+
+// Coach Form Handler
+const coachForm = document.getElementById("agent-coach-form");
+if (coachForm) {
+    coachForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const sellerId = document.getElementById("agent-coach-seller").value;
+        const sendWa = document.getElementById("agent-coach-whatsapp").checked;
+        const submitBtn = document.getElementById("btn-agent-coach-submit");
+        const resultContainer = document.getElementById("agent-coach-result");
+        
+        if (!sellerId) return;
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Generando feedback... <i class="fa-solid fa-spinner animate-spin"></i>';
+        resultContainer.classList.add("hidden");
+        
+        try {
+            const res = await apiRequest(`/api/v1/metas/coach/${sellerId}`, {
+                method: "POST",
+                body: JSON.stringify({ send_whatsapp: sendWa })
+            });
+            
+            showToast("Feedback generado con éxito.");
+            
+            // Populate results
+            document.getElementById("coach-res-message").textContent = res.data.mensaje;
+            
+            const waStatus = document.getElementById("coach-wa-status");
+            if (sendWa) {
+                if (res.data.whatsapp_enviado) {
+                    waStatus.textContent = "WhatsApp: Enviado";
+                    waStatus.style.background = "rgba(16, 185, 129, 0.15)";
+                    waStatus.style.color = "#10b981";
+                } else {
+                    waStatus.textContent = "WhatsApp: Fallido/No Configurado";
+                    waStatus.style.background = "rgba(239, 68, 68, 0.15)";
+                    waStatus.style.color = "#ef4444";
+                }
+            } else {
+                waStatus.textContent = "WhatsApp: No solicitado";
+                waStatus.style.background = "rgba(255,255,255,0.05)";
+                waStatus.style.color = "hsl(var(--text-secondary))";
+            }
+            
+            resultContainer.classList.remove("hidden");
+        } catch (err) {
+            showToast(err.message, "error");
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Generar Feedback <i class="fa-solid fa-message" style="margin-left: 6px;"></i>';
+        }
+    });
+}
+
+// Outreach trigger handler
+const outreachTrigger = document.getElementById("btn-agent-outreach-trigger");
+if (outreachTrigger) {
+    outreachTrigger.addEventListener("click", () => {
+        switchSection("cotizaciones");
+        const aiQuoteWrapper = document.getElementById("ai-quote-wrapper");
+        if (aiQuoteWrapper) {
+            aiQuoteWrapper.classList.remove("hidden");
+            aiQuoteWrapper.scrollIntoView({ behavior: 'smooth' });
         }
     });
 }
