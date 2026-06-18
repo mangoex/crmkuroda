@@ -14,6 +14,7 @@ function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'))
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   const [resumen, setResumen] = useState<string | null>(null)
   const [loadingResumen, setLoadingResumen] = useState(false)
@@ -122,13 +123,22 @@ function App() {
             onChange={e => setUsername(e.target.value)} 
             required 
           />
-          <input 
-            type="password" 
-            placeholder="Contraseña (admin123)" 
-            value={password} 
-            onChange={e => setPassword(e.target.value)} 
-            required 
-          />
+          <div className="password-wrapper">
+            <input 
+              type={showPassword ? "text" : "password"} 
+              placeholder="Contraseña (admin123)" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              required 
+            />
+            <button 
+              type="button" 
+              className="btn-toggle-password" 
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? "Ocultar" : "👁️"}
+            </button>
+          </div>
           <button type="submit" className="btn-primary">Entrar</button>
         </form>
       </div>
