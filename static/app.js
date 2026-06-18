@@ -15,7 +15,12 @@ const state = {
     quotesCurrentPage: 1,
     quotesPageSize: 15,
     quotesSortOrder: null, // 'asc', 'desc', or null
-    kanbanSortOrder: null  // 'asc', 'desc', or null
+    kanbanSortOrders: {
+        propuesta: null,
+        cotizado: null,
+        vendido: null,
+        vencido: null
+    }
 };
 
 // UI Selectors
@@ -120,9 +125,7 @@ const DOM = {
     
     // Sort Controls
     sortQuotesAsc: document.getElementById("sort-quotes-asc"),
-    sortQuotesDesc: document.getElementById("sort-quotes-desc"),
-    sortKanbanAsc: document.getElementById("sort-kanban-asc"),
-    sortKanbanDesc: document.getElementById("sort-kanban-desc")
+    sortQuotesDesc: document.getElementById("sort-quotes-desc")
 };
 
 /* ==========================================================================
@@ -765,18 +768,19 @@ function renderKanbanColumns() {
     });
     
     // Sort columns if sort order is set
-    if (state.kanbanSortOrder) {
-        columns.forEach(col => {
-            if (state.kanbanSortOrder === "asc") {
+    const columns = ['propuesta', 'cotizado', 'vendido', 'vencido'];
+    columns.forEach(col => {
+        const order = state.kanbanSortOrders[col];
+        if (order) {
+            if (order === "asc") {
                 stages[col].sort((a, b) => Number(a.total) - Number(b.total));
-            } else if (state.kanbanSortOrder === "desc") {
+            } else if (order === "desc") {
                 stages[col].sort((a, b) => Number(b.total) - Number(a.total));
             }
-        });
-    }
+        }
+    });
     
     // Render columns
-    const columns = ['propuesta', 'cotizado', 'vendido', 'vencido'];
     columns.forEach(col => {
         const container = DOM[`kanban${col.charAt(0).toUpperCase() + col.slice(1)}`];
         const countSpan = DOM[`countKanban${col.charAt(0).toUpperCase() + col.slice(1)}`];
@@ -1392,34 +1396,44 @@ if (DOM.sortQuotesDesc) {
     });
 }
 
-// Kanban Sorting listeners
-if (DOM.sortKanbanAsc) {
-    DOM.sortKanbanAsc.addEventListener("click", () => {
-        if (state.kanbanSortOrder === "asc") {
-            state.kanbanSortOrder = null;
-            DOM.sortKanbanAsc.classList.remove("active");
+// Kanban Column Sorting listeners
+document.addEventListener("click", (e) => {
+    const ascBtn = e.target.closest(".sort-kanban-column-asc");
+    if (ascBtn) {
+        const col = ascBtn.getAttribute("data-column");
+        const header = ascBtn.closest(".kanban-column-header");
+        const descBtn = header ? header.querySelector(".sort-kanban-column-desc") : null;
+        
+        if (state.kanbanSortOrders[col] === "asc") {
+            state.kanbanSortOrders[col] = null;
+            ascBtn.classList.remove("active");
         } else {
-            state.kanbanSortOrder = "asc";
-            DOM.sortKanbanAsc.classList.add("active");
-            if (DOM.sortKanbanDesc) DOM.sortKanbanDesc.classList.remove("active");
+            state.kanbanSortOrders[col] = "asc";
+            ascBtn.classList.add("active");
+            if (descBtn) descBtn.classList.remove("active");
         }
         renderKanbanColumns();
-    });
-}
-
-if (DOM.sortKanbanDesc) {
-    DOM.sortKanbanDesc.addEventListener("click", () => {
-        if (state.kanbanSortOrder === "desc") {
-            state.kanbanSortOrder = null;
-            DOM.sortKanbanDesc.classList.remove("active");
+        return;
+    }
+    
+    const descBtn = e.target.closest(".sort-kanban-column-desc");
+    if (descBtn) {
+        const col = descBtn.getAttribute("data-column");
+        const header = descBtn.closest(".kanban-column-header");
+        const ascBtn = header ? header.querySelector(".sort-kanban-column-asc") : null;
+        
+        if (state.kanbanSortOrders[col] === "desc") {
+            state.kanbanSortOrders[col] = null;
+            descBtn.classList.remove("active");
         } else {
-            state.kanbanSortOrder = "desc";
-            DOM.sortKanbanDesc.classList.add("active");
-            if (DOM.sortKanbanAsc) DOM.sortKanbanAsc.classList.remove("active");
+            state.kanbanSortOrders[col] = "desc";
+            descBtn.classList.add("active");
+            if (ascBtn) ascBtn.classList.remove("active");
         }
         renderKanbanColumns();
-    });
-}
+        return;
+    }
+});
 
 /* --- Proposal Modal Handlers --- */
 function closeModal() {

@@ -461,14 +461,6 @@
                                     <option value="60">Últimos 60 días</option>
                                 </select>
                             </div>
-                            
-                            <div class="input-group-inline">
-                                <label>Ordenar por Total:</label>
-                                <div class="sort-arrows-container" style="display: flex; flex-direction: row; gap: 12px; font-size: 16px; align-items: center; justify-content: center; height: 38px;">
-                                    <i class="fa-solid fa-caret-up sort-arrow" id="sort-kanban-asc" title="Menor a mayor total" style="cursor: pointer;"></i>
-                                    <i class="fa-solid fa-caret-down sort-arrow" id="sort-kanban-desc" title="Mayor a menor total" style="cursor: pointer;"></i>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
@@ -477,8 +469,14 @@
                         <!-- Propuesta -->
                         <div class="kanban-column" data-stage="propuesta">
                             <div class="kanban-column-header">
-                                <h3>Propuesta</h3>
-                                <span class="badge badge-primary column-count" id="count-kanban-propuesta">0</span>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <h3>Propuesta</h3>
+                                    <span class="badge badge-primary column-count" id="count-kanban-propuesta">0</span>
+                                </div>
+                                <span class="sort-arrows-container">
+                                    <i class="fa-solid fa-caret-up sort-arrow sort-kanban-column-asc" data-column="propuesta" title="Ordenar de menor a mayor total"></i>
+                                    <i class="fa-solid fa-caret-down sort-arrow sort-kanban-column-desc" data-column="propuesta" title="Ordenar de mayor a menor total"></i>
+                                </span>
                             </div>
                             <div class="kanban-cards-container" id="kanban-propuesta">
                                 <!-- Cards loaded dynamically -->
@@ -488,8 +486,14 @@
                         <!-- Cotizado -->
                         <div class="kanban-column" data-stage="cotizado">
                             <div class="kanban-column-header">
-                                <h3>Cotizado</h3>
-                                <span class="badge badge-primary column-count" id="count-kanban-cotizado">0</span>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <h3>Cotizado</h3>
+                                    <span class="badge badge-primary column-count" id="count-kanban-cotizado">0</span>
+                                </div>
+                                <span class="sort-arrows-container">
+                                    <i class="fa-solid fa-caret-up sort-arrow sort-kanban-column-asc" data-column="cotizado" title="Ordenar de menor a mayor total"></i>
+                                    <i class="fa-solid fa-caret-down sort-arrow sort-kanban-column-desc" data-column="cotizado" title="Ordenar de mayor a menor total"></i>
+                                </span>
                             </div>
                             <div class="kanban-cards-container" id="kanban-cotizado">
                                 <!-- Cards loaded dynamically -->
@@ -499,8 +503,14 @@
                         <!-- Vendido -->
                         <div class="kanban-column" data-stage="vendido">
                             <div class="kanban-column-header">
-                                <h3>Vendido</h3>
-                                <span class="badge badge-primary column-count" id="count-kanban-vendido" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">0</span>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <h3>Vendido</h3>
+                                    <span class="badge badge-primary column-count" id="count-kanban-vendido" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">0</span>
+                                </div>
+                                <span class="sort-arrows-container">
+                                    <i class="fa-solid fa-caret-up sort-arrow sort-kanban-column-asc" data-column="vendido" title="Ordenar de menor a mayor total"></i>
+                                    <i class="fa-solid fa-caret-down sort-arrow sort-kanban-column-desc" data-column="vendido" title="Ordenar de mayor a menor total"></i>
+                                </span>
                             </div>
                             <div class="kanban-cards-container" id="kanban-vendido">
                                 <!-- Cards loaded dynamically -->
@@ -510,8 +520,14 @@
                         <!-- Vencido -->
                         <div class="kanban-column" data-stage="vencido">
                             <div class="kanban-column-header">
-                                <h3>Vencido</h3>
-                                <span class="badge badge-primary column-count" id="count-kanban-vencido" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">0</span>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <h3>Vencido</h3>
+                                    <span class="badge badge-primary column-count" id="count-kanban-vencido" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">0</span>
+                                </div>
+                                <span class="sort-arrows-container">
+                                    <i class="fa-solid fa-caret-up sort-arrow sort-kanban-column-asc" data-column="vencido" title="Ordenar de menor a mayor total"></i>
+                                    <i class="fa-solid fa-caret-down sort-arrow sort-kanban-column-desc" data-column="vencido" title="Ordenar de mayor a menor total"></i>
+                                </span>
                             </div>
                             <div class="kanban-cards-container" id="kanban-vencido">
                                 <!-- Cards loaded dynamically -->
