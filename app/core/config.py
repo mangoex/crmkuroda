@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     
     # OpenRouter LLM API Configuration
     OPENROUTER_API_KEY: str = ""
-    OPENROUTER_MODEL: str = "anthropic/claude-3.5-sonnet" # Se recomienda usar el mejor modelo disponible
+    OPENROUTER_MODEL: str = "openai/gpt-4o-mini" # Modelo rápido y confiable por defecto
     
     # Allow loading from .env file
     model_config = SettingsConfigDict(
