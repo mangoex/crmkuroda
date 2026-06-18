@@ -38,17 +38,18 @@ async def generate_seller_goals(
     )
     
     response_schema = {
-        "type": "OBJECT",
+        "type": "object",
         "properties": {
-            "monto_objetivo": {"type": "NUMBER", "description": "Monto de venta objetivo numérico."},
-            "descripcion": {"type": "STRING", "description": "Descripción de la meta y enfoque estratégico."},
+            "monto_objetivo": {"type": "number", "description": "Monto de venta objetivo numérico."},
+            "descripcion": {"type": "string", "description": "Descripción de la meta y enfoque estratégico."},
             "kpis_clave": {
-                "type": "ARRAY",
-                "items": {"type": "STRING"},
+                "type": "array",
+                "items": {"type": "string"},
                 "description": "Lista de KPIs de desempeño medibles."
             }
         },
-        "required": ["monto_objetivo", "descripcion", "kpis_clave"]
+        "required": ["monto_objetivo", "descripcion", "kpis_clave"],
+        "additionalProperties": False
     }
     
     raw_response = await call_gemini(
