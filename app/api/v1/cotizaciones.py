@@ -9,7 +9,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.usuario import Usuario
 from app.models.cotizacion import Cotizacion
-from app.schemas.cotizacion import CotizacionCreate, CotizacionCreateManual
+from app.schemas.cotizacion import CotizacionCreate, CotizacionCreateManual, CotizacionUpdate
 from app.agents.cotizaciones_agent import generate_proposal
 
 router = APIRouter()
@@ -169,4 +169,50 @@ async def generate_cotizacion_agente(
         "status": "success",
         "message": "Cotización generada exitosamente por el Agente de Cotizaciones.",
         "data": serialize_cotizacion(new_quote)
+    }
+
+@router.put("/{cotizacion_id}", status_code=status.HTTP_200_OK)
+async def update_cotizacion(
+    cotizacion_id: UUID,
+    quote_in: CotizacionUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Updates a quote. Salespeople can only update their own quotes.
+    Admins and Managers can update any quote.
+    """
+    result = await db.execute(select(Cotizacion).filter(Cotizacion.id == cotizacion_id))
+    cotizacion = result.scalars().first()
+    if not cotizacion:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="La cotización solicitada no existe."
+        )
+
+    # Ownership check
+    if current_user.rol == "vendedor" and cotizacion.vendedor_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado. No tienes permisos para actualizar esta cotización."
+        )
+
+    # Update fields
+    update_data = quote_in.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(cotizacion, key, value)
+
+    # Automatically set fecha_factura if numero_factura is set
+    if "numero_factura" in update_data and update_data["numero_factura"]:
+        from datetime import date
+        if not cotizacion.fecha_factura:
+            cotizacion.fecha_factura = date.today()
+
+    await db.commit()
+    await db.refresh(cotizacion)
+
+    return {
+        "status": "success",
+        "message": "Cotización actualizada con éxito.",
+        "data": serialize_cotizacion(cotizacion)
     }

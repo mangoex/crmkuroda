@@ -80,6 +80,9 @@
                 <a href="#" class="menu-item" data-section="cotizaciones">
                     <i class="fa-solid fa-file-invoice-dollar"></i> Cotizaciones
                 </a>
+                <a href="#" class="menu-item" data-section="seguimiento">
+                    <i class="fa-solid fa-table-columns"></i> Seguimiento
+                </a>
             </nav>
             
             <div class="sidebar-footer">
@@ -414,6 +417,89 @@
                         </table>
                         <div class="table-pagination" id="pag-cotizaciones">
                             <!-- Loaded dynamically -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 5: Seguimiento (Kanban) -->
+                <section id="section-seguimiento" class="dashboard-section hidden animate-fade-in">
+                    <div class="panel-header">
+                        <h2>Seguimiento de Cotizaciones (Kanban)</h2>
+                    </div>
+
+                    <!-- Filter panel -->
+                    <div class="glass-card filters-card margin-bottom">
+                        <div class="filters-layout">
+                            <div class="input-group-inline">
+                                <label for="kanban-search-client">Buscar Cliente:</label>
+                                <input type="text" id="kanban-search-client" placeholder="Buscar por cliente o empresa...">
+                            </div>
+                            
+                            <div class="input-group-inline">
+                                <label for="kanban-filter-seller">Vendedor:</label>
+                                <select id="kanban-filter-seller" style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: #fff; font-size: 14px;">
+                                    <option value="">Todos los vendedores</option>
+                                    <!-- Loaded dynamically -->
+                                </select>
+                            </div>
+                            
+                            <div class="input-group-inline">
+                                <label for="kanban-filter-days">Vencimiento / Antigüedad:</label>
+                                <select id="kanban-filter-days" style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: #fff; font-size: 14px;">
+                                    <option value="">Cualquier fecha</option>
+                                    <option value="7">Últimos 7 días</option>
+                                    <option value="15">Últimos 15 días</option>
+                                    <option value="30">Últimos 30 días</option>
+                                    <option value="60">Últimos 60 días</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Kanban Board Grid -->
+                    <div class="kanban-board">
+                        <!-- Propuesta -->
+                        <div class="kanban-column" data-stage="propuesta">
+                            <div class="kanban-column-header">
+                                <h3>Propuesta</h3>
+                                <span class="badge badge-primary column-count" id="count-kanban-propuesta">0</span>
+                            </div>
+                            <div class="kanban-cards-container" id="kanban-propuesta">
+                                <!-- Cards loaded dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Cotizado -->
+                        <div class="kanban-column" data-stage="cotizado">
+                            <div class="kanban-column-header">
+                                <h3>Cotizado</h3>
+                                <span class="badge badge-primary column-count" id="count-kanban-cotizado">0</span>
+                            </div>
+                            <div class="kanban-cards-container" id="kanban-cotizado">
+                                <!-- Cards loaded dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Vendido -->
+                        <div class="kanban-column" data-stage="vendido">
+                            <div class="kanban-column-header">
+                                <h3>Vendido</h3>
+                                <span class="badge badge-primary column-count" id="count-kanban-vendido" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">0</span>
+                            </div>
+                            <div class="kanban-cards-container" id="kanban-vendido">
+                                <!-- Cards loaded dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Vencido -->
+                        <div class="kanban-column" data-stage="vencido">
+                            <div class="kanban-column-header">
+                                <h3>Vencido</h3>
+                                <span class="badge badge-primary column-count" id="count-kanban-vencido" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">0</span>
+                            </div>
+                            <div class="kanban-cards-container" id="kanban-vencido">
+                                <!-- Cards loaded dynamically -->
+                            </div>
                         </div>
                     </div>
                 </section>

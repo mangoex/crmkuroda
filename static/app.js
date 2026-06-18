@@ -76,6 +76,19 @@ const DOM = {
     tableCotizaciones: document.querySelector("#table-cotizaciones tbody"),
     pagCotizaciones: document.getElementById("pag-cotizaciones"),
     
+    // Kanban board elements
+    kanbanSearchClient: document.getElementById("kanban-search-client"),
+    kanbanFilterSeller: document.getElementById("kanban-filter-seller"),
+    kanbanFilterDays: document.getElementById("kanban-filter-days"),
+    kanbanPropuesta: document.getElementById("kanban-propuesta"),
+    kanbanCotizado: document.getElementById("kanban-cotizado"),
+    kanbanVendido: document.getElementById("kanban-vendido"),
+    kanbanVencido: document.getElementById("kanban-vencido"),
+    countKanbanPropuesta: document.getElementById("count-kanban-propuesta"),
+    countKanbanCotizado: document.getElementById("count-kanban-cotizado"),
+    countKanbanVendido: document.getElementById("count-kanban-vendido"),
+    countKanbanVencido: document.getElementById("count-kanban-vencido"),
+    
     // Proposal Modal
     proposalModal: document.getElementById("proposal-modal"),
     modalProposalTitle: document.getElementById("modal-proposal-title"),
@@ -247,6 +260,8 @@ async function loadSectionData(sectionId) {
             await loadMetasData();
         } else if (sectionId === "cotizaciones") {
             await loadCotizacionesData();
+        } else if (sectionId === "seguimiento") {
+            await loadKanbanData();
         }
     } catch (e) {
         showToast(e.message, "error");
@@ -596,6 +611,276 @@ function showProposalModal(quote) {
     DOM.modalProposalTitle.textContent = `Propuesta Comercial - ${quote.cliente_nombre}`;
     DOM.modalProposalBody.textContent = quote.texto_propuesta || "Esta cotización no contiene propuesta detallada.";
     DOM.proposalModal.classList.remove("hidden");
+}
+
+/* ==========================================================================
+   KANBAN BOARD MODULE
+   ========================================================================== */
+
+async function loadKanbanData(forceRefresh = false) {
+    // Make sure vendedores are loaded
+    if (state.user.rol !== "vendedor" && state.vendedores.length === 0) {
+        const sellersRes = await apiRequest("/api/v1/vendedores/?limit=100");
+        state.vendedores = sellersRes.data || [];
+    }
+    
+    // Populate dropdown
+    if (DOM.kanbanFilterSeller && DOM.kanbanFilterSeller.options.length <= 1) {
+        state.vendedores.forEach(v => {
+            const opt = document.createElement("option");
+            opt.value = v.id;
+            opt.textContent = v.email;
+            DOM.kanbanFilterSeller.appendChild(opt);
+        });
+    }
+    
+    if (forceRefresh || state.cotizaciones.length === 0) {
+        let endpoint = "/api/v1/cotizaciones/?limit=3000";
+        const res = await apiRequest(endpoint);
+        state.cotizaciones = res.data || [];
+    }
+    
+    renderKanbanColumns();
+}
+
+function renderKanbanColumns() {
+    const searchVal = DOM.kanbanSearchClient ? DOM.kanbanSearchClient.value.toLowerCase() : "";
+    const sellerVal = DOM.kanbanFilterSeller ? DOM.kanbanFilterSeller.value : "";
+    const daysVal = DOM.kanbanFilterDays ? DOM.kanbanFilterDays.value : "";
+    
+    let filteredQuotes = state.cotizaciones;
+    
+    // Apply filters
+    if (searchVal) {
+        filteredQuotes = filteredQuotes.filter(q => q.cliente_nombre.toLowerCase().includes(searchVal));
+    }
+    
+    if (sellerVal) {
+        filteredQuotes = filteredQuotes.filter(q => q.vendedor_id === sellerVal);
+    }
+    
+    if (daysVal) {
+        const daysLimit = parseInt(daysVal);
+        const refDate = new Date("2026-06-18T12:00:00Z");
+        filteredQuotes = filteredQuotes.filter(q => {
+            if (!q.fecha_registro) return false;
+            const quoteDate = new Date(`${q.fecha_registro}T12:00:00Z`);
+            const diffTime = refDate - quoteDate;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays >= 0 && diffDays <= daysLimit;
+        });
+    }
+    
+    // Categorize quotes
+    const stages = {
+        propuesta: [],
+        cotizado: [],
+        vendido: [],
+        vencido: []
+    };
+    
+    const refDate = new Date("2026-06-18T12:00:00Z");
+    
+    filteredQuotes.forEach(q => {
+        const hasInvoice = !!q.numero_factura;
+        const isLost = q.venta_perdida === "Si";
+        const hasQuoteNum = !!q.numero_cotizacion;
+        
+        let ageDays = 0;
+        if (q.fecha_registro) {
+            const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
+            ageDays = Math.floor((refDate - qDate) / (1000 * 60 * 60 * 24));
+        }
+        
+        if (hasInvoice) {
+            stages.vendido.push(q);
+        } else if (isLost || ageDays > 30) {
+            stages.vencido.push(q);
+        } else if (hasQuoteNum) {
+            stages.cotizado.push(q);
+        } else {
+            stages.propuesta.push(q);
+        }
+    });
+    
+    // Render columns
+    const columns = ['propuesta', 'cotizado', 'vendido', 'vencido'];
+    columns.forEach(col => {
+        const container = DOM[`kanban${col.charAt(0).toUpperCase() + col.slice(1)}`];
+        const countSpan = DOM[`countKanban${col.charAt(0).toUpperCase() + col.slice(1)}`];
+        
+        if (!container) return;
+        
+        container.innerHTML = "";
+        if (countSpan) {
+            countSpan.textContent = stages[col].length;
+        }
+        
+        stages[col].forEach(q => {
+            const card = document.createElement("div");
+            card.className = "kanban-card";
+            card.setAttribute("draggable", "true");
+            card.setAttribute("data-id", q.id);
+            
+            const sellerEmail = q.vendedor_id === state.user.id ? state.user.email : (state.vendedores.find(v => v.id === q.vendedor_id)?.email || q.vendedor_id);
+            const dateStr = q.fecha_registro || '-';
+            const quoteNum = q.numero_cotizacion || '-';
+            const totalStr = q.total.toLocaleString('es-MX', { minimumFractionDigits: 2 });
+            
+            let statusBadge = "";
+            if (col === "vendido") {
+                statusBadge = `<span class="kanban-card-badge kanban-card-badge-sold" title="Factura: ${q.numero_factura || ''}">Vendido</span>`;
+            } else if (col === "vencido") {
+                statusBadge = `<span class="kanban-card-badge kanban-card-badge-lost">${q.venta_perdida === "Si" ? 'Perdida' : 'Expirada'}</span>`;
+            }
+            
+            card.innerHTML = `
+                <div class="kanban-card-header">
+                    <h4 class="kanban-card-client">${q.cliente_nombre}</h4>
+                    <span class="kanban-card-num">${quoteNum !== '-' ? '#' + quoteNum : 'Sin #'}</span>
+                </div>
+                <div class="kanban-card-body">
+                    <div class="kanban-card-date"><i class="fa-regular fa-calendar"></i> ${dateStr}</div>
+                    <div class="kanban-card-seller" title="${sellerEmail}"><i class="fa-regular fa-user"></i> ${sellerEmail}</div>
+                </div>
+                <div class="kanban-card-footer">
+                    <span class="kanban-card-total">$${totalStr}</span>
+                    ${statusBadge}
+                </div>
+            `;
+            
+            // Drag listeners on card
+            card.addEventListener("dragstart", (e) => {
+                card.classList.add("dragging");
+                e.dataTransfer.setData("text/plain", q.id);
+                e.dataTransfer.effectAllowed = "move";
+            });
+            
+            card.addEventListener("dragend", () => {
+                card.classList.remove("dragging");
+            });
+            
+            // Open proposal modal on click (if they don't drag)
+            card.addEventListener("click", (e) => {
+                if (e.target.closest(".kanban-card-actions") || card.classList.contains("dragging")) return;
+                showProposalModal(q);
+            });
+            
+            container.appendChild(card);
+        });
+    });
+    
+    setupKanbanDragAndDrop();
+}
+
+function setupKanbanDragAndDrop() {
+    const columns = document.querySelectorAll(".kanban-column");
+    
+    columns.forEach(col => {
+        // Dragover
+        col.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+        });
+        
+        // Dragenter
+        col.addEventListener("dragenter", (e) => {
+            e.preventDefault();
+            col.classList.add("drag-over");
+        });
+        
+        // Dragleave
+        col.addEventListener("dragleave", () => {
+            col.classList.remove("drag-over");
+        });
+        
+        // Drop
+        col.addEventListener("drop", async (e) => {
+            e.preventDefault();
+            col.classList.remove("drag-over");
+            
+            const quoteId = e.dataTransfer.getData("text/plain");
+            const targetStage = col.getAttribute("data-stage");
+            
+            if (quoteId && targetStage) {
+                await transitionQuoteStage(quoteId, targetStage);
+            }
+        });
+    });
+}
+
+async function transitionQuoteStage(quoteId, targetStage) {
+    const quote = state.cotizaciones.find(q => q.id === quoteId);
+    if (!quote) return;
+    
+    let updatePayload = {};
+    
+    if (targetStage === "vendido") {
+        // Prompt for invoice number
+        const invoiceNum = prompt("Ingresa el número de factura para confirmar la venta:", quote.numero_factura || "");
+        if (invoiceNum === null) return; // User cancelled
+        if (invoiceNum.trim() === "") {
+            showToast("Debes ingresar un número de factura válido.", "error");
+            return;
+        }
+        updatePayload = {
+            numero_factura: invoiceNum,
+            venta_perdida: "No"
+        };
+    } else if (targetStage === "vencido") {
+        // Prompt if sale lost
+        const isLost = confirm("¿Marcar esta cotización como venta perdida oficialmente?\n(Presiona Cancelar para marcar como vencida/expirada ordinaria)");
+        updatePayload = {
+            venta_perdida: isLost ? "Si" : "No",
+            numero_factura: null
+        };
+    } else if (targetStage === "cotizado") {
+        // Prompt for quote number if empty
+        let quoteNum = quote.numero_cotizacion;
+        if (!quoteNum) {
+            quoteNum = prompt("Ingresa el número de cotización oficial:", "");
+            if (quoteNum === null) return; // cancelled
+            if (quoteNum.trim() === "") {
+                showToast("Debes ingresar un número de cotización.", "error");
+                return;
+            }
+        }
+        updatePayload = {
+            numero_cotizacion: quoteNum,
+            numero_factura: null,
+            venta_perdida: "No"
+        };
+    } else if (targetStage === "propuesta") {
+        // Reset to proposal
+        const confirmReset = confirm("¿Estás seguro de regresar esta cotización al estado de Propuesta?\nSe eliminarán los números de cotización y factura asociados.");
+        if (!confirmReset) return;
+        updatePayload = {
+            numero_cotizacion: null,
+            numero_factura: null,
+            venta_perdida: "No"
+        };
+    }
+    
+    try {
+        const res = await apiRequest(`/api/v1/cotizaciones/${quoteId}`, {
+            method: "PUT",
+            body: JSON.stringify(updatePayload)
+        });
+        
+        showToast("Estado de la cotización actualizado con éxito.");
+        
+        // Update local quote reference in state
+        if (res.data) {
+            const idx = state.cotizaciones.findIndex(q => q.id === quoteId);
+            if (idx !== -1) {
+                state.cotizaciones[idx] = res.data;
+            }
+        }
+        
+        renderKanbanColumns();
+    } catch (e) {
+        showToast(e.message, "error");
+    }
 }
 
 /* ==========================================================================
@@ -988,6 +1273,23 @@ DOM.filterQuoteDays.addEventListener("change", () => {
     state.quotesCurrentPage = 1;
     renderQuotesTableFiltered();
 });
+
+// Kanban Board event listeners
+if (DOM.kanbanSearchClient) {
+    DOM.kanbanSearchClient.addEventListener("input", () => {
+        renderKanbanColumns();
+    });
+}
+if (DOM.kanbanFilterSeller) {
+    DOM.kanbanFilterSeller.addEventListener("change", () => {
+        renderKanbanColumns();
+    });
+}
+if (DOM.kanbanFilterDays) {
+    DOM.kanbanFilterDays.addEventListener("change", () => {
+        renderKanbanColumns();
+    });
+}
 
 /* --- Proposal Modal Handlers --- */
 function closeModal() {
