@@ -1887,9 +1887,12 @@ if (coachForm) {
             const waStatus = document.getElementById("coach-wa-status");
             if (sendWa) {
                 if (res.data.whatsapp_enviado) {
-                    waStatus.textContent = "WhatsApp: Enviado";
+                    waStatus.innerHTML = `<a href="${res.data.whatsapp_enviado}" target="_blank" style="color: #10b981; text-decoration: none;">WhatsApp: Listo para enviar <i class="fa-solid fa-arrow-up-right-from-square"></i></a>`;
                     waStatus.style.background = "rgba(16, 185, 129, 0.15)";
                     waStatus.style.color = "#10b981";
+                    
+                    // Auto-open in new tab
+                    window.open(res.data.whatsapp_enviado, "_blank");
                 } else {
                     waStatus.textContent = "WhatsApp: Fallido/No Configurado";
                     waStatus.style.background = "rgba(239, 68, 68, 0.15)";
