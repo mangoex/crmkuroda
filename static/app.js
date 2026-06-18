@@ -1294,26 +1294,11 @@ DOM.loginForm.addEventListener("submit", async (e) => {
             throw new Error(data.detail || "Fallo en el inicio de sesión");
         }
         
-        // Save token and parse user details
+        // Save token
         state.token = data.access_token;
-        const decoded = parseJwt(data.access_token);
-        state.user = {
-            email: decoded.sub,
-            rol: decoded.rol,
-            id: decoded.sub // fallback as ID, or we fetch from JWT payload
-        };
-        
-        // Fetch actual user ID via email lookup or decode payload
-        // We will assign it cleanly
-        const userDetailsRes = await apiRequest("/api/v1/vendedores/?limit=100");
-        const match = (userDetailsRes.data || []).find(v => v.email === state.user.email);
-        if (match) {
-            state.user.id = match.id;
-        }
-        
         localStorage.setItem("crm_token", state.token);
-        localStorage.setItem("crm_user", JSON.stringify(state.user));
         
+        // initSession will fetch the fresh user profile via /api/auth/me
         showToast("¡Inicio de sesión exitoso!");
         initSession();
     } catch (e) {
