@@ -243,7 +243,7 @@ async def sync_cotizaciones_csv(
 
     # 1. Download CSV content
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             response = await client.get(company.csv_drive_url, timeout=15.0)
             response.raise_for_status()
     except Exception as e:
