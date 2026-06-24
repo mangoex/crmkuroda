@@ -3148,9 +3148,10 @@ async function openSellerBurndownModal(sellerId, name) {
         const quotesRes = await apiRequest(`/api/v1/cotizaciones/?vendedor_id=${sellerId}&limit=5000`);
         const quotes = quotesRes.data || [];
 
-        const salesGoal = plan ? plan.monthly_income_goal : 0;
-        const conversionRatePlanned = plan ? plan.conversion_rate : 0;
-        const dailyGoal = plan ? plan.daily_points_goal : 10;
+        const planObj = (plan && plan.data) ? plan.data : null;
+        const salesGoal = planObj ? planObj.monthly_income_goal : 0;
+        const conversionRatePlanned = planObj ? planObj.conversion_rate : 0;
+        const dailyGoal = planObj ? planObj.daily_points_goal : 10;
 
         let totalSales = 0;
         let consistencyPointsSum = 0;
@@ -3170,7 +3171,7 @@ async function openSellerBurndownModal(sellerId, name) {
         });
 
         const avgPoints = loggedDays > 0 ? (consistencyPointsSum / loggedDays) : 0;
-        const ticketAverage = plan ? plan.ticket_average : 0;
+        const ticketAverage = planObj ? planObj.ticket_average : 0;
         totalSales = salesCount * ticketAverage;
 
         const actualConversion = meetings > 0 ? (salesCount / meetings * 100) : conversionRatePlanned;
