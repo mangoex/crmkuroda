@@ -669,12 +669,28 @@ async function loadCotizacionesData(forceRefresh = true) {
     
     // Dynamically populate the sellers select if it hasn't been populated yet (or has only the default option)
     if (DOM.filterQuoteSeller && DOM.filterQuoteSeller.options.length <= 1) {
-        state.vendedores.forEach(v => {
+        if (state.user.rol === "vendedor") {
+            DOM.filterQuoteSeller.innerHTML = "";
             const opt = document.createElement("option");
-            opt.value = v.id;
-            opt.textContent = v.email;
+            opt.value = state.user.id;
+            opt.textContent = state.user.email;
             DOM.filterQuoteSeller.appendChild(opt);
-        });
+            DOM.filterQuoteSeller.value = state.user.id;
+            DOM.filterQuoteSeller.disabled = true;
+            
+            // Hide the filter element entirely for salespeople
+            const parent = DOM.filterQuoteSeller.closest(".input-group-inline");
+            if (parent) {
+                parent.style.display = "none";
+            }
+        } else {
+            state.vendedores.forEach(v => {
+                const opt = document.createElement("option");
+                opt.value = v.id;
+                opt.textContent = v.email;
+                DOM.filterQuoteSeller.appendChild(opt);
+            });
+        }
     }
 
     if (forceRefresh || state.cotizaciones.length === 0) {
@@ -690,7 +706,7 @@ async function loadCotizacionesData(forceRefresh = true) {
 }
 
 function renderQuotesDashboard() {
-    const sellerVal = DOM.filterQuoteSeller ? DOM.filterQuoteSeller.value : "";
+    const sellerVal = state.user.rol === "vendedor" ? state.user.id : (DOM.filterQuoteSeller ? DOM.filterQuoteSeller.value : "");
     const startDate = DOM.filterQuoteStartDate ? DOM.filterQuoteStartDate.value : "";
     const endDate = DOM.filterQuoteEndDate ? DOM.filterQuoteEndDate.value : "";
     const daysVal = DOM.filterQuoteDays ? DOM.filterQuoteDays.value : "all";
