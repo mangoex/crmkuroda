@@ -989,46 +989,44 @@
                             </div>
                         </div>
                         
-                        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; margin-top: 24px;">
-                            <!-- Company Settings Card -->
-                            <div class="glass-card" style="padding: 24px;">
-                                <h3>Directrices de la Empresa</h3>
-                                <form id="company-settings-form" style="margin-top: 16px;">
-                                    <div class="input-group">
-                                        <label for="coordinator-global-target">Meta de Facturación Mensual Global ($)</label>
-                                        <input type="number" id="coordinator-global-target" placeholder="Ej: 500000" required>
-                                    </div>
-                                    <div class="input-group">
-                                        <label for="coordinator-global-goals">Estrategia y Directrices del Periodo</label>
-                                        <textarea id="coordinator-global-goals" rows="6" placeholder="Directrices de venta para guiar la asignación de metas por IA..." required style="resize: vertical;"></textarea>
-                                    </div>
-                                    <button type="submit" id="btn-save-coordinator-target" class="btn btn-glow btn-block" style="margin-top: 16px;">
-                                        <i class="fa-solid fa-cloud-arrow-up"></i> Actualizar Meta Global
-                                    </button>
-                                </form>
-                            </div>
-                            
-                            <!-- Team Checklist Performance Card -->
-                            <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column;">
-                                <h3>Rendimiento y Consistencia del Equipo</h3>
-                                
-                                <div class="table-container" style="margin-top: 16px; flex: 1;">
-                                    <table class="data-table" id="table-slight-edge-performance">
-                                        <thead>
-                                            <tr>
-                                                <th>Vendedor</th>
-                                                <th>Meta de Ingresos</th>
-                                                <th>Venta Lograda</th>
-                                                <th>Tasa Conv.</th>
-                                                <th>Consistencia Prom.</th>
-                                                <th>Acciones</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <!-- Populated dynamically -->
-                                        </tbody>
-                                    </table>
+                        <!-- Company Settings Card (Horizontal) -->
+                        <div class="glass-card" style="padding: 24px; margin-top: 24px;">
+                            <h3 style="margin-top: 0; margin-bottom: 16px;"><i class="fa-solid fa-building-flag" style="color: #38bdf8; margin-right: 8px;"></i>Directrices de la Empresa</h3>
+                            <form id="company-settings-form" style="display: grid; grid-template-columns: 1.2fr 2fr auto; gap: 20px; align-items: flex-end;">
+                                <div class="input-group" style="margin-bottom: 0;">
+                                    <label for="coordinator-global-target">Meta de Facturación Mensual Global ($)</label>
+                                    <input type="number" id="coordinator-global-target" placeholder="Ej: 500000" required style="height: 42px;">
                                 </div>
+                                <div class="input-group" style="margin-bottom: 0;">
+                                    <label for="coordinator-global-goals">Estrategia y Directrices del Periodo</label>
+                                    <input type="text" id="coordinator-global-goals" placeholder="Directrices de venta para guiar la asignación de metas por IA..." required style="height: 42px;">
+                                </div>
+                                <button type="submit" id="btn-save-coordinator-target" class="btn btn-glow" style="height: 42px; padding: 0 24px; white-space: nowrap; background: linear-gradient(135deg, hsl(var(--primary)), #7c3aed); border: none; font-weight: bold; color: #fff;">
+                                    <i class="fa-solid fa-cloud-arrow-up"></i> Actualizar Directrices
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- Team Checklist Performance Card -->
+                        <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; margin-top: 24px;">
+                            <h3 style="margin-top: 0; margin-bottom: 16px;"><i class="fa-solid fa-users-viewfinder" style="color: #a78bfa; margin-right: 8px;"></i>Rendimiento y Consistencia del Equipo</h3>
+                            
+                            <div class="table-container" style="margin-top: 8px; flex: 1;">
+                                <table class="data-table" id="table-slight-edge-performance">
+                                    <thead>
+                                        <tr>
+                                            <th>Vendedor</th>
+                                            <th>Meta de Ingresos</th>
+                                            <th>Venta Lograda</th>
+                                            <th>Tasa Conv.</th>
+                                            <th>Consistencia Prom.</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Populated dynamically -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                         
@@ -1193,6 +1191,42 @@
                     <button type="submit" class="btn btn-primary">Enviar Propuesta</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Burndown Chart Modal -->
+    <div id="burndown-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 800px; width: 90%;">
+            <div class="modal-header">
+                <h3 id="burndown-modal-title">Gráfica de Burndown de Consistencia - Vendedor</h3>
+                <button id="btn-close-burndown-modal" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div style="margin-bottom: 16px; display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px 18px; border-radius: 6px; flex: 1; min-width: 140px;">
+                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block; margin-bottom: 2px;">Ventas Reales</span>
+                        <strong id="burndown-seller-sales" style="font-size: 18px; color: #10b981;">$0</strong>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px 18px; border-radius: 6px; flex: 1; min-width: 140px;">
+                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block; margin-bottom: 2px;">Meta de Ingresos</span>
+                        <strong id="burndown-seller-target" style="font-size: 18px; color: #fff;">$0</strong>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px 18px; border-radius: 6px; flex: 1; min-width: 140px;">
+                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block; margin-bottom: 2px;">Consistencia Promedio</span>
+                        <strong id="burndown-seller-consistency" style="font-size: 18px; color: #f59e0b;">0 pts</strong>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px 18px; border-radius: 6px; flex: 1; min-width: 140px;">
+                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block; margin-bottom: 2px;">Conversión Real</span>
+                        <strong id="burndown-seller-conversion" style="font-size: 18px; color: #38bdf8;">0%</strong>
+                    </div>
+                </div>
+                <div class="chart-container" style="position: relative; height: 350px; width: 100%;">
+                    <canvas id="burndownChartCanvas"></canvas>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-close-burndown" class="btn btn-primary">Cerrar</button>
+            </div>
         </div>
     </div>
 

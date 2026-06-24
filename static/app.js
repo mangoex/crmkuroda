@@ -2255,6 +2255,20 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // Close Burndown Modal
+    const btnCloseBurndownModal = document.getElementById("btn-close-burndown-modal");
+    if (btnCloseBurndownModal) {
+        btnCloseBurndownModal.addEventListener("click", () => {
+            document.getElementById("burndown-modal").classList.add("hidden");
+        });
+    }
+    const btnCloseBurndown = document.getElementById("btn-close-burndown");
+    if (btnCloseBurndown) {
+        btnCloseBurndown.addEventListener("click", () => {
+            document.getElementById("burndown-modal").classList.add("hidden");
+        });
+    }
+
     // Reset plan button listener
     const btnSlightEdgeResetPlan = document.getElementById("btn-slight-edge-reset-plan");
     if (btnSlightEdgeResetPlan) {
@@ -3036,7 +3050,11 @@ async function loadCoordinatorSlightEdgeDashboard() {
         sellers.forEach(s => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td><strong>${s.name}</strong></td>
+                <td>
+                    <strong class="seller-burndown-trigger" data-id="${s.id}" data-name="${s.name}" style="cursor: pointer; color: #38bdf8;">
+                        ${s.name} <i class="fa-solid fa-chart-line" style="font-size: 11px; margin-left: 4px; color: #a78bfa;"></i>
+                    </strong>
+                </td>
                 <td>$${s.metrics.target.toLocaleString()}</td>
                 <td>$${s.metrics.sales.toLocaleString()}</td>
                 <td><span class="status-pill" style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2);">${s.metrics.conversion_rate}%</span></td>
@@ -3072,8 +3090,240 @@ async function loadCoordinatorSlightEdgeDashboard() {
             });
         });
 
+        // Attach burndown chart click handlers
+        DOM.tableSlightEdgePerformance.querySelectorAll(".seller-burndown-trigger").forEach(el => {
+            el.addEventListener("click", () => {
+                const id = el.getAttribute("data-id");
+                const name = el.getAttribute("data-name");
+                openSellerBurndownModal(id, name);
+            });
+        });
+
     } catch (err) {
         showToast("Error al cargar panel de coordinación: " + err.message, "error");
+    }
+}
+
+function categorizeActivityLocal(name) {
+    const n = name.toLowerCase().trim();
+    if (["llam", "call", "prospect", "contac"].some(x => n.includes(x))) {
+        return "llamada";
+    }
+    if (["cit", "reun", "meet", "visita"].some(x => n.includes(x))) {
+        return "cita";
+    }
+    if (["cotiz", "propuest", "presupuest", "quot", "enviar"].some(x => n.includes(x))) {
+        return "cotizacion";
+    }
+    if (["cierr", "vent", "cobro", "clos", "firm"].some(x => n.includes(x))) {
+        return "venta";
+    }
+    return "otra";
+}
+
+async function openSellerBurndownModal(sellerId, name) {
+    const modal = document.getElementById("burndown-modal");
+    if (!modal) return;
+
+    document.getElementById("burndown-modal-title").textContent = `Gráfica de Burndown de Consistencia - ${name}`;
+    
+    document.getElementById("burndown-seller-sales").textContent = "...";
+    document.getElementById("burndown-seller-target").textContent = "...";
+    document.getElementById("burndown-seller-consistency").textContent = "...";
+    document.getElementById("burndown-seller-conversion").textContent = "...";
+
+    modal.classList.remove("hidden");
+
+    try {
+        const logsRes = await apiRequest(`/api/slight-edge/log/${sellerId}`);
+        const logs = logsRes.data || [];
+
+        let plan = null;
+        try {
+            plan = await apiRequest(`/api/slight-edge/plan/${sellerId}`);
+        } catch (e) {
+            console.warn("Seller has no plan set up:", e);
+        }
+
+        const quotesRes = await apiRequest(`/api/v1/cotizaciones/?vendedor_id=${sellerId}&limit=5000`);
+        const quotes = quotesRes.data || [];
+
+        const salesGoal = plan ? plan.monthly_income_goal : 0;
+        const conversionRatePlanned = plan ? plan.conversion_rate : 0;
+        const dailyGoal = plan ? plan.daily_points_goal : 10;
+
+        let totalSales = 0;
+        let consistencyPointsSum = 0;
+        let loggedDays = logs.length;
+        
+        let meetings = 0;
+        let salesCount = 0;
+
+        logs.forEach(l => {
+            consistencyPointsSum += l.total_points;
+            for (let act in l.completed_activities) {
+                const count = l.completed_activities[act];
+                const cat = categorizeActivityLocal(act);
+                if (cat === "cita") meetings += count;
+                else if (cat === "venta") salesCount += count;
+            }
+        });
+
+        const avgPoints = loggedDays > 0 ? (consistencyPointsSum / loggedDays) : 0;
+        const ticketAverage = plan ? plan.ticket_average : 0;
+        totalSales = salesCount * ticketAverage;
+
+        const actualConversion = meetings > 0 ? (salesCount / meetings * 100) : conversionRatePlanned;
+
+        document.getElementById("burndown-seller-sales").textContent = `$${totalSales.toLocaleString()}`;
+        document.getElementById("burndown-seller-target").textContent = `$${salesGoal.toLocaleString()}`;
+        document.getElementById("burndown-seller-consistency").textContent = `${avgPoints.toFixed(1)} pts / ${dailyGoal}`;
+        document.getElementById("burndown-seller-conversion").textContent = `${actualConversion.toFixed(1)}%`;
+
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        const labels = [];
+        const idealData = [];
+        const realData = [];
+        const quotesData = [];
+
+        const totalTargetPoints = dailyGoal * daysInMonth;
+
+        let accumulatedPoints = 0;
+        let lastRealVal = totalTargetPoints;
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            labels.push(`${d}`);
+            const idealVal = Math.max(0, totalTargetPoints - (d * dailyGoal));
+            idealData.push(idealVal);
+            
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const log = logs.find(l => l.date === dateStr);
+            const dayPoints = log ? log.total_points : 0;
+
+            const logDate = new Date(year, month, d);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            if (logDate <= today) {
+                accumulatedPoints += dayPoints;
+                lastRealVal = Math.max(0, totalTargetPoints - accumulatedPoints);
+                realData.push(lastRealVal);
+            }
+
+            const dayQuotes = quotes.filter(q => q.fecha_registro === dateStr).length;
+            quotesData.push(dayQuotes);
+        }
+
+        const ctx = document.getElementById('burndownChartCanvas').getContext('2d');
+        if (state.burndownChartInstance) {
+            state.burndownChartInstance.destroy();
+        }
+
+        state.burndownChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Burndown Ideal (Puntos)',
+                        type: 'line',
+                        data: idealData,
+                        borderColor: '#a78bfa',
+                        borderDash: [5, 5],
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Burndown Real (Puntos Restantes)',
+                        type: 'line',
+                        data: realData,
+                        borderColor: '#f59e0b',
+                        borderWidth: 3,
+                        fill: false,
+                        tension: 0.1,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Cotizaciones (Barras)',
+                        type: 'bar',
+                        data: quotesData,
+                        backgroundColor: 'rgba(56, 189, 248, 0.4)',
+                        borderColor: '#38bdf8',
+                        borderWidth: 1.5,
+                        yAxisID: 'yQuotes'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Puntos Restantes',
+                            color: '#fff'
+                        },
+                        ticks: {
+                            color: '#ccc'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)'
+                        },
+                        min: 0,
+                        max: totalTargetPoints
+                    },
+                    yQuotes: {
+                        type: 'linear',
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Cotizaciones',
+                            color: '#38bdf8'
+                        },
+                        ticks: {
+                            color: '#38bdf8',
+                            stepSize: 1,
+                            beginAtZero: true
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Días del Mes',
+                            color: '#fff'
+                        },
+                        ticks: {
+                            color: '#ccc'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#fff'
+                        }
+                    }
+                }
+            }
+        });
+
+    } catch (err) {
+        showToast("Error al cargar burndown: " + err.message, "error");
     }
 }
 
