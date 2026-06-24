@@ -681,8 +681,8 @@ async function loadCotizacionesData(forceRefresh = true) {
         state.vendedores = sellersRes.data || [];
     }
     
-    // Dynamically populate the sellers select if it hasn't been populated yet (or has only the default option)
-    if (DOM.filterQuoteSeller && DOM.filterQuoteSeller.options.length <= 1) {
+    // Dynamically populate the sellers select and toggle visibility based on role
+    if (DOM.filterQuoteSeller) {
         if (state.user.rol === "vendedor") {
             DOM.filterQuoteSeller.innerHTML = "";
             const opt = document.createElement("option");
@@ -692,18 +692,56 @@ async function loadCotizacionesData(forceRefresh = true) {
             DOM.filterQuoteSeller.value = state.user.id;
             DOM.filterQuoteSeller.disabled = true;
             
-            // Hide the filter element entirely for salespeople
             const parent = DOM.filterQuoteSeller.closest(".input-group-inline");
             if (parent) {
                 parent.style.display = "none";
             }
         } else {
+            const parent = DOM.filterQuoteSeller.closest(".input-group-inline");
+            if (parent) {
+                parent.style.display = "";
+            }
+            DOM.filterQuoteSeller.disabled = false;
+            
+            // Rebuild dropdown list to avoid duplications or missing entries
+            const currentSelected = DOM.filterQuoteSeller.value;
+            DOM.filterQuoteSeller.innerHTML = '<option value="">Todos los vendedores</option>';
             state.vendedores.forEach(v => {
                 const opt = document.createElement("option");
                 opt.value = v.id;
                 opt.textContent = v.email;
                 DOM.filterQuoteSeller.appendChild(opt);
             });
+            if (currentSelected) {
+                DOM.filterQuoteSeller.value = currentSelected;
+            }
+        }
+    }
+
+    // Responsive Layout and visibility adjustments based on role
+    const quotesFunnelCard = document.getElementById("quotes-funnel-card");
+    const quotesKpiGridContainer = document.getElementById("quotes-kpi-grid-container");
+    const quotesKpiGrid = document.getElementById("quotes-kpi-grid");
+
+    if (state.user.rol === "vendedor") {
+        if (quotesFunnelCard) quotesFunnelCard.style.display = "none";
+        if (quotesKpiGridContainer) quotesKpiGridContainer.style.flex = "100%";
+        if (quotesKpiGrid) {
+            quotesKpiGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(220px, 1fr))";
+        }
+    } else {
+        if (quotesFunnelCard) quotesFunnelCard.style.display = "flex";
+        if (quotesKpiGridContainer) quotesKpiGridContainer.style.flex = "2";
+        if (quotesKpiGrid) {
+            quotesKpiGrid.style.gridTemplateColumns = "repeat(2, 1fr)";
+        }
+        
+        // Fetch company dashboard metadata
+        try {
+            const coorRes = await apiRequest("/companies/kuroda/dashboard");
+            state.companyDashboardData = coorRes || null;
+        } catch (cErr) {
+            console.error("Error loading company dashboard metadata for quotes:", cErr);
         }
     }
 
@@ -830,6 +868,171 @@ function renderQuotesDashboard() {
     
     // Render list details
     renderQuotesTableFiltered();
+
+    // Update Quotes funnel card
+    updateQuotesFunnelDisplay();
+}
+
+function updateQuotesFunnelDisplay() {
+    if (state.user.rol === "vendedor") return;
+
+    const toggle = document.getElementById("toggle-quotes-funnel-real");
+    const showReal = toggle ? toggle.checked : false;
+    const sellerVal = DOM.filterQuoteSeller ? DOM.filterQuoteSeller.value : "";
+
+    const dashboard = state.companyDashboardData;
+    if (!dashboard) return;
+
+    let targetIncome = 0;
+    let ticketAvg = 0;
+    let conversionRate = 0;
+    let calcSales = 0;
+    let calcQuotes = 0;
+    let calcMeetings = 0;
+    let calcCalls = 0;
+
+    let realMoneyWon = 0;
+    let realTicketAvg = 0;
+    let realConversionRate = 0;
+    let realSales = 0;
+    let realQuotes = 0;
+    let realMeetings = 0;
+    let realCalls = 0;
+
+    // Filter quotes for current calendar month
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    const currentMonthQuotes = state.cotizaciones.filter(q => {
+        if (!q.fecha_registro) return false;
+        if (sellerVal && q.vendedor_id !== sellerVal) return false;
+        const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
+        return qDate.getFullYear() === currentYear && qDate.getMonth() === currentMonth;
+    });
+
+    const wonQuotes = currentMonthQuotes.filter(q => {
+        const hasInvoice = !!q.numero_factura;
+        const isLost = q.venta_perdida === "Si" || q.venta_perdida === "si";
+        return hasInvoice && !isLost;
+    });
+
+    realMoneyWon = wonQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0);
+    realTicketAvg = wonQuotes.length > 0 ? (realMoneyWon / wonQuotes.length) : 0;
+    realConversionRate = currentMonthQuotes.length > 0 ? (wonQuotes.length / currentMonthQuotes.length * 100) : 0;
+    realSales = wonQuotes.length;
+    realQuotes = currentMonthQuotes.length;
+
+    if (!sellerVal) {
+        // "Todos" (aggregated)
+        let sellersWithTarget = 0;
+        let sumTicket = 0;
+        let sumConv = 0;
+
+        dashboard.sellers.forEach(s => {
+            const target = s.metrics.target || 0;
+            const ticket = s.slight_edge.ticket_average || 0;
+            const conv = s.slight_edge.planned_conversion_rate || 0;
+
+            targetIncome += target;
+            realMeetings += s.slight_edge.actual_meetings || 0;
+            realCalls += s.slight_edge.actual_calls || 0;
+
+            if (target > 0) {
+                sellersWithTarget++;
+                sumTicket += ticket;
+                sumConv += conv;
+            }
+        });
+
+        // Compute averages for ticket & conversion
+        ticketAvg = sellersWithTarget > 0 ? (sumTicket / sellersWithTarget) : 0;
+        conversionRate = sellersWithTarget > 0 ? (sumConv / sellersWithTarget) : 0;
+
+        // Calculate funnel goals based on aggregate target and average ticket/conversion
+        if (ticketAvg > 0) {
+            calcSales = targetIncome / ticketAvg;
+            if (conversionRate > 0) {
+                calcMeetings = calcSales / (conversionRate / 100.0);
+                calcQuotes = calcMeetings * 0.8;
+                calcCalls = calcMeetings * 5.0;
+            }
+        }
+    } else {
+        // Specific seller
+        const s = dashboard.sellers.find(sel => sel.id === sellerVal);
+        if (s) {
+            targetIncome = s.metrics.target || 0;
+            ticketAvg = s.slight_edge.ticket_average || 0;
+            conversionRate = s.slight_edge.planned_conversion_rate || 0;
+
+            if (ticketAvg > 0) {
+                calcSales = targetIncome / ticketAvg;
+                if (conversionRate > 0) {
+                    calcMeetings = calcSales / (conversionRate / 100.0);
+                    calcQuotes = calcMeetings * 0.8;
+                    calcCalls = calcMeetings * 5.0;
+                }
+            }
+
+            realMeetings = s.slight_edge.actual_meetings || 0;
+            realCalls = s.slight_edge.actual_calls || 0;
+        }
+    }
+
+    // Now update DOM values
+    const domTargetIncome = document.getElementById("quotes-funnel-target-income");
+    const domTicketAvg = document.getElementById("quotes-funnel-ticket-avg");
+    const domConvRate = document.getElementById("quotes-funnel-conv-rate");
+    const domCalcSales = document.getElementById("quotes-funnel-calc-sales");
+    const domCalcQuotes = document.getElementById("quotes-funnel-calc-quotes");
+    const domCalcMeetings = document.getElementById("quotes-funnel-calc-meetings");
+    const domCalcCalls = document.getElementById("quotes-funnel-calc-calls");
+
+    const labelTargetIncome = document.getElementById("label-quotes-funnel-target-income");
+    const labelTicketAvg = document.getElementById("label-quotes-funnel-ticket-avg");
+    const labelConvRate = document.getElementById("label-quotes-funnel-conv-rate");
+    const subtitleHeader = document.getElementById("subtitle-quotes-funnel-header");
+    const labelSales = document.getElementById("label-quotes-funnel-sales");
+    const labelQuotes = document.getElementById("label-quotes-funnel-quotes");
+    const labelMeetings = document.getElementById("label-quotes-funnel-meetings");
+    const labelCalls = document.getElementById("label-quotes-funnel-calls");
+
+    if (showReal) {
+        if (labelTargetIncome) labelTargetIncome.textContent = "Dinero Vendido:";
+        if (labelTicketAvg) labelTicketAvg.textContent = "Ticket Promedio Real:";
+        if (labelConvRate) labelConvRate.textContent = "Conversión Real:";
+        if (subtitleHeader) subtitleHeader.textContent = "AVANCES DEL FUNNEL REALES";
+        if (labelSales) labelSales.textContent = "Cierres";
+        if (labelQuotes) labelQuotes.textContent = "Cotizaciones";
+        if (labelMeetings) labelMeetings.textContent = "Citas";
+        if (labelCalls) labelCalls.textContent = "Llamadas";
+
+        if (domTargetIncome) domTargetIncome.textContent = `$${Math.round(realMoneyWon).toLocaleString()}`;
+        if (domTicketAvg) domTicketAvg.textContent = `$${Math.round(realTicketAvg).toLocaleString()}`;
+        if (domConvRate) domConvRate.textContent = `${realConversionRate.toFixed(1)}%`;
+        if (domCalcSales) domCalcSales.textContent = realSales;
+        if (domCalcQuotes) domCalcQuotes.textContent = realQuotes;
+        if (domCalcMeetings) domCalcMeetings.textContent = realMeetings;
+        if (domCalcCalls) domCalcCalls.textContent = realCalls;
+    } else {
+        if (labelTargetIncome) labelTargetIncome.textContent = "Meta Mensual:";
+        if (labelTicketAvg) labelTicketAvg.textContent = "Ticket Promedio:";
+        if (labelConvRate) labelConvRate.textContent = "Conversión Cotización-Cierre:";
+        if (subtitleHeader) subtitleHeader.textContent = "METAS DEL FUNNEL CALCULADAS";
+        if (labelSales) labelSales.textContent = "Cierres/Mes";
+        if (labelQuotes) labelQuotes.textContent = "Cotizaciones/Mes";
+        if (labelMeetings) labelMeetings.textContent = "Citas/Mes";
+        if (labelCalls) labelCalls.textContent = "Llamadas/Mes";
+
+        if (domTargetIncome) domTargetIncome.textContent = `$${Math.round(targetIncome).toLocaleString()}`;
+        if (domTicketAvg) domTicketAvg.textContent = `$${Math.round(ticketAvg).toLocaleString()}`;
+        if (domConvRate) domConvRate.textContent = `${conversionRate.toFixed(1)}%`;
+        if (domCalcSales) domCalcSales.textContent = Math.round(calcSales);
+        if (domCalcQuotes) domCalcQuotes.textContent = Math.round(calcQuotes);
+        if (domCalcMeetings) domCalcMeetings.textContent = Math.round(calcMeetings);
+        if (domCalcCalls) domCalcCalls.textContent = Math.round(calcCalls);
+    }
 }
 
 function renderDashboardCharts(filtered) {
@@ -2617,6 +2820,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (DOM.toggleFunnelReal) {
         DOM.toggleFunnelReal.addEventListener("change", () => {
             updateFunnelDisplay();
+        });
+    }
+
+    // Setup Quotes Funnel Real toggle listener
+    const toggleQuotesFunnelReal = document.getElementById("toggle-quotes-funnel-real");
+    if (toggleQuotesFunnelReal) {
+        toggleQuotesFunnelReal.addEventListener("change", () => {
+            updateQuotesFunnelDisplay();
         });
     }
 
