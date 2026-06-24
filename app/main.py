@@ -13,6 +13,8 @@ from app.api.v1.metas import router as metas_router
 from app.api.v1.cotizaciones import router as cotizaciones_router
 from app.api.v1.webhooks import router as webhooks_router
 from app.api.v1.analisis import router as analisis_router
+from app.api.v1.slight_edge import router as slight_edge_router
+from app.api.v1.companies import router as companies_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -57,13 +59,27 @@ async def on_startup():
         await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS venta_perdida VARCHAR;"))
         await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS comentarios TEXT;"))
 
-    # Crear administrador por defecto si no existe
+    # Crear administrador por defecto y empresa por defecto si no existen
     from app.core.database import SessionLocal
     from app.models.usuario import Usuario
+    from app.models.company import Company
     from app.core.security import get_password_hash
     from sqlalchemy.future import select
     
     async with SessionLocal() as session:
+        # Seed company
+        res_comp = await session.execute(select(Company).filter(Company.code == "kuroda"))
+        company = res_comp.scalars().first()
+        if not company:
+            default_company = Company(
+                code="kuroda",
+                name="Kuroda Inteligente",
+                global_sales_target=0.0,
+                global_goals="Directrices estratégicas predeterminadas de la empresa."
+            )
+            session.add(default_company)
+
+        # Seed admin
         res = await session.execute(select(Usuario).filter(Usuario.email == "admin@kuroda.com"))
         admin_user = res.scalars().first()
         if not admin_user:
@@ -141,6 +157,8 @@ app.include_router(metas_router, prefix="/api/v1/metas", tags=["Metas"])
 app.include_router(cotizaciones_router, prefix="/api/v1/cotizaciones", tags=["Cotizaciones"])
 app.include_router(webhooks_router, prefix="/api/v1/webhooks", tags=["Webhooks"])
 app.include_router(analisis_router, prefix="/api/v1/analisis", tags=["Analisis"])
+app.include_router(slight_edge_router, prefix="/api/slight-edge", tags=["La Ligera Ventaja"])
+app.include_router(companies_router, prefix="/companies", tags=["Compañías / Empresas"])
 
 # Mount Static Files (CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")

@@ -92,6 +92,9 @@
                 <a href="#" class="menu-item" data-section="agentes">
                     <i class="fa-solid fa-user-gear"></i> <span>Centro de Agentes</span>
                 </a>
+                <a href="#" class="menu-item" data-section="slight-edge">
+                    <i class="fa-solid fa-list-check"></i> <span>La Ligera Ventaja</span>
+                </a>
             </nav>
             
             <div class="sidebar-footer">
@@ -716,6 +719,144 @@
                             </div>
                         </div>
 
+                    </div>
+                </section>
+
+                <!-- Section: La Ligera Ventaja (Slight Edge) -->
+                <section id="section-slight-edge" class="dashboard-section hidden animate-fade-in">
+                    <!-- Dynamic View 1: Seller View (Checklist & AI Coach) -->
+                    <div id="slight-edge-seller-view" class="hidden">
+                        <div class="panel-header">
+                            <h2>La Ligera Ventaja: Consistencia Diaria</h2>
+                            <p style="font-size: 13px; color: hsl(var(--text-secondary)); margin-top: 4px;">Metodología Jeff Olson: Pequeñas acciones diarias multiplicadas en el tiempo.</p>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px;">
+                            <!-- Checklist & Progress Column -->
+                            <div class="glass-card" style="padding: 24px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                    <h3>Mi Checklist del Día</h3>
+                                    <div class="input-group" style="width: auto; margin: 0;">
+                                        <input type="date" id="slight-edge-date" style="padding: 6px 12px; font-size: 13px; border-radius: 6px; width: 140px; margin: 0;">
+                                    </div>
+                                </div>
+                                
+                                <!-- Progress Indicator -->
+                                <div class="progress-box" style="margin-bottom: 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 16px; display: flex; align-items: center; justify-content: space-between;">
+                                    <div>
+                                        <h4 style="margin: 0; font-size: 15px;">Progreso de Puntos</h4>
+                                        <p style="margin: 4px 0 0 0; font-size: 12px; color: hsl(var(--text-secondary));" id="slight-edge-points-desc">Meta diaria recomendada: 10 pts</p>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <span id="slight-edge-points-counter" style="font-size: 24px; font-weight: bold; color: hsl(var(--primary)); text-shadow: 0 0 10px rgba(93,95,239,0.3);">0 / 10</span>
+                                        <span style="font-size: 13px; color: hsl(var(--text-secondary));"> pts</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Checklist List -->
+                                <div id="slight-edge-checklist-container" style="display: flex; flex-direction: column; gap: 14px;">
+                                    <!-- Dynamic rows will be inserted here -->
+                                </div>
+                                
+                                <button id="btn-save-slight-edge-log" class="btn btn-primary btn-block" style="margin-top: 24px;">
+                                    <i class="fa-solid fa-save"></i> Guardar Consistencia del Día
+                                </button>
+                            </div>
+                            
+                            <!-- AI Chat Coach Column -->
+                            <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; height: 550px;">
+                                <div class="card-header" style="margin-bottom: 12px;">
+                                    <h3><i class="fa-solid fa-brain text-glow" style="margin-right: 8px; color: #10b981;"></i>Sesión con tu Sales Coach</h3>
+                                    <p style="font-size: 12px; color: hsl(var(--text-secondary)); margin-top: 4px;">Chatea con la IA para definir tu plan estratégico de actividades y puntos.</p>
+                                </div>
+                                
+                                <!-- Chat Message History Container -->
+                                <div id="slight-edge-chat-messages" style="flex: 1; overflow-y: auto; padding: 12px; background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px;">
+                                    <!-- Chat bubbles inserted here -->
+                                </div>
+                                
+                                <!-- Chat Input -->
+                                <form id="slight-edge-chat-form" style="display: flex; gap: 8px;">
+                                    <input type="text" id="slight-edge-chat-input" placeholder="Pregúntale al Coach o aprueba tu embudo..." style="flex: 1; margin: 0; padding: 10px 14px; border-radius: 6px;" required>
+                                    <button type="submit" id="btn-send-slight-edge-chat" class="btn btn-primary" style="padding: 0 16px;">
+                                        <i class="fa-solid fa-paper-plane"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic View 2: Coordinator Dashboard -->
+                    <div id="slight-edge-coordinator-view" class="hidden">
+                        <div class="panel-header">
+                            <h2>Auditoría y Alineación de Metas</h2>
+                            <p style="font-size: 13px; color: hsl(var(--text-secondary)); margin-top: 4px;">Monitorea el plan de La Ventaja de tus vendedores y valida la cobertura de metas de facturación.</p>
+                        </div>
+                        
+                        <!-- Alignment Alert Banner -->
+                        <div id="coordinator-alignment-alert" style="display: none; align-items: center; gap: 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--border-radius); padding: 18px; margin-top: 20px;">
+                            <div id="alignment_icon" style="font-size: 28px;"></div>
+                            <div style="flex: 1;">
+                                <h4 id="alignment_status_title" style="margin: 0; font-size: 15px;">Meta Global</h4>
+                                <p id="alignment_status_desc" style="margin: 4px 0 0 0; font-size: 13px; color: hsl(var(--text-secondary));"></p>
+                            </div>
+                            <div style="text-align: right;">
+                                <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block;">Desviación / Brecha</span>
+                                <strong id="alignment_diff_val" style="font-size: 20px;">$0</strong>
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; margin-top: 24px;">
+                            <!-- Company Settings Card -->
+                            <div class="glass-card" style="padding: 24px;">
+                                <h3>Directrices de la Empresa</h3>
+                                <form id="company-settings-form" style="margin-top: 16px;">
+                                    <div class="input-group">
+                                        <label for="coordinator-global-target">Meta de Facturación Mensual Global ($)</label>
+                                        <input type="number" id="coordinator-global-target" placeholder="Ej: 500000" required>
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="coordinator-global-goals">Estrategia y Directrices del Periodo</label>
+                                        <textarea id="coordinator-global-goals" rows="6" placeholder="Directrices de venta para guiar la asignación de metas por IA..." required style="resize: vertical;"></textarea>
+                                    </div>
+                                    <button type="submit" id="btn-save-coordinator-target" class="btn btn-glow btn-block" style="margin-top: 16px;">
+                                        <i class="fa-solid fa-cloud-arrow-up"></i> Actualizar Meta Global
+                                    </button>
+                                </form>
+                            </div>
+                            
+                            <!-- Team Checklist Performance Card -->
+                            <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column;">
+                                <h3>Rendimiento y Consistencia del Equipo</h3>
+                                
+                                <div class="table-container" style="margin-top: 16px; flex: 1;">
+                                    <table class="data-table" id="table-slight-edge-performance">
+                                        <thead>
+                                            <tr>
+                                                <th>Vendedor</th>
+                                                <th>Meta de Ingresos</th>
+                                                <th>Venta Lograda</th>
+                                                <th>Tasa Conv.</th>
+                                                <th>Consistencia Prom.</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Populated dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- AI Recommendation Result Drawer/Card -->
+                        <div id="slight-edge-ai-recommendation-card" class="glass-card border-glow hidden" style="margin-top: 24px; padding: 24px; border-left: 4px solid #10b981;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <h3><i class="fa-solid fa-wand-magic-sparkles text-glow" style="color: #10b981;"></i> Recomendación de Coaching con IA</h3>
+                                <button id="btn-close-slight-edge-ai" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+                            </div>
+                            <div id="slight-edge-ai-content" style="white-space: pre-wrap; font-size: 14px; line-height: 1.6; color: #fff;"></div>
+                        </div>
                     </div>
                 </section>
 
