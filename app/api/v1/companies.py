@@ -19,8 +19,9 @@ router = APIRouter()
 require_admin_or_gerente = RoleChecker(["admin", "gerente"])
 
 class CompanyTargetUpdate(BaseModel):
-    global_sales_target: float
-    global_goals: str
+    global_sales_target: Optional[float] = None
+    global_goals: Optional[str] = None
+    csv_drive_url: Optional[str] = None
 
 @router.get("/{company_code}/dashboard", status_code=status.HTTP_200_OK)
 async def get_company_dashboard(
@@ -153,6 +154,7 @@ async def get_company_dashboard(
         "company_name": company.name,
         "global_sales_target": company.global_sales_target,
         "global_goals": company.global_goals,
+        "csv_drive_url": company.csv_drive_url,
         "aggregated": {
             "total_sales": total_sales_val,
             "total_target": total_target_val,
@@ -169,7 +171,7 @@ async def update_company_target(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(require_admin_or_gerente)
 ):
-    """Updates company's global target and goals."""
+    """Updates company's global target and goals, and csv link."""
     comp_res = await db.execute(select(Company).filter(Company.code == company_code))
     company = comp_res.scalars().first()
     if not company:
@@ -178,19 +180,25 @@ async def update_company_target(
             detail=f"No se encontró la empresa con el código {company_code}."
         )
 
-    company.global_sales_target = target_in.global_sales_target
-    company.global_goals = target_in.global_goals
+    if target_in.global_sales_target is not None:
+        company.global_sales_target = target_in.global_sales_target
+    if target_in.global_goals is not None:
+        company.global_goals = target_in.global_goals
+    if target_in.csv_drive_url is not None:
+        company.csv_drive_url = target_in.csv_drive_url
+        
     await db.commit()
     await db.refresh(company)
 
     return {
         "status": "success",
-        "message": "Metas de la empresa actualizadas con éxito.",
+        "message": "Configuración de la empresa actualizada con éxito.",
         "data": {
             "code": company.code,
             "name": company.name,
             "global_sales_target": company.global_sales_target,
-            "global_goals": company.global_goals
+            "global_goals": company.global_goals,
+            "csv_drive_url": company.csv_drive_url
         }
     }
 

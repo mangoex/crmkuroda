@@ -11,3 +11,4 @@ class Company(Base):
     name = Column(String, nullable=False)
     global_sales_target = Column(Float, default=0.0, nullable=False)
     global_goals = Column(Text, nullable=True)
+    csv_drive_url = Column(String, nullable=True)

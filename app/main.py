@@ -39,6 +39,11 @@ from app.core.scheduler import start_scheduler
 
 @app.on_event("startup")
 async def on_startup():
+    # Ejecutar migraciones de Alembic de forma automática para mantener la BD siempre al día
+    import asyncio
+    proc = await asyncio.create_subprocess_shell("python -m alembic upgrade head")
+    await proc.communicate()
+
     async with engine.begin() as conn:
         # Create all tables defined in models
         await conn.run_sync(Base.metadata.create_all)
