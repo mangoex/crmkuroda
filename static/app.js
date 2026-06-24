@@ -3196,6 +3196,18 @@ async function openSellerBurndownModal(sellerId, name) {
         let accumulatedPoints = 0;
         let lastRealVal = totalTargetPoints;
 
+        // Calculate max day to render based on current local day or latest log date to prevent timezone mismatch errors
+        let maxDay = now.getDate();
+        logs.forEach(l => {
+            const parts = l.date.split("-");
+            if (parts.length === 3 && Number(parts[0]) === year && Number(parts[1]) === (month + 1)) {
+                const logDay = Number(parts[2]);
+                if (logDay > maxDay) {
+                    maxDay = logDay;
+                }
+            }
+        });
+
         for (let d = 1; d <= daysInMonth; d++) {
             labels.push(`${d}`);
             const idealVal = Math.max(0, totalTargetPoints - (d * dailyGoal));
@@ -3205,11 +3217,7 @@ async function openSellerBurndownModal(sellerId, name) {
             const log = logs.find(l => l.date === dateStr);
             const dayPoints = log ? log.total_points : 0;
 
-            const logDate = new Date(year, month, d);
-            const today = new Date();
-            today.setHours(0,0,0,0);
-
-            if (logDate <= today) {
+            if (d <= maxDay) {
                 accumulatedPoints += dayPoints;
                 lastRealVal = Math.max(0, totalTargetPoints - accumulatedPoints);
                 realData.push(lastRealVal);
