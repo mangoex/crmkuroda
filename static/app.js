@@ -51,6 +51,7 @@ const DOM = {
     btnCancelSeller: document.getElementById("btn-cancel-seller"),
     btnCloseSellerForm: document.getElementById("btn-close-seller-form"),
     tableVendedores: document.querySelector("#table-vendedores tbody"),
+    selectSortSellers: document.getElementById("select-sort-sellers"),
     sellerFullname: document.getElementById("seller-fullname"),
     sellerRole: document.getElementById("seller-role"),
     sellerCode: document.getElementById("seller-code"),
@@ -441,9 +442,43 @@ async function loadSummaryData() {
 async function loadVendedoresData() {
     if (state.user.rol === "vendedor") return;
     
-    const res = await apiRequest("/api/v1/vendedores/?limit=50");
+    // Fetch sellers
+    const res = await apiRequest("/api/v1/vendedores/?limit=100");
     const sellers = res.data || [];
     state.vendedores = sellers;
+    
+    // Fetch dashboard metrics
+    let metricsMap = {};
+    try {
+        const dashboardRes = await apiRequest("/companies/kuroda/dashboard");
+        if (dashboardRes && dashboardRes.sellers) {
+            dashboardRes.sellers.forEach(s => {
+                metricsMap[s.id] = s.metrics;
+            });
+        }
+    } catch (e) {
+        console.error("Error loading dashboard metrics for sellers:", e);
+    }
+    
+    // Enrich sellers
+    sellers.forEach(v => {
+        v.metrics = metricsMap[v.id] || { sales: 0, target: 0, conversion_rate: 0, roi: 0 };
+    });
+    
+    // Sort sellers
+    const sortVal = DOM.selectSortSellers?.value || "nombre";
+    if (sortVal === "nombre") {
+        sellers.sort((a, b) => (a.nombre_completo || a.email).localeCompare(b.nombre_completo || b.email));
+    } else if (sortVal === "eficiencia") {
+        // Sort by ROI (Consistency Score) descending
+        sellers.sort((a, b) => (b.metrics.roi || 0) - (a.metrics.roi || 0));
+    } else if (sortVal === "efectividad") {
+        // Sort by sales amount descending
+        sellers.sort((a, b) => (b.metrics.sales || 0) - (a.metrics.sales || 0));
+    } else if (sortVal === "conversion") {
+        // Sort by conversion rate descending
+        sellers.sort((a, b) => (b.metrics.conversion_rate || 0) - (a.metrics.conversion_rate || 0));
+    }
     
     DOM.tableVendedores.innerHTML = "";
     if (sellers.length === 0) {
@@ -453,13 +488,42 @@ async function loadVendedoresData() {
     
     sellers.forEach(v => {
         const tr = document.createElement("tr");
+        
+        // Format efficiency
+        let efficiencyHtml = '<span class="text-muted">-</span>';
+        if (v.rol === "vendedor" && v.metrics?.roi !== undefined) {
+            efficiencyHtml = `<strong style="color: #f59e0b;">${v.metrics.roi} pts</strong>`;
+        }
+        
+        // Format sales (effectiveness)
+        let effectivenessHtml = '<span class="text-muted">-</span>';
+        if (v.rol === "vendedor" && v.metrics?.sales !== undefined) {
+            effectivenessHtml = `<strong style="color: #10b981;">$${v.metrics.sales.toLocaleString()}</strong>`;
+        }
+        
+        // Format conversion rate
+        let conversionHtml = '<span class="text-muted">-</span>';
+        if (v.rol === "vendedor" && v.metrics?.conversion_rate !== undefined) {
+            conversionHtml = `<span class="badge" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2);">${v.metrics.conversion_rate}%</span>`;
+        }
+        
         tr.innerHTML = `
-            <td><strong>${v.nombre_completo || '<span class="text-muted">Sin Nombre</span>'}</strong></td>
-            <td><code>${v.email}</code></td>
-            <td><code>${v.id}</code></td>
-            <td>${v.telefono_whatsapp || '<span class="text-muted">No asignado</span>'}</td>
-            <td><span class="status-pill status-rol" style="background: ${v.rol === 'admin' ? 'rgba(239, 68, 68, 0.15)' : v.rol === 'gerente' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(93, 95, 239, 0.15)'}; color: ${v.rol === 'admin' ? '#ef4444' : v.rol === 'gerente' ? '#f59e0b' : '#5d5fef'}; border: 1px solid ${v.rol === 'admin' ? 'rgba(239, 68, 68, 0.3)' : v.rol === 'gerente' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(93, 95, 239, 0.3)'};">${v.rol.toUpperCase()}</span></td>
+            <td>
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <strong style="color: #fff; font-size: 14px;">${v.nombre_completo || '<span class="text-muted">Sin Nombre</span>'}</strong>
+                    <span style="font-size: 11px; color: hsl(var(--text-secondary));">${v.email}</span>
+                    ${v.telefono_whatsapp ? `<span style="font-size: 11px; color: #38bdf8;"><i class="fa-brands fa-whatsapp" style="margin-right: 4px;"></i>${v.telefono_whatsapp}</span>` : ''}
+                </div>
+            </td>
+            <td>
+                <span class="status-pill status-rol" style="background: ${v.rol === 'admin' ? 'rgba(239, 68, 68, 0.15)' : v.rol === 'gerente' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(93, 95, 239, 0.15)'}; color: ${v.rol === 'admin' ? '#ef4444' : v.rol === 'gerente' ? '#f59e0b' : '#5d5fef'}; border: 1px solid ${v.rol === 'admin' ? 'rgba(239, 68, 68, 0.3)' : v.rol === 'gerente' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(93, 95, 239, 0.3)'};">
+                    ${v.rol.toUpperCase()}
+                </span>
+            </td>
             <td>${v.codigo_vendedor || '<span class="text-muted">-</span>'}</td>
+            <td>${efficiencyHtml}</td>
+            <td>${effectivenessHtml}</td>
+            <td>${conversionHtml}</td>
             <td>
                 <div style="display: flex; gap: 8px;">
                     <button class="btn btn-secondary btn-sm edit-seller-btn" data-id="${v.id}" data-email="${v.email}" data-fullname="${v.nombre_completo || ''}" data-role="${v.rol}" data-phone="${v.telefono_whatsapp || ''}" data-code="${v.codigo_vendedor || ''}">
@@ -2159,6 +2223,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (DOM.slightEdgeDate) {
         DOM.slightEdgeDate.addEventListener("change", () => {
             loadSellerSlightEdgePlanAndLog();
+        });
+    }
+
+    // Setup Vendedores Sort listener
+    if (DOM.selectSortSellers) {
+        DOM.selectSortSellers.addEventListener("change", () => {
+            loadVendedoresData();
         });
     }
 

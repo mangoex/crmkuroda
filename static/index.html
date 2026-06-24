@@ -310,7 +310,18 @@
                 <section id="section-vendedores" class="dashboard-section hidden animate-fade-in">
                     <div class="panel-header">
                         <h2>Gestión de Usuarios y Vendedores</h2>
-                        <button id="btn-add-seller" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Registrar Usuario</button>
+                        <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label for="select-sort-sellers" style="font-size: 13px; color: hsl(var(--text-secondary)); white-space: nowrap; margin: 0;">Ordenar por:</label>
+                                <select id="select-sort-sellers" class="btn btn-secondary btn-sm" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: normal; text-transform: none; height: 38px; width: auto; max-width: 220px; line-height: 1.2;">
+                                    <option value="nombre" selected>Nombre (A-Z)</option>
+                                    <option value="eficiencia">Eficiencia (Consistencia)</option>
+                                    <option value="efectividad">Efectividad (Ventas)</option>
+                                    <option value="conversion">Tasa de Conversión</option>
+                                </select>
+                            </div>
+                            <button id="btn-add-seller" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Registrar Usuario</button>
+                        </div>
                     </div>
 
                     <!-- Add/Edit User Glass Form Modal / Section -->
@@ -362,12 +373,12 @@
                         <table class="data-table" id="table-vendedores">
                             <thead>
                                 <tr>
-                                    <th>Nombre Completo</th>
-                                    <th>Email</th>
-                                    <th>ID de Usuario</th>
-                                    <th>WhatsApp</th>
+                                    <th>Usuario</th>
                                     <th>Rol</th>
                                     <th>Código</th>
+                                    <th>Eficiencia (Consistencia)</th>
+                                    <th>Efectividad (Ventas)</th>
+                                    <th>Conversión</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
