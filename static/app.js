@@ -4523,7 +4523,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 btnSaveCsvUrl.disabled = true;
                 const originalHtml = btnSaveCsvUrl.innerHTML;
                 btnSaveCsvUrl.innerHTML = 'Guardando... <i class="fa-solid fa-spinner animate-spin"></i>';
-                await apiRequest("/api/v1/companies/kuroda/dashboard/target", {
+                await apiRequest("/companies/kuroda/dashboard/target", {
                     method: "POST",
                     body: JSON.stringify({
                         csv_drive_url: url
@@ -4568,7 +4568,7 @@ if (typeof loadDashboardData !== "undefined") {
     window.loadDashboardData = async function(force = false) {
         await originalLoadDashboardData(force);
         try {
-            const res = await apiRequest("/api/v1/companies/kuroda/dashboard");
+            const res = await apiRequest("/companies/kuroda/dashboard");
             state.csv_drive_url = res.data.csv_drive_url;
             if (document.getElementById("csv-drive-url") && state.csv_drive_url) {
                 document.getElementById("csv-drive-url").value = state.csv_drive_url;
