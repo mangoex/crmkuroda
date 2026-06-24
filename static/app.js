@@ -302,8 +302,13 @@ async function initSession() {
             DOM.btnGenerateGoalsModal.classList.remove("hidden");
         }
         
-        // Go to initial summary view
-        switchSection(state.currentSection || "summary");
+        // Go to initial summary view (default to slight-edge on mobile)
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile) {
+            switchSection("slight-edge");
+        } else {
+            switchSection(state.currentSection || "summary");
+        }
     } else {
         DOM.authContainer.classList.remove("hidden");
         DOM.dashboardContainer.classList.add("hidden");

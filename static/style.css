@@ -1639,3 +1639,149 @@ body.light-mode ::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--primary));
 }
 
+/* ==========================================================================
+   MOBILE-ONLY STYLING FOR LA VENTAJAS SECTION
+   ========================================================================== */
+@media (max-width: 768px) {
+    /* Hide all sidebar menu items except "La Ventaja" */
+    .sidebar-menu .menu-item:not([data-section="slight-edge"]) {
+        display: none !important;
+    }
+    
+    /* Make the mobile menu bar horizontal and header-like */
+    .sidebar-container {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 8px 16px !important;
+        height: 60px !important;
+        width: 100% !important;
+        border-right: none !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+        background: rgba(12, 14, 18, 0.95) !important;
+        backdrop-filter: blur(20px) !important;
+        position: relative !important;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
+    }
+    
+    .sidebar-container .sidebar-header {
+        padding: 0 !important;
+        border: none !important;
+        margin: 0 !important;
+    }
+    
+    .sidebar-container .logo span {
+        display: none !important;
+    }
+    
+    .sidebar-container #btn-toggle-sidebar {
+        display: none !important;
+    }
+    
+    .sidebar-container .sidebar-menu {
+        flex-direction: row !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        overflow: visible !important;
+        gap: 0 !important;
+    }
+    
+    .sidebar-container .sidebar-menu .menu-item {
+        padding: 8px 14px !important;
+        margin: 0 !important;
+        border: none !important;
+        border-radius: var(--border-radius-sm) !important;
+        background: rgba(93, 95, 239, 0.1) !important;
+    }
+    
+    .sidebar-container .sidebar-menu .menu-item i {
+        margin-right: 6px !important;
+    }
+    
+    .sidebar-container .sidebar-menu .menu-item span {
+        display: inline !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+    }
+    
+    .sidebar-container .sidebar-footer {
+        padding: 0 !important;
+        border: none !important;
+        margin: 0 !important;
+    }
+    
+    .sidebar-container .sidebar-footer button {
+        padding: 8px 12px !important;
+        margin: 0 !important;
+        height: auto !important;
+        font-size: 12px !important;
+        border-radius: var(--border-radius-sm) !important;
+    }
+    
+    .sidebar-container .sidebar-footer button span {
+        display: inline !important;
+    }
+
+    /* Force slight-edge dashboard layout grid to collapse to 1 column */
+    #slight-edge-dashboard-container > div {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    
+    /* Hide top bar on mobile to maximize vertical viewport space */
+    .top-navbar {
+        display: none !important;
+    }
+    
+    /* Adjust viewport container spacing */
+    .viewport-area {
+        padding: 16px !important;
+        margin-left: 0 !important;
+        min-height: calc(100vh - 60px) !important;
+    }
+    
+    /* Optimize chat container height */
+    #slight-edge-chat-container {
+        height: 75vh !important;
+        max-width: 100% !important;
+    }
+    
+    /* Larger touch targets (buttons) for mobile checklist row */
+    .checklist-row button.btn-qty-minus,
+    .checklist-row button.btn-qty-plus {
+        width: 44px !important;
+        height: 44px !important;
+        font-size: 16px !important;
+        border-radius: 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    .checklist-row .qty-display {
+        font-size: 20px !important;
+        width: 32px !important;
+        text-align: center !important;
+        display: inline-block !important;
+    }
+    
+    /* Large action buttons for mobile */
+    #btn-save-slight-edge-log {
+        padding: 16px !important;
+        font-size: 16px !important;
+    }
+    
+    /* Large chat input and submit buttons */
+    #slight-edge-chat-input {
+        padding: 14px 16px !important;
+        font-size: 15px !important;
+    }
+    
+    #btn-send-slight-edge-chat {
+        height: 48px !important;
+        padding: 0 20px !important;
+    }
+}
+
