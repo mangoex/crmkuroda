@@ -2105,6 +2105,20 @@ document.addEventListener("DOMContentLoaded", () => {
     initTheme();
     initSession();
     
+    // Password toggle
+    const btnTogglePassword = document.getElementById("btn-toggle-password");
+    if (btnTogglePassword) {
+        btnTogglePassword.addEventListener("click", () => {
+            const pwdInput = document.getElementById("login-password");
+            const icon = document.getElementById("icon-toggle-password");
+            if (pwdInput.type === "password") {
+                pwdInput.type = "text";
+                icon.className = "fa-regular fa-eye-slash";
+            } else {
+                pwdInput.type = "password";
+                icon.className = "fa-regular fa-eye";
+            }
+        });
     }
 
     // Setup Slight Edge Date listener
