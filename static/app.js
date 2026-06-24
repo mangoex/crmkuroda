@@ -3581,6 +3581,9 @@ async function openSellerBurndownModal(sellerId, name) {
             }
         });
 
+        const barBackgrounds = [];
+        const barBorders = [];
+
         for (let d = 1; d <= daysInMonth; d++) {
             labels.push(`${d}`);
             const idealVal = Math.max(0, totalTargetPoints - (d * dailyGoal));
@@ -3598,6 +3601,30 @@ async function openSellerBurndownModal(sellerId, name) {
 
             const dayQuotes = quotes.filter(q => q.fecha_registro === dateStr).length;
             quotesData.push(dayQuotes);
+
+            // Determine color based on quote age (relative to today)
+            // Verde: <= 7 días
+            // Azul: <= 30 días
+            // Amarillo: <= 60 días
+            // Rojo: > 60 días
+            const qDate = new Date(`${dateStr}T12:00:00Z`);
+            const todayDate = new Date(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T12:00:00Z`);
+            const diffTime = todayDate - qDate;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays <= 7) {
+                barBackgrounds.push('rgba(16, 185, 129, 0.45)'); // Verde
+                barBorders.push('#10b981');
+            } else if (diffDays <= 30) {
+                barBackgrounds.push('rgba(56, 189, 248, 0.45)'); // Azul
+                barBorders.push('#38bdf8');
+            } else if (diffDays <= 60) {
+                barBackgrounds.push('rgba(245, 158, 11, 0.45)'); // Amarillo
+                barBorders.push('#f59e0b');
+            } else {
+                barBackgrounds.push('rgba(239, 68, 68, 0.45)'); // Rojo
+                barBorders.push('#ef4444');
+            }
         }
 
         const ctx = document.getElementById('burndownChartCanvas').getContext('2d');
@@ -3635,8 +3662,8 @@ async function openSellerBurndownModal(sellerId, name) {
                         label: 'Cotizaciones (Barras)',
                         type: 'bar',
                         data: quotesData,
-                        backgroundColor: 'rgba(56, 189, 248, 0.4)',
-                        borderColor: '#38bdf8',
+                        backgroundColor: barBackgrounds,
+                        borderColor: barBorders,
                         borderWidth: 1.5,
                         yAxisID: 'yQuotes'
                     }
