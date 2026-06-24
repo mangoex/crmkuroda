@@ -1,3 +1,6 @@
+import hmac
+import hashlib
+import re
 import logging
 from typing import Optional
 from fastapi import APIRouter, Request, Response, status, Query, Depends
@@ -38,9 +41,16 @@ async def receive_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     Receives WhatsApp notification events from Meta (POST).
     Identifies the seller by phone number and triggers the virtual supervisor's response.
     """
+    # Verify signature if configured
+    signature = request.headers.get("X-Hub-Signature-256")
+    if signature and hasattr(settings, "META_APP_SECRET") and settings.META_APP_SECRET:
+        body_bytes = await request.body()
+        expected = "sha256=" + hmac.new(settings.META_APP_SECRET.encode(), body_bytes, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, signature):
+            return Response(content="Invalid signature", status_code=status.HTTP_403_FORBIDDEN)
+
     try:
         body = await request.json()
-        logger.info(f"Webhook de WhatsApp recibido: {body}")
 
         entries = body.get("entry", [])
         for entry in entries:
@@ -61,12 +71,14 @@ async def receive_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                     if not wa_id or not message_text:
                         continue
 
-                    # Search salesperson by phone number with flexible prefix matching
+                    # Sanitize wa_id to digits only to prevent injection
+                    clean_wa_id = re.sub(r"\D", "", wa_id)
+                    if not clean_wa_id:
+                        continue
+
+                    # Search salesperson by phone number safely
                     result = await db.execute(
-                        select(Usuario).filter(
-                            Usuario.telefono_whatsapp.like(f"%{wa_id}%") |
-                            (wa_id.endswith(Usuario.telefono_whatsapp) & (Usuario.telefono_whatsapp != ""))
-                        )
+                        select(Usuario).filter(Usuario.telefono_whatsapp.like(f"%{clean_wa_id}"))
                     )
                     vendedor = result.scalars().first()
 
@@ -92,5 +104,5 @@ async def receive_webhook(request: Request, db: AsyncSession = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Error al procesar el webhook de WhatsApp: {str(e)}")
-        # Always return 200 to prevent Meta from retrying indefinitely
-        return {"status": "error", "message": f"Error de procesamiento: {str(e)}"}
+        # Always return 200 to prevent Meta from retrying indefinitely. Do not leak details.
+        return {"status": "error", "message": "Error de procesamiento interno"}

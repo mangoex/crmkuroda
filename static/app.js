@@ -3,6 +3,17 @@
    ========================================================================== */
 
 // Global Application State
+
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 const state = {
     token: localStorage.getItem("crm_token") || null,
     user: JSON.parse(localStorage.getItem("crm_user")) || null,
@@ -541,8 +552,8 @@ async function loadVendedoresData() {
         tr.innerHTML = `
             <td>
                 <div style="display: flex; flex-direction: column; gap: 2px;">
-                    <strong style="color: #fff; font-size: 14px;">${v.nombre_completo || '<span class="text-muted">Sin Nombre</span>'}</strong>
-                    <span style="font-size: 11px; color: hsl(var(--text-secondary));">${v.email}</span>
+                    <strong style="color: #fff; font-size: 14px;">${escapeHTML(v.nombre_completo) || '<span class="text-muted">Sin Nombre</span>'}</strong>
+                    <span style="font-size: 11px; color: hsl(var(--text-secondary));">${escapeHTML(v.email)}</span>
                     ${v.telefono_whatsapp ? `<span style="font-size: 11px; color: #38bdf8;"><i class="fa-brands fa-whatsapp" style="margin-right: 4px;"></i>${v.telefono_whatsapp}</span>` : ''}
                 </div>
             </td>
@@ -557,10 +568,10 @@ async function loadVendedoresData() {
             <td>${conversionHtml}</td>
             <td>
                 <div style="display: flex; gap: 8px;">
-                    <button class="btn btn-secondary btn-sm edit-seller-btn" data-id="${v.id}" data-email="${v.email}" data-fullname="${v.nombre_completo || ''}" data-role="${v.rol}" data-phone="${v.telefono_whatsapp || ''}" data-code="${v.codigo_vendedor || ''}">
+                    <button class="btn btn-secondary btn-sm edit-seller-btn" data-id="${v.id}" data-email="${escapeHTML(v.email)}" data-fullname="${escapeHTML(v.nombre_completo) || ''}" data-role="${v.rol}" data-phone="${v.telefono_whatsapp || ''}" data-code="${v.codigo_vendedor || ''}">
                         <i class="fa-solid fa-pen-to-square"></i> Editar
                     </button>
-                    <button class="btn btn-danger btn-sm delete-seller-btn" data-id="${v.id}" data-email="${v.email}" ${v.id === state.user.id ? 'disabled' : ''} title="Eliminar" style="padding: 6px 10px;">
+                    <button class="btn btn-danger btn-sm delete-seller-btn" data-id="${v.id}" data-email="${escapeHTML(v.email)}" ${v.id === state.user.id ? 'disabled' : ''} title="Eliminar" style="padding: 6px 10px;">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
                 </div>
@@ -641,7 +652,7 @@ async function loadMetasData() {
         
         tr.innerHTML = `
             <td>${sellerEmail}</td>
-            <td>${m.descripcion}</td>
+            <td>${escapeHTML(m.descripcion)}</td>
             <td><strong>$${m.monto_objetivo.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong></td>
             <td>${m.fecha_inicio}</td>
             <td>${m.fecha_limite}</td>
@@ -763,7 +774,7 @@ function renderQuotesDashboard() {
     const endDate = DOM.filterQuoteEndDate ? DOM.filterQuoteEndDate.value : "";
     const daysVal = DOM.filterQuoteDays ? DOM.filterQuoteDays.value : "all";
     
-    const refDate = new Date("2026-06-18T12:00:00Z"); // Reference date for mock data
+    const refDate = new Date(); // Reference date for mock data
     
     // Apply filters
     const filtered = state.cotizaciones.filter(q => {
@@ -1045,7 +1056,7 @@ function renderDashboardCharts(filtered) {
     let pendingCount = 0;
     let expiredCount = 0;
     
-    const refDate = new Date("2026-06-18T12:00:00Z");
+    const refDate = new Date();
     filtered.forEach(q => {
         const hasInvoice = !!q.numero_factura;
         const isLost = q.venta_perdida === "Si" || q.venta_perdida === "si";
@@ -1434,7 +1445,7 @@ function renderKanbanColumns() {
     
     if (daysVal) {
         const daysLimit = parseInt(daysVal);
-        const refDate = new Date("2026-06-18T12:00:00Z");
+        const refDate = new Date();
         filteredQuotes = filteredQuotes.filter(q => {
             if (!q.fecha_registro) return false;
             const quoteDate = new Date(`${q.fecha_registro}T12:00:00Z`);
@@ -1452,7 +1463,7 @@ function renderKanbanColumns() {
         vencido: []
     };
     
-    const refDate = new Date("2026-06-18T12:00:00Z");
+    const refDate = new Date();
     
     filteredQuotes.forEach(q => {
         const hasInvoice = !!q.numero_factura;
@@ -1521,7 +1532,7 @@ function renderKanbanColumns() {
             
             card.innerHTML = `
                 <div class="kanban-card-header">
-                    <h4 class="kanban-card-client">${q.cliente_nombre}</h4>
+                    <h4 class="kanban-card-client">${escapeHTML(q.cliente_nombre)}</h4>
                     <span class="kanban-card-num">${quoteNum !== '-' ? '#' + quoteNum : 'Sin #'}</span>
                 </div>
                 <div class="kanban-card-body">
@@ -1562,6 +1573,9 @@ function setupKanbanDragAndDrop() {
     const columns = document.querySelectorAll(".kanban-column");
     
     columns.forEach(col => {
+        if (col.dataset.dndSetup === "true") return;
+        col.dataset.dndSetup = "true";
+
         // Dragover
         col.addEventListener("dragover", (e) => {
             e.preventDefault();
@@ -1838,7 +1852,7 @@ function renderQuotesHeatmap(quotes) {
         Array(xCategories.length).fill(null).map(() => ({ count: 0, sum: 0 }))
     );
 
-    const refDate = new Date("2026-06-18T12:00:00Z");
+    const refDate = new Date();
 
     quotes.forEach(q => {
         let ageDays = 0;
@@ -3236,7 +3250,7 @@ function renderSlightEdgeChecklist(plan) {
         row.style = "display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); padding: 12px 16px; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px;";
         row.innerHTML = `
             <div style="flex: 1; margin-right: 12px;">
-                <span style="font-size: 14px; font-weight: 500; display: block; color: #fff;">${act.activity}</span>
+                <span style="font-size: 14px; font-weight: 500; display: block; color: #fff;">${escapeHTML(act.activity)}</span>
                 <span style="font-size: 11px; color: hsl(var(--text-secondary));">+${act.points} ${act.points === 1 ? 'punto' : 'puntos'} por repetición</span>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
@@ -3440,7 +3454,7 @@ function openWeightsModal() {
         row.style = "display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;";
         row.innerHTML = `
             <div style="flex: 1; min-width: 0;">
-                <span style="font-size: 13px; font-weight: 500; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff;">${act.activity}</span>
+                <span style="font-size: 13px; font-weight: 500; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff;">${escapeHTML(act.activity)}</span>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <input type="number" class="weight-input" min="1" max="10" value="${act.points}" data-index="${idx}" style="width: 60px; padding: 6px; font-size: 13px; text-align: center; margin: 0; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #fff;">
@@ -3785,8 +3799,8 @@ async function loadCoordinatorSlightEdgeDashboard() {
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>
-                    <strong class="seller-burndown-trigger" data-id="${s.id}" data-name="${s.name}" style="cursor: pointer; color: #38bdf8;">
-                        ${s.name} <i class="fa-solid fa-chart-line" style="font-size: 11px; margin-left: 4px; color: #a78bfa;"></i>
+                    <strong class="seller-burndown-trigger" data-id="${s.id}" data-name="${escapeHTML(s.name)}" style="cursor: pointer; color: #38bdf8;">
+                        ${escapeHTML(s.name)} <i class="fa-solid fa-chart-line" style="font-size: 11px; margin-left: 4px; color: #a78bfa;"></i>
                     </strong>
                 </td>
                 <td>$${s.metrics.target.toLocaleString()}</td>
@@ -3794,7 +3808,7 @@ async function loadCoordinatorSlightEdgeDashboard() {
                 <td><span class="status-pill" style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2);">${s.metrics.conversion_rate}%</span></td>
                 <td>${s.metrics.roi} pts / ${s.slight_edge.daily_points_goal}</td>
                 <td>
-                    <button class="btn btn-secondary btn-sm btn-audit-slight-edge-ai" data-id="${s.id}" data-name="${s.name}">
+                    <button class="btn btn-secondary btn-sm btn-audit-slight-edge-ai" data-id="${s.id}" data-name="${escapeHTML(s.name)}">
                         <i class="fa-solid fa-wand-magic-sparkles"></i> Auditar IA
                     </button>
                 </td>
@@ -4167,7 +4181,7 @@ async function loadManagerAsignacionView() {
                 item.innerHTML = `
                     <input type="checkbox" class="client-checkbox" value="${c.id}" style="margin-top: 3px;">
                     <div style="flex: 1;">
-                        <strong style="font-size: 14px; color: #fff;">${c.nombre}</strong>
+                        <strong style="font-size: 14px; color: #fff;">${escapeHTML(c.nombre)}</strong>
                         <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
                             ${c.email || ''} ${c.telefono ? ' | ' + c.telefono : ''}
                         </span>
@@ -4237,7 +4251,7 @@ async function loadManagerAsignacionView() {
                 item.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                         <div>
-                            <strong style="font-size: 15px; color: #fff;">${c.nombre}</strong>
+                            <strong style="font-size: 15px; color: #fff;">${escapeHTML(c.nombre)}</strong>
                             <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
                                 ${c.email || ''} ${c.telefono ? ' | ' + c.telefono : ''}
                             </span>
@@ -4323,7 +4337,7 @@ async function loadSellerAsignacionView() {
                     `;
                 } else {
                     actionHtml = `
-                        <button class="btn btn-glow btn-sm btn-pujar-cliente" data-id="${c.id}" data-nombre="${c.nombre}" style="background: linear-gradient(135deg, #f59e0b, #d97706); border: none; font-weight: bold; color: #fff;">
+                        <button class="btn btn-glow btn-sm btn-pujar-cliente" data-id="${c.id}" data-nombre="${escapeHTML(c.nombre)}" style="background: linear-gradient(135deg, #f59e0b, #d97706); border: none; font-weight: bold; color: #fff;">
                             <i class="fa-solid fa-gavel"></i> Pujar
                         </button>
                     `;
@@ -4331,7 +4345,7 @@ async function loadSellerAsignacionView() {
 
                 item.innerHTML = `
                     <div style="flex: 1;">
-                        <strong style="font-size: 15px; color: #fff;">${c.nombre}</strong>
+                        <strong style="font-size: 15px; color: #fff;">${escapeHTML(c.nombre)}</strong>
                         ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: hsl(var(--text-secondary));">${c.comentarios}</p>` : ''}
                     </div>
                     ${actionHtml}
@@ -4352,7 +4366,7 @@ async function loadSellerAsignacionView() {
                 item.style = "background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; border-left: 4px solid #10b981; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;";
                 item.innerHTML = `
                     <div>
-                        <strong style="font-size: 15px; color: #fff;">${c.nombre}</strong>
+                        <strong style="font-size: 15px; color: #fff;">${escapeHTML(c.nombre)}</strong>
                         <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
                             ${c.email || ''} ${c.telefono ? ' | ' + c.telefono : ''}
                         </span>

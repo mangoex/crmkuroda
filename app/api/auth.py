@@ -14,12 +14,8 @@ router = APIRouter()
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(user_in: UsuarioCreate, db: AsyncSession = Depends(get_db)):
     """Registers a new user (Admin, Gerente, Vendedor) with verified uniqueness."""
-    # Validate role
-    if user_in.rol not in ["admin", "gerente", "vendedor"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Rol inválido. Roles válidos: admin, gerente, vendedor."
-        )
+    # Force role to "vendedor" for public registrations to prevent privilege escalation
+    user_in.rol = "vendedor"
 
     # Check email duplicate
     result = await db.execute(select(Usuario).filter(Usuario.email == user_in.email))
@@ -45,7 +41,10 @@ async def register(user_in: UsuarioCreate, db: AsyncSession = Depends(get_db)):
         email=user_in.email,
         hashed_password=hashed_password,
         rol=user_in.rol,
-        telefono_whatsapp=user_in.telefono_whatsapp
+        telefono_whatsapp=user_in.telefono_whatsapp,
+        codigo_vendedor=user_in.codigo_vendedor,
+        nombre_completo=user_in.nombre_completo,
+        avatar=user_in.avatar
     )
     
     db.add(new_user)
@@ -59,7 +58,9 @@ async def register(user_in: UsuarioCreate, db: AsyncSession = Depends(get_db)):
             "id": str(new_user.id),
             "email": new_user.email,
             "rol": new_user.rol,
-            "telefono_whatsapp": new_user.telefono_whatsapp
+            "telefono_whatsapp": new_user.telefono_whatsapp,
+            "codigo_vendedor": new_user.codigo_vendedor,
+            "nombre_completo": new_user.nombre_completo
         }
     }
 

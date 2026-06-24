@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import delete
 from sqlalchemy.orm import selectinload
 from uuid import UUID
 from typing import List
@@ -169,7 +170,7 @@ async def iniciar_asignacion(
             
             # Wipe any previous bids for these clients if re-auctioned
             await db.execute(
-                select(PujaCliente).filter(PujaCliente.cliente_id == c.id)
+                delete(PujaCliente).where(PujaCliente.cliente_id == c.id)
             )
             # SQLAlchemy will cascade delete or we can let cascade option handle it
         await db.commit()

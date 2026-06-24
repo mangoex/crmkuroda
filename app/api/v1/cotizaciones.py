@@ -35,7 +35,7 @@ def serialize_cotizacion(c: Cotizacion) -> dict:
 @router.get("/", status_code=status.HTTP_200_OK)
 async def list_cotizaciones(
     vendedor_id: Optional[UUID] = None,
-    limit: int = Query(default=10, ge=1, le=5000),
+    limit: int = Query(default=10, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
@@ -198,7 +198,7 @@ async def update_cotizacion(
         )
 
     # Update fields
-    update_data = quote_in.dict(exclude_unset=True)
+    update_data = quote_in.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(cotizacion, key, value)
 

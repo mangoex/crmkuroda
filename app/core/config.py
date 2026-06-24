@@ -15,14 +15,15 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     ALGORITHM: str = "HS256"
     
-    # Meta / WhatsApp Integration API (Desactivado temporalmente, usando enlaces manuales)
-    # META_WHATSAPP_TOKEN: str = ""
-    # META_PHONE_NUMBER_ID: str = ""
-    # WHATSAPP_WEBHOOK_VERIFY_TOKEN: str = "kuroda_verify_token"
+    # Meta / WhatsApp Integration API
+    META_WHATSAPP_TOKEN: str = ""
+    META_PHONE_NUMBER_ID: str = ""
+    WHATSAPP_WEBHOOK_VERIFY_TOKEN: str = "kuroda_verify_token"
     
-    # OpenRouter LLM API Configuration
+    # OpenRouter and Gemini LLM API Configuration
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_MODEL: str = "openai/gpt-4o-mini" # Modelo rápido y confiable por defecto
+    GEMINI_API_KEY: str = ""
     
     # Allow loading from .env file
     model_config = SettingsConfigDict(

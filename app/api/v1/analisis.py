@@ -6,10 +6,13 @@ from app.core.database import get_db
 from app.models.cotizacion import Cotizacion
 from app.models.usuario import Usuario
 from app.agents.analista_agent import analizar_rendimiento
+from app.core.security import RoleChecker
+
+require_admin_or_gerente = RoleChecker(["admin", "gerente"])
 
 router = APIRouter()
 
-@router.get("/resumen")
+@router.get("/resumen", dependencies=[Depends(require_admin_or_gerente)])
 async def obtener_resumen_ejecutivo(db: AsyncSession = Depends(get_db)):
     """
     Endpoint para obtener un resumen ejecutivo (Business Insights) de todas las cotizaciones del mes.

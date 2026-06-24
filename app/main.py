@@ -43,32 +43,7 @@ async def on_startup():
         # Create all tables defined in models
         await conn.run_sync(Base.metadata.create_all)
         
-        # Run column migrations if tables already exist
-        await conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS codigo_vendedor VARCHAR;"))
-        await conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nombre_completo VARCHAR;"))
-        await conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar VARCHAR;"))
-        
-        # Drop unique index/constraint for whatsapp phone numbers to allow multiple accounts to share phone number
-        await conn.execute(text("DROP INDEX IF EXISTS ix_usuarios_telefono_whatsapp;"))
-        await conn.execute(text("ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_telefono_whatsapp_key;"))
-        
-        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS numero_cotizacion VARCHAR;"))
-        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS fecha_registro DATE;"))
-        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS canal VARCHAR;"))
-        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS numero_factura VARCHAR;"))
-        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS fecha_factura DATE;"))
-        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS venta_perdida VARCHAR;"))
-        await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS comentarios TEXT;"))
-
-        # Delete Lorena Peraza's Slight Edge data for testing reset
-        try:
-            res_user = await conn.execute(text("SELECT id FROM usuarios WHERE nombre_completo LIKE '%Lorena Peraza%';"))
-            lorena_id = res_user.scalar()
-            if lorena_id:
-                await conn.execute(text("DELETE FROM slight_edge_plans WHERE user_id = :uid;"), {"uid": lorena_id})
-                await conn.execute(text("DELETE FROM slight_edge_logs WHERE user_id = :uid;"), {"uid": lorena_id})
-        except Exception:
-            pass
+        # Note: Database migrations and schema updates are now managed by Alembic.
 
     # Crear administrador por defecto y empresa por defecto si no existen
     from app.core.database import SessionLocal
@@ -101,10 +76,8 @@ async def on_startup():
                 nombre_completo="Administrador General"
             )
             session.add(nuevo_admin)
-        else:
-            admin_user.hashed_password = get_password_hash("admin123")
-            admin_user.rol = "admin"
             
+
         # Seed available clients if empty
         from app.models.cliente_asignacion import ClienteDisponible
         cli_count_res = await session.execute(select(ClienteDisponible))
@@ -176,12 +149,12 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    # Log the traceback in a real production app
+    # Log the traceback in a real production app (omitted here for security)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "status": "error",
-            "message": f"Error interno del servidor: {str(exc)}"
+            "message": "Error interno del servidor. Por favor, contacte a soporte."
         }
     )
 

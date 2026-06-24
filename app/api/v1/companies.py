@@ -50,19 +50,33 @@ async def get_company_dashboard(
     conversions = []
     rois = []
 
-    for s in sellers:
-        # Get SlightEdgePlan
-        p_res = await db.execute(select(SlightEdgePlan).filter(SlightEdgePlan.user_id == s.id))
-        plan = p_res.scalars().first()
+    sellers_ids = [s.id for s in sellers]
+    if sellers_ids:
+        # Get all plans in batch
+        plans_res = await db.execute(select(SlightEdgePlan).filter(SlightEdgePlan.user_id.in_(sellers_ids)))
+        all_plans = {p.user_id: p for p in plans_res.scalars().all()}
 
-        # Get logs for last 30 days
-        l_res = await db.execute(
+        # Get all logs for last 30 days in batch
+        logs_res = await db.execute(
             select(SlightEdgeLog).filter(
-                SlightEdgeLog.user_id == s.id,
+                SlightEdgeLog.user_id.in_(sellers_ids),
                 SlightEdgeLog.date >= thirty_days_ago
             )
         )
-        logs = l_res.scalars().all()
+        all_logs_list = logs_res.scalars().all()
+        all_logs = {sid: [] for sid in sellers_ids}
+        for lg in all_logs_list:
+            all_logs[lg.user_id].append(lg)
+    else:
+        all_plans = {}
+        all_logs = {}
+
+    for s in sellers:
+        # Get SlightEdgePlan from batch dict
+        plan = all_plans.get(s.id)
+
+        # Get logs from batch dict
+        logs = all_logs.get(s.id, [])
 
         # Group completed activities by standard categories
         calls = 0
