@@ -12,6 +12,10 @@ const state = {
     cotizaciones: [],
     salesChart: null,
     goalsChart: null,
+    chartQuoteStatus: null,
+    chartQuoteSeller: null,
+    chartQuoteTrend: null,
+    chartQuoteChannel: null,
     quotesCurrentPage: 1,
     quotesPageSize: 15,
     quotesSortOrder: null, // 'asc', 'desc', or null
@@ -91,6 +95,19 @@ const DOM = {
     searchQuoteClient: document.getElementById("search-quote-client"),
     filterQuoteSeller: document.getElementById("filter-quote-seller"),
     filterQuoteDays: document.getElementById("filter-quote-days"),
+    filterQuoteStartDate: document.getElementById("filter-quote-start-date"),
+    filterQuoteEndDate: document.getElementById("filter-quote-end-date"),
+    kpiQuotesTotalCount: document.getElementById("kpi-quotes-total-count"),
+    kpiQuotesTotalAmount: document.getElementById("kpi-quotes-total-amount"),
+    kpiQuotesSoldCount: document.getElementById("kpi-quotes-sold-count"),
+    kpiQuotesSoldAmount: document.getElementById("kpi-quotes-sold-amount"),
+    kpiQuotesPendingCount: document.getElementById("kpi-quotes-pending-count"),
+    kpiQuotesPendingAmount: document.getElementById("kpi-quotes-pending-amount"),
+    kpiQuotesExpiredCount: document.getElementById("kpi-quotes-expired-count"),
+    kpiQuotesExpiredAmount: document.getElementById("kpi-quotes-expired-amount"),
+    btnToggleQuotesDetails: document.getElementById("btn-toggle-quotes-details"),
+    quotesDetailsToggleIcon: document.getElementById("quotes-details-toggle-icon"),
+    quotesDetailsContent: document.getElementById("quotes-details-content"),
     tableCotizaciones: document.querySelector("#table-cotizaciones tbody"),
     pagCotizaciones: document.getElementById("pag-cotizaciones"),
     
@@ -669,40 +686,347 @@ async function loadCotizacionesData(forceRefresh = true) {
     // Reset current page when loading fresh section
     state.quotesCurrentPage = 1;
     
+    renderQuotesDashboard();
+}
+
+function renderQuotesDashboard() {
+    const sellerVal = DOM.filterQuoteSeller ? DOM.filterQuoteSeller.value : "";
+    const startDate = DOM.filterQuoteStartDate ? DOM.filterQuoteStartDate.value : "";
+    const endDate = DOM.filterQuoteEndDate ? DOM.filterQuoteEndDate.value : "";
+    const daysVal = DOM.filterQuoteDays ? DOM.filterQuoteDays.value : "all";
+    
+    const refDate = new Date("2026-06-18T12:00:00Z"); // Reference date for mock data
+    
+    // Apply filters
+    const filtered = state.cotizaciones.filter(q => {
+        // 1. Seller Filter
+        if (sellerVal && q.vendedor_id !== sellerVal) return false;
+        
+        // 2. Date Range Filter (alphabetical comparison)
+        if (q.fecha_registro) {
+            if (startDate && q.fecha_registro < startDate) return false;
+            if (endDate && q.fecha_registro > endDate) return false;
+        } else {
+            if (startDate || endDate) return false;
+        }
+        
+        // 3. Expiry / Status Calculations
+        const hasInvoice = !!q.numero_factura;
+        const isLost = q.venta_perdida === "Si" || q.venta_perdida === "si";
+        let ageDays = 999;
+        if (q.fecha_registro) {
+            const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
+            ageDays = Math.floor((refDate - qDate) / (1000 * 60 * 60 * 24));
+        }
+        
+        const isExpired = !hasInvoice && (isLost || ageDays > 30);
+        const isPending = !hasInvoice && !isLost && ageDays <= 30;
+        const remainingDays = 30 - ageDays;
+        
+        // Status dropdown filter
+        if (daysVal === "concretadas") {
+            if (!hasInvoice) return false;
+        } else if (daysVal === "vencidas") {
+            if (!isExpired) return false;
+        } else if (daysVal === "pendientes") {
+            if (!isPending) return false;
+        } else if (["7", "15", "30", "60", "90"].includes(daysVal)) {
+            const limit = parseInt(daysVal);
+            if (!isPending || remainingDays < 0 || remainingDays > limit) return false;
+        }
+        
+        return true;
+    });
+    
+    // Save to state for table rendering
+    state.filteredQuotesForTable = filtered;
+    
+    // Calculate KPIs on the filtered dataset
+    let totalCount = 0;
+    let totalSum = 0;
+    
+    let soldCount = 0;
+    let soldSum = 0;
+    
+    let pendingCount = 0;
+    let pendingSum = 0;
+    
+    let expiredCount = 0;
+    let expiredSum = 0;
+    
+    filtered.forEach(q => {
+        const total = Number(q.total) || 0;
+        totalCount++;
+        totalSum += total;
+        
+        const hasInvoice = !!q.numero_factura;
+        const isLost = q.venta_perdida === "Si" || q.venta_perdida === "si";
+        let ageDays = 999;
+        if (q.fecha_registro) {
+            const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
+            ageDays = Math.floor((refDate - qDate) / (1000 * 60 * 60 * 24));
+        }
+        
+        const isExpired = !hasInvoice && (isLost || ageDays > 30);
+        const isPending = !hasInvoice && !isLost && ageDays <= 30;
+        
+        if (hasInvoice) {
+            soldCount++;
+            soldSum += total;
+        } else if (isExpired) {
+            expiredCount++;
+            expiredSum += total;
+        } else if (isPending) {
+            pendingCount++;
+            pendingSum += total;
+        }
+    });
+    
+    // Update DOM KPI elements
+    if (DOM.kpiQuotesTotalCount) DOM.kpiQuotesTotalCount.textContent = totalCount;
+    if (DOM.kpiQuotesTotalAmount) DOM.kpiQuotesTotalAmount.textContent = `$${totalSum.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    
+    if (DOM.kpiQuotesSoldCount) DOM.kpiQuotesSoldCount.textContent = soldCount;
+    if (DOM.kpiQuotesSoldAmount) DOM.kpiQuotesSoldAmount.textContent = `$${soldSum.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    
+    if (DOM.kpiQuotesPendingCount) DOM.kpiQuotesPendingCount.textContent = pendingCount;
+    if (DOM.kpiQuotesPendingAmount) DOM.kpiQuotesPendingAmount.textContent = `$${pendingSum.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    
+    if (DOM.kpiQuotesExpiredCount) DOM.kpiQuotesExpiredCount.textContent = expiredCount;
+    if (DOM.kpiQuotesExpiredAmount) DOM.kpiQuotesExpiredAmount.textContent = `$${expiredSum.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    
+    // Render visual charts
+    renderDashboardCharts(filtered);
+    
+    // Render list details
     renderQuotesTableFiltered();
 }
 
+function renderDashboardCharts(filtered) {
+    const isLightMode = document.body.classList.contains("light-mode");
+    const tickColor = isLightMode ? '#333333' : '#abb2bf';
+    const gridColor = isLightMode ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.05)';
+    
+    // Count status breakdown
+    let soldCount = 0;
+    let pendingCount = 0;
+    let expiredCount = 0;
+    
+    const refDate = new Date("2026-06-18T12:00:00Z");
+    filtered.forEach(q => {
+        const hasInvoice = !!q.numero_factura;
+        const isLost = q.venta_perdida === "Si" || q.venta_perdida === "si";
+        let ageDays = 999;
+        if (q.fecha_registro) {
+            const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
+            ageDays = Math.floor((refDate - qDate) / (1000 * 60 * 60 * 24));
+        }
+        if (hasInvoice) soldCount++;
+        else if (isLost || ageDays > 30) expiredCount++;
+        else pendingCount++;
+    });
+
+    // 1. Chart Status (Doughnut)
+    if (state.chartQuoteStatus) state.chartQuoteStatus.destroy();
+    const canvasStatus = document.getElementById("chartQuoteStatus");
+    if (canvasStatus) {
+        const ctxStatus = canvasStatus.getContext("2d");
+        state.chartQuoteStatus = new Chart(ctxStatus, {
+            type: 'doughnut',
+            data: {
+                labels: ['Vendidas (Concretadas)', 'Pendientes', 'Vencidas / Perdidas'],
+                datasets: [{
+                    data: [soldCount, pendingCount, expiredCount],
+                    backgroundColor: [
+                        'rgba(16, 185, 129, 0.4)',  // Green
+                        'rgba(245, 158, 11, 0.4)',  // Orange
+                        'rgba(239, 68, 68, 0.4)'    // Red
+                    ],
+                    borderColor: [
+                        '#10b981',
+                        '#f59e0b',
+                        '#ef4444'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: tickColor, font: { family: 'Outfit, sans-serif', size: 11 } }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+    }
+
+    // 2. Chart Seller (Bar)
+    const groupedSeller = {};
+    filtered.forEach(q => {
+        let sellerEmail = q.vendedor_id;
+        if (q.vendedor_id === state.user.id) {
+            sellerEmail = state.user.email;
+        } else {
+            const seller = state.vendedores.find(v => v.id === q.vendedor_id);
+            if (seller && seller.email) {
+                sellerEmail = seller.email;
+            }
+        }
+        const label = sellerEmail.includes("@") ? sellerEmail.split("@")[0] : sellerEmail;
+        groupedSeller[label] = (groupedSeller[label] || 0) + (Number(q.total) || 0);
+    });
+    const sortedSellers = Object.keys(groupedSeller).map(k => ({
+        name: k,
+        total: groupedSeller[k]
+    })).sort((a, b) => b.total - a.total).slice(0, 10); // top 10
+
+    if (state.chartQuoteSeller) state.chartQuoteSeller.destroy();
+    const canvasSeller = document.getElementById("chartQuoteSeller");
+    if (canvasSeller) {
+        const ctxSeller = canvasSeller.getContext("2d");
+        state.chartQuoteSeller = new Chart(ctxSeller, {
+            type: 'bar',
+            data: {
+                labels: sortedSellers.map(s => s.name),
+                datasets: [{
+                    label: 'Monto Cotizado ($)',
+                    data: sortedSellers.map(s => s.total),
+                    backgroundColor: 'rgba(93, 95, 239, 0.4)', // Purple
+                    borderColor: '#5d5fef',
+                    borderWidth: 2,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { ticks: { color: tickColor }, grid: { color: gridColor } },
+                    y: { ticks: { color: tickColor }, grid: { color: gridColor } }
+                }
+            }
+        });
+    }
+
+    // 3. Chart Trend (Line)
+    const groupedTrend = {};
+    filtered.forEach(q => {
+        if (q.fecha_registro) {
+            groupedTrend[q.fecha_registro] = (groupedTrend[q.fecha_registro] || 0) + (Number(q.total) || 0);
+        }
+    });
+    const sortedDates = Object.keys(groupedTrend).sort();
+    
+    if (state.chartQuoteTrend) state.chartQuoteTrend.destroy();
+    const canvasTrend = document.getElementById("chartQuoteTrend");
+    if (canvasTrend) {
+        const ctxTrend = canvasTrend.getContext("2d");
+        const gradient = ctxTrend.createLinearGradient(0, 0, 0, 200);
+        gradient.addColorStop(0, 'rgba(0, 242, 254, 0.3)');
+        gradient.addColorStop(1, 'rgba(0, 242, 254, 0.0)');
+
+        state.chartQuoteTrend = new Chart(ctxTrend, {
+            type: 'line',
+            data: {
+                labels: sortedDates,
+                datasets: [{
+                    label: 'Monto Cotizado Diario ($)',
+                    data: sortedDates.map(d => groupedTrend[d]),
+                    backgroundColor: gradient,
+                    borderColor: '#00f2fe',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: sortedDates.length > 30 ? 0 : 3,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { 
+                        ticks: { 
+                            color: tickColor,
+                            maxTicksLimit: 10
+                        }, 
+                        grid: { color: gridColor } 
+                    },
+                    y: { ticks: { color: tickColor }, grid: { color: gridColor } }
+                }
+            }
+        });
+    }
+
+    // 4. Chart Channel (Doughnut)
+    const groupedChannel = {};
+    filtered.forEach(q => {
+        let channel = q.canal || "Sin especificar";
+        if (channel === "1.0") channel = "Canal 1 (Directo)";
+        else if (channel === "2.0") channel = "Canal 2 (Telemarketing)";
+        groupedChannel[channel] = (groupedChannel[channel] || 0) + 1;
+    });
+
+    if (state.chartQuoteChannel) state.chartQuoteChannel.destroy();
+    const canvasChannel = document.getElementById("chartQuoteChannel");
+    if (canvasChannel) {
+        const ctxChannel = canvasChannel.getContext("2d");
+        state.chartQuoteChannel = new Chart(ctxChannel, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(groupedChannel),
+                datasets: [{
+                    data: Object.values(groupedChannel),
+                    backgroundColor: [
+                        'rgba(93, 95, 239, 0.4)',   // Blue
+                        'rgba(139, 92, 246, 0.4)',  // Purple
+                        'rgba(0, 242, 254, 0.4)',   // Cyan
+                        'rgba(16, 185, 129, 0.4)'   // Green
+                    ],
+                    borderColor: [
+                        '#5d5fef',
+                        '#8b5cf6',
+                        '#00f2fe',
+                        '#10b981'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: tickColor, font: { family: 'Outfit, sans-serif', size: 11 } }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+    }
+}
+
 function renderQuotesTableFiltered() {
-    const searchVal = DOM.searchQuoteClient.value.toLowerCase();
-    const sellerVal = DOM.filterQuoteSeller.value;
-    const daysVal = DOM.filterQuoteDays.value;
+    const searchVal = DOM.searchQuoteClient ? DOM.searchQuoteClient.value.toLowerCase() : "";
+    let filteredQuotes = state.filteredQuotesForTable || state.cotizaciones;
     
-    let filteredQuotes = state.cotizaciones;
-    
-    // 1. Filter by Client Search
+    // Apply client search filter
     if (searchVal) {
         filteredQuotes = filteredQuotes.filter(q => q.cliente_nombre.toLowerCase().includes(searchVal));
     }
     
-    // 2. Filter by Seller
-    if (sellerVal) {
-        filteredQuotes = filteredQuotes.filter(q => q.vendedor_id === sellerVal);
-    }
-    
-    // 3. Filter by Vencimiento / Antigüedad
-    if (daysVal) {
-        const daysLimit = parseInt(daysVal);
-        const refDate = new Date("2026-06-18T12:00:00Z");
-        filteredQuotes = filteredQuotes.filter(q => {
-            if (!q.fecha_registro) return false;
-            const quoteDate = new Date(`${q.fecha_registro}T12:00:00Z`);
-            const diffTime = refDate - quoteDate;
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            return diffDays >= 0 && diffDays <= daysLimit;
-        });
-    }
-    
-    // 4. Sort by Total
+    // Sort by Total
     if (state.quotesSortOrder) {
         if (state.quotesSortOrder === "asc") {
             filteredQuotes = [...filteredQuotes].sort((a, b) => Number(a.total) - Number(b.total));
@@ -728,58 +1052,61 @@ function renderQuotesTableFiltered() {
     const endIndex = startIndex + pageSize;
     const pageQuotes = filteredQuotes.slice(startIndex, endIndex);
     
-    DOM.tableCotizaciones.innerHTML = "";
-    if (pageQuotes.length === 0) {
-        DOM.tableCotizaciones.innerHTML = `<tr><td colspan="10" style="text-align: center;">No hay cotizaciones registradas con los filtros seleccionados.</td></tr>`;
-        renderPagination(totalPages);
-        return;
-    }
-    
-    pageQuotes.forEach(c => {
-        const sellerEmail = c.vendedor_id === state.user.id ? state.user.email : (state.vendedores.find(v => v.id === c.vendedor_id)?.email || c.vendedor_id);
-        const contactInfo = `Email: ${c.datos_contacto.email || '-'}<br>Tel: ${c.datos_contacto.telefono || '-'}`;
-        const itemsSummary = c.items.map(i => `${i.producto} (${i.cantidad})`).join(", ");
+    if (DOM.tableCotizaciones) {
+        DOM.tableCotizaciones.innerHTML = "";
+        if (pageQuotes.length === 0) {
+            DOM.tableCotizaciones.innerHTML = `<tr><td colspan="10" style="text-align: center;">No hay cotizaciones registradas con los filtros seleccionados.</td></tr>`;
+            renderPagination(totalPages);
+            return;
+        }
         
-        const dateStr = c.fecha_registro || '-';
-        const quoteNum = c.numero_cotizacion || '-';
-        const canal = c.canal || '-';
-        const lossPill = c.venta_perdida === "Si" ? 
-            `<span class="status-pill status-pendiente">Si</span>` : 
-            `<span class="status-pill status-completada">No</span>`;
+        pageQuotes.forEach(c => {
+            const sellerEmail = c.vendedor_id === state.user.id ? state.user.email : (state.vendedores.find(v => v.id === c.vendedor_id)?.email || c.vendedor_id);
+            const contactInfo = `Email: ${c.datos_contacto.email || '-'}<br>Tel: ${c.datos_contacto.telefono || '-'}`;
+            const itemsSummary = c.items.map(i => `${i.producto} (${i.cantidad})`).join(", ");
             
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td><code>${quoteNum}</code></td>
-            <td>${dateStr}</td>
-            <td><strong>${c.cliente_nombre}</strong></td>
-            <td>${contactInfo}</td>
-            <td>${canal}</td>
-            <td><strong>$${c.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong></td>
-            <td>${sellerEmail}</td>
-            <td>${lossPill}</td>
-            <td><span class="text-muted" title="${itemsSummary}">${itemsSummary.length > 35 ? itemsSummary.slice(0, 35) + "..." : itemsSummary}</span></td>
-            <td>
-                <button class="btn btn-secondary btn-sm view-proposal-btn" data-id="${c.id}">
-                    <i class="fa-regular fa-file-lines"></i> Ver Propuesta
-                </button>
-            </td>
-        `;
-        DOM.tableCotizaciones.appendChild(tr);
-    });
-    
-    // Attach click events to View Proposal buttons
-    document.querySelectorAll(".view-proposal-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
-            const id = btn.getAttribute("data-id");
-            const quote = state.cotizaciones.find(q => q.id === id);
-            if (quote) {
-                showProposalModal(quote);
-            }
+            const dateStr = c.fecha_registro || '-';
+            const quoteNum = c.numero_cotizacion || '-';
+            const canal = c.canal || '-';
+            const lossPill = c.venta_perdida === "Si" ? 
+                `<span class="status-pill status-pendiente">Si</span>` : 
+                `<span class="status-pill status-completada">No</span>`;
+                
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td><code>${quoteNum}</code></td>
+                <td>${dateStr}</td>
+                <td><strong>${c.cliente_nombre}</strong></td>
+                <td>${contactInfo}</td>
+                <td>${canal}</td>
+                <td><strong>$${c.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong></td>
+                <td>${sellerEmail}</td>
+                <td>${lossPill}</td>
+                <td><span class="text-muted" title="${itemsSummary}">${itemsSummary.length > 35 ? itemsSummary.slice(0, 35) + "..." : itemsSummary}</span></td>
+                <td>
+                    <button class="btn btn-secondary btn-sm view-proposal-btn" data-id="${c.id}">
+                        <i class="fa-regular fa-file-lines"></i> Ver Propuesta
+                    </button>
+                </td>
+            `;
+            DOM.tableCotizaciones.appendChild(tr);
         });
-    });
+        
+        // Attach click events to View Proposal buttons
+        document.querySelectorAll(".view-proposal-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const id = btn.getAttribute("data-id");
+                const quote = state.cotizaciones.find(q => q.id === id);
+                if (quote) {
+                    showProposalModal(quote);
+                }
+            });
+        });
+    }
     
     renderPagination(totalPages);
 }
+
 
 function renderPagination(totalPages) {
     if (!DOM.pagCotizaciones) return;
@@ -1718,13 +2045,43 @@ DOM.searchQuoteClient.addEventListener("input", () => {
 
 DOM.filterQuoteSeller.addEventListener("change", () => {
     state.quotesCurrentPage = 1;
-    renderQuotesTableFiltered();
+    renderQuotesDashboard();
 });
 
 DOM.filterQuoteDays.addEventListener("change", () => {
     state.quotesCurrentPage = 1;
-    renderQuotesTableFiltered();
+    renderQuotesDashboard();
 });
+
+if (DOM.filterQuoteStartDate) {
+    DOM.filterQuoteStartDate.addEventListener("change", () => {
+        state.quotesCurrentPage = 1;
+        renderQuotesDashboard();
+    });
+}
+
+if (DOM.filterQuoteEndDate) {
+    DOM.filterQuoteEndDate.addEventListener("change", () => {
+        state.quotesCurrentPage = 1;
+        renderQuotesDashboard();
+    });
+}
+
+if (DOM.btnToggleQuotesDetails) {
+    DOM.btnToggleQuotesDetails.addEventListener("click", () => {
+        const content = DOM.quotesDetailsContent;
+        const icon = DOM.quotesDetailsToggleIcon;
+        if (content) {
+            if (content.classList.contains("hidden")) {
+                content.classList.remove("hidden");
+                if (icon) icon.style.transform = "rotate(180deg)";
+            } else {
+                content.classList.add("hidden");
+                if (icon) icon.style.transform = "rotate(0deg)";
+            }
+        }
+    });
+}
 
 // Kanban Board event listeners
 if (DOM.kanbanSearchClient) {

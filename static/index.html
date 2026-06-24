@@ -527,12 +527,7 @@
 
                     <!-- Filter panel -->
                     <div class="glass-card filters-card margin-bottom">
-                        <div class="filters-layout">
-                            <div class="input-group-inline">
-                                <label for="search-quote-client">Buscar Cliente:</label>
-                                <input type="text" id="search-quote-client" placeholder="Buscar por empresa o contacto...">
-                            </div>
-                            
+                        <div class="filters-layout" style="flex-wrap: wrap; gap: 16px 24px;">
                             <div class="input-group-inline">
                                 <label for="filter-quote-seller">Vendedor:</label>
                                 <select id="filter-quote-seller" style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: #fff; font-size: 14px;">
@@ -542,47 +537,153 @@
                             </div>
                             
                             <div class="input-group-inline">
-                                <label for="filter-quote-days">Vencimiento / Antigüedad:</label>
+                                <label for="filter-quote-start-date">Fecha Inicio:</label>
+                                <input type="date" id="filter-quote-start-date" style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: #fff; font-size: 14px;">
+                            </div>
+                            
+                            <div class="input-group-inline">
+                                <label for="filter-quote-end-date">Fecha Fin:</label>
+                                <input type="date" id="filter-quote-end-date" style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: #fff; font-size: 14px;">
+                            </div>
+                            
+                            <div class="input-group-inline">
+                                <label for="filter-quote-days">Vencimiento / Estado:</label>
                                 <select id="filter-quote-days" style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: #fff; font-size: 14px;">
-                                    <option value="">Cualquier fecha</option>
-                                    <option value="7">Últimos 7 días</option>
-                                    <option value="15">Últimos 15 días</option>
-                                    <option value="30">Últimos 30 días</option>
-                                    <option value="60">Últimos 60 días</option>
+                                    <option value="all">Todos los estados</option>
+                                    <option value="concretadas">Vendidas (Concretadas)</option>
+                                    <option value="pendientes">Pendientes (En vigor)</option>
+                                    <option value="vencidas">Vencidas / Perdidas</option>
+                                    <option value="7">Vence en 7 días o menos</option>
+                                    <option value="15">Vence en 15 días o menos</option>
+                                    <option value="30">Vence en 30 días o menos</option>
+                                    <option value="60">Vence en 60 días o menos</option>
+                                    <option value="90">Vence en 90 días o menos</option>
                                 </select>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Quotes Table -->
-                    <div class="glass-card table-container">
-                        <table class="data-table" id="table-cotizaciones">
-                            <thead>
-                                <tr>
-                                    <th>No. Cotización</th>
-                                    <th>Fecha</th>
-                                    <th>Cliente</th>
-                                    <th>Contacto</th>
-                                    <th>Canal</th>
-                                    <th>
-                                        Total Cotizado
-                                        <span class="sort-arrows-container">
-                                            <i class="fa-solid fa-caret-up sort-arrow" id="sort-quotes-asc" title="Ordenar de menor a mayor"></i>
-                                            <i class="fa-solid fa-caret-down sort-arrow" id="sort-quotes-desc" title="Ordenar de mayor a menor"></i>
-                                        </span>
-                                    </th>
-                                    <th>Vendedor Asignado</th>
-                                    <th>Venta Perdida?</th>
-                                    <th>Ítems</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Loaded dynamically -->
-                            </tbody>
-                        </table>
-                        <div class="table-pagination" id="pag-cotizaciones">
-                            <!-- Loaded dynamically -->
+                    <!-- Dashboard Metrics Grid -->
+                    <div class="kpi-grid margin-bottom" id="quotes-kpi-grid">
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon icon-blue">
+                                <i class="fa-solid fa-file-invoice-dollar"></i>
+                            </div>
+                            <div class="kpi-data">
+                                <h3>Total Cotizaciones</h3>
+                                <p id="kpi-quotes-total-count">0</p>
+                                <span id="kpi-quotes-total-amount" style="font-size: 13px; color: hsl(var(--text-secondary)); font-weight: 600;">$0.00</span>
+                            </div>
+                        </div>
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon icon-green">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                            <div class="kpi-data">
+                                <h3>Concretadas / Vendidas</h3>
+                                <p id="kpi-quotes-sold-count">0</p>
+                                <span id="kpi-quotes-sold-amount" style="font-size: 13px; color: hsl(var(--text-secondary)); font-weight: 600;">$0.00</span>
+                            </div>
+                        </div>
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon icon-orange">
+                                <i class="fa-solid fa-clock"></i>
+                            </div>
+                            <div class="kpi-data">
+                                <h3>Pendientes</h3>
+                                <p id="kpi-quotes-pending-count">0</p>
+                                <span id="kpi-quotes-pending-amount" style="font-size: 13px; color: hsl(var(--text-secondary)); font-weight: 600;">$0.00</span>
+                            </div>
+                        </div>
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon icon-purple" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">
+                                <i class="fa-solid fa-circle-xmark"></i>
+                            </div>
+                            <div class="kpi-data">
+                                <h3>Vencidas / Perdidas</h3>
+                                <p id="kpi-quotes-expired-count">0</p>
+                                <span id="kpi-quotes-expired-amount" style="font-size: 13px; color: hsl(var(--text-secondary)); font-weight: 600;">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Grid -->
+                    <div class="charts-grid margin-bottom" id="quotes-charts-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
+                        <div class="glass-card chart-container" style="min-height: 300px;">
+                            <div class="card-header">
+                                <h2>Distribución por Estado</h2>
+                            </div>
+                            <div class="chart-wrapper" style="height: 220px;">
+                                <canvas id="chartQuoteStatus"></canvas>
+                            </div>
+                        </div>
+                        <div class="glass-card chart-container" style="min-height: 300px;">
+                            <div class="card-header">
+                                <h2>Monto por Vendedor</h2>
+                            </div>
+                            <div class="chart-wrapper" style="height: 220px;">
+                                <canvas id="chartQuoteSeller"></canvas>
+                            </div>
+                        </div>
+                        <div class="glass-card chart-container" style="min-height: 300px;">
+                            <div class="card-header">
+                                <h2>Tendencia Histórica de Ventas</h2>
+                            </div>
+                            <div class="chart-wrapper" style="height: 220px;">
+                                <canvas id="chartQuoteTrend"></canvas>
+                            </div>
+                        </div>
+                        <div class="glass-card chart-container" style="min-height: 300px;">
+                            <div class="card-header">
+                                <h2>Distribución por Canal</h2>
+                            </div>
+                            <div class="chart-wrapper" style="height: 220px;">
+                                <canvas id="chartQuoteChannel"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Collapsible Quotes Detail List -->
+                    <div class="glass-card border-glow margin-bottom" id="quotes-detail-card" style="padding: 0;">
+                        <div class="card-header" id="btn-toggle-quotes-details" style="padding: 16px 24px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.05); background: rgba(255, 255, 255, 0.01);">
+                            <h2 style="font-size: 16px; font-weight: 600; margin: 0;"><i class="fa-solid fa-list-check" style="margin-right: 8px; color: hsl(var(--primary));"></i> Listado Detallado de Cotizaciones</h2>
+                            <span id="quotes-details-toggle-icon" style="transition: transform var(--transition-fast);"><i class="fa-solid fa-chevron-down"></i></span>
+                        </div>
+                        <div id="quotes-details-content" class="hidden" style="padding: 20px 24px;">
+                            <div class="input-group margin-bottom" style="max-width: 400px; margin-top: 10px;">
+                                <label for="search-quote-client">Buscar Cliente:</label>
+                                <input type="text" id="search-quote-client" placeholder="Buscar por empresa o contacto...">
+                            </div>
+                            <div class="table-container" style="margin-top: 10px;">
+                                <table class="data-table" id="table-cotizaciones">
+                                    <thead>
+                                        <tr>
+                                            <th>No. Cotización</th>
+                                            <th>Fecha</th>
+                                            <th>Cliente</th>
+                                            <th>Contacto</th>
+                                            <th>Canal</th>
+                                            <th>
+                                                Total Cotizado
+                                                <span class="sort-arrows-container">
+                                                    <i class="fa-solid fa-caret-up sort-arrow" id="sort-quotes-asc" title="Ordenar de menor a mayor"></i>
+                                                    <i class="fa-solid fa-caret-down sort-arrow" id="sort-quotes-desc" title="Ordenar de mayor a menor"></i>
+                                                </span>
+                                            </th>
+                                            <th>Vendedor Asignado</th>
+                                            <th>Venta Perdida?</th>
+                                            <th>Ítems</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Loaded dynamically -->
+                                    </tbody>
+                                </table>
+                                <div class="table-pagination" id="pag-cotizaciones">
+                                    <!-- Loaded dynamically -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
