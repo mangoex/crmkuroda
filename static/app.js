@@ -416,12 +416,15 @@ async function loadVendedoresData() {
     // Attach event listeners to Edit buttons
     document.querySelectorAll(".edit-seller-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
-            const id = btn.getAttribute("data-id");
-            const email = btn.getAttribute("data-email");
-            const fullname = btn.getAttribute("data-fullname");
-            const role = btn.getAttribute("data-role");
-            const phone = btn.getAttribute("data-phone");
-            const code = btn.getAttribute("data-code");
+            console.log("Edit user button clicked:", btn);
+            const targetBtn = e.currentTarget || btn;
+            const id = targetBtn.getAttribute("data-id");
+            const email = targetBtn.getAttribute("data-email");
+            const fullname = targetBtn.getAttribute("data-fullname");
+            const role = targetBtn.getAttribute("data-role");
+            const phone = targetBtn.getAttribute("data-phone");
+            const code = targetBtn.getAttribute("data-code");
+            console.log("Edit attributes found:", { id, email, fullname, role, phone, code });
             openEditUserForm(id, email, fullname, role, phone, code);
         });
     });
@@ -1321,27 +1324,43 @@ DOM.btnCloseSellerForm.addEventListener("click", () => {
 });
 
 function openEditUserForm(id, email, fullname, role, phone, code) {
-    editingUserId = id;
-    DOM.sellerFullname.value = fullname;
-    DOM.sellerRole.value = role;
-    DOM.sellerEmail.value = email;
-    DOM.sellerPhone.value = phone;
-    DOM.sellerCode.value = code;
-    DOM.sellerPassword.value = "";
-    DOM.sellerPassword.required = false; // not required when editing
-    DOM.sellerPasswordLabel.innerHTML = 'Nueva Contraseña (dejar en blanco para mantener)';
+    console.log("openEditUserForm called with parameters:", { id, email, fullname, role, phone, code });
+    try {
+        editingUserId = id;
+        if (DOM.sellerFullname) DOM.sellerFullname.value = fullname || "";
+        if (DOM.sellerRole) DOM.sellerRole.value = role || "vendedor";
+        if (DOM.sellerEmail) DOM.sellerEmail.value = email || "";
+        if (DOM.sellerPhone) DOM.sellerPhone.value = phone || "";
+        if (DOM.sellerCode) DOM.sellerCode.value = code || "";
+        if (DOM.sellerPassword) {
+            DOM.sellerPassword.value = "";
+            DOM.sellerPassword.required = false; // not required when editing
+        }
+        if (DOM.sellerPasswordLabel) {
+            DOM.sellerPasswordLabel.innerHTML = 'Nueva Contraseña (dejar en blanco para mantener)';
+        }
 
-    // Trigger role visibility logic
-    if (role === "vendedor") {
-        DOM.sellerCodeGroup.classList.remove("hidden");
-    } else {
-        DOM.sellerCodeGroup.classList.add("hidden");
+        // Trigger role visibility logic
+        if (DOM.sellerCodeGroup) {
+            if (role === "vendedor") {
+                DOM.sellerCodeGroup.classList.remove("hidden");
+            } else {
+                DOM.sellerCodeGroup.classList.add("hidden");
+            }
+        }
+
+        if (DOM.sellerFormTitle) DOM.sellerFormTitle.textContent = "Editar Usuario";
+        if (DOM.btnSubmitSeller) DOM.btnSubmitSeller.textContent = "Guardar Cambios";
+        
+        if (DOM.sellerFormWrapper) {
+            DOM.sellerFormWrapper.classList.remove("hidden");
+            DOM.sellerFormWrapper.scrollIntoView({ behavior: "smooth" });
+        }
+        console.log("openEditUserForm UI updates complete");
+    } catch (err) {
+        console.error("Error in openEditUserForm:", err);
+        showToast("Error al abrir el formulario de edición: " + err.message, "error");
     }
-
-    DOM.sellerFormTitle.textContent = "Editar Usuario";
-    DOM.btnSubmitSeller.textContent = "Guardar Cambios";
-    DOM.sellerFormWrapper.classList.remove("hidden");
-    DOM.sellerFormWrapper.scrollIntoView({ behavior: "smooth" });
 }
 
 async function deleteUser(id, email) {
