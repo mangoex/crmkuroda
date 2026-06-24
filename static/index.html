@@ -212,6 +212,95 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Slight Edge Summary Card (Vendedor Only) -->
+                    <div id="slight-edge-summary-card" class="glass-card border-glow hidden" style="margin-top: 24px; padding: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-chart-line text-glow" style="color: hsl(var(--primary)); font-size: 18px;"></i>
+                                <h2 style="margin: 0; font-size: 16px;">La Ventaja: Progreso y Consistencia</h2>
+                            </div>
+                            <button id="btn-slight-edge-summary-coach" class="btn btn-glow" style="background: linear-gradient(135deg, #a78bfa, #7c3aed); border: none; font-size: 12px; padding: 6px 12px; border-radius: 20px; color: #fff; font-weight: bold;">
+                                <i class="fa-solid fa-wand-magic-sparkles" style="margin-right: 6px;"></i> Coach IA
+                            </button>
+                        </div>
+                        
+                        <div id="slight-edge-summary-metrics-container">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; text-align: center;">
+                                    <span style="font-size: 11px; text-transform: uppercase; color: hsl(var(--text-secondary)); font-weight: bold; display: block; margin-bottom: 6px;">Puntos Hoy</span>
+                                    <strong id="summary-points-today" style="font-size: 28px; color: hsl(var(--primary));">0/10</strong>
+                                    <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block; margin-top: 4px;">Meta diaria de consistencia</span>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; text-align: center;">
+                                    <span style="font-size: 11px; text-transform: uppercase; color: hsl(var(--text-secondary)); font-weight: bold; display: block; margin-bottom: 6px;">Puntos Esta Semana</span>
+                                    <strong id="summary-points-week" style="font-size: 28px; color: #10b981;">0/50</strong>
+                                    <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block; margin-top: 4px;">Meta semanal acumulada</span>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom: 24px;">
+                                <span style="font-size: 12px; font-weight: bold; color: hsl(var(--text-secondary)); text-transform: uppercase; display: block; margin-bottom: 8px;">Actividades Completadas Hoy:</span>
+                                <p id="summary-completed-today-text" style="font-size: 13px; color: #fff; margin: 0;">Ninguna actividad registrada hoy.</p>
+                            </div>
+                            
+                            <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
+                                <h3 style="font-size: 14px; margin-top: 0; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; font-weight: bold;"><i class="fa-solid fa-chart-column" style="color: #38bdf8; margin-right: 6px;"></i>KPIs de Ventas (Efecto Compuesto de los últimos 30 días)</h3>
+                                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
+                                    <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
+                                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Llamadas</span>
+                                        <strong id="summary-kpi-calls" style="font-size: 14px; color: #fff;">0 / 100 meta</strong>
+                                    </div>
+                                    <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
+                                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Citas</span>
+                                        <strong id="summary-kpi-meetings" style="font-size: 14px; color: #fff;">0 / 20 meta</strong>
+                                    </div>
+                                    <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
+                                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Cotizaciones</span>
+                                        <strong id="summary-kpi-quotes" style="font-size: 14px; color: #fff;">0 / 10 meta</strong>
+                                    </div>
+                                    <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
+                                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Ventas</span>
+                                        <strong id="summary-kpi-sales" style="font-size: 14px; color: #fff;">0 / 2 meta</strong>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <div style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.03); padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                        <div style="display: flex; flex-direction: column;">
+                                            <span style="font-size: 11px; color: hsl(var(--text-secondary)); text-transform: uppercase;">Efectividad (Conversión Real)</span>
+                                            <strong id="summary-conversion-real" style="font-size: 18px; color: #38bdf8; margin-top: 4px;">0.0%</strong>
+                                        </div>
+                                        <span id="summary-conversion-plan" style="font-size: 12px; color: hsl(var(--text-secondary));">Plan: 20%</span>
+                                    </div>
+                                    <div style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.03); padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                                        <div style="display: flex; flex-direction: column;">
+                                            <span style="font-size: 11px; color: hsl(var(--text-secondary)); text-transform: uppercase;">Eficiencia de Conversión</span>
+                                            <strong id="summary-conversion-efficiency" style="font-size: 18px; color: #10b981; margin-top: 4px;">0.0%</strong>
+                                        </div>
+                                        <span style="font-size: 12px; color: hsl(var(--text-secondary));">Rendimiento</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                                <button id="btn-slight-edge-summary-go" class="btn btn-secondary btn-sm" style="padding: 8px 16px; border-radius: 6px;">
+                                    <i class="fa-solid fa-arrow-trend-up" style="margin-right: 6px;"></i> Ir a La Ventaja
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Empty State Invitation (when plan doesn't exist) -->
+                        <div id="slight-edge-summary-empty-state" class="hidden" style="text-align: center; padding: 20px 0;">
+                            <p style="font-size: 14px; color: hsl(var(--text-secondary)); margin-bottom: 16px; line-height: 1.5;">
+                                Aún no tienes un plan de consistencia configurado. Define tus disciplinas y metas con el Coach de IA para comenzar a medir tu rendimiento.
+                            </p>
+                            <button id="btn-slight-edge-summary-setup" class="btn btn-glow" style="background: linear-gradient(135deg, #a78bfa, #7c3aed); border: none; padding: 8px 16px; border-radius: 20px; color: #fff; font-weight: bold;">
+                                <i class="fa-solid fa-wand-magic-sparkles" style="margin-right: 6px;"></i> Configurar Plan con Coach IA
+                            </button>
+                        </div>
+                    </div>
+                    </div>
                 </section>
 
                 <!-- Section 2: Vendedores -->
@@ -724,64 +813,144 @@
 
                 <!-- Section: La Ligera Ventaja (Slight Edge) -->
                 <section id="section-slight-edge" class="dashboard-section hidden animate-fade-in">
-                    <!-- Dynamic View 1: Seller View (Checklist & AI Coach) -->
+                                   <!-- Dynamic View 1: Seller View -->
                     <div id="slight-edge-seller-view" class="hidden">
-                        <div class="panel-header">
-                            <h2>La Ligera Ventaja: Consistencia Diaria</h2>
-                            <p style="font-size: 13px; color: hsl(var(--text-secondary)); margin-top: 4px;">Metodología Jeff Olson: Pequeñas acciones diarias multiplicadas en el tiempo.</p>
-                        </div>
                         
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px;">
-                            <!-- Checklist & Progress Column -->
-                            <div class="glass-card" style="padding: 24px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                                    <h3>Mi Checklist del Día</h3>
-                                    <div class="input-group" style="width: auto; margin: 0;">
-                                        <input type="date" id="slight-edge-date" style="padding: 6px 12px; font-size: 13px; border-radius: 6px; width: 140px; margin: 0;">
-                                    </div>
-                                </div>
-                                
-                                <!-- Progress Indicator -->
-                                <div class="progress-box" style="margin-bottom: 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 16px; display: flex; align-items: center; justify-content: space-between;">
+                        <!-- STATE A: Coaching Mode (Only Chat visible) -->
+                        <div id="slight-edge-chat-container" class="hidden" style="max-width: 700px; margin: 0 auto; padding: 10px 0; display: flex; flex-direction: column; height: 600px;">
+                            <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; height: 100%; border: 1px solid rgba(255,255,255,0.08);">
+                                <div class="card-header" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
                                     <div>
-                                        <h4 style="margin: 0; font-size: 15px;">Progreso de Puntos</h4>
-                                        <p style="margin: 4px 0 0 0; font-size: 12px; color: hsl(var(--text-secondary));" id="slight-edge-points-desc">Meta diaria recomendada: 10 pts</p>
+                                        <h3 style="margin: 0;"><i class="fa-solid fa-brain text-glow" style="margin-right: 8px; color: #10b981;"></i>Sesión con tu Sales Coach</h3>
+                                        <p style="font-size: 12px; color: hsl(var(--text-secondary)); margin-top: 4px;">Chatea con la IA para definir tu plan estratégico de actividades y puntos.</p>
                                     </div>
-                                    <div style="text-align: right;">
-                                        <span id="slight-edge-points-counter" style="font-size: 24px; font-weight: bold; color: hsl(var(--primary)); text-shadow: 0 0 10px rgba(93,95,239,0.3);">0 / 10</span>
-                                        <span style="font-size: 13px; color: hsl(var(--text-secondary));"> pts</span>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button id="btn-slight-edge-reset-plan" class="btn btn-danger btn-sm" style="font-size: 12px; padding: 6px 10px;">
+                                            <i class="fa-solid fa-trash-can" style="margin-right: 6px;"></i> Reiniciar Plan
+                                        </button>
+                                        <button id="btn-slight-edge-back-to-dashboard" class="btn btn-secondary btn-sm hidden">
+                                            <i class="fa-solid fa-arrow-left" style="margin-right: 6px;"></i> Volver
+                                        </button>
                                     </div>
                                 </div>
-                                
-                                <!-- Checklist List -->
-                                <div id="slight-edge-checklist-container" style="display: flex; flex-direction: column; gap: 14px;">
-                                    <!-- Dynamic rows will be inserted here -->
-                                </div>
-                                
-                                <button id="btn-save-slight-edge-log" class="btn btn-primary btn-block" style="margin-top: 24px;">
-                                    <i class="fa-solid fa-save"></i> Guardar Consistencia del Día
-                                </button>
-                            </div>
-                            
-                            <!-- AI Chat Coach Column -->
-                            <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; height: 550px;">
-                                <div class="card-header" style="margin-bottom: 12px;">
-                                    <h3><i class="fa-solid fa-brain text-glow" style="margin-right: 8px; color: #10b981;"></i>Sesión con tu Sales Coach</h3>
-                                    <p style="font-size: 12px; color: hsl(var(--text-secondary)); margin-top: 4px;">Chatea con la IA para definir tu plan estratégico de actividades y puntos.</p>
-                                </div>
-                                
-                                <!-- Chat Message History Container -->
                                 <div id="slight-edge-chat-messages" style="flex: 1; overflow-y: auto; padding: 12px; background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px;">
-                                    <!-- Chat bubbles inserted here -->
+                                    <!-- Chat bubbles -->
                                 </div>
-                                
-                                <!-- Chat Input -->
                                 <form id="slight-edge-chat-form" style="display: flex; gap: 8px;">
                                     <input type="text" id="slight-edge-chat-input" placeholder="Pregúntale al Coach o aprueba tu embudo..." style="flex: 1; margin: 0; padding: 10px 14px; border-radius: 6px;" required>
                                     <button type="submit" id="btn-send-slight-edge-chat" class="btn btn-primary" style="padding: 0 16px;">
                                         <i class="fa-solid fa-paper-plane"></i>
                                     </button>
                                 </form>
+                            </div>
+                        </div>
+
+                        <!-- STATE B: Dashboard Mode (The 4 blocks layout) -->
+                        <div id="slight-edge-dashboard-container" class="hidden">
+                            <div style="text-align: center; margin-bottom: 24px; padding-top: 10px;">
+                                <p style="font-size: 14px; color: #a78bfa; margin: 0; font-weight: 500; letter-spacing: 0.5px;">
+                                    Aplica disciplinas diarias consistentes para lograr un crecimiento exponencial a través del Efecto Compuesto.
+                                </p>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                                <!-- Left Column -->
+                                <div style="display: flex; flex-direction: column; gap: 24px;">
+                                    <!-- Card 1: Progress Circle -->
+                                    <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 320px; text-align: center;">
+                                        <h3 style="margin-top: 0; margin-bottom: 24px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: hsl(var(--text-secondary)); font-weight: bold;">PROGRESO DIARIO DE HOY</h3>
+                                        <div id="progress-circle-bar" style="position: relative; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(0,0,0,0.2); border: 8px solid rgba(255,255,255,0.03); box-shadow: inset 0 0 15px rgba(0,0,0,0.5); transition: all 0.3s ease;">
+                                            <div style="text-align: center; z-index: 10;">
+                                                <span id="slight-edge-points-counter" style="font-size: 38px; font-weight: 800; color: #fff; text-shadow: 0 0 10px rgba(93,95,239,0.4);">0</span>
+                                                <div id="slight-edge-points-goal-text" style="font-size: 12px; color: hsl(var(--text-secondary)); margin-top: 2px;">de 10 pts</div>
+                                            </div>
+                                        </div>
+                                        <p style="margin: 24px 0 0 0; font-size: 12px; color: hsl(var(--text-secondary));">Meta aplicable solo en días hábiles (Lunes a Viernes)</p>
+                                    </div>
+                                    
+                                    <!-- Card 2: Checklist of Daily Disciplines -->
+                                    <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 10px; flex-wrap: wrap;">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <i class="fa-solid fa-square-check" style="color: #10b981; font-size: 16px;"></i>
+                                                <h3 style="margin: 0; font-size: 16px;">Checklist de Disciplinas Diarias</h3>
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <input type="date" id="slight-edge-date" style="padding: 4px 8px; font-size: 12px; border-radius: 4px; width: 130px; margin: 0; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: #fff;">
+                                                <button id="btn-slight-edge-new-task" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 12px;"><i class="fa-solid fa-plus"></i> Nueva Tarea</button>
+                                            </div>
+                                        </div>
+                                        <div id="slight-edge-checklist-container" style="display: flex; flex-direction: column; gap: 14px;">
+                                            <!-- checklist rows populated dynamically -->
+                                        </div>
+                                        <button id="btn-save-slight-edge-log" class="btn btn-glow" style="margin-top: 24px; background: linear-gradient(135deg, #10b981, #059669); border: none; width: 100%; color: #fff; font-weight: bold; padding: 12px;">
+                                            <i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i> Guardar Consistencia
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Right Column -->
+                                <div style="display: flex; flex-direction: column; gap: 24px;">
+                                    <!-- Card 3: Estimated Funnel Card -->
+                                    <div class="glass-card" style="padding: 24px; min-height: 320px; display: flex; flex-direction: column;">
+                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+                                            <i class="fa-solid fa-filter" style="color: #38bdf8; font-size: 16px;"></i>
+                                            <h3 style="margin: 0; font-size: 16px;">Tu Embudo de Ventas Estimado</h3>
+                                        </div>
+                                        <div style="display: flex; flex-direction: column; gap: 14px; flex: 1;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                                                <span style="font-size: 13px; color: hsl(var(--text-secondary));">Meta Mensual:</span>
+                                                <strong id="funnel-target-income" style="font-size: 15px; color: #a78bfa;">$0</strong>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                                                <span style="font-size: 13px; color: hsl(var(--text-secondary));">Ticket Promedio:</span>
+                                                <strong id="funnel-ticket-avg" style="font-size: 15px; color: #38bdf8;">$0</strong>
+                                            </div>
+                                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                                                <span style="font-size: 13px; color: hsl(var(--text-secondary));">Conversión Cotización-Cierre:</span>
+                                                <strong id="funnel-conv-rate" style="font-size: 15px; color: #10b981;">0%</strong>
+                                            </div>
+                                            
+                                            <div style="margin-top: 10px;">
+                                                <span style="font-size: 11px; font-weight: bold; color: hsl(var(--text-secondary)); text-transform: uppercase; display: block; margin-bottom: 10px; letter-spacing: 0.5px;">METAS DEL FUNNEL CALCULADAS</span>
+                                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                                    <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
+                                                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Cierres/Mes</span>
+                                                        <strong id="funnel-calc-sales" style="font-size: 16px; color: #fff;">0</strong>
+                                                    </div>
+                                                    <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
+                                                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Cotizaciones/Mes</span>
+                                                        <strong id="funnel-calc-quotes" style="font-size: 16px; color: #fff;">0</strong>
+                                                    </div>
+                                                    <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
+                                                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Citas/Mes</span>
+                                                        <strong id="funnel-calc-meetings" style="font-size: 16px; color: #fff;">0</strong>
+                                                    </div>
+                                                    <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
+                                                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Llamadas/Mes</span>
+                                                        <strong id="funnel-calc-calls" style="font-size: 16px; color: #fff;">0</strong>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div style="display: flex; gap: 12px; margin-top: 20px;">
+                                            <button id="btn-slight-edge-adjust-coach" class="btn btn-secondary btn-sm" style="flex: 1; padding: 10px;"><i class="fa-solid fa-comments"></i> Ajustar con Coach</button>
+                                            <button id="btn-slight-edge-adjust-weights" class="btn btn-secondary btn-sm" style="flex: 1; padding: 10px;"><i class="fa-solid fa-sliders"></i> Ajustar Pesos</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Card 4: Accumulated Consistency Chart -->
+                                    <div class="glass-card" style="padding: 24px; min-height: 280px; display: flex; flex-direction: column;">
+                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                                            <i class="fa-solid fa-chart-line" style="color: #a78bfa; font-size: 16px;"></i>
+                                            <h3 style="margin: 0; font-size: 16px;">Consistencia Acumulada (Efecto Compuesto)</h3>
+                                        </div>
+                                        <div style="flex: 1; position: relative;">
+                                            <canvas id="slightEdgeHistoryChart" style="width: 100%; height: 180px;"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -878,6 +1047,51 @@
                 <button id="btn-copy-proposal" class="btn btn-secondary"><i class="fa-solid fa-copy"></i> Copiar al Portapapeles</button>
                 <button id="btn-close-proposal" class="btn btn-primary">Cerrar</button>
             </div>
+        </div>
+    </div>
+
+    <!-- New Task Modal -->
+    <div id="new-task-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>Nueva Disciplina Diaria</h3>
+                <button id="btn-close-new-task-modal" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="new-task-form">
+                <div class="modal-body">
+                    <div class="input-group">
+                        <label for="new-task-activity">Nombre de la Actividad</label>
+                        <input type="text" id="new-task-activity" placeholder="Ej: Llamadas posventa, Prospección fría" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="new-task-points">Valor en Puntos</label>
+                        <input type="number" id="new-task-points" min="1" max="10" value="1" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="btn-cancel-new-task" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Agregar Tarea</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Adjust Weights Modal -->
+    <div id="adjust-weights-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Ajustar Pesos de Disciplinas</h3>
+                <button id="btn-close-weights-modal" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="adjust-weights-form">
+                <div class="modal-body" id="weights-list-container" style="display: flex; flex-direction: column; gap: 14px; max-height: 300px; overflow-y: auto; padding-right: 6px;">
+                    <!-- populated dynamically -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="btn-cancel-weights" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
         </div>
     </div>
 

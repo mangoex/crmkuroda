@@ -59,6 +59,16 @@ async def on_startup():
         await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS venta_perdida VARCHAR;"))
         await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS comentarios TEXT;"))
 
+        # Delete Lorena Peraza's Slight Edge data for testing reset
+        try:
+            res_user = await conn.execute(text("SELECT id FROM usuarios WHERE nombre_completo LIKE '%Lorena Peraza%';"))
+            lorena_id = res_user.scalar()
+            if lorena_id:
+                await conn.execute(text("DELETE FROM slight_edge_plans WHERE user_id = :uid;"), {"uid": lorena_id})
+                await conn.execute(text("DELETE FROM slight_edge_logs WHERE user_id = :uid;"), {"uid": lorena_id})
+        except Exception:
+            pass
+
     # Crear administrador por defecto y empresa por defecto si no existen
     from app.core.database import SessionLocal
     from app.models.usuario import Usuario

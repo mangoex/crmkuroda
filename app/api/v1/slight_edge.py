@@ -378,3 +378,32 @@ async def coaching_chat(
         "response": response_text,
         "plan_saved": plan_saved
     }
+
+@router.delete("/plan/{user_id}", status_code=status.HTTP_200_OK)
+async def delete_plan_and_logs(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """Deletes the Slight Edge plan and all daily logs for a user, resetting their status."""
+    if current_user.rol not in ["admin", "gerente"] and current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permiso para restablecer el plan de este usuario."
+        )
+
+    # Delete SlightEdgePlan
+    plan_res = await db.execute(select(SlightEdgePlan).filter(SlightEdgePlan.user_id == user_id))
+    plan = plan_res.scalars().first()
+    if plan:
+        await db.delete(plan)
+
+    # Delete all SlightEdgeLogs
+    logs_res = await db.execute(select(SlightEdgeLog).filter(SlightEdgeLog.user_id == user_id))
+    logs = logs_res.scalars().all()
+    for log in logs:
+        await db.delete(log)
+
+    await db.commit()
+    return {"status": "success", "message": "Plan y registros de consistencia eliminados correctamente."}
+

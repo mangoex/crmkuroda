@@ -152,6 +152,35 @@ const DOM = {
     slightEdgeChatForm: document.getElementById("slight-edge-chat-form"),
     slightEdgeChatInput: document.getElementById("slight-edge-chat-input"),
     
+    slightEdgeChatContainer: document.getElementById("slight-edge-chat-container"),
+    slightEdgeDashboardContainer: document.getElementById("slight-edge-dashboard-container"),
+    btnSlightEdgeBackToDashboard: document.getElementById("btn-slight-edge-back-to-dashboard"),
+    btnSlightEdgeNewTask: document.getElementById("btn-slight-edge-new-task"),
+    btnSlightEdgeAdjustCoach: document.getElementById("btn-slight-edge-adjust-coach"),
+    btnSlightEdgeAdjustWeights: document.getElementById("btn-slight-edge-adjust-weights"),
+    
+    funnelTargetIncome: document.getElementById("funnel-target-income"),
+    funnelTicketAvg: document.getElementById("funnel-ticket-avg"),
+    funnelConvRate: document.getElementById("funnel-conv-rate"),
+    funnelCalcSales: document.getElementById("funnel-calc-sales"),
+    funnelCalcQuotes: document.getElementById("funnel-calc-quotes"),
+    funnelCalcMeetings: document.getElementById("funnel-calc-meetings"),
+    funnelCalcCalls: document.getElementById("funnel-calc-calls"),
+    
+    slightEdgeSummaryCard: document.getElementById("slight-edge-summary-card"),
+    btnSlightEdgeSummaryCoach: document.getElementById("btn-slight-edge-summary-coach"),
+    btnSlightEdgeSummaryGo: document.getElementById("btn-slight-edge-summary-go"),
+    summaryPointsToday: document.getElementById("summary-points-today"),
+    summaryPointsWeek: document.getElementById("summary-points-week"),
+    summaryCompletedTodayText: document.getElementById("summary-completed-today-text"),
+    summaryKpiCalls: document.getElementById("summary-kpi-calls"),
+    summaryKpiMeetings: document.getElementById("summary-kpi-meetings"),
+    summaryKpiQuotes: document.getElementById("summary-kpi-quotes"),
+    summaryKpiSales: document.getElementById("summary-kpi-sales"),
+    summaryConversionReal: document.getElementById("summary-conversion-real"),
+    summaryConversionPlan: document.getElementById("summary-conversion-plan"),
+    summaryConversionEfficiency: document.getElementById("summary-conversion-efficiency"),
+    
     slightEdgeCoordinatorView: document.getElementById("slight-edge-coordinator-view"),
     coordinatorAlignmentAlert: document.getElementById("coordinator-alignment-alert"),
     alignmentIcon: document.getElementById("alignment_icon"),
@@ -402,6 +431,9 @@ async function loadSummaryData() {
     renderSalesChart(quotes);
     renderGoalsChart(metas, quotes, sellers);
     renderQuotesHeatmap(quotes);
+    
+    // Load Slight Edge summary tracking card
+    await loadSlightEdgeSummaryWidget();
 }
 
 async function loadVendedoresData() {
@@ -2149,6 +2181,125 @@ document.addEventListener("DOMContentLoaded", () => {
             DOM.slightEdgeAiRecommendationCard.classList.add("hidden");
         });
     }
+
+    // Reset plan button listener
+    const btnSlightEdgeResetPlan = document.getElementById("btn-slight-edge-reset-plan");
+    if (btnSlightEdgeResetPlan) {
+        btnSlightEdgeResetPlan.addEventListener("click", async () => {
+            if (!confirm("¿Estás seguro de que deseas eliminar permanentemente tu plan de La Ventaja y todos tus registros de consistencia para empezar de cero con el Coach de IA?")) {
+                return;
+            }
+            try {
+                await apiRequest(`/api/slight-edge/plan/${state.user.id}`, {
+                    method: "DELETE"
+                });
+                showToast("Plan restablecido correctamente. Iniciando sesión de coaching...");
+                
+                slightEdgeChatHistory = [];
+                checklistQuantities = {};
+                state.slightEdgePlan = null;
+                
+                await loadSellerSlightEdgePlanAndLog();
+                await loadSlightEdgeSummaryWidget();
+            } catch (err) {
+                showToast("Error al restablecer plan: " + err.message, "error");
+            }
+        });
+    }
+
+    // Back to Dashboard button listener
+    if (DOM.btnSlightEdgeBackToDashboard) {
+        DOM.btnSlightEdgeBackToDashboard.addEventListener("click", () => {
+            toggleSlightEdgeMode("dashboard");
+        });
+    }
+
+    // Adjust with Coach button listener
+    if (DOM.btnSlightEdgeAdjustCoach) {
+        DOM.btnSlightEdgeAdjustCoach.addEventListener("click", () => {
+            toggleSlightEdgeMode("coaching");
+            if (DOM.btnSlightEdgeBackToDashboard) DOM.btnSlightEdgeBackToDashboard.classList.remove("hidden");
+        });
+    }
+
+    // Adjust Weights button listener
+    if (DOM.btnSlightEdgeAdjustWeights) {
+        DOM.btnSlightEdgeAdjustWeights.addEventListener("click", () => {
+            openWeightsModal();
+        });
+    }
+
+    // Weights Form cancel and close listeners
+    const btnCancelWeights = document.getElementById("btn-cancel-weights");
+    const btnCloseWeightsModal = document.getElementById("btn-close-weights-modal");
+    if (btnCancelWeights) {
+        btnCancelWeights.addEventListener("click", () => {
+            document.getElementById("adjust-weights-modal").classList.add("hidden");
+        });
+    }
+    if (btnCloseWeightsModal) {
+        btnCloseWeightsModal.addEventListener("click", () => {
+            document.getElementById("adjust-weights-modal").classList.add("hidden");
+        });
+    }
+
+    // Weights Form submit listener
+    const adjustWeightsForm = document.getElementById("adjust-weights-form");
+    if (adjustWeightsForm) {
+        adjustWeightsForm.addEventListener("submit", handleWeightsSubmit);
+    }
+
+    // New Task button listener
+    if (DOM.btnSlightEdgeNewTask) {
+        DOM.btnSlightEdgeNewTask.addEventListener("click", () => {
+            document.getElementById("new-task-modal").classList.remove("hidden");
+        });
+    }
+
+    // New Task Form cancel and close listeners
+    const btnCancelNewTask = document.getElementById("btn-cancel-new-task");
+    const btnCloseNewTaskModal = document.getElementById("btn-close-new-task-modal");
+    if (btnCancelNewTask) {
+        btnCancelNewTask.addEventListener("click", () => {
+            document.getElementById("new-task-modal").classList.add("hidden");
+        });
+    }
+    if (btnCloseNewTaskModal) {
+        btnCloseNewTaskModal.addEventListener("click", () => {
+            document.getElementById("new-task-modal").classList.add("hidden");
+        });
+    }
+
+    // New Task Form submit listener
+    const newTaskForm = document.getElementById("new-task-form");
+    if (newTaskForm) {
+        newTaskForm.addEventListener("submit", handleNewTaskSubmit);
+    }
+
+    // Slight Edge Summary Card button listeners
+    if (DOM.btnSlightEdgeSummaryCoach) {
+        DOM.btnSlightEdgeSummaryCoach.addEventListener("click", () => {
+            switchSection("slight-edge");
+            toggleSlightEdgeMode("coaching");
+            if (DOM.btnSlightEdgeBackToDashboard) DOM.btnSlightEdgeBackToDashboard.classList.remove("hidden");
+        });
+    }
+    if (DOM.btnSlightEdgeSummaryGo) {
+        DOM.btnSlightEdgeSummaryGo.addEventListener("click", () => {
+            switchSection("slight-edge");
+            toggleSlightEdgeMode("dashboard");
+        });
+    }
+    
+    // Setup button in summary card empty state
+    const btnSlightEdgeSummarySetup = document.getElementById("btn-slight-edge-summary-setup");
+    if (btnSlightEdgeSummarySetup) {
+        btnSlightEdgeSummarySetup.addEventListener("click", () => {
+            switchSection("slight-edge");
+            toggleSlightEdgeMode("coaching");
+            if (DOM.btnSlightEdgeBackToDashboard) DOM.btnSlightEdgeBackToDashboard.classList.remove("hidden");
+        });
+    }
 });
 
 /* ==========================================================================
@@ -2176,6 +2327,16 @@ async function loadSlightEdgeData() {
     }
 }
 
+function toggleSlightEdgeMode(mode) {
+    if (mode === "coaching") {
+        if (DOM.slightEdgeChatContainer) DOM.slightEdgeChatContainer.classList.remove("hidden");
+        if (DOM.slightEdgeDashboardContainer) DOM.slightEdgeDashboardContainer.classList.add("hidden");
+    } else {
+        if (DOM.slightEdgeChatContainer) DOM.slightEdgeChatContainer.classList.add("hidden");
+        if (DOM.slightEdgeDashboardContainer) DOM.slightEdgeDashboardContainer.classList.remove("hidden");
+    }
+}
+
 async function loadSellerSlightEdgePlanAndLog() {
     try {
         const planRes = await apiRequest(`/api/slight-edge/plan/${state.user.id}`);
@@ -2184,6 +2345,21 @@ async function loadSellerSlightEdgePlanAndLog() {
 
         // Render checklist structure
         renderSlightEdgeChecklist(plan);
+
+        // Populate funnel estimation cards
+        if (DOM.funnelTargetIncome) DOM.funnelTargetIncome.textContent = `$${plan.monthly_income_goal.toLocaleString()}`;
+        if (DOM.funnelTicketAvg) DOM.funnelTicketAvg.textContent = `$${plan.ticket_average.toLocaleString()}`;
+        if (DOM.funnelConvRate) DOM.funnelConvRate.textContent = `${plan.conversion_rate}%`;
+        
+        if (plan.funnel_metrics) {
+            if (DOM.funnelCalcSales) DOM.funnelCalcSales.textContent = plan.funnel_metrics.ventas_mensuales;
+            if (DOM.funnelCalcQuotes) DOM.funnelCalcQuotes.textContent = plan.funnel_metrics.cotizaciones_mensuales;
+            if (DOM.funnelCalcMeetings) DOM.funnelCalcMeetings.textContent = plan.funnel_metrics.citas_mensuales;
+            if (DOM.funnelCalcCalls) DOM.funnelCalcCalls.textContent = plan.funnel_metrics.llamadas_mensuales;
+        }
+
+        // Toggle to dashboard mode since plan exists
+        toggleSlightEdgeMode("dashboard");
 
         // Fetch log for the selected date
         const targetDate = DOM.slightEdgeDate.value;
@@ -2194,25 +2370,23 @@ async function loadSellerSlightEdgePlanAndLog() {
         populateChecklistQuantities(plan, log);
         updateSlightEdgeProgressPoints(plan);
 
-        // If chat history is empty, populate with coaching message
+        // Fetch logs for the historical consistency chart
+        const historyRes = await apiRequest(`/api/slight-edge/log/${state.user.id}`);
+        const historyLogs = historyRes.data || [];
+        renderSlightEdgeHistoryChart(historyLogs, plan);
+
+        // Populate default active coaching message if chat history empty
         if (slightEdgeChatHistory.length === 0) {
             slightEdgeChatHistory = [
-                { role: "assistant", content: `¡Hola ${state.user.nombre_completo || 'vendedor'}! Soy tu Sales Coach personal. Tu plan de La Ventaja está configurado y activo. Si deseas ajustar tus disciplinas o tus metas mensuales, escríbelo aquí y calcularemos tu nuevo embudo.` }
+                { role: "assistant", content: `¡Hola ${state.user.nombre_completo || 'vendedor'}! Soy tu Sales Coach personal. Tu plan de La Ventaja está configurado y activo. Si deseas ajustar tus disciplinas o tus metas mensuales, haz clic en "Ajustar con Coach" y dime tus nuevos objetivos.` }
             ];
             renderSlightEdgeChat();
         }
     } catch (err) {
-        // Plan not found or other error
         if (err.message.includes("404") || err.message.includes("No se encontró")) {
             state.slightEdgePlan = null;
-            DOM.slightEdgeChecklistContainer.innerHTML = `
-                <div style="text-align: center; padding: 20px; color: hsl(var(--text-secondary));">
-                    <i class="fa-solid fa-circle-question" style="font-size: 32px; display: block; margin-bottom: 12px; color: hsl(var(--primary));"></i>
-                    Aún no has configurado tu plan. Por favor, chatea con el IA Coach a la derecha para establecer tus metas e inicializar tu plan.
-                </div>
-            `;
-            if (DOM.slightEdgePointsCounter) DOM.slightEdgePointsCounter.textContent = "0 / 10";
-            if (DOM.btnSaveSlightEdgeLog) DOM.btnSaveSlightEdgeLog.disabled = true;
+            toggleSlightEdgeMode("coaching");
+            if (DOM.btnSlightEdgeBackToDashboard) DOM.btnSlightEdgeBackToDashboard.classList.add("hidden");
 
             if (slightEdgeChatHistory.length === 0) {
                 slightEdgeChatHistory = [
@@ -2241,13 +2415,13 @@ function renderSlightEdgeChecklist(plan) {
         row.style = "display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); padding: 12px 16px; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px;";
         row.innerHTML = `
             <div style="flex: 1; margin-right: 12px;">
-                <span style="font-size: 14px; font-weight: 500; display: block;">${act.activity}</span>
-                <span style="font-size: 11px; color: hsl(var(--primary));">${act.points} ${act.points === 1 ? 'punto' : 'puntos'} cada una</span>
+                <span style="font-size: 14px; font-weight: 500; display: block; color: #fff;">${act.activity}</span>
+                <span style="font-size: 11px; color: hsl(var(--text-secondary));">+${act.points} ${act.points === 1 ? 'punto' : 'puntos'} por repetición</span>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
-                <button type="button" class="btn btn-secondary btn-icon btn-sm btn-qty-minus" data-activity="${key}" style="width: 28px; height: 28px; border-radius: 6px; padding: 0;"><i class="fa-solid fa-minus" style="font-size: 11px;"></i></button>
-                <span class="qty-display" id="qty-display-${btoa(key).replace(/=/g, '')}" style="font-size: 16px; font-weight: bold; width: 20px; text-align: center;">0</span>
-                <button type="button" class="btn btn-secondary btn-icon btn-sm btn-qty-plus" data-activity="${key}" style="width: 28px; height: 28px; border-radius: 6px; padding: 0;"><i class="fa-solid fa-plus" style="font-size: 11px;"></i></button>
+                <button type="button" class="btn btn-secondary btn-icon btn-sm btn-qty-minus" data-activity="${key}" style="width: 28px; height: 28px; border-radius: 6px; padding: 0; background: rgba(255,255,255,0.05);"><i class="fa-solid fa-minus" style="font-size: 11px;"></i></button>
+                <span class="qty-display" id="qty-display-${btoa(key).replace(/=/g, '')}" style="font-size: 16px; font-weight: bold; width: 20px; text-align: center; color: #fff;">0</span>
+                <button type="button" class="btn btn-secondary btn-icon btn-sm btn-qty-plus" data-activity="${key}" style="width: 28px; height: 28px; border-radius: 6px; padding: 0; background: rgba(255,255,255,0.05);"><i class="fa-solid fa-plus" style="font-size: 11px;"></i></button>
             </div>
         `;
         DOM.slightEdgeChecklistContainer.appendChild(row);
@@ -2306,11 +2480,25 @@ function updateSlightEdgeProgressPoints(plan) {
 
     const goal = plan.daily_points_goal || 10;
     if (DOM.slightEdgePointsCounter) {
-        DOM.slightEdgePointsCounter.textContent = `${sum} / ${goal}`;
+        DOM.slightEdgePointsCounter.textContent = sum;
+    }
+    const goalText = document.getElementById("slight-edge-points-goal-text");
+    if (goalText) {
+        goalText.textContent = `de ${goal} pts`;
+    }
+    
+    const progressCircleBar = document.getElementById("progress-circle-bar");
+    if (progressCircleBar) {
         if (sum >= goal) {
-            DOM.slightEdgePointsCounter.style.color = "#10b981";
+            progressCircleBar.style.borderColor = "#10b981";
+            progressCircleBar.style.opacity = "0.9";
+            progressCircleBar.style.boxShadow = "0 0 15px rgba(16,185,129,0.5)";
+            if (DOM.slightEdgePointsCounter) DOM.slightEdgePointsCounter.style.color = "#10b981";
         } else {
-            DOM.slightEdgePointsCounter.style.color = "hsl(var(--primary))";
+            progressCircleBar.style.borderColor = "hsl(var(--primary))";
+            progressCircleBar.style.opacity = "0.4";
+            progressCircleBar.style.boxShadow = "none";
+            if (DOM.slightEdgePointsCounter) DOM.slightEdgePointsCounter.style.color = "#fff";
         }
     }
 }
@@ -2329,8 +2517,315 @@ async function saveSlightEdgeLog() {
             body: JSON.stringify(payload)
         });
         showToast("Consistencia del día guardada correctamente.");
+        await loadSellerSlightEdgePlanAndLog();
     } catch (err) {
         showToast("Error al guardar consistencia: " + err.message, "error");
+    }
+}
+
+let slightEdgeHistoryChartInstance = null;
+
+function renderSlightEdgeHistoryChart(logs, plan) {
+    const canvas = document.getElementById("slightEdgeHistoryChart");
+    if (!canvas) return;
+    
+    const dates = [];
+    const dateLabels = [];
+    for (let i = 9; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split("T")[0];
+        dates.push(dateStr);
+        const parts = dateStr.split("-");
+        dateLabels.push(`${parts[2]}/${parts[1]}`);
+    }
+    
+    const pointsData = dates.map(dStr => {
+        const log = logs.find(l => l.date === dStr);
+        return log ? log.total_points : 0;
+    });
+    
+    const goal = plan ? plan.daily_points_goal : 10;
+    const goalData = dates.map(() => goal);
+    
+    if (slightEdgeHistoryChartInstance) {
+        slightEdgeHistoryChartInstance.destroy();
+    }
+    
+    const ctx = canvas.getContext("2d");
+    const isDark = !document.body.classList.contains("light-theme");
+    const textColor = isDark ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.6)";
+    const gridColor = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)";
+    
+    slightEdgeHistoryChartInstance = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: dateLabels,
+            datasets: [
+                {
+                    label: "Puntos Logrados",
+                    data: pointsData,
+                    borderColor: "#a78bfa",
+                    backgroundColor: "rgba(167, 139, 250, 0.1)",
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.35,
+                    pointBackgroundColor: "#a78bfa",
+                    pointRadius: 4
+                },
+                {
+                    label: "Meta Diaria",
+                    data: goalData,
+                    borderColor: "rgba(239, 68, 68, 0.5)",
+                    borderWidth: 1.5,
+                    borderDash: [5, 5],
+                    fill: false,
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: { color: textColor, font: { size: 10 } }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: gridColor },
+                    ticks: { color: textColor, font: { size: 9 } }
+                },
+                y: {
+                    min: 0,
+                    max: Math.max(12, ...pointsData) + 2,
+                    grid: { color: gridColor },
+                    ticks: { color: textColor, font: { size: 9 } }
+                }
+            }
+        }
+    });
+}
+
+function openWeightsModal() {
+    const container = document.getElementById("weights-list-container");
+    if (!container || !state.slightEdgePlan) return;
+    
+    container.innerHTML = "";
+    state.slightEdgePlan.activities_config.forEach((act, idx) => {
+        const row = document.createElement("div");
+        row.style = "display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;";
+        row.innerHTML = `
+            <div style="flex: 1; min-width: 0;">
+                <span style="font-size: 13px; font-weight: 500; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff;">${act.activity}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="number" class="weight-input" min="1" max="10" value="${act.points}" data-index="${idx}" style="width: 60px; padding: 6px; font-size: 13px; text-align: center; margin: 0; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #fff;">
+                <button type="button" class="btn btn-danger btn-icon btn-sm btn-delete-activity" data-index="${idx}" style="width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-trash-can" style="font-size: 11px;"></i></button>
+            </div>
+        `;
+        container.appendChild(row);
+    });
+    
+    // Attach click listeners to delete button
+    container.querySelectorAll(".btn-delete-activity").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const idx = parseInt(btn.getAttribute("data-index"));
+            if (confirm(`¿Estás seguro de que deseas eliminar la actividad "${state.slightEdgePlan.activities_config[idx].activity}" de tu plan?`)) {
+                state.slightEdgePlan.activities_config.splice(idx, 1);
+                openWeightsModal(); // refresh UI in modal
+            }
+        });
+    });
+    
+    document.getElementById("adjust-weights-modal").classList.remove("hidden");
+}
+
+async function handleWeightsSubmit(e) {
+    e.preventDefault();
+    if (!state.slightEdgePlan) return;
+    
+    const inputs = document.querySelectorAll("#weights-list-container .weight-input");
+    const updatedConfig = [];
+    
+    inputs.forEach(input => {
+        const idx = parseInt(input.getAttribute("data-index"));
+        const val = parseInt(input.value) || 1;
+        const act = state.slightEdgePlan.activities_config[idx];
+        if (act) {
+            updatedConfig.push({
+                activity: act.activity,
+                points: val
+            });
+        }
+    });
+    
+    try {
+        const payload = {
+            monthly_income_goal: state.slightEdgePlan.monthly_income_goal,
+            ticket_average: state.slightEdgePlan.ticket_average,
+            conversion_rate: state.slightEdgePlan.conversion_rate,
+            activities_config: updatedConfig,
+            daily_points_goal: state.slightEdgePlan.daily_points_goal
+        };
+        
+        await apiRequest(`/api/slight-edge/plan/${state.user.id}`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+        
+        showToast("Pesos de disciplinas actualizados con éxito.");
+        document.getElementById("adjust-weights-modal").classList.add("hidden");
+        await loadSellerSlightEdgePlanAndLog();
+    } catch (err) {
+        showToast("Error al guardar pesos: " + err.message, "error");
+    }
+}
+
+async function handleNewTaskSubmit(e) {
+    e.preventDefault();
+    if (!state.slightEdgePlan) return;
+    
+    const activityName = document.getElementById("new-task-activity").value.trim();
+    const pointsVal = parseInt(document.getElementById("new-task-points").value) || 1;
+    
+    if (!activityName) return;
+    
+    const exists = state.slightEdgePlan.activities_config.some(
+        act => act.activity.toLowerCase() === activityName.toLowerCase()
+    );
+    if (exists) {
+        showToast("Esta actividad ya existe en tu plan.", "error");
+        return;
+    }
+    
+    const updatedConfig = [...state.slightEdgePlan.activities_config, { activity: activityName, points: pointsVal }];
+    
+    try {
+        const payload = {
+            monthly_income_goal: state.slightEdgePlan.monthly_income_goal,
+            ticket_average: state.slightEdgePlan.ticket_average,
+            conversion_rate: state.slightEdgePlan.conversion_rate,
+            activities_config: updatedConfig,
+            daily_points_goal: state.slightEdgePlan.daily_points_goal
+        };
+        
+        await apiRequest(`/api/slight-edge/plan/${state.user.id}`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+        
+        showToast("Nueva actividad añadida con éxito.");
+        document.getElementById("new-task-modal").classList.add("hidden");
+        document.getElementById("new-task-form").reset();
+        await loadSellerSlightEdgePlanAndLog();
+    } catch (err) {
+        showToast("Error al añadir actividad: " + err.message, "error");
+    }
+}
+
+async function loadSlightEdgeSummaryWidget() {
+    if (!DOM.slightEdgeSummaryCard) return;
+    
+    const metricsContainer = document.getElementById("slight-edge-summary-metrics-container");
+    const emptyState = document.getElementById("slight-edge-summary-empty-state");
+    
+    DOM.slightEdgeSummaryCard.classList.remove("hidden");
+    
+    try {
+        const planRes = await apiRequest(`/api/slight-edge/plan/${state.user.id}`);
+        const plan = planRes.data;
+        if (!plan) {
+            if (metricsContainer) metricsContainer.classList.add("hidden");
+            if (emptyState) emptyState.classList.remove("hidden");
+            return;
+        }
+        
+        if (metricsContainer) metricsContainer.classList.remove("hidden");
+        if (emptyState) emptyState.classList.add("hidden");
+        
+        const logRes = await apiRequest(`/api/slight-edge/log/${state.user.id}`);
+        const logs = logRes.data || [];
+        
+        // 1. Points Today
+        const todayStr = new Date().toISOString().split("T")[0];
+        const logToday = logs.find(l => l.date === todayStr);
+        const pointsToday = logToday ? logToday.total_points : 0;
+        const goalToday = plan.daily_points_goal || 10;
+        if (DOM.summaryPointsToday) DOM.summaryPointsToday.textContent = `${pointsToday}/${goalToday}`;
+        
+        // 2. Points This Week
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const logsThisWeek = logs.filter(l => new Date(l.date) >= sevenDaysAgo);
+        const pointsWeek = logsThisWeek.reduce((acc, l) => acc + l.total_points, 0);
+        if (DOM.summaryPointsWeek) DOM.summaryPointsWeek.textContent = `${pointsWeek}/${goalToday * 5}`;
+        
+        // 3. Completed Today List
+        if (DOM.summaryCompletedTodayText) {
+            if (logToday && logToday.completed_activities && Object.keys(logToday.completed_activities).length > 0) {
+                const completedList = Object.entries(logToday.completed_activities)
+                    .filter(([_, count]) => count > 0)
+                    .map(([name, count]) => `${name} (${count})`)
+                    .join(", ");
+                DOM.summaryCompletedTodayText.textContent = completedList || "Ninguna actividad registrada hoy.";
+            } else {
+                DOM.summaryCompletedTodayText.textContent = "Ninguna actividad registrada hoy.";
+            }
+        }
+        
+        // 4. Sum up 30-day completed activities (fuzzy matching)
+        let calls = 0;
+        let meetings = 0;
+        let quotes = 0;
+        let sales = 0;
+        let totalPoints30 = 0;
+        let loggedDays30 = logs.length;
+        
+        function localCategorize(name) {
+            const n = name.toLowerCase().trim();
+            if (n.includes("llam") || n.includes("call") || n.includes("prospect") || n.includes("contac")) return "llamada";
+            if (n.includes("cit") || n.includes("reun") || n.includes("meet") || n.includes("visita")) return "cita";
+            if (n.includes("cotiz") || n.includes("propuest") || n.includes("presupuest") || n.includes("quot") || n.includes("enviar")) return "cotizacion";
+            if (n.includes("cierr") || n.includes("vent") || n.includes("cobro") || n.includes("clos") || n.includes("firm")) return "venta";
+            return "otra";
+        }
+        
+        logs.forEach(log => {
+            totalPoints30 += log.total_points;
+            if (log.completed_activities) {
+                Object.entries(log.completed_activities).forEach(([act, count]) => {
+                    const cat = localCategorize(act);
+                    if (cat === "llamada") calls += count;
+                    else if (cat === "cita") meetings += count;
+                    else if (cat === "cotizacion") quotes += count;
+                    else if (cat === "venta") sales += count;
+                });
+            }
+        });
+        
+        const f = plan.funnel_metrics || { llamadas_mensuales: 100, citas_mensuales: 20, cotizaciones_mensuales: 10, ventas_mensuales: 2 };
+        if (DOM.summaryKpiCalls) DOM.summaryKpiCalls.textContent = `${calls} / ${f.llamadas_mensuales || 100} meta`;
+        if (DOM.summaryKpiMeetings) DOM.summaryKpiMeetings.textContent = `${meetings} / ${f.citas_mensuales || 20} meta`;
+        if (DOM.summaryKpiQuotes) DOM.summaryKpiQuotes.textContent = `${quotes} / ${f.cotizaciones_mensuales || 10} meta`;
+        if (DOM.summaryKpiSales) DOM.summaryKpiSales.textContent = `${sales} / ${f.ventas_mensuales || 2} meta`;
+        
+        // 5. Real Conversion
+        const conversionReal = meetings > 0 ? (sales / meetings * 100) : plan.conversion_rate;
+        if (DOM.summaryConversionReal) DOM.summaryConversionReal.textContent = `${conversionReal.toFixed(1)}%`;
+        if (DOM.summaryConversionPlan) DOM.summaryConversionPlan.textContent = `Plan: ${plan.conversion_rate}%`;
+        
+        // 6. Efficiency
+        const avgDailyPoints = loggedDays30 > 0 ? (totalPoints30 / loggedDays30) : 0;
+        const efficiency = goalToday > 0 ? (avgDailyPoints / goalToday * 100) : 0;
+        if (DOM.summaryConversionEfficiency) DOM.summaryConversionEfficiency.textContent = `${efficiency.toFixed(1)}%`;
+        
+    } catch (err) {
+        console.warn("Slight edge summary card error:", err);
+        if (metricsContainer) metricsContainer.classList.add("hidden");
+        if (emptyState) emptyState.classList.remove("hidden");
     }
 }
 
