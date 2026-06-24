@@ -75,7 +75,7 @@
             
             <nav class="sidebar-menu">
                 <a href="#" class="menu-item active" data-section="summary">
-                    <i class="fa-solid fa-chart-line"></i> <span>Resumen</span>
+                    <i class="fa-solid fa-table-cells-large"></i> <span>Mi Panel</span>
                 </a>
                 <a href="#" class="menu-item" data-section="vendedores" id="menu-vendedores">
                     <i class="fa-solid fa-users"></i> <span>Vendedores</span>
@@ -93,7 +93,10 @@
                     <i class="fa-solid fa-user-gear"></i> <span>Centro de Agentes</span>
                 </a>
                 <a href="#" class="menu-item" data-section="slight-edge">
-                    <i class="fa-solid fa-list-check"></i> <span>La Ligera Ventaja</span>
+                    <i class="fa-solid fa-chart-line"></i> <span>La Ventaja</span>
+                </a>
+                <a href="#" class="menu-item" data-section="asignacion" id="menu-asignacion">
+                    <i class="fa-solid fa-people-arrows"></i> <span>Asignación</span>
                 </a>
             </nav>
             
@@ -1029,6 +1032,67 @@
                     </div>
                 </section>
 
+                <!-- Section: Asignación y Subasta de Clientes -->
+                <section id="section-asignacion" class="dashboard-section hidden animate-fade-in">
+                    <div class="panel-header" style="margin-bottom: 24px;">
+                        <h2>Asignación y Subasta de Clientes</h2>
+                        <p style="font-size: 13px; color: hsl(var(--text-secondary)); margin-top: 4px;">Gestiona la cartera de clientes disponibles. Asigna directamente a un vendedor o publica subastas si seleccionas múltiples vendedores.</p>
+                    </div>
+
+                    <!-- Manager/Gerente/Admin View -->
+                    <div id="asignacion-manager-view" class="hidden" style="display: flex; flex-direction: column; gap: 24px;">
+                        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px;">
+                            <!-- Available Clients Card -->
+                            <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                    <h3 style="margin: 0; font-size: 16px;"><i class="fa-solid fa-folder-open" style="color: #38bdf8; margin-right: 8px;"></i>Clientes Disponibles</h3>
+                                    <button id="btn-select-all-clients" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 12px;">Seleccionar Todos</button>
+                                </div>
+                                
+                                <div style="max-height: 350px; overflow-y: auto; padding-right: 6px; display: flex; flex-direction: column; gap: 10px;" id="list-available-clients">
+                                    <!-- Populated dynamically -->
+                                </div>
+                            </div>
+
+                            <!-- Vendedores Card -->
+                            <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column;">
+                                <h3 style="margin: 0 0 16px 0; font-size: 16px;"><i class="fa-solid fa-users" style="color: #a78bfa; margin-right: 8px;"></i>Vendedores</h3>
+                                
+                                <div style="max-height: 250px; overflow-y: auto; padding-right: 6px; display: flex; flex-direction: column; gap: 10px;" id="list-assign-sellers">
+                                    <!-- Populated dynamically -->
+                                </div>
+                                
+                                <div style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
+                                    <button id="btn-execute-assignment" class="btn btn-glow btn-block" style="background: linear-gradient(135deg, hsl(var(--primary)), #7c3aed); border: none; font-weight: bold; color: #fff;">
+                                        <i class="fa-solid fa-circle-check"></i> Asignar / Publicar Subasta
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Active Auctions with Bids -->
+                        <div class="glass-card" style="padding: 24px;">
+                            <h3 style="margin: 0 0 20px 0; font-size: 16px;"><i class="fa-solid fa-gavel" style="color: #f59e0b; margin-right: 8px;"></i>Subastas Activas y Postulaciones</h3>
+                            
+                            <div id="active-auctions-list" style="display: flex; flex-direction: column; gap: 20px;">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Seller/Vendedor View -->
+                    <div id="asignacion-seller-view" class="hidden" style="display: flex; flex-direction: column; gap: 24px;">
+                        <div class="glass-card" style="padding: 24px;">
+                            <h3 style="margin: 0 0 16px 0; font-size: 16px;"><i class="fa-solid fa-gavel" style="color: #f59e0b; margin-right: 8px;"></i>Subastas Disponibles</h3>
+                            <p style="font-size: 13px; color: hsl(var(--text-secondary)); margin-bottom: 20px;">Clientes en subasta para los cuales fuiste seleccionado. Postúlate explicando tu justificación para que el gerente autorice la asignación.</p>
+                            
+                            <div id="seller-auctions-list" style="display: flex; flex-direction: column; gap: 14px;">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
             </div>
         </main>
     </div>
@@ -1090,6 +1154,32 @@
                 <div class="modal-footer">
                     <button type="button" id="btn-cancel-weights" class="btn btn-secondary">Cancelar</button>
                     <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bidding Reason Modal -->
+    <div id="bidding-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Postularse para Cliente Disponible</h3>
+                <button id="btn-close-bidding-modal" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="bidding-form">
+                <input type="hidden" id="bidding-client-id">
+                <div class="modal-body">
+                    <p style="font-size: 13px; color: hsl(var(--text-secondary)); margin-bottom: 12px;" id="bidding-client-desc">
+                        Explica brevemente por qué crees que este cliente debe ser asignado a ti.
+                    </p>
+                    <div class="input-group">
+                        <label for="bidding-reason">Razón / Justificación</label>
+                        <textarea id="bidding-reason" rows="5" placeholder="Ej: He tenido contacto previo con este cliente, o conozco bien su sector..." required style="resize: vertical;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="btn-cancel-bidding" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Enviar Propuesta</button>
                 </div>
             </form>
         </div>

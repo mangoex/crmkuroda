@@ -7,6 +7,7 @@ from app.models.seguimiento import SeguimientoDiario
 from app.models.company import Company
 from app.models.slight_edge_plan import SlightEdgePlan
 from app.models.slight_edge_log import SlightEdgeLog
+from app.models.cliente_asignacion import ClienteDisponible, PujaCliente
 
 __all__ = [
     "Base", 
@@ -17,5 +18,7 @@ __all__ = [
     "SeguimientoDiario",
     "Company",
     "SlightEdgePlan",
-    "SlightEdgeLog"
+    "SlightEdgeLog",
+    "ClienteDisponible",
+    "PujaCliente"
 ]

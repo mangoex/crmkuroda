@@ -15,6 +15,7 @@ from app.api.v1.webhooks import router as webhooks_router
 from app.api.v1.analisis import router as analisis_router
 from app.api.v1.slight_edge import router as slight_edge_router
 from app.api.v1.companies import router as companies_router
+from app.api.v1.asignaciones import router as asignaciones_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -90,8 +91,8 @@ async def on_startup():
             session.add(default_company)
 
         # Seed admin
-        res = await session.execute(select(Usuario).filter(Usuario.email == "admin@kuroda.com"))
-        admin_user = res.scalars().first()
+        res_admin = await session.execute(select(Usuario).filter(Usuario.email == "admin@kuroda.com"))
+        admin_user = res_admin.scalars().first()
         if not admin_user:
             nuevo_admin = Usuario(
                 email="admin@kuroda.com",
@@ -103,6 +104,44 @@ async def on_startup():
         else:
             admin_user.hashed_password = get_password_hash("admin123")
             admin_user.rol = "admin"
+            
+        # Seed available clients if empty
+        from app.models.cliente_asignacion import ClienteDisponible
+        cli_count_res = await session.execute(select(ClienteDisponible))
+        if not cli_count_res.scalars().first():
+            dummy_clients = [
+                ClienteDisponible(
+                    nombre="Agropecuaria del Noroeste S.A.",
+                    email="contacto@agronoroeste.com",
+                    telefono="6677123456",
+                    comentarios="Cliente interesado en tuberías de alta presión para riego.",
+                    estado="disponible"
+                ),
+                ClienteDisponible(
+                    nombre="Construcciones y Proyectos del Pacífico S.A.",
+                    email="licitaciones@conspacifico.mx",
+                    telefono="6699876543",
+                    comentarios="Solicita cotización de válvulas industriales y conexiones de PVC.",
+                    estado="disponible"
+                ),
+                ClienteDisponible(
+                    nombre="Desarrolladora de Vivienda del Valle",
+                    email="compras@viviendavalle.com",
+                    telefono="6688112233",
+                    comentarios="Proyecto habitacional en Los Mochis. Busca grifería y medidores.",
+                    estado="disponible"
+                ),
+                ClienteDisponible(
+                    nombre="Distribuidora Hidráulica del Golfo",
+                    email="ventas@hidrogolfo.com",
+                    telefono="6671098765",
+                    comentarios="Mayorista local. Busca acuerdo de distribución de refacciones.",
+                    estado="disponible"
+                )
+            ]
+            for dc in dummy_clients:
+                session.add(dc)
+
         await session.commit()
 
     # Iniciar el planificador de tareas en segundo plano
@@ -169,6 +208,7 @@ app.include_router(webhooks_router, prefix="/api/v1/webhooks", tags=["Webhooks"]
 app.include_router(analisis_router, prefix="/api/v1/analisis", tags=["Analisis"])
 app.include_router(slight_edge_router, prefix="/api/slight-edge", tags=["La Ligera Ventaja"])
 app.include_router(companies_router, prefix="/companies", tags=["Compañías / Empresas"])
+app.include_router(asignaciones_router, prefix="/api/v1/asignaciones", tags=["Asignación de Clientes"])
 
 # Mount Static Files (CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")

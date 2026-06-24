@@ -389,6 +389,8 @@ async function loadSectionData(sectionId) {
             await loadAgentesSectionData();
         } else if (sectionId === "slight-edge") {
             await loadSlightEdgeData();
+        } else if (sectionId === "asignacion") {
+            await loadAsignacionData();
         }
     } catch (e) {
         showToast(e.message, "error");
@@ -3024,3 +3026,363 @@ async function handleCompanySettingsSubmit(e) {
         showToast("Error al guardar metas: " + err.message, "error");
     }
 }
+
+/* ==========================================================================
+   ASIGNACIÓN Y SUBASTA DE CLIENTES
+   ========================================================================== */
+
+async function loadAsignacionData() {
+    const managerView = document.getElementById("asignacion-manager-view");
+    const sellerView = document.getElementById("asignacion-seller-view");
+    
+    if (!managerView || !sellerView) return;
+
+    if (state.user.rol === "vendedor") {
+        managerView.classList.add("hidden");
+        sellerView.classList.remove("hidden");
+        await loadSellerAsignacionView();
+    } else {
+        managerView.classList.remove("hidden");
+        sellerView.classList.add("hidden");
+        await loadManagerAsignacionView();
+    }
+}
+
+async function loadManagerAsignacionView() {
+    const listAvailable = document.getElementById("list-available-clients");
+    const listSellers = document.getElementById("list-assign-sellers");
+    const activeAuctions = document.getElementById("active-auctions-list");
+    
+    if (!listAvailable || !listSellers || !activeAuctions) return;
+
+    try {
+        // 1. Fetch available clients
+        const clientsRes = await apiRequest("/api/v1/asignaciones/clientes");
+        const clients = clientsRes || [];
+
+        // 2. Fetch sellers
+        const sellersRes = await apiRequest("/api/v1/vendedores/?limit=100");
+        const sellers = sellersRes.data || [];
+
+        // 3. Render Available Clients
+        listAvailable.innerHTML = "";
+        const availableClients = clients.filter(c => c.estado === "disponible");
+        if (availableClients.length === 0) {
+            listAvailable.innerHTML = `<p style="font-size: 13px; color: hsl(var(--text-secondary)); text-align: center; margin: 20px 0;">No hay clientes disponibles para asignación.</p>`;
+        } else {
+            availableClients.forEach(c => {
+                const item = document.createElement("div");
+                item.style = "display: flex; align-items: flex-start; gap: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px; border-radius: 6px;";
+                item.innerHTML = `
+                    <input type="checkbox" class="client-checkbox" value="${c.id}" style="margin-top: 3px;">
+                    <div style="flex: 1;">
+                        <strong style="font-size: 14px; color: #fff;">${c.nombre}</strong>
+                        <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
+                            ${c.email || ''} ${c.telefono ? ' | ' + c.telefono : ''}
+                        </span>
+                        ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: #38bdf8;">${c.comentarios}</p>` : ''}
+                    </div>
+                `;
+                listAvailable.appendChild(item);
+            });
+        }
+
+        // 4. Render Sellers
+        listSellers.innerHTML = "";
+        const activeSellers = sellers.filter(s => s.rol === "vendedor");
+        if (activeSellers.length === 0) {
+            listSellers.innerHTML = `<p style="font-size: 13px; color: hsl(var(--text-secondary)); text-align: center; margin: 20px 0;">No hay vendedores registrados.</p>`;
+        } else {
+            activeSellers.forEach(s => {
+                const item = document.createElement("div");
+                item.style = "display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 10px; border-radius: 6px;";
+                item.innerHTML = `
+                    <input type="checkbox" class="seller-checkbox" value="${s.id}">
+                    <div>
+                        <strong style="font-size: 13px; color: #fff;">${s.nombre_completo || s.email}</strong>
+                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">${s.codigo_vendedor || 'Vendedor'}</span>
+                    </div>
+                `;
+                listSellers.appendChild(item);
+            });
+        }
+
+        // 5. Render Active Auctions
+        activeAuctions.innerHTML = "";
+        const auctionClients = clients.filter(c => c.estado === "en_subasta");
+        if (auctionClients.length === 0) {
+            activeAuctions.innerHTML = `<p style="font-size: 13px; color: hsl(var(--text-secondary)); text-align: center; margin: 20px 0;">No hay subastas activas en este momento.</p>`;
+        } else {
+            auctionClients.forEach(c => {
+                const item = document.createElement("div");
+                item.style = "background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 18px; border-radius: 8px; border-left: 4px solid #f59e0b; margin-bottom: 12px;";
+                
+                let bidsHtml = "";
+                if (!c.pujas || c.pujas.length === 0) {
+                    bidsHtml = `<p style="font-size: 12px; color: hsl(var(--text-secondary)); margin: 10px 0 0 0; font-style: italic;">Esperando postulaciones de los vendedores...</p>`;
+                } else {
+                    bidsHtml = `
+                        <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 14px;">
+                            <h4 style="margin: 0 0 6px 0; font-size: 13px; color: #f59e0b;">Postulaciones Recibidas (${c.pujas.length}):</h4>
+                            ${c.pujas.map(p => `
+                                <div style="background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.03); padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: flex-start; gap: 14px;">
+                                    <div style="flex: 1;">
+                                        <span style="font-size: 12px; color: #a78bfa; font-weight: bold;">
+                                            ${p.vendedor ? (p.vendedor.nombre_completo || p.vendedor.email) : 'Vendedor'}
+                                        </span>
+                                        <p style="margin: 6px 0 0 0; font-size: 13px; color: #fff; line-height: 1.4;">
+                                            "${p.razon}"
+                                        </p>
+                                    </div>
+                                    <button class="btn btn-primary btn-sm btn-approve-bid" data-client="${c.id}" data-bid="${p.id}" style="padding: 6px 12px; font-size: 11px;">
+                                        <i class="fa-solid fa-check"></i> Asignar
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                item.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <strong style="font-size: 15px; color: #fff;">${c.nombre}</strong>
+                            <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
+                                ${c.email || ''} ${c.telefono ? ' | ' + c.telefono : ''}
+                            </span>
+                            ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: hsl(var(--text-secondary));">${c.comentarios}</p>` : ''}
+                        </div>
+                        <span class="badge" style="background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); font-size: 11px;">En Subasta</span>
+                    </div>
+                    ${bidsHtml}
+                `;
+                activeAuctions.appendChild(item);
+            });
+
+            // Attach event listeners to Approve buttons
+            activeAuctions.querySelectorAll(".btn-approve-bid").forEach(btn => {
+                btn.addEventListener("click", async () => {
+                    const clientId = btn.getAttribute("data-client");
+                    const bidId = btn.getAttribute("data-bid");
+                    
+                    if (!confirm("¿Estás seguro de asignar este cliente al vendedor seleccionado? Esto cerrará la subasta.")) return;
+
+                    try {
+                        await apiRequest("/api/v1/asignaciones/resolver", {
+                            method: "POST",
+                            body: JSON.stringify({
+                                cliente_id: clientId,
+                                puja_ganadora_id: bidId
+                            })
+                        });
+                        showToast("Cliente asignado con éxito.");
+                        await loadManagerAsignacionView();
+                    } catch (err) {
+                        showToast("Error al resolver subasta: " + err.message, "error");
+                    }
+                });
+            });
+        }
+
+    } catch (err) {
+        showToast("Error al cargar asignaciones: " + err.message, "error");
+    }
+}
+
+async function loadSellerAsignacionView() {
+    const listSellers = document.getElementById("seller-auctions-list");
+    if (!listSellers) return;
+
+    try {
+        const clientsRes = await apiRequest("/api/v1/asignaciones/clientes");
+        const clients = clientsRes || [];
+
+        listSellers.innerHTML = "";
+        
+        // Show only active auctions where they can bid or show assigned ones
+        const auctions = clients.filter(c => c.estado === "en_subasta");
+        const assigned = clients.filter(c => c.estado === "asignado" && c.asignado_a === state.user.id);
+        
+        if (auctions.length === 0 && assigned.length === 0) {
+            listSellers.innerHTML = `<p style="font-size: 13px; color: hsl(var(--text-secondary)); text-align: center; margin: 20px 0;">No tienes subastas disponibles ni clientes asignados.</p>`;
+            return;
+        }
+
+        // Render Auctions
+        if (auctions.length > 0) {
+            const auctionTitle = document.createElement("h4");
+            auctionTitle.style = "margin: 10px 0; font-size: 14px; color: #f59e0b;";
+            auctionTitle.textContent = "Subastas Activas:";
+            listSellers.appendChild(auctionTitle);
+
+            auctions.forEach(c => {
+                // Check if this seller has already bid
+                const myBid = c.pujas ? c.pujas.find(p => p.vendedor_id === state.user.id) : null;
+                
+                const item = document.createElement("div");
+                item.style = "background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 18px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 12px;";
+                
+                let actionHtml = "";
+                if (myBid) {
+                    actionHtml = `
+                        <div style="text-align: right;">
+                            <span class="badge" style="background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); font-size: 11px; display: inline-block; margin-bottom: 4px;">Propuesta Enviada</span>
+                            <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">"${myBid.razon.substring(0, 30)}..."</span>
+                        </div>
+                    `;
+                } else {
+                    actionHtml = `
+                        <button class="btn btn-glow btn-sm btn-pujar-cliente" data-id="${c.id}" data-nombre="${c.nombre}" style="background: linear-gradient(135deg, #f59e0b, #d97706); border: none; font-weight: bold; color: #fff;">
+                            <i class="fa-solid fa-gavel"></i> Pujar
+                        </button>
+                    `;
+                }
+
+                item.innerHTML = `
+                    <div style="flex: 1;">
+                        <strong style="font-size: 15px; color: #fff;">${c.nombre}</strong>
+                        ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: hsl(var(--text-secondary));">${c.comentarios}</p>` : ''}
+                    </div>
+                    ${actionHtml}
+                `;
+                listSellers.appendChild(item);
+            });
+        }
+
+        // Render Assigned Clientes
+        if (assigned.length > 0) {
+            const assignedTitle = document.createElement("h4");
+            assignedTitle.style = "margin: 20px 0 10px 0; font-size: 14px; color: #10b981;";
+            assignedTitle.textContent = "Mis Clientes Asignados:";
+            listSellers.appendChild(assignedTitle);
+
+            assigned.forEach(c => {
+                const item = document.createElement("div");
+                item.style = "background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; border-left: 4px solid #10b981; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;";
+                item.innerHTML = `
+                    <div>
+                        <strong style="font-size: 15px; color: #fff;">${c.nombre}</strong>
+                        <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
+                            ${c.email || ''} ${c.telefono ? ' | ' + c.telefono : ''}
+                        </span>
+                        ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: hsl(var(--text-secondary));">${c.comentarios}</p>` : ''}
+                    </div>
+                    <span class="badge" style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2); font-size: 11px;">Asignado</span>
+                `;
+                listSellers.appendChild(item);
+            });
+        }
+
+        // Attach event listeners to Bid buttons
+        listSellers.querySelectorAll(".btn-pujar-cliente").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const clientId = btn.getAttribute("data-id");
+                const clientNombre = btn.getAttribute("data-nombre");
+                
+                const biddingModal = document.getElementById("bidding-modal");
+                const biddingClientId = document.getElementById("bidding-client-id");
+                const biddingClientDesc = document.getElementById("bidding-client-desc");
+                
+                if (biddingModal && biddingClientId && biddingClientDesc) {
+                    biddingClientId.value = clientId;
+                    biddingClientDesc.textContent = `Explica por qué crees que el cliente "${clientNombre}" debería ser asignado a ti.`;
+                    document.getElementById("bidding-reason").value = "";
+                    biddingModal.classList.remove("hidden");
+                }
+            });
+        });
+
+    } catch (err) {
+        showToast("Error al cargar tus subastas: " + err.message, "error");
+    }
+}
+
+async function handleExecuteAssignment() {
+    const selectedClients = Array.from(document.querySelectorAll("#list-available-clients .client-checkbox:checked")).map(cb => cb.value);
+    const selectedSellers = Array.from(document.querySelectorAll("#list-assign-sellers .seller-checkbox:checked")).map(cb => cb.value);
+
+    if (selectedClients.length === 0) {
+        showToast("Por favor, selecciona al menos un cliente disponible.", "error");
+        return;
+    }
+    if (selectedSellers.length === 0) {
+        showToast("Por favor, selecciona al menos un vendedor.", "error");
+        return;
+    }
+
+    try {
+        const res = await apiRequest("/api/v1/asignaciones/iniciar", {
+            method: "POST",
+            body: JSON.stringify({
+                cliente_ids: selectedClients,
+                vendedor_ids: selectedSellers
+            })
+        });
+        showToast(res.message);
+        await loadManagerAsignacionView();
+    } catch (err) {
+        showToast("Error al ejecutar asignación: " + err.message, "error");
+    }
+}
+
+// Bidding Modal Submissions and Closures
+document.addEventListener("DOMContentLoaded", () => {
+    // Execute assignment button
+    const btnExecute = document.getElementById("btn-execute-assignment");
+    if (btnExecute) {
+        btnExecute.addEventListener("click", handleExecuteAssignment);
+    }
+
+    // Select all clients button
+    const btnSelectAll = document.getElementById("btn-select-all-clients");
+    if (btnSelectAll) {
+        btnSelectAll.addEventListener("click", () => {
+            const checkboxes = document.querySelectorAll("#list-available-clients .client-checkbox");
+            if (checkboxes.length === 0) return;
+            
+            // Check if all are checked
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => cb.checked = !allChecked);
+            btnSelectAll.textContent = allChecked ? "Seleccionar Todos" : "Deseleccionar Todos";
+        });
+    }
+
+    // Bidding Form Submission
+    const biddingForm = document.getElementById("bidding-form");
+    if (biddingForm) {
+        biddingForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const clientId = document.getElementById("bidding-client-id").value;
+            const reason = document.getElementById("bidding-reason").value;
+
+            try {
+                await apiRequest("/api/v1/asignaciones/pujas", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        cliente_id: clientId,
+                        razon: reason
+                    })
+                });
+                showToast("Propuesta enviada con éxito.");
+                document.getElementById("bidding-modal").classList.add("hidden");
+                await loadSellerAsignacionView();
+            } catch (err) {
+                showToast("Error al enviar propuesta: " + err.message, "error");
+            }
+        });
+    }
+
+    // Close Bidding Modal buttons
+    const btnCloseBidding = document.getElementById("btn-close-bidding-modal");
+    if (btnCloseBidding) {
+        btnCloseBidding.addEventListener("click", () => {
+            document.getElementById("bidding-modal").classList.add("hidden");
+        });
+    }
+    const btnCancelBidding = document.getElementById("btn-cancel-bidding");
+    if (btnCancelBidding) {
+        btnCancelBidding.addEventListener("click", () => {
+            document.getElementById("bidding-modal").classList.add("hidden");
+        });
+    }
+});
