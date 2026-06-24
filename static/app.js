@@ -184,6 +184,15 @@ const DOM = {
     funnelCalcQuotes: document.getElementById("funnel-calc-quotes"),
     funnelCalcMeetings: document.getElementById("funnel-calc-meetings"),
     funnelCalcCalls: document.getElementById("funnel-calc-calls"),
+    toggleFunnelReal: document.getElementById("toggle-funnel-real"),
+    labelFunnelTargetIncome: document.getElementById("label-funnel-target-income"),
+    labelFunnelTicketAvg: document.getElementById("label-funnel-ticket-avg"),
+    labelFunnelConvRate: document.getElementById("label-funnel-conv-rate"),
+    subtitleFunnelHeader: document.getElementById("subtitle-funnel-header"),
+    labelFunnelSales: document.getElementById("label-funnel-sales"),
+    labelFunnelQuotes: document.getElementById("label-funnel-quotes"),
+    labelFunnelMeetings: document.getElementById("label-funnel-meetings"),
+    labelFunnelCalls: document.getElementById("label-funnel-calls"),
     
     slightEdgeSummaryCard: document.getElementById("slight-edge-summary-card"),
     btnSlightEdgeSummaryCoach: document.getElementById("btn-slight-edge-summary-coach"),
@@ -2604,6 +2613,13 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // Setup Slight Edge Funnel Real toggle listener
+    if (DOM.toggleFunnelReal) {
+        DOM.toggleFunnelReal.addEventListener("change", () => {
+            updateFunnelDisplay();
+        });
+    }
+
     // Setup Vendedores Sort listener
     if (DOM.selectSortSellers) {
         DOM.selectSortSellers.addEventListener("change", () => {
@@ -2802,16 +2818,50 @@ function toggleSlightEdgeMode(mode) {
     }
 }
 
-async function loadSellerSlightEdgePlanAndLog() {
-    try {
-        const planRes = await apiRequest(`/api/slight-edge/plan/${state.user.id}`);
-        const plan = planRes.data;
-        state.slightEdgePlan = plan;
+function updateFunnelDisplay() {
+    const toggle = document.getElementById("toggle-funnel-real");
+    const showReal = toggle ? toggle.checked : false;
+    
+    const plan = state.slightEdgePlan;
+    if (!plan) return;
 
-        // Render checklist structure
-        renderSlightEdgeChecklist(plan);
+    if (showReal) {
+        if (DOM.labelFunnelTargetIncome) DOM.labelFunnelTargetIncome.textContent = "Dinero Vendido:";
+        if (DOM.labelFunnelTicketAvg) DOM.labelFunnelTicketAvg.textContent = "Ticket Promedio Real:";
+        if (DOM.labelFunnelConvRate) DOM.labelFunnelConvRate.textContent = "Conversión Real:";
+        if (DOM.subtitleFunnelHeader) DOM.subtitleFunnelHeader.textContent = "AVANCES DEL FUNNEL REALES";
+        if (DOM.labelFunnelSales) DOM.labelFunnelSales.textContent = "Cierres";
+        if (DOM.labelFunnelQuotes) DOM.labelFunnelQuotes.textContent = "Cotizaciones";
+        if (DOM.labelFunnelMeetings) DOM.labelFunnelMeetings.textContent = "Citas";
+        if (DOM.labelFunnelCalls) DOM.labelFunnelCalls.textContent = "Llamadas";
 
-        // Populate funnel estimation cards
+        const real = state.slightEdgeRealMetrics || {
+            moneyWon: 0,
+            ticketAvg: 0,
+            conversionRate: 0,
+            sales: 0,
+            quotes: 0,
+            meetings: 0,
+            calls: 0
+        };
+
+        if (DOM.funnelTargetIncome) DOM.funnelTargetIncome.textContent = `$${Math.round(real.moneyWon).toLocaleString()}`;
+        if (DOM.funnelTicketAvg) DOM.funnelTicketAvg.textContent = `$${Math.round(real.ticketAvg).toLocaleString()}`;
+        if (DOM.funnelConvRate) DOM.funnelConvRate.textContent = `${real.conversionRate.toFixed(1)}%`;
+        if (DOM.funnelCalcSales) DOM.funnelCalcSales.textContent = real.sales;
+        if (DOM.funnelCalcQuotes) DOM.funnelCalcQuotes.textContent = real.quotes;
+        if (DOM.funnelCalcMeetings) DOM.funnelCalcMeetings.textContent = real.meetings;
+        if (DOM.funnelCalcCalls) DOM.funnelCalcCalls.textContent = real.calls;
+    } else {
+        if (DOM.labelFunnelTargetIncome) DOM.labelFunnelTargetIncome.textContent = "Meta Mensual:";
+        if (DOM.labelFunnelTicketAvg) DOM.labelFunnelTicketAvg.textContent = "Ticket Promedio:";
+        if (DOM.labelFunnelConvRate) DOM.labelFunnelConvRate.textContent = "Conversión Cotización-Cierre:";
+        if (DOM.subtitleFunnelHeader) DOM.subtitleFunnelHeader.textContent = "METAS DEL FUNNEL CALCULADAS";
+        if (DOM.labelFunnelSales) DOM.labelFunnelSales.textContent = "Cierres/Mes";
+        if (DOM.labelFunnelQuotes) DOM.labelFunnelQuotes.textContent = "Cotizaciones/Mes";
+        if (DOM.labelFunnelMeetings) DOM.labelFunnelMeetings.textContent = "Citas/Mes";
+        if (DOM.labelFunnelCalls) DOM.labelFunnelCalls.textContent = "Llamadas/Mes";
+
         if (DOM.funnelTargetIncome) DOM.funnelTargetIncome.textContent = `$${plan.monthly_income_goal.toLocaleString()}`;
         if (DOM.funnelTicketAvg) DOM.funnelTicketAvg.textContent = `$${plan.ticket_average.toLocaleString()}`;
         if (DOM.funnelConvRate) DOM.funnelConvRate.textContent = `${plan.conversion_rate}%`;
@@ -2822,6 +2872,103 @@ async function loadSellerSlightEdgePlanAndLog() {
             if (DOM.funnelCalcMeetings) DOM.funnelCalcMeetings.textContent = plan.funnel_metrics.citas_mensuales;
             if (DOM.funnelCalcCalls) DOM.funnelCalcCalls.textContent = plan.funnel_metrics.llamadas_mensuales;
         }
+    }
+}
+
+async function loadSellerSlightEdgePlanAndLog() {
+    try {
+        const planRes = await apiRequest(`/api/slight-edge/plan/${state.user.id}`);
+        const plan = planRes.data;
+        state.slightEdgePlan = plan;
+
+        // Render checklist structure
+        renderSlightEdgeChecklist(plan);
+
+        // Fetch quotes to calculate real metrics
+        let quotes = [];
+        try {
+            const quotesRes = await apiRequest(`/api/v1/cotizaciones/?limit=5000`);
+            quotes = quotesRes.data || [];
+        } catch (qErr) {
+            console.error("Error fetching quotes for slight edge:", qErr);
+        }
+
+        // Fetch logs for the historical consistency chart
+        const historyRes = await apiRequest(`/api/slight-edge/log/${state.user.id}`);
+        const historyLogs = historyRes.data || [];
+
+        // Now calculate real metrics for the current calendar month
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth(); // 0-indexed
+
+        // Filter quotes for the current calendar month
+        const currentMonthQuotes = quotes.filter(q => {
+            if (!q.fecha_registro) return false;
+            const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
+            return qDate.getFullYear() === currentYear && qDate.getMonth() === currentMonth;
+        });
+
+        const wonQuotes = currentMonthQuotes.filter(q => {
+            const hasInvoice = !!q.numero_factura;
+            const isLost = q.venta_perdida === "Si" || q.venta_perdida === "si";
+            return hasInvoice && !isLost;
+        });
+
+        const realMoneyWon = wonQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0);
+        const realTicketAvg = wonQuotes.length > 0 ? (realMoneyWon / wonQuotes.length) : 0;
+        const realConversionRate = currentMonthQuotes.length > 0 ? (wonQuotes.length / currentMonthQuotes.length * 100) : 0;
+
+        // Sum checklist activities in the current calendar month
+        let realCalls = 0;
+        let realMeetings = 0;
+
+        function jsCategorizeActivity(name) {
+            const n = (name || "").toLowerCase().trim();
+            if (n.includes("llam") || n.includes("call") || n.includes("prospect") || n.includes("contac")) {
+                return "llamada";
+            }
+            if (n.includes("cit") || n.includes("reun") || n.includes("meet") || n.includes("visita")) {
+                return "cita";
+            }
+            if (n.includes("cotiz") || n.includes("propuest") || n.includes("presupuest") || n.includes("quot") || n.includes("enviar")) {
+                return "cotizacion";
+            }
+            if (n.includes("cierr") || n.includes("vent") || n.includes("cobro") || n.includes("clos") || n.includes("firm")) {
+                return "venta";
+            }
+            return "otra";
+        }
+
+        historyLogs.forEach(log => {
+            if (!log.date) return;
+            const logDate = new Date(`${log.date}T12:00:00Z`);
+            if (logDate.getFullYear() === currentYear && logDate.getMonth() === currentMonth) {
+                if (log.completed_activities) {
+                    for (const [act, count] of Object.entries(log.completed_activities)) {
+                        const cat = jsCategorizeActivity(act);
+                        if (cat === "llamada") {
+                            realCalls += (Number(count) || 0);
+                        } else if (cat === "cita") {
+                            realMeetings += (Number(count) || 0);
+                        }
+                    }
+                }
+            }
+        });
+
+        state.slightEdgeRealMetrics = {
+            moneyWon: realMoneyWon,
+            ticketAvg: realTicketAvg,
+            conversionRate: realConversionRate,
+            sales: wonQuotes.length,
+            quotes: currentMonthQuotes.length,
+            meetings: realMeetings,
+            calls: realCalls
+        };
+
+        // Render the funnel display
+        updateFunnelDisplay();
 
         // Toggle to dashboard mode since plan exists
         toggleSlightEdgeMode("dashboard");
@@ -2835,9 +2982,7 @@ async function loadSellerSlightEdgePlanAndLog() {
         populateChecklistQuantities(plan, log);
         updateSlightEdgeProgressPoints(plan);
 
-        // Fetch logs for the historical consistency chart
-        const historyRes = await apiRequest(`/api/slight-edge/log/${state.user.id}`);
-        const historyLogs = historyRes.data || [];
+        // Render historical consistency chart
         renderSlightEdgeHistoryChart(historyLogs, plan);
 
         // Populate default active coaching message if chat history empty

@@ -1008,41 +1008,51 @@
                                 <div style="display: flex; flex-direction: column; gap: 24px;">
                                     <!-- Card 3: Estimated Funnel Card -->
                                     <div class="glass-card" style="padding: 24px; min-height: 320px; display: flex; flex-direction: column;">
-                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
-                                            <i class="fa-solid fa-filter" style="color: #38bdf8; font-size: 16px;"></i>
-                                            <h3 style="margin: 0; font-size: 16px;">Tu Embudo de Ventas Estimado</h3>
+                                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 10px; flex-wrap: wrap;">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <i class="fa-solid fa-filter" style="color: #38bdf8; font-size: 16px;"></i>
+                                                <h3 style="margin: 0; font-size: 16px;">Embudo de Ventas</h3>
+                                            </div>
+                                            <!-- Sleek Toggle Switch -->
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <span style="font-size: 12px; color: hsl(var(--text-secondary)); font-weight: 600;">Ver Real</span>
+                                                <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 18px; margin: 0;">
+                                                    <input type="checkbox" id="toggle-funnel-real" style="opacity: 0; width: 0; height: 0;">
+                                                    <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); transition: .3s; border-radius: 20px;"></span>
+                                                </label>
+                                            </div>
                                         </div>
                                         <div style="display: flex; flex-direction: column; gap: 14px; flex: 1;">
                                             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                                                <span style="font-size: 13px; color: hsl(var(--text-secondary));">Meta Mensual:</span>
+                                                <span id="label-funnel-target-income" style="font-size: 13px; color: hsl(var(--text-secondary));">Meta Mensual:</span>
                                                 <strong id="funnel-target-income" style="font-size: 15px; color: #a78bfa;">$0</strong>
                                             </div>
                                             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                                                <span style="font-size: 13px; color: hsl(var(--text-secondary));">Ticket Promedio:</span>
+                                                <span id="label-funnel-ticket-avg" style="font-size: 13px; color: hsl(var(--text-secondary));">Ticket Promedio:</span>
                                                 <strong id="funnel-ticket-avg" style="font-size: 15px; color: #38bdf8;">$0</strong>
                                             </div>
                                             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                                                <span style="font-size: 13px; color: hsl(var(--text-secondary));">Conversión Cotización-Cierre:</span>
+                                                <span id="label-funnel-conv-rate" style="font-size: 13px; color: hsl(var(--text-secondary));">Conversión Cotización-Cierre:</span>
                                                 <strong id="funnel-conv-rate" style="font-size: 15px; color: #10b981;">0%</strong>
                                             </div>
                                             
                                             <div style="margin-top: 10px;">
-                                                <span style="font-size: 11px; font-weight: bold; color: hsl(var(--text-secondary)); text-transform: uppercase; display: block; margin-bottom: 10px; letter-spacing: 0.5px;">METAS DEL FUNNEL CALCULADAS</span>
+                                                <span id="subtitle-funnel-header" style="font-size: 11px; font-weight: bold; color: hsl(var(--text-secondary)); text-transform: uppercase; display: block; margin-bottom: 10px; letter-spacing: 0.5px;">METAS DEL FUNNEL CALCULADAS</span>
                                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                                                     <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
-                                                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Cierres/Mes</span>
+                                                        <span id="label-funnel-sales" style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Cierres/Mes</span>
                                                         <strong id="funnel-calc-sales" style="font-size: 16px; color: #fff;">0</strong>
                                                     </div>
                                                     <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
-                                                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Cotizaciones/Mes</span>
+                                                        <span id="label-funnel-quotes" style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Cotizaciones/Mes</span>
                                                         <strong id="funnel-calc-quotes" style="font-size: 16px; color: #fff;">0</strong>
                                                     </div>
                                                     <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
-                                                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Citas/Mes</span>
+                                                        <span id="label-funnel-meetings" style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Citas/Mes</span>
                                                         <strong id="funnel-calc-meetings" style="font-size: 16px; color: #fff;">0</strong>
                                                     </div>
                                                     <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
-                                                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Llamadas/Mes</span>
+                                                        <span id="label-funnel-calls" style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Llamadas/Mes</span>
                                                         <strong id="funnel-calc-calls" style="font-size: 16px; color: #fff;">0</strong>
                                                     </div>
                                                 </div>
