@@ -214,66 +214,52 @@
                 <!-- Section 2: Vendedores -->
                 <section id="section-vendedores" class="dashboard-section hidden animate-fade-in">
                     <div class="panel-header">
-                        <h2>Gestión de Vendedores</h2>
-                        <button id="btn-add-seller" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Registrar Vendedor</button>
+                        <h2>Gestión de Usuarios y Vendedores</h2>
+                        <button id="btn-add-seller" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Registrar Usuario</button>
                     </div>
 
+                    <!-- Add/Edit User Glass Form Modal / Section -->
                     <div id="seller-form-wrapper" class="glass-card form-card hidden animate-fade-in margin-bottom">
                         <div class="card-header-with-action">
-                            <h3>Registrar Nuevo Vendedor</h3>
+                            <h3 id="seller-form-title">Registrar Nuevo Usuario</h3>
                             <button id="btn-close-seller-form" class="btn-icon"><i class="fa-solid fa-times"></i></button>
                         </div>
                         <form id="seller-form">
                             <div class="form-grid">
                                 <div class="input-group">
+                                    <label for="seller-fullname">Nombre Completo</label>
+                                    <input type="text" id="seller-fullname" placeholder="Miguel Gonzalez" required>
+                                </div>
+                                <div class="input-group">
+                                    <label for="seller-role">Rol de Acceso</label>
+                                    <select id="seller-role" required>
+                                        <option value="vendedor" selected>Vendedor</option>
+                                        <option value="gerente">Gerente (Coordinador)</option>
+                                        <option value="admin">Administrador</option>
+                                    </select>
+                                </div>
+                                <div class="input-group" id="seller-code-group">
+                                    <label for="seller-code">Código de Vendedor (ej. C01)</label>
+                                    <input type="text" id="seller-code" placeholder="C01">
+                                </div>
+                                <div class="input-group">
                                     <label for="seller-email">Correo Electrónico</label>
-                                    <input type="email" id="seller-email" placeholder="vendedor@kuroda.com" required>
+                                    <input type="email" id="seller-email" placeholder="usuario@kuroda.com" required>
                                 </div>
                                 <div class="input-group">
-                                    <label for="seller-phone">Teléfono WhatsApp (Con prefijo de país, ej: +521...)</label>
-                                    <input type="text" id="seller-phone" placeholder="+521XXXXXXXXXX" required>
+                                    <label for="seller-phone">Teléfono WhatsApp (Con prefijo, ej. +521...)</label>
+                                    <input type="text" id="seller-phone" placeholder="+521XXXXXXXXXX">
                                 </div>
                                 <div class="input-group">
-                                    <label for="seller-password">Contraseña Temporal</label>
-                                    <input type="password" id="seller-password" placeholder="••••••••" required>
+                                    <label for="seller-password" id="seller-password-label">Contraseña Temporal</label>
+                                    <input type="password" id="seller-password" placeholder="••••••••">
                                 </div>
                             </div>
                             <div class="form-actions">
                                 <button type="button" id="btn-cancel-seller" class="btn btn-secondary">Cancelar</button>
-                                <button type="submit" class="btn btn-primary">Registrar Vendedor</button>
+                                <button type="submit" id="btn-submit-seller" class="btn btn-primary">Registrar Usuario</button>
                             </div>
                         </form>
-                    </div>
-
-                    <!-- Edit Seller Modal -->
-                    <div id="edit-seller-modal" class="modal-overlay hidden">
-                        <div class="modal-content glass-card animate-fade-in" style="max-width: 500px;">
-                            <div class="modal-header">
-                                <h3 id="edit-seller-title">Editar Vendedor</h3>
-                                <button id="btn-close-edit-seller-modal" class="btn-icon"><i class="fa-solid fa-times"></i></button>
-                            </div>
-                            <div class="modal-body">
-                                <form id="edit-seller-form">
-                                    <input type="hidden" id="edit-seller-id">
-                                    <div class="input-group">
-                                        <label for="edit-seller-name">Nombre Completo</label>
-                                        <input type="text" id="edit-seller-name" placeholder="Ej: Juan Pérez">
-                                    </div>
-                                    <div class="input-group">
-                                        <label for="edit-seller-email">Correo Electrónico</label>
-                                        <input type="email" id="edit-seller-email" required>
-                                    </div>
-                                    <div class="input-group">
-                                        <label for="edit-seller-phone">Teléfono WhatsApp</label>
-                                        <input type="text" id="edit-seller-phone" placeholder="+521XXXXXXXXXX">
-                                    </div>
-                                    <div class="form-actions margin-top">
-                                        <button type="button" id="btn-cancel-edit-seller" class="btn btn-secondary">Cancelar</button>
-                                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
                     </div>
 
                     <!-- Sellers Table -->
@@ -281,10 +267,12 @@
                         <table class="data-table" id="table-vendedores">
                             <thead>
                                 <tr>
+                                    <th>Nombre Completo</th>
                                     <th>Email</th>
                                     <th>ID de Usuario</th>
-                                    <th>WhatsApp Registrado</th>
+                                    <th>WhatsApp</th>
                                     <th>Rol</th>
+                                    <th>Código</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>

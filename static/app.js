@@ -51,6 +51,16 @@ const DOM = {
     btnCancelSeller: document.getElementById("btn-cancel-seller"),
     btnCloseSellerForm: document.getElementById("btn-close-seller-form"),
     tableVendedores: document.querySelector("#table-vendedores tbody"),
+    sellerFullname: document.getElementById("seller-fullname"),
+    sellerRole: document.getElementById("seller-role"),
+    sellerCode: document.getElementById("seller-code"),
+    sellerCodeGroup: document.getElementById("seller-code-group"),
+    sellerEmail: document.getElementById("seller-email"),
+    sellerPhone: document.getElementById("seller-phone"),
+    sellerPassword: document.getElementById("seller-password"),
+    sellerFormTitle: document.getElementById("seller-form-title"),
+    sellerPasswordLabel: document.getElementById("seller-password-label"),
+    btnSubmitSeller: document.getElementById("btn-submit-seller"),
     
     // Metas Section
     btnGenerateGoalsModal: document.getElementById("btn-generate-goals-modal"),
@@ -376,21 +386,28 @@ async function loadVendedoresData() {
     
     DOM.tableVendedores.innerHTML = "";
     if (sellers.length === 0) {
-        DOM.tableVendedores.innerHTML = `<tr><td colspan="5" style="text-align: center;">No hay vendedores registrados.</td></tr>`;
+        DOM.tableVendedores.innerHTML = `<tr><td colspan="7" style="text-align: center;">No hay usuarios registrados.</td></tr>`;
         return;
     }
     
     sellers.forEach(v => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-            <td><strong>${v.nombre_completo || 'Sin nombre'}</strong></td>
-            <td>${v.email}</td>
+            <td><strong>${v.nombre_completo || '<span class="text-muted">Sin Nombre</span>'}</strong></td>
+            <td><code>${v.email}</code></td>
+            <td><code>${v.id}</code></td>
             <td>${v.telefono_whatsapp || '<span class="text-muted">No asignado</span>'}</td>
-            <td><span class="status-pill status-rol">${v.rol}</span></td>
+            <td><span class="status-pill status-rol" style="background: ${v.rol === 'admin' ? 'rgba(239, 68, 68, 0.15)' : v.rol === 'gerente' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(93, 95, 239, 0.15)'}; color: ${v.rol === 'admin' ? '#ef4444' : v.rol === 'gerente' ? '#f59e0b' : '#5d5fef'}; border: 1px solid ${v.rol === 'admin' ? 'rgba(239, 68, 68, 0.3)' : v.rol === 'gerente' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(93, 95, 239, 0.3)'};">${v.rol.toUpperCase()}</span></td>
+            <td>${v.codigo_vendedor || '<span class="text-muted">-</span>'}</td>
             <td>
-                <button class="btn btn-secondary btn-sm edit-seller-btn" data-id="${v.id}">
-                    <i class="fa-solid fa-pen"></i> Editar Datos
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-secondary btn-sm edit-seller-btn" data-id="${v.id}" data-email="${v.email}" data-fullname="${v.nombre_completo || ''}" data-role="${v.rol}" data-phone="${v.telefono_whatsapp || ''}" data-code="${v.codigo_vendedor || ''}">
+                        <i class="fa-solid fa-pen-to-square"></i> Editar
+                    </button>
+                    <button class="btn btn-danger btn-sm delete-seller-btn" data-id="${v.id}" data-email="${v.email}" ${v.id === state.user.id ? 'disabled' : ''}>
+                        <i class="fa-solid fa-trash-can"></i> Eliminar
+                    </button>
+                </div>
             </td>
         `;
         DOM.tableVendedores.appendChild(tr);
@@ -400,75 +417,23 @@ async function loadVendedoresData() {
     document.querySelectorAll(".edit-seller-btn").forEach(btn => {
         btn.addEventListener("click", (e) => {
             const id = btn.getAttribute("data-id");
-            const seller = state.vendedores.find(s => s.id === id);
-            if (seller) {
-                openEditSellerModal(seller);
-            }
+            const email = btn.getAttribute("data-email");
+            const fullname = btn.getAttribute("data-fullname");
+            const role = btn.getAttribute("data-role");
+            const phone = btn.getAttribute("data-phone");
+            const code = btn.getAttribute("data-code");
+            openEditUserForm(id, email, fullname, role, phone, code);
         });
     });
-}
 
-function openEditSellerModal(seller) {
-    document.getElementById("edit-seller-id").value = seller.id;
-    document.getElementById("edit-seller-name").value = seller.nombre_completo || "";
-    document.getElementById("edit-seller-email").value = seller.email || "";
-    document.getElementById("edit-seller-phone").value = seller.telefono_whatsapp || "";
-    
-    document.getElementById("edit-seller-modal").classList.remove("hidden");
-}
-
-function closeEditSellerModal() {
-    document.getElementById("edit-seller-modal").classList.add("hidden");
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    // Add close events for edit seller modal
-    const closeBtn = document.getElementById("btn-close-edit-seller-modal");
-    const cancelBtn = document.getElementById("btn-cancel-edit-seller");
-    if (closeBtn) closeBtn.addEventListener("click", closeEditSellerModal);
-    if (cancelBtn) cancelBtn.addEventListener("click", closeEditSellerModal);
-    
-    // Submit Edit Seller
-    const editForm = document.getElementById("edit-seller-form");
-    if (editForm) {
-        editForm.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const id = document.getElementById("edit-seller-id").value;
-            const payload = {
-                nombre_completo: document.getElementById("edit-seller-name").value,
-                email: document.getElementById("edit-seller-email").value,
-                telefono_whatsapp: document.getElementById("edit-seller-phone").value
-            };
-            
-            try {
-                await apiRequest(`/api/v1/vendedores/${id}`, {
-                    method: "PUT",
-                    body: JSON.stringify(payload)
-                });
-                showToast("Vendedor actualizado correctamente");
-                closeEditSellerModal();
-                loadVendedoresData();
-            } catch (err) {
-                showToast(err.message, "error");
-            }
+    // Attach event listeners to Delete buttons
+    document.querySelectorAll(".delete-seller-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const id = btn.getAttribute("data-id");
+            const email = btn.getAttribute("data-email");
+            deleteUser(id, email);
         });
-    }
-});
-
-async function promptEditPhone(id, currentPhone) {
-    const newPhone = prompt("Ingrese el nuevo número de WhatsApp (incluya prefijo de país sin símbolos, ej: 521XXXXXXXXXX):", currentPhone);
-    if (newPhone === null) return; // user cancelled
-    
-    try {
-        await apiRequest(`/api/v1/vendedores/${id}`, {
-            method: "PUT",
-            body: JSON.stringify({ telefono_whatsapp: newPhone })
-        });
-        showToast("Número de WhatsApp actualizado correctamente");
-        loadVendedoresData();
-    } catch (e) {
-        showToast(e.message, "error");
-    }
+    });
 }
 
 async function loadMetasData() {
@@ -1318,41 +1283,130 @@ DOM.menuItems.forEach(item => {
 // Logout Button Handler
 DOM.logoutBtn.addEventListener("click", logout);
 
-/* --- Vendedores Handlers --- */
+/* --- Vendedores/Usuarios Handlers --- */
+let editingUserId = null;
+
+// Dynamically show/hide seller code input depending on selected role
+if (DOM.sellerRole) {
+    DOM.sellerRole.addEventListener("change", (e) => {
+        if (e.target.value === "vendedor") {
+            DOM.sellerCodeGroup.classList.remove("hidden");
+        } else {
+            DOM.sellerCodeGroup.classList.add("hidden");
+            DOM.sellerCode.value = "";
+        }
+    });
+}
+
 DOM.btnAddSeller.addEventListener("click", () => {
+    editingUserId = null;
+    DOM.sellerForm.reset();
+    DOM.sellerFormTitle.textContent = "Registrar Nuevo Usuario";
+    DOM.btnSubmitSeller.textContent = "Registrar Usuario";
+    DOM.sellerPassword.required = true;
+    DOM.sellerPasswordLabel.innerHTML = 'Contraseña Temporal';
+    DOM.sellerCodeGroup.classList.remove("hidden");
     DOM.sellerFormWrapper.classList.remove("hidden");
+    DOM.sellerFormWrapper.scrollIntoView({ behavior: "smooth" });
 });
 
 DOM.btnCancelSeller.addEventListener("click", () => {
     DOM.sellerFormWrapper.classList.add("hidden");
+    editingUserId = null;
 });
 
 DOM.btnCloseSellerForm.addEventListener("click", () => {
     DOM.sellerFormWrapper.classList.add("hidden");
+    editingUserId = null;
 });
 
-DOM.sellerForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const email = document.getElementById("seller-email").value;
-    const phone = document.getElementById("seller-phone").value;
-    const password = document.getElementById("seller-password").value;
-    
+function openEditUserForm(id, email, fullname, role, phone, code) {
+    editingUserId = id;
+    DOM.sellerFullname.value = fullname;
+    DOM.sellerRole.value = role;
+    DOM.sellerEmail.value = email;
+    DOM.sellerPhone.value = phone;
+    DOM.sellerCode.value = code;
+    DOM.sellerPassword.value = "";
+    DOM.sellerPassword.required = false; // not required when editing
+    DOM.sellerPasswordLabel.innerHTML = 'Nueva Contraseña (dejar en blanco para mantener)';
+
+    // Trigger role visibility logic
+    if (role === "vendedor") {
+        DOM.sellerCodeGroup.classList.remove("hidden");
+    } else {
+        DOM.sellerCodeGroup.classList.add("hidden");
+    }
+
+    DOM.sellerFormTitle.textContent = "Editar Usuario";
+    DOM.btnSubmitSeller.textContent = "Guardar Cambios";
+    DOM.sellerFormWrapper.classList.remove("hidden");
+    DOM.sellerFormWrapper.scrollIntoView({ behavior: "smooth" });
+}
+
+async function deleteUser(id, email) {
+    if (!confirm(`¿Está seguro de que desea eliminar permanentemente la cuenta de "${email}"?\nSe revocarán todos los accesos al sistema.`)) {
+        return;
+    }
     try {
-        await apiRequest("/api/v1/vendedores/", {
-            method: "POST",
-            body: JSON.stringify({
-                email,
-                rol: "vendedor",
-                telefono_whatsapp: phone,
-                password
-            })
+        await apiRequest(`/api/v1/vendedores/${id}`, {
+            method: "DELETE"
         });
-        showToast("Vendedor registrado con éxito");
-        DOM.sellerForm.reset();
-        DOM.sellerFormWrapper.classList.add("hidden");
+        showToast("Usuario eliminado correctamente.");
         loadVendedoresData();
     } catch (e) {
         showToast(e.message, "error");
+    }
+}
+
+DOM.sellerForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = DOM.sellerEmail.value;
+    const fullname = DOM.sellerFullname.value;
+    const role = DOM.sellerRole.value;
+    const phone = DOM.sellerPhone.value || null;
+    const code = role === "vendedor" ? (DOM.sellerCode.value || null) : null;
+    const password = DOM.sellerPassword.value || null;
+    
+    const payload = {
+        email,
+        nombre_completo: fullname,
+        rol: role,
+        telefono_whatsapp: phone,
+        codigo_vendedor: code
+    };
+    
+    if (password) {
+        payload.password = password;
+    }
+
+    try {
+        if (editingUserId) {
+            // Update User
+            await apiRequest(`/api/v1/vendedores/${editingUserId}`, {
+                method: "PUT",
+                body: JSON.stringify(payload)
+            });
+            showToast("Usuario actualizado con éxito.");
+        } else {
+            // Create User (requires password)
+            if (!password) {
+                showToast("La contraseña es obligatoria para nuevos usuarios.", "error");
+                return;
+            }
+            await apiRequest("/api/v1/vendedores/", {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+            showToast("Usuario registrado con éxito.");
+        }
+        
+        DOM.sellerForm.reset();
+        DOM.sellerFormWrapper.classList.add("hidden");
+        editingUserId = null;
+        loadVendedoresData();
+    } catch (err) {
+        showToast(err.message, "error");
     }
 });
 

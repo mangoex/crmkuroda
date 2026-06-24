@@ -11,7 +11,7 @@ class Usuario(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     rol = Column(String, nullable=False)  # 'admin', 'gerente', 'vendedor'
-    telefono_whatsapp = Column(String, unique=True, index=True, nullable=True)
+    telefono_whatsapp = Column(String, unique=False, index=True, nullable=True)
     codigo_vendedor = Column(String, unique=True, index=True, nullable=True)  # e.g., 'C01'
     nombre_completo = Column(String, nullable=True)
     avatar = Column(String, nullable=True)

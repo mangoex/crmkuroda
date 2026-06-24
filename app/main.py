@@ -45,6 +45,10 @@ async def on_startup():
         await conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nombre_completo VARCHAR;"))
         await conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS avatar VARCHAR;"))
         
+        # Drop unique index/constraint for whatsapp phone numbers to allow multiple accounts to share phone number
+        await conn.execute(text("DROP INDEX IF EXISTS ix_usuarios_telefono_whatsapp;"))
+        await conn.execute(text("ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_telefono_whatsapp_key;"))
+        
         await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS numero_cotizacion VARCHAR;"))
         await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS fecha_registro DATE;"))
         await conn.execute(text("ALTER TABLE cotizaciones ADD COLUMN IF NOT EXISTS canal VARCHAR;"))
