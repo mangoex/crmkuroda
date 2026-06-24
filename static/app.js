@@ -2334,6 +2334,24 @@ async function saveSlightEdgeLog() {
     }
 }
 
+function formatChatBubbleText(text) {
+    if (!text) return "";
+    let escaped = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    
+    // Convert markdown bold to HTML strong tags
+    escaped = escaped.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+    
+    // Convert newlines to HTML line breaks
+    escaped = escaped.replace(/\n/g, "<br>");
+    
+    return escaped;
+}
+
 function renderSlightEdgeChat() {
     DOM.slightEdgeChatMessages.innerHTML = "";
     slightEdgeChatHistory.forEach(msg => {
@@ -2350,7 +2368,7 @@ function renderSlightEdgeChat() {
             line-height: 1.5;
             margin-bottom: 6px;
         `;
-        bubble.textContent = msg.content;
+        bubble.innerHTML = formatChatBubbleText(msg.content);
         DOM.slightEdgeChatMessages.appendChild(bubble);
     });
     DOM.slightEdgeChatMessages.scrollTop = DOM.slightEdgeChatMessages.scrollHeight;
