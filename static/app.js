@@ -4520,21 +4520,23 @@ document.addEventListener("DOMContentLoaded", () => {
         btnSaveCsvUrl.addEventListener("click", async () => {
             const url = csvDriveUrl.value.trim();
             try {
-                showLoading();
+                btnSaveCsvUrl.disabled = true;
+                const originalHtml = btnSaveCsvUrl.innerHTML;
+                btnSaveCsvUrl.innerHTML = 'Guardando... <i class="fa-solid fa-spinner animate-spin"></i>';
                 await apiRequest("/api/v1/companies/kuroda/dashboard/target", {
                     method: "POST",
                     body: JSON.stringify({
-                        
-                        
                         csv_drive_url: url
                     })
                 });
                 showToast("URL de CSV guardada exitosamente", "success");
+                btnSaveCsvUrl.innerHTML = originalHtml;
             } catch (e) {
                 console.error(e);
                 showToast("Fallo al guardar URL del CSV", "error");
+                btnSaveCsvUrl.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar URL';
             } finally {
-                hideLoading();
+                btnSaveCsvUrl.disabled = false;
             }
         });
     }
@@ -4542,15 +4544,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnSyncCsv) {
         btnSyncCsv.addEventListener("click", async () => {
             try {
-                showLoading();
+                btnSyncCsv.disabled = true;
+                const originalHtml = btnSyncCsv.innerHTML;
+                btnSyncCsv.innerHTML = 'Sincronizando... <i class="fa-solid fa-spinner animate-spin"></i>';
                 const res = await apiRequest("/api/v1/cotizaciones/sync-csv", { method: "POST" });
                 showToast(res.message || "Sincronización exitosa", "success");
                 await loadDashboardData(true);
+                btnSyncCsv.innerHTML = originalHtml;
             } catch (e) {
                 console.error(e);
                 showToast(e.message || "Fallo al sincronizar CSV", "error");
+                btnSyncCsv.innerHTML = '<i class="fa-solid fa-rotate"></i> Sincronizar Ahora';
             } finally {
-                hideLoading();
+                btnSyncCsv.disabled = false;
             }
         });
     }
