@@ -321,6 +321,12 @@ async function initSession() {
             DOM.menuVendedores.classList.remove("hidden");
             DOM.btnGenerateGoalsModal.classList.remove("hidden");
         }
+
+        // Show/hide conexion menu based on role
+        const menuConexion = document.getElementById("menu-conexion");
+        if (menuConexion) {
+            menuConexion.style.display = (state.user.rol === "admin" || state.user.rol === "gerente") ? "flex" : "none";
+        }
         
         // Go to initial summary view (default to slight-edge on mobile)
         const isMobile = window.innerWidth <= 768;
@@ -434,6 +440,8 @@ async function loadSectionData(sectionId) {
             await loadSlightEdgeData();
         } else if (sectionId === "asignacion") {
             await loadAsignacionData();
+        } else if (sectionId === "conexion") {
+            await loadConexionData();
         }
     } catch (e) {
         showToast(e.message, "error");
@@ -4153,6 +4161,21 @@ async function loadAsignacionData() {
     }
 }
 
+async function loadConexionData() {
+    const csvDriveUrl = document.getElementById("csv-drive-url");
+    if (!csvDriveUrl) return;
+
+    try {
+        const res = await apiRequest("/companies/kuroda/dashboard");
+        if (res && res.csv_drive_url !== undefined) {
+            state.csv_drive_url = res.csv_drive_url;
+            csvDriveUrl.value = res.csv_drive_url || "";
+        }
+    } catch (e) {
+        console.error("Error al cargar configuración de conexión:", e);
+    }
+}
+
 async function loadManagerAsignacionView() {
     const listAvailable = document.getElementById("list-available-clients");
     const listSellers = document.getElementById("list-assign-sellers");
@@ -4495,26 +4518,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // --- CONEXION TAB LOGIC ---
 document.addEventListener("DOMContentLoaded", () => {
-    const menuConexion = document.getElementById("menu-conexion");
     const csvDriveUrl = document.getElementById("csv-drive-url");
     const btnSaveCsvUrl = document.getElementById("btn-save-csv-url");
     const btnSyncCsv = document.getElementById("btn-sync-csv");
-    
-    // Auth Check for menu (runs when state.currentUser is updated, but we can hook into renderSummary or login)
-    // A quick hack is to check state periodically or monkey-patch
-    
-    const originalRenderSummary = window.renderSummary;
-    if (typeof renderSummary !== "undefined") {
-        window.renderSummary = function() {
-            if (menuConexion && state.currentUser) {
-                menuConexion.style.display = (state.currentUser.rol === "admin" || state.currentUser.rol === "gerente") ? "flex" : "none";
-            }
-            if (csvDriveUrl && state.csv_drive_url !== undefined) {
-                csvDriveUrl.value = state.csv_drive_url;
-            }
-            originalRenderSummary();
-        };
-    }
 
     if (btnSaveCsvUrl) {
         btnSaveCsvUrl.addEventListener("click", async () => {
@@ -4549,7 +4555,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 btnSyncCsv.innerHTML = 'Sincronizando... <i class="fa-solid fa-spinner animate-spin"></i>';
                 const res = await apiRequest("/api/v1/cotizaciones/sync-csv", { method: "POST" });
                 showToast(res.message || "Sincronización exitosa", "success");
-                await loadDashboardData(true);
+                await loadSummaryData();
                 btnSyncCsv.innerHTML = originalHtml;
             } catch (e) {
                 console.error(e);
@@ -4561,21 +4567,3 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 });
-
-// Monkey patch loadDashboardData to capture csv_drive_url
-const originalLoadDashboardData = window.loadDashboardData;
-if (typeof loadDashboardData !== "undefined") {
-    window.loadDashboardData = async function(force = false) {
-        await originalLoadDashboardData(force);
-        try {
-            const res = await apiRequest("/companies/kuroda/dashboard");
-            state.csv_drive_url = res.data.csv_drive_url;
-            if (document.getElementById("csv-drive-url") && state.csv_drive_url) {
-                document.getElementById("csv-drive-url").value = state.csv_drive_url;
-            }
-            if (document.getElementById("menu-conexion") && state.currentUser) {
-                document.getElementById("menu-conexion").style.display = (state.currentUser.rol === "admin" || state.currentUser.rol === "gerente") ? "flex" : "none";
-            }
-        } catch(e) {}
-    };
-}
