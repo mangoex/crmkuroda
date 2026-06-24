@@ -529,8 +529,8 @@ async function loadVendedoresData() {
                     <button class="btn btn-secondary btn-sm edit-seller-btn" data-id="${v.id}" data-email="${v.email}" data-fullname="${v.nombre_completo || ''}" data-role="${v.rol}" data-phone="${v.telefono_whatsapp || ''}" data-code="${v.codigo_vendedor || ''}">
                         <i class="fa-solid fa-pen-to-square"></i> Editar
                     </button>
-                    <button class="btn btn-danger btn-sm delete-seller-btn" data-id="${v.id}" data-email="${v.email}" ${v.id === state.user.id ? 'disabled' : ''}>
-                        <i class="fa-solid fa-trash-can"></i> Eliminar
+                    <button class="btn btn-danger btn-sm delete-seller-btn" data-id="${v.id}" data-email="${v.email}" ${v.id === state.user.id ? 'disabled' : ''} title="Eliminar" style="padding: 6px 10px;">
+                        <i class="fa-solid fa-trash-can"></i>
                     </button>
                 </div>
             </td>
