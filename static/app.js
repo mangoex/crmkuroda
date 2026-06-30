@@ -20,6 +20,7 @@ const state = {
     currentSection: "summary",
     vendedores: [],
     metas: [],
+    promociones: [],
     cotizaciones: [],
     salesChart: null,
     goalsChart: null,
@@ -32,6 +33,7 @@ const state = {
     quotesSortOrder: null, // 'asc', 'desc', or null
     kanbanSortOrders: {
         propuesta: null,
+        promociones: null,
         cotizado: null,
         vendido: null,
         vencido: null
@@ -764,6 +766,14 @@ async function loadCotizacionesData(forceRefresh = true) {
             console.error("Error loading company dashboard metadata for quotes:", cErr);
         }
     }
+    if (state.promociones.length === 0) {
+        try {
+            const promoRes = await apiRequest("/api/v1/promociones/");
+            state.promociones = promoRes.data || [];
+        } catch (e) {
+            console.error("Error loading promociones for kanban:", e);
+        }
+    }
 
     if (forceRefresh || state.cotizaciones.length === 0) {
         let endpoint = "/api/v1/cotizaciones/?limit=3000";
@@ -1467,6 +1477,7 @@ function renderKanbanColumns() {
     // Categorize quotes
     const stages = {
         propuesta: [],
+        promociones: [],
         cotizado: [],
         vendido: [],
         vencido: []
@@ -1489,15 +1500,35 @@ function renderKanbanColumns() {
             stages.vendido.push(q);
         } else if (isLost || ageDays > 30) {
             stages.vencido.push(q);
-        } else if (hasQuoteNum) {
-            stages.cotizado.push(q);
         } else {
-            stages.propuesta.push(q);
+            // Check if quote has any promotional items
+            let hasPromotion = false;
+            if (q.items && Array.isArray(q.items) && state.promociones.length > 0) {
+                for (const item of q.items) {
+                    const prodName = (item.producto || "").toLowerCase();
+                    const isPromo = state.promociones.some(p => 
+                        prodName.includes((p.codigo_material || "").toLowerCase()) || 
+                        prodName.includes((p.descripcion_material || "").toLowerCase())
+                    );
+                    if (isPromo) {
+                        hasPromotion = true;
+                        break;
+                    }
+                }
+            }
+
+            if (hasPromotion) {
+                stages.promociones.push(q);
+            } else if (hasQuoteNum) {
+                stages.cotizado.push(q);
+            } else {
+                stages.propuesta.push(q);
+            }
         }
     });
     
     // Sort columns if sort order is set
-    const columns = ['propuesta', 'cotizado', 'vendido', 'vencido'];
+    const columns = ['propuesta', 'promociones', 'cotizado', 'vendido', 'vencido'];
     columns.forEach(col => {
         const order = state.kanbanSortOrders[col];
         if (order) {
@@ -1509,19 +1540,27 @@ function renderKanbanColumns() {
         }
     });
     
-    // Render columns
+    // Render columns and update summaries
     columns.forEach(col => {
-        const container = DOM[`kanban${col.charAt(0).toUpperCase() + col.slice(1)}`];
-        const countSpan = DOM[`countKanban${col.charAt(0).toUpperCase() + col.slice(1)}`];
+        const container = DOM[`kanban${col.charAt(0).toUpperCase() + col.slice(1)}`] || document.getElementById(`kanban-${col}`);
+        const countSpan = DOM[`countKanban${col.charAt(0).toUpperCase() + col.slice(1)}`] || document.getElementById(`count-kanban-${col}`);
         
-        if (!container) return;
+        const summaryCount = document.getElementById(`summary-count-${col}`);
+        const summaryTotal = document.getElementById(`summary-total-${col}`);
         
-        container.innerHTML = "";
+        let colTotal = 0;
+        
+        if (container) {
+            container.innerHTML = "";
+        }
         if (countSpan) {
             countSpan.textContent = stages[col].length;
         }
         
         stages[col].forEach(q => {
+            colTotal += Number(q.total);
+            if (!container) return;
+            
             const card = document.createElement("div");
             card.className = "kanban-card";
             card.setAttribute("draggable", "true");
@@ -1573,6 +1612,10 @@ function renderKanbanColumns() {
             
             container.appendChild(card);
         });
+        
+        // Update summary cards
+        if (summaryCount) summaryCount.textContent = stages[col].length;
+        if (summaryTotal) summaryTotal.textContent = `$${colTotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     });
     
     setupKanbanDragAndDrop();
