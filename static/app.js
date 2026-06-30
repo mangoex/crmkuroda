@@ -89,6 +89,8 @@ const DOM = {
     btnCancelAiGoals: document.getElementById("btn-cancel-ai-goals"),
     btnCloseAiGoals: document.getElementById("btn-close-ai-goals"),
     filterPromoSearch: document.getElementById("filter-promo-search"),
+    filterPromoStatus: document.getElementById("filter-promo-status"),
+    filterPromoSort: document.getElementById("filter-promo-sort"),
     tablePromociones: document.querySelector("#table-promociones tbody"),
     pagPromociones: document.getElementById("pag-promociones"),
     uploadPromocionesForm: document.getElementById("upload-promociones-form"),
@@ -564,7 +566,7 @@ async function loadVendedoresData() {
         tr.innerHTML = `
             <td>
                 <div style="display: flex; flex-direction: column; gap: 2px;">
-                    <strong style="color: #fff; font-size: 14px;">${escapeHTML(v.nombre_completo) || '<span class="text-muted">Sin Nombre</span>'}</strong>
+                    <strong style="color: hsl(var(--text-primary)); font-size: 14px;">${escapeHTML(v.nombre_completo) || '<span class="text-muted">Sin Nombre</span>'}</strong>
                     <span style="font-size: 11px; color: hsl(var(--text-secondary));">${escapeHTML(v.email)}</span>
                     ${v.telefono_whatsapp ? `<span style="font-size: 11px; color: #38bdf8;"><i class="fa-brands fa-whatsapp" style="margin-right: 4px;"></i>${v.telefono_whatsapp}</span>` : ''}
                 </div>
@@ -620,18 +622,43 @@ async function loadVendedoresData() {
 
 async function loadPromocionesData() {
     const searchTerm = DOM.filterPromoSearch ? DOM.filterPromoSearch.value.toLowerCase() : "";
+    const statusFilter = DOM.filterPromoStatus ? DOM.filterPromoStatus.value : "activas";
+    const sortFilter = DOM.filterPromoSort ? DOM.filterPromoSort.value : "default";
     let endpoint = "/api/v1/promociones/";
     
     try {
         const res = await apiRequest(endpoint);
         let promociones = res.data || [];
+        const today = new Date();
+        today.setHours(0,0,0,0);
         
-        // Filter
+        // Filter Status
+        if (statusFilter !== "todas") {
+            promociones = promociones.filter(p => {
+                if (!p.valido_hasta) return statusFilter === "activas";
+                const vDate = new Date(p.valido_hasta);
+                const isActive = vDate >= today;
+                return statusFilter === "activas" ? isActive : !isActive;
+            });
+        }
+        
+        // Filter Search Text
         if (searchTerm) {
             promociones = promociones.filter(p => 
                 (p.codigo_material && p.codigo_material.toLowerCase().includes(searchTerm)) ||
                 (p.descripcion_material && p.descripcion_material.toLowerCase().includes(searchTerm))
             );
+        }
+        
+        // Sort
+        if (sortFilter === "margen-desc") {
+            promociones.sort((a, b) => (b.margen_promocion || 0) - (a.margen_promocion || 0));
+        } else if (sortFilter === "margen-asc") {
+            promociones.sort((a, b) => (a.margen_promocion || 0) - (b.margen_promocion || 0));
+        } else if (sortFilter === "precio-desc") {
+            promociones.sort((a, b) => (b.precio_promocion || 0) - (a.precio_promocion || 0));
+        } else if (sortFilter === "precio-asc") {
+            promociones.sort((a, b) => (a.precio_promocion || 0) - (b.precio_promocion || 0));
         }
         
         DOM.tablePromociones.innerHTML = "";
@@ -642,6 +669,14 @@ async function loadPromocionesData() {
         
         promociones.forEach(p => {
             const tr = document.createElement("tr");
+            let isActive = true;
+            if (p.valido_hasta) {
+                const vDate = new Date(p.valido_hasta);
+                isActive = vDate >= today;
+            }
+            if (!isActive) {
+                tr.style.opacity = "0.5";
+            }
             
             tr.innerHTML = `
                 <td>${p.centro || '-'}</td>
@@ -2225,6 +2260,8 @@ DOM.aiGoalsForm.addEventListener("submit", async (e) => {
 });
 
 DOM.filterPromoSearch?.addEventListener("input", loadPromocionesData);
+DOM.filterPromoStatus?.addEventListener("change", loadPromocionesData);
+DOM.filterPromoSort?.addEventListener("change", loadPromocionesData);
 
 /* --- Cotizaciones Handlers --- */
 DOM.btnGenerateQuoteModal.addEventListener("click", () => {
@@ -3505,7 +3542,7 @@ function openWeightsModal() {
                 <span style="font-size: 13px; font-weight: 500; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff;">${escapeHTML(act.activity)}</span>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
-                <input type="number" class="weight-input" min="1" max="10" value="${act.points}" data-index="${idx}" style="width: 60px; padding: 6px; font-size: 13px; text-align: center; margin: 0; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #fff;">
+                <input type="number" class="weight-input" min="1" max="10" value="${act.points}" data-index="${idx}" style="width: 60px; padding: 6px; font-size: 13px; text-align: center; margin: 0; background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: 4px; color: #fff;">
                 <button type="button" class="btn btn-danger btn-icon btn-sm btn-delete-activity" data-index="${idx}" style="width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-trash-can" style="font-size: 11px;"></i></button>
             </div>
         `;
@@ -3738,7 +3775,7 @@ function renderSlightEdgeChat() {
         bubble.style = `
             align-self: ${msg.role === "user" ? "flex-end" : "flex-start"};
             background: ${msg.role === "user" ? "hsl(var(--primary))" : "rgba(255,255,255,0.05)"};
-            color: #fff;
+            color: hsl(var(--text-primary));
             padding: 8px 12px;
             border-radius: 8px;
             max-width: 80%;
@@ -4102,7 +4139,7 @@ async function openSellerBurndownModal(sellerId, name) {
                         title: {
                             display: true,
                             text: 'Puntos Restantes',
-                            color: '#fff'
+                            color: '#64748b'
                         },
                         ticks: {
                             color: '#ccc'
@@ -4134,7 +4171,7 @@ async function openSellerBurndownModal(sellerId, name) {
                         title: {
                             display: true,
                             text: 'Días del Mes',
-                            color: '#fff'
+                            color: '#64748b'
                         },
                         ticks: {
                             color: '#ccc'
@@ -4147,7 +4184,7 @@ async function openSellerBurndownModal(sellerId, name) {
                 plugins: {
                     legend: {
                         labels: {
-                            color: '#fff'
+                            color: '#64748b'
                         }
                     }
                 }
@@ -4298,7 +4335,7 @@ async function loadManagerAsignacionView() {
                                         <span style="font-size: 12px; color: #a78bfa; font-weight: bold;">
                                             ${p.vendedor ? (p.vendedor.nombre_completo || p.vendedor.email) : 'Vendedor'}
                                         </span>
-                                        <p style="margin: 6px 0 0 0; font-size: 13px; color: #fff; line-height: 1.4;">
+                                        <p style="margin: 6px 0 0 0; font-size: 13px; color: hsl(var(--text-primary)); line-height: 1.4;">
                                             "${p.razon}"
                                         </p>
                                     </div>

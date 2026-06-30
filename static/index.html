@@ -120,7 +120,7 @@
                 </div>
                 
                 <div class="user-badge">
-                    <button id="theme-toggle-btn" class="btn btn-secondary btn-icon" style="border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #fff; padding: 0; margin-right: 8px;" title="Cambiar tema">
+                    <button id="theme-toggle-btn" class="btn btn-secondary btn-icon" style="border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); color: hsl(var(--text-primary)); padding: 0; margin-right: 8px;" title="Cambiar tema">
                         <i class="fa-solid fa-sun" id="theme-toggle-icon"></i>
                     </button>
                     <span id="user-role-badge" class="badge badge-primary">Vendedor</span>
@@ -247,7 +247,7 @@
                             
                             <div style="margin-bottom: 24px;">
                                 <span style="font-size: 12px; font-weight: bold; color: hsl(var(--text-secondary)); text-transform: uppercase; display: block; margin-bottom: 8px;">Actividades Completadas Hoy:</span>
-                                <p id="summary-completed-today-text" style="font-size: 13px; color: #fff; margin: 0;">Ninguna actividad registrada hoy.</p>
+                                <p id="summary-completed-today-text" style="font-size: 13px; color: hsl(var(--text-primary)); margin: 0;">Ninguna actividad registrada hoy.</p>
                             </div>
                             
                             <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
@@ -255,19 +255,19 @@
                                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
                                     <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
                                         <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Llamadas</span>
-                                        <strong id="summary-kpi-calls" style="font-size: 14px; color: #fff;">0 / 100 meta</strong>
+                                        <strong id="summary-kpi-calls" style="font-size: 14px; color: hsl(var(--text-primary));">0 / 100 meta</strong>
                                     </div>
                                     <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
                                         <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Citas</span>
-                                        <strong id="summary-kpi-meetings" style="font-size: 14px; color: #fff;">0 / 20 meta</strong>
+                                        <strong id="summary-kpi-meetings" style="font-size: 14px; color: hsl(var(--text-primary));">0 / 20 meta</strong>
                                     </div>
                                     <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
                                         <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Cotizaciones</span>
-                                        <strong id="summary-kpi-quotes" style="font-size: 14px; color: #fff;">0 / 10 meta</strong>
+                                        <strong id="summary-kpi-quotes" style="font-size: 14px; color: hsl(var(--text-primary));">0 / 10 meta</strong>
                                     </div>
                                     <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
                                         <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Ventas</span>
-                                        <strong id="summary-kpi-sales" style="font-size: 14px; color: #fff;">0 / 2 meta</strong>
+                                        <strong id="summary-kpi-sales" style="font-size: 14px; color: hsl(var(--text-primary));">0 / 2 meta</strong>
                                     </div>
                                 </div>
                                 
@@ -315,7 +315,7 @@
                         <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <label for="select-sort-sellers" style="font-size: 13px; color: hsl(var(--text-secondary)); white-space: nowrap; margin: 0;">Ordenar por:</label>
-                                <select id="select-sort-sellers" class="btn btn-secondary btn-sm" style="background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: normal; text-transform: none; height: 38px; width: auto; max-width: 220px; line-height: 1.2;">
+                                <select id="select-sort-sellers" class="btn btn-secondary btn-sm" style="background: hsl(var(--bg-secondary)); color: hsl(var(--text-primary)); border: 1px solid hsl(var(--border-color)); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: normal; text-transform: none; height: 38px; width: auto; max-width: 220px; line-height: 1.2;">
                                     <option value="nombre" selected>Nombre (A-Z)</option>
                                     <option value="eficiencia">Eficiencia (Consistencia)</option>
                                     <option value="efectividad">Efectividad (Ventas)</option>
@@ -438,9 +438,29 @@
                                     <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Subir Promociones</button>
                                 </form>
                             </div>
-                            <div class="input-group-inline">
-                                <label for="filter-promo-search">Buscar:</label>
-                                <input type="text" id="filter-promo-search" placeholder="Código o Descripción...">
+                            <div class="input-group-inline" style="flex-wrap: wrap; gap: 15px;">
+                                <div class="input-group-inline" style="margin-bottom: 0;">
+                                    <label for="filter-promo-status">Estado:</label>
+                                    <select id="filter-promo-status" style="width: auto;">
+                                        <option value="activas">Activas</option>
+                                        <option value="vencidas">Vencidas</option>
+                                        <option value="todas">Todas</option>
+                                    </select>
+                                </div>
+                                <div class="input-group-inline" style="margin-bottom: 0;">
+                                    <label for="filter-promo-sort">Ordenar por:</label>
+                                    <select id="filter-promo-sort" style="width: auto;">
+                                        <option value="default">Por Defecto</option>
+                                        <option value="margen-desc">Mayor Rentabilidad</option>
+                                        <option value="margen-asc">Menor Rentabilidad</option>
+                                        <option value="precio-desc">Mayor Precio</option>
+                                        <option value="precio-asc">Menor Precio</option>
+                                    </select>
+                                </div>
+                                <div class="input-group-inline" style="margin-bottom: 0;">
+                                    <label for="filter-promo-search">Buscar:</label>
+                                    <input type="text" id="filter-promo-search" placeholder="Código o Descripción...">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -532,7 +552,7 @@
                         <div class="filters-layout" style="flex-wrap: wrap; gap: 16px 24px;">
                             <div class="input-group-inline">
                                 <label for="filter-quote-seller">Vendedor:</label>
-                                <select id="filter-quote-seller" style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: #fff; font-size: 14px;">
+                                <select id="filter-quote-seller" style="background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: hsl(var(--text-primary)); font-size: 14px;">
                                     <option value="">Todos los vendedores</option>
                                     <!-- Loaded dynamically -->
                                 </select>
@@ -540,17 +560,17 @@
                             
                             <div class="input-group-inline">
                                 <label for="filter-quote-start-date">Fecha Inicio:</label>
-                                <input type="date" id="filter-quote-start-date" style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: #fff; font-size: 14px;">
+                                <input type="date" id="filter-quote-start-date" style="background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: hsl(var(--text-primary)); font-size: 14px;">
                             </div>
                             
                             <div class="input-group-inline">
                                 <label for="filter-quote-end-date">Fecha Fin:</label>
-                                <input type="date" id="filter-quote-end-date" style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: #fff; font-size: 14px;">
+                                <input type="date" id="filter-quote-end-date" style="background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: hsl(var(--text-primary)); font-size: 14px;">
                             </div>
                             
                             <div class="input-group-inline">
                                 <label for="filter-quote-days">Vencimiento / Estado:</label>
-                                <select id="filter-quote-days" style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: #fff; font-size: 14px;">
+                                <select id="filter-quote-days" style="background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: hsl(var(--text-primary)); font-size: 14px;">
                                     <option value="all">Todos los estados</option>
                                     <option value="concretadas">Vendidas (Concretadas)</option>
                                     <option value="pendientes">Pendientes (En vigor)</option>
@@ -651,19 +671,19 @@
                                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                                         <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
                                             <span id="label-quotes-funnel-sales" style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Cierres/Mes</span>
-                                            <strong id="quotes-funnel-calc-sales" style="font-size: 16px; color: #fff;">0</strong>
+                                            <strong id="quotes-funnel-calc-sales" style="font-size: 16px; color: hsl(var(--text-primary));">0</strong>
                                         </div>
                                         <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
                                             <span id="label-quotes-funnel-quotes" style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Cotizaciones/Mes</span>
-                                            <strong id="quotes-funnel-calc-quotes" style="font-size: 16px; color: #fff;">0</strong>
+                                            <strong id="quotes-funnel-calc-quotes" style="font-size: 16px; color: hsl(var(--text-primary));">0</strong>
                                         </div>
                                         <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
                                             <span id="label-quotes-funnel-meetings" style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Citas/Mes</span>
-                                            <strong id="quotes-funnel-calc-meetings" style="font-size: 16px; color: #fff;">0</strong>
+                                            <strong id="quotes-funnel-calc-meetings" style="font-size: 16px; color: hsl(var(--text-primary));">0</strong>
                                         </div>
                                         <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
                                             <span id="label-quotes-funnel-calls" style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Llamadas/Mes</span>
-                                            <strong id="quotes-funnel-calc-calls" style="font-size: 16px; color: #fff;">0</strong>
+                                            <strong id="quotes-funnel-calc-calls" style="font-size: 16px; color: hsl(var(--text-primary));">0</strong>
                                         </div>
                                     </div>
                                 </div>
@@ -768,7 +788,7 @@
                             
                             <div class="input-group-inline">
                                 <label for="kanban-filter-seller">Vendedor:</label>
-                                <select id="kanban-filter-seller" style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: #fff; font-size: 14px;">
+                                <select id="kanban-filter-seller" style="background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: hsl(var(--text-primary)); font-size: 14px;">
                                     <option value="">Todos los vendedores</option>
                                     <!-- Loaded dynamically -->
                                 </select>
@@ -776,7 +796,7 @@
                             
                             <div class="input-group-inline">
                                 <label for="kanban-filter-days">Vencimiento / Antigüedad:</label>
-                                <select id="kanban-filter-days" style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: #fff; font-size: 14px;">
+                                <select id="kanban-filter-days" style="background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: hsl(var(--text-primary)); font-size: 14px;">
                                     <option value="">Cualquier fecha</option>
                                     <option value="7">Últimos 7 días</option>
                                     <option value="15">Últimos 15 días</option>
@@ -792,22 +812,22 @@
                         <!-- Summary Cards (populated dynamically via JS) -->
                         <div class="summary-card glass-card" style="flex: 1; min-width: 150px; padding: 15px; text-align: center; border-top: 3px solid var(--accent-blue);">
                             <h4 style="margin: 0 0 5px 0; font-size: 14px; color: var(--text-muted);">Cotizado</h4>
-                            <div id="summary-count-cotizado" style="font-size: 20px; font-weight: 700; color: #fff;">0</div>
+                            <div id="summary-count-cotizado" style="font-size: 20px; font-weight: 700; color: hsl(var(--text-primary));">0</div>
                             <div id="summary-total-cotizado" style="font-size: 13px; color: var(--accent-blue);">$0.00</div>
                         </div>
                         <div class="summary-card glass-card" style="flex: 1; min-width: 150px; padding: 15px; text-align: center; border-top: 3px solid var(--accent-purple);">
                             <h4 style="margin: 0 0 5px 0; font-size: 14px; color: var(--text-muted);">Promociones</h4>
-                            <div id="summary-count-promociones" style="font-size: 20px; font-weight: 700; color: #fff;">0</div>
+                            <div id="summary-count-promociones" style="font-size: 20px; font-weight: 700; color: hsl(var(--text-primary));">0</div>
                             <div id="summary-total-promociones" style="font-size: 13px; color: var(--accent-purple);">$0.00</div>
                         </div>
                         <div class="summary-card glass-card" style="flex: 1; min-width: 150px; padding: 15px; text-align: center; border-top: 3px solid #10b981;">
                             <h4 style="margin: 0 0 5px 0; font-size: 14px; color: var(--text-muted);">Vendido</h4>
-                            <div id="summary-count-vendido" style="font-size: 20px; font-weight: 700; color: #fff;">0</div>
+                            <div id="summary-count-vendido" style="font-size: 20px; font-weight: 700; color: hsl(var(--text-primary));">0</div>
                             <div id="summary-total-vendido" style="font-size: 13px; color: #10b981;">$0.00</div>
                         </div>
                         <div class="summary-card glass-card" style="flex: 1; min-width: 150px; padding: 15px; text-align: center; border-top: 3px solid #ef4444;">
                             <h4 style="margin: 0 0 5px 0; font-size: 14px; color: var(--text-muted);">Vencido</h4>
-                            <div id="summary-count-vencido" style="font-size: 20px; font-weight: 700; color: #fff;">0</div>
+                            <div id="summary-count-vencido" style="font-size: 20px; font-weight: 700; color: hsl(var(--text-primary));">0</div>
                             <div id="summary-total-vencido" style="font-size: 13px; color: #ef4444;">$0.00</div>
                         </div>
                     </div>
@@ -909,13 +929,13 @@
                             <form id="agent-ceo-form" style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
                                 <div class="input-group" style="margin-bottom: 0;">
                                     <label for="agent-ceo-seller"><i class="fa-solid fa-user"></i> Vendedor a Evaluar</label>
-                                    <select id="agent-ceo-seller" required style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 10px 12px; color: #fff; font-size: 14px;">
+                                    <select id="agent-ceo-seller" required style="background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 10px 12px; color: hsl(var(--text-primary)); font-size: 14px;">
                                         <option value="">Selecciona un vendedor...</option>
                                     </select>
                                 </div>
                                 <div class="input-group" style="margin-bottom: 0;">
                                     <label for="agent-ceo-objectives"><i class="fa-solid fa-bullseye"></i> Directrices Globales</label>
-                                    <textarea id="agent-ceo-objectives" rows="2" placeholder="E.g., Incrementar cierres en 15% y priorizar clientes del sector industrial..." style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 10px 12px; color: #fff; font-size: 14px; resize: vertical;"></textarea>
+                                    <textarea id="agent-ceo-objectives" rows="2" placeholder="E.g., Incrementar cierres en 15% y priorizar clientes del sector industrial..." style="background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 10px 12px; color: hsl(var(--text-primary)); font-size: 14px; resize: vertical;"></textarea>
                                 </div>
                                 <button type="submit" id="btn-agent-ceo-submit" class="btn btn-glow" style="width: 100%; margin-top: 6px;">
                                     Generar y Asignar Metas <i class="fa-solid fa-wand-magic-sparkles" style="margin-left: 6px;"></i>
@@ -925,7 +945,7 @@
                             <!-- CEO Results -->
                             <div id="agent-ceo-result" class="hidden" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--border-radius-sm); padding: 14px; font-size: 13px; margin-top: 10px; border-left: 3px solid hsl(var(--primary));">
                                 <h4 style="margin: 0 0 8px 0; font-size: 14px; color: hsl(var(--primary));"><i class="fa-solid fa-check-double"></i> Propuesta Generada:</h4>
-                                <div style="margin-bottom: 8px;"><strong>Monto Objetivo:</strong> <span id="ceo-res-monto" style="font-weight: 700; color: #fff;">$0.00</span></div>
+                                <div style="margin-bottom: 8px;"><strong>Monto Objetivo:</strong> <span id="ceo-res-monto" style="font-weight: 700; color: hsl(var(--text-primary));">$0.00</span></div>
                                 <div style="margin-bottom: 8px;"><strong>Estrategia:</strong> <p id="ceo-res-desc" style="margin: 4px 0 0 0; color: hsl(var(--text-secondary)); line-height: 1.4;"></p></div>
                                 <div><strong>KPIs Clave:</strong><ul id="ceo-res-kpis" style="margin: 4px 0 0 0; padding-left: 18px; color: hsl(var(--text-secondary)); line-height: 1.4;"></ul></div>
                             </div>
@@ -947,7 +967,7 @@
                             <form id="agent-coach-form" style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
                                 <div class="input-group" style="margin-bottom: 0;">
                                     <label for="agent-coach-seller"><i class="fa-solid fa-user"></i> Vendedor a Aconsejar</label>
-                                    <select id="agent-coach-seller" required style="background: rgba(12, 14, 18, 0.6); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 10px 12px; color: #fff; font-size: 14px;">
+                                    <select id="agent-coach-seller" required style="background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 10px 12px; color: hsl(var(--text-primary)); font-size: 14px;">
                                         <option value="">Selecciona un vendedor...</option>
                                     </select>
                                 </div>
@@ -966,7 +986,7 @@
                                     <h4 style="margin: 0; font-size: 14px; color: #10b981;"><i class="fa-solid fa-quote-left"></i> Feedback del Coach:</h4>
                                     <span id="coach-wa-status" class="badge" style="font-size: 10px; padding: 4px 8px;">WhatsApp: N/D</span>
                                 </div>
-                                <p id="coach-res-message" style="margin: 0; color: #fff; line-height: 1.5; white-space: pre-wrap; font-style: italic;"></p>
+                                <p id="coach-res-message" style="margin: 0; color: hsl(var(--text-primary)); line-height: 1.5; white-space: pre-wrap; font-style: italic;"></p>
                             </div>
                         </div>
 
@@ -1008,7 +1028,7 @@
                             <!-- Analyst Results -->
                             <div id="agent-analyst-result" class="hidden" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: var(--border-radius-sm); padding: 14px; font-size: 13px; margin-top: 10px; border-left: 3px solid #38bdf8;">
                                 <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #38bdf8;"><i class="fa-solid fa-lightbulb"></i> Insights:</h4>
-                                <div id="analyst-res-content" style="margin: 0; color: #fff; line-height: 1.5; white-space: pre-wrap; max-height: 250px; overflow-y: auto;"></div>
+                                <div id="analyst-res-content" style="margin: 0; color: hsl(var(--text-primary)); line-height: 1.5; white-space: pre-wrap; max-height: 250px; overflow-y: auto;"></div>
                             </div>
                         </div>
 
@@ -1063,7 +1083,7 @@
                                     <!-- Card 1: Progress Circle -->
                                     <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 320px; text-align: center;">
                                         <h3 style="margin-top: 0; margin-bottom: 24px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: hsl(var(--text-secondary)); font-weight: bold;">PROGRESO DIARIO DE HOY</h3>
-                                        <div id="progress-circle-bar" style="position: relative; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(0,0,0,0.2); border: 8px solid rgba(255,255,255,0.03); box-shadow: inset 0 0 15px rgba(0,0,0,0.5); transition: all 0.3s ease;">
+                                        <div id="progress-circle-bar" style="position: relative; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: hsl(var(--bg-secondary)); border: 8px solid rgba(255,255,255,0.03); box-shadow: inset 0 0 15px rgba(0,0,0,0.5); transition: all 0.3s ease;">
                                             <div style="text-align: center; z-index: 10;">
                                                 <span id="slight-edge-points-counter" style="font-size: 38px; font-weight: 800; color: #fff; text-shadow: 0 0 10px rgba(93,95,239,0.4);">0</span>
                                                 <div id="slight-edge-points-goal-text" style="font-size: 12px; color: hsl(var(--text-secondary)); margin-top: 2px;">de 10 pts</div>
@@ -1080,7 +1100,7 @@
                                                 <h3 style="margin: 0; font-size: 16px;">Checklist de Disciplinas Diarias</h3>
                                             </div>
                                             <div style="display: flex; align-items: center; gap: 8px;">
-                                                <input type="date" id="slight-edge-date" style="padding: 4px 8px; font-size: 12px; border-radius: 4px; width: 130px; margin: 0; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: #fff;">
+                                                <input type="date" id="slight-edge-date" style="padding: 4px 8px; font-size: 12px; border-radius: 4px; width: 130px; margin: 0; background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); color: hsl(var(--text-primary));">
                                                 <button id="btn-slight-edge-new-task" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 12px;"><i class="fa-solid fa-plus"></i> Nueva Tarea</button>
                                             </div>
                                         </div>
@@ -1130,19 +1150,19 @@
                                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                                                     <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
                                                         <span id="label-funnel-sales" style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Cierres/Mes</span>
-                                                        <strong id="funnel-calc-sales" style="font-size: 16px; color: #fff;">0</strong>
+                                                        <strong id="funnel-calc-sales" style="font-size: 16px; color: hsl(var(--text-primary));">0</strong>
                                                     </div>
                                                     <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
                                                         <span id="label-funnel-quotes" style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Cotizaciones/Mes</span>
-                                                        <strong id="funnel-calc-quotes" style="font-size: 16px; color: #fff;">0</strong>
+                                                        <strong id="funnel-calc-quotes" style="font-size: 16px; color: hsl(var(--text-primary));">0</strong>
                                                     </div>
                                                     <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
                                                         <span id="label-funnel-meetings" style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Citas/Mes</span>
-                                                        <strong id="funnel-calc-meetings" style="font-size: 16px; color: #fff;">0</strong>
+                                                        <strong id="funnel-calc-meetings" style="font-size: 16px; color: hsl(var(--text-primary));">0</strong>
                                                     </div>
                                                     <div style="background: rgba(0,0,0,0.15); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
                                                         <span id="label-funnel-calls" style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">Llamadas/Mes</span>
-                                                        <strong id="funnel-calc-calls" style="font-size: 16px; color: #fff;">0</strong>
+                                                        <strong id="funnel-calc-calls" style="font-size: 16px; color: hsl(var(--text-primary));">0</strong>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1236,7 +1256,7 @@
                                 <h3><i class="fa-solid fa-wand-magic-sparkles text-glow" style="color: #10b981;"></i> Recomendación de Coaching con IA</h3>
                                 <button id="btn-close-slight-edge-ai" class="btn-icon"><i class="fa-solid fa-times"></i></button>
                             </div>
-                            <div id="slight-edge-ai-content" style="white-space: pre-wrap; font-size: 14px; line-height: 1.6; color: #fff;"></div>
+                            <div id="slight-edge-ai-content" style="white-space: pre-wrap; font-size: 14px; line-height: 1.6; color: hsl(var(--text-primary));"></div>
                         </div>
                     </div>
                 </section>
@@ -1437,7 +1457,7 @@
                     </div>
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px 18px; border-radius: 6px; flex: 1; min-width: 140px;">
                         <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block; margin-bottom: 2px;">Meta de Ingresos</span>
-                        <strong id="burndown-seller-target" style="font-size: 18px; color: #fff;">$0</strong>
+                        <strong id="burndown-seller-target" style="font-size: 18px; color: hsl(var(--text-primary));">$0</strong>
                     </div>
                     <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px 18px; border-radius: 6px; flex: 1; min-width: 140px;">
                         <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block; margin-bottom: 2px;">Consistencia Promedio</span>
