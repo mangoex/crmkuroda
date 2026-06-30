@@ -12,6 +12,7 @@ from app.models.usuario import Usuario
 from app.models.meta import Meta
 from app.models.cotizacion import Cotizacion
 from app.schemas.meta import MetaCreate, MetaUpdate
+from app.models.promocion import Promocion
 from app.agents.metas_agent import generate_seller_goals
 from app.agents.seguimiento_agent import generate_followup_message, send_whatsapp_message
 
@@ -157,8 +158,13 @@ async def generate_meta_agente(
         for q in quotes
     ]
 
+    # Fetch active promotions
+    promos_res = await db.execute(select(Promocion).limit(50))
+    promos = promos_res.scalars().all()
+    promociones_data = [p.to_dict() for p in promos]
+
     # Generate meta from Agent
-    generated = await generate_seller_goals(vendedor.email, historial, objetivos_globales)
+    generated = await generate_seller_goals(vendedor.email, historial, objetivos_globales, promociones_data)
 
     # Persist goal
     new_meta = Meta(

@@ -87,8 +87,11 @@ const DOM = {
     btnSubmitAiGoals: document.getElementById("btn-submit-ai-goals"),
     btnCancelAiGoals: document.getElementById("btn-cancel-ai-goals"),
     btnCloseAiGoals: document.getElementById("btn-close-ai-goals"),
-    filterGoalStatus: document.getElementById("filter-goal-status"),
-    tableMetas: document.querySelector("#table-metas tbody"),
+    filterPromoSearch: document.getElementById("filter-promo-search"),
+    tablePromociones: document.querySelector("#table-promociones tbody"),
+    pagPromociones: document.getElementById("pag-promociones"),
+    uploadPromocionesForm: document.getElementById("upload-promociones-form"),
+    filePromociones: document.getElementById("file-promociones"),
     
     // Cotizaciones Section
     btnGenerateQuoteModal: document.getElementById("btn-generate-quote-modal"),
@@ -428,8 +431,8 @@ async function loadSectionData(sectionId) {
             await loadSummaryData();
         } else if (sectionId === "vendedores") {
             await loadVendedoresData();
-        } else if (sectionId === "metas") {
-            await loadMetasData();
+        } else if (sectionId === "promociones") {
+            await loadPromocionesData();
         } else if (sectionId === "cotizaciones") {
             await loadCotizacionesData();
         } else if (sectionId === "seguimiento") {
@@ -614,82 +617,80 @@ async function loadVendedoresData() {
     });
 }
 
-async function loadMetasData() {
-    const statusFilter = DOM.filterGoalStatus.value;
-    let endpoint = "/api/v1/metas/?limit=50";
+async function loadPromocionesData() {
+    const searchTerm = DOM.filterPromoSearch ? DOM.filterPromoSearch.value.toLowerCase() : "";
+    let endpoint = "/api/v1/promociones/";
     
-    const res = await apiRequest(endpoint);
-    let metas = res.data || [];
-    
-    // Apply client-side status filter
-    if (statusFilter) {
-        metas = metas.filter(m => m.estado === statusFilter);
-    }
-    
-    state.metas = metas;
-    
-    DOM.tableMetas.innerHTML = "";
-    if (metas.length === 0) {
-        DOM.tableMetas.innerHTML = `<tr><td colspan="7" style="text-align: center;">No se encontraron metas de venta.</td></tr>`;
-        return;
-    }
-    
-    // Populate select values in AI Form if admin/gerente
-    if (state.user.rol !== "vendedor" && state.vendedores.length === 0) {
-        const sellersRes = await apiRequest("/api/v1/vendedores/?limit=100");
-        state.vendedores = sellersRes.data || [];
-    }
-    
-    metas.forEach(m => {
-        // Find seller email
-        const sellerEmail = m.vendedor_id === state.user.id ? state.user.email : (state.vendedores.find(v => v.id === m.vendedor_id)?.email || m.vendedor_id);
-        const tr = document.createElement("tr");
+    try {
+        const res = await apiRequest(endpoint);
+        let promociones = res.data || [];
         
-        let stateSelect = "";
-        if (m.vendedor_id === state.user.id || state.user.rol !== "vendedor") {
-            stateSelect = `
-                <select class="goal-status-select" data-id="${m.id}">
-                    <option value="pendiente" ${m.estado === "pendiente" ? "selected" : ""}>Pendiente</option>
-                    <option value="en_progreso" ${m.estado === "en_progreso" ? "selected" : ""}>En Progreso</option>
-                    <option value="completada" ${m.estado === "completada" ? "selected" : ""}>Completada</option>
-                </select>
-            `;
-        } else {
-            stateSelect = `<span class="status-pill status-${m.estado.replace('_', '-')}">${m.estado}</span>`;
+        // Filter
+        if (searchTerm) {
+            promociones = promociones.filter(p => 
+                (p.codigo_material && p.codigo_material.toLowerCase().includes(searchTerm)) ||
+                (p.descripcion_material && p.descripcion_material.toLowerCase().includes(searchTerm))
+            );
         }
         
-        tr.innerHTML = `
-            <td>${sellerEmail}</td>
-            <td>${escapeHTML(m.descripcion)}</td>
-            <td><strong>$${m.monto_objetivo.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong></td>
-            <td>${m.fecha_inicio}</td>
-            <td>${m.fecha_limite}</td>
-            <td>${stateSelect}</td>
-            <td>
-                <span class="text-muted">-</span>
-            </td>
-        `;
-        DOM.tableMetas.appendChild(tr);
-    });
-    
-    // Attach change handlers to goal status select dropdowns
-    document.querySelectorAll(".goal-status-select").forEach(sel => {
-        sel.addEventListener("change", async (e) => {
-            const id = sel.getAttribute("data-id");
-            const newStatus = sel.value;
-            try {
-                await apiRequest(`/api/v1/metas/${id}`, {
-                    method: "PUT",
-                    body: JSON.stringify({ estado: newStatus })
-                });
-                showToast("Estado de la meta actualizado");
-                loadMetasData();
-            } catch (e) {
-                showToast(e.message, "error");
-                // Reset select value on failure
-                loadMetasData();
-            }
+        DOM.tablePromociones.innerHTML = "";
+        if (promociones.length === 0) {
+            DOM.tablePromociones.innerHTML = `<tr><td colspan="6" style="text-align: center;">No se encontraron promociones cargadas.</td></tr>`;
+            return;
+        }
+        
+        promociones.forEach(p => {
+            const tr = document.createElement("tr");
+            
+            tr.innerHTML = `
+                <td>${p.centro || '-'}</td>
+                <td><strong>${p.codigo_material || '-'}</strong></td>
+                <td>${p.descripcion_material || '-'}</td>
+                <td><strong>$${(p.precio_promocion || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong> ${p.moneda || ''}</td>
+                <td>${p.margen_promocion ? (p.margen_promocion).toFixed(2) : '-'}</td>
+                <td>${p.valido_hasta ? p.valido_hasta.split('T')[0] : '-'}</td>
+            `;
+            DOM.tablePromociones.appendChild(tr);
         });
+    } catch (e) {
+        showToast("Error cargando promociones: " + e.message, "error");
+    }
+}
+
+// Upload Promociones Handler
+if (DOM.uploadPromocionesForm) {
+    DOM.uploadPromocionesForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const fileInput = DOM.filePromociones;
+        if (!fileInput.files.length) return;
+        
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+        
+        try {
+            showToast("Subiendo archivo, por favor espere...", "info");
+            
+            const token = localStorage.getItem("crm_token");
+            const response = await fetch("/api/v1/promociones/upload", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                },
+                body: formData
+            });
+            
+            const data = await response.json();
+            if (response.ok) {
+                showToast(data.message, "success");
+                DOM.uploadPromocionesForm.reset();
+                loadPromocionesData();
+            } else {
+                throw new Error(data.message || "Error al subir el archivo");
+            }
+        } catch (e) {
+            showToast(e.message, "error");
+        }
     });
 }
 
@@ -2175,7 +2176,7 @@ DOM.aiGoalsForm.addEventListener("submit", async (e) => {
         showToast("La IA ha generado y guardado la meta con éxito.");
         DOM.aiGoalsForm.reset();
         DOM.aiGoalsWrapper.classList.add("hidden");
-        loadMetasData();
+        loadPromocionesData();
     } catch (e) {
         showToast(e.message, "error");
     } finally {
@@ -2184,7 +2185,7 @@ DOM.aiGoalsForm.addEventListener("submit", async (e) => {
     }
 });
 
-DOM.filterGoalStatus.addEventListener("change", loadMetasData);
+DOM.filterPromoSearch?.addEventListener("input", loadPromocionesData);
 
 /* --- Cotizaciones Handlers --- */
 DOM.btnGenerateQuoteModal.addEventListener("click", () => {

@@ -80,8 +80,8 @@
                 <a href="#" class="menu-item" data-section="vendedores" id="menu-vendedores">
                     <i class="fa-solid fa-users"></i> <span>Vendedores</span>
                 </a>
-                <a href="#" class="menu-item" data-section="metas">
-                    <i class="fa-solid fa-bullseye"></i> <span>Metas de Venta</span>
+                <a href="#" class="menu-item" data-section="promociones">
+                    <i class="fa-solid fa-tags"></i> <span>Promociones</span>
                 </a>
                 <a href="#" class="menu-item" data-section="cotizaciones">
                     <i class="fa-solid fa-file-invoice-dollar"></i> <span>Cotizaciones</span>
@@ -394,11 +394,11 @@
                     </div>
                 </section>
 
-                <!-- Section 3: Metas -->
-                <section id="section-metas" class="dashboard-section hidden animate-fade-in">
+                <!-- Section 3: Promociones -->
+                <section id="section-promociones" class="dashboard-section hidden animate-fade-in">
                     <div class="panel-header">
-                        <h2>Metas de Ventas</h2>
-                        <button id="btn-generate-goals-modal" class="btn btn-glow"><i class="fa-solid fa-wand-magic-sparkles"></i> Generar Metas con IA</button>
+                        <h2>Promociones Activas</h2>
+                        <button id="btn-generate-goals-modal" class="btn btn-glow"><i class="fa-solid fa-wand-magic-sparkles"></i> Generar Metas de Promo con IA</button>
                     </div>
 
                     <!-- AI Goal Generator Card -->
@@ -416,8 +416,8 @@
                                     </select>
                                 </div>
                                 <div class="input-group">
-                                    <label for="ai-goals-global">Directrices y Objetivos Comerciales del Mes</label>
-                                    <textarea id="ai-goals-global" rows="3" placeholder="Ej: Aumentar la cartera de clientes industriales e incrementar un 15% el monto de cierre promedio por vendedor." required></textarea>
+                                    <label for="ai-goals-global">Directrices y Objetivos Comerciales del Mes (Enfocado en Promociones)</label>
+                                    <textarea id="ai-goals-global" rows="3" placeholder="Ej: Aumentar la cartera de clientes industriales y colocar los productos de Promociones vigentes." required></textarea>
                                 </div>
                             </div>
                             <div class="form-actions">
@@ -429,40 +429,40 @@
                         </form>
                     </div>
 
-                    <!-- Filter panel -->
+                    <!-- Upload and Filter panel -->
                     <div class="glass-card filters-card margin-bottom">
-                        <div class="filters-layout">
+                        <div class="filters-layout" style="justify-content: space-between; align-items: center;">
+                            <div class="upload-group" style="display: flex; gap: 10px; align-items: center;">
+                                <form id="upload-promociones-form" style="display: flex; gap: 10px; align-items: center; margin: 0;">
+                                    <input type="file" id="file-promociones" accept=".xlsx" required style="max-width: 250px;">
+                                    <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Subir Promociones</button>
+                                </form>
+                            </div>
                             <div class="input-group-inline">
-                                <label for="filter-goal-status">Estado:</label>
-                                <select id="filter-goal-status">
-                                    <option value="">Todos los estados</option>
-                                    <option value="pendiente">Pendiente</option>
-                                    <option value="en_progreso">En Progreso</option>
-                                    <option value="completada">Completada</option>
-                                </select>
+                                <label for="filter-promo-search">Buscar:</label>
+                                <input type="text" id="filter-promo-search" placeholder="Código o Descripción...">
                             </div>
                         </div>
                     </div>
 
-                    <!-- Goals Table -->
+                    <!-- Promociones Table -->
                     <div class="glass-card table-container">
-                        <table class="data-table" id="table-metas">
+                        <table class="data-table" id="table-promociones">
                             <thead>
                                 <tr>
-                                    <th>Vendedor</th>
-                                    <th>Descripción de la Meta</th>
-                                    <th>Monto Objetivo</th>
-                                    <th>Inicio</th>
-                                    <th>Vencimiento</th>
-                                    <th>Estado</th>
-                                    <th>Acciones</th>
+                                    <th>Centro</th>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th>Precio Promo</th>
+                                    <th>Margen</th>
+                                    <th>Válido Hasta</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <!-- Loaded dynamically -->
                             </tbody>
                         </table>
-                        <div class="table-pagination" id="pag-metas">
+                        <div class="table-pagination" id="pag-promociones">
                             <!-- Loaded dynamically -->
                         </div>
                     </div>

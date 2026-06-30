@@ -6,7 +6,8 @@ from app.agents.llm import call_gemini
 async def generate_seller_goals(
     vendedor_email: str,
     historial_cotizaciones: List[Dict[str, Any]],
-    objetivos_globales: str
+    objetivos_globales: str,
+    promociones_vigentes: List[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     Generates structured sales goals for a seller based on their recent performance
@@ -29,12 +30,19 @@ async def generate_seller_goals(
         )
     history_str = "\n".join(history_summary) if history_summary else "Sin historial de cotizaciones previas."
     
+    promos_str = ""
+    if promociones_vigentes:
+        promo_summary = [f"- {p.get('codigo_material')}: {p.get('descripcion_material')} (Promo: ${p.get('precio_promocion')} {p.get('moneda')})" for p in promociones_vigentes[:50]]
+        promos_str = "Catálogo de Promociones Vigentes:\n" + "\n".join(promo_summary) + "\n\n"
+    
     prompt = (
         f"Analiza el siguiente historial de cotizaciones del vendedor: {vendedor_email}\n\n"
         f"Historial de Cotizaciones:\n{history_str}\n\n"
         f"Objetivos y Directrices Globales del Negocio:\n{objetivos_globales}\n\n"
+        f"{promos_str}"
         f"Por favor, calcula un monto de venta objetivo óptimo para el siguiente periodo, "
-        f"redacta una descripción clara del enfoque estratégico, y define una lista de 3 a 5 KPIs clave específicos."
+        f"redacta una descripción clara del enfoque estratégico (incluyendo si debe priorizar artículos en promoción), "
+        f"y define una lista de 3 a 5 KPIs clave específicos relacionados a estas promociones y directrices."
     )
     
     response_schema = {

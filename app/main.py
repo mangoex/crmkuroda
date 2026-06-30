@@ -16,6 +16,7 @@ from app.api.v1.analisis import router as analisis_router
 from app.api.v1.slight_edge import router as slight_edge_router
 from app.api.v1.companies import router as companies_router
 from app.api.v1.asignaciones import router as asignaciones_router
+from app.api.v1.promociones import router as promociones_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -187,6 +188,7 @@ app.include_router(analisis_router, prefix="/api/v1/analisis", tags=["Analisis"]
 app.include_router(slight_edge_router, prefix="/api/slight-edge", tags=["La Ligera Ventaja"])
 app.include_router(companies_router, prefix="/companies", tags=["Compañías / Empresas"])
 app.include_router(asignaciones_router, prefix="/api/v1/asignaciones", tags=["Asignación de Clientes"])
+app.include_router(promociones_router, prefix="/api/v1/promociones", tags=["Promociones"])
 
 # Mount Static Files (CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")

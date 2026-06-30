@@ -8,6 +8,7 @@ from app.models.company import Company
 from app.models.slight_edge_plan import SlightEdgePlan
 from app.models.slight_edge_log import SlightEdgeLog
 from app.models.cliente_asignacion import ClienteDisponible, PujaCliente
+from app.models.promocion import Promocion
 
 __all__ = [
     "Base", 
@@ -20,5 +21,6 @@ __all__ = [
     "SlightEdgePlan",
     "SlightEdgeLog",
     "ClienteDisponible",
-    "PujaCliente"
+    "PujaCliente",
+    "Promocion"
 ]
