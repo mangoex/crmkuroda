@@ -433,7 +433,7 @@
                     <div class="glass-card filters-card margin-bottom">
                         <div class="filters-layout" style="justify-content: space-between; align-items: center;">
                             <div class="upload-group" style="display: flex; gap: 10px; align-items: center;">
-                                <form id="upload-promociones-form" style="display: flex; gap: 10px; align-items: center; margin: 0;">
+                                <form id="upload-promociones-form" onsubmit="event.preventDefault();" style="display: flex; gap: 10px; align-items: center; margin: 0;">
                                     <input type="file" id="file-promociones" accept=".xlsx" required style="max-width: 250px;">
                                     <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Subir Promociones</button>
                                 </form>
@@ -1496,6 +1496,6 @@
     
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.3"></script>
+    <script src="/static/app.js?v=1.0.4"></script>
 </body>
 </html>
