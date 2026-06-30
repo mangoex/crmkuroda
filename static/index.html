@@ -791,19 +791,14 @@
                     <div class="kanban-summary-row" style="display: flex; gap: 15px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px;">
                         <!-- Summary Cards (populated dynamically via JS) -->
                         <div class="summary-card glass-card" style="flex: 1; min-width: 150px; padding: 15px; text-align: center; border-top: 3px solid var(--accent-blue);">
-                            <h4 style="margin: 0 0 5px 0; font-size: 14px; color: var(--text-muted);">Propuesta</h4>
-                            <div id="summary-count-propuesta" style="font-size: 20px; font-weight: 700; color: #fff;">0</div>
-                            <div id="summary-total-propuesta" style="font-size: 13px; color: var(--accent-blue);">$0.00</div>
+                            <h4 style="margin: 0 0 5px 0; font-size: 14px; color: var(--text-muted);">Cotizado</h4>
+                            <div id="summary-count-cotizado" style="font-size: 20px; font-weight: 700; color: #fff;">0</div>
+                            <div id="summary-total-cotizado" style="font-size: 13px; color: var(--accent-blue);">$0.00</div>
                         </div>
                         <div class="summary-card glass-card" style="flex: 1; min-width: 150px; padding: 15px; text-align: center; border-top: 3px solid var(--accent-purple);">
                             <h4 style="margin: 0 0 5px 0; font-size: 14px; color: var(--text-muted);">Promociones</h4>
                             <div id="summary-count-promociones" style="font-size: 20px; font-weight: 700; color: #fff;">0</div>
                             <div id="summary-total-promociones" style="font-size: 13px; color: var(--accent-purple);">$0.00</div>
-                        </div>
-                        <div class="summary-card glass-card" style="flex: 1; min-width: 150px; padding: 15px; text-align: center; border-top: 3px solid var(--accent-blue);">
-                            <h4 style="margin: 0 0 5px 0; font-size: 14px; color: var(--text-muted);">Cotizado</h4>
-                            <div id="summary-count-cotizado" style="font-size: 20px; font-weight: 700; color: #fff;">0</div>
-                            <div id="summary-total-cotizado" style="font-size: 13px; color: var(--accent-blue);">$0.00</div>
                         </div>
                         <div class="summary-card glass-card" style="flex: 1; min-width: 150px; padding: 15px; text-align: center; border-top: 3px solid #10b981;">
                             <h4 style="margin: 0 0 5px 0; font-size: 14px; color: var(--text-muted);">Vendido</h4>
@@ -819,20 +814,20 @@
 
                     <!-- Kanban Board Grid -->
                     <div class="kanban-board">
-                        <!-- Propuesta -->
-                        <div class="kanban-column" data-stage="propuesta">
+                        <!-- Cotizado -->
+                        <div class="kanban-column" data-stage="cotizado">
                             <div class="kanban-column-header">
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <h3>Propuesta</h3>
-                                    <span class="badge badge-primary column-count" id="count-kanban-propuesta">0</span>
+                                    <h3>Cotizado</h3>
+                                    <span class="badge badge-primary column-count" id="count-kanban-cotizado">0</span>
                                 </div>
                                 <span class="sort-arrows-container">
-                                    <i class="fa-solid fa-caret-up sort-arrow sort-kanban-column-asc" data-column="propuesta" title="Ordenar de menor a mayor total"></i>
-                                    <i class="fa-solid fa-caret-down sort-arrow sort-kanban-column-desc" data-column="propuesta" title="Ordenar de mayor a menor total"></i>
+                                    <i class="fa-solid fa-caret-up sort-arrow sort-kanban-column-asc" data-column="cotizado" title="Ordenar de menor a mayor total"></i>
+                                    <i class="fa-solid fa-caret-down sort-arrow sort-kanban-column-desc" data-column="cotizado" title="Ordenar de mayor a menor total"></i>
                                 </span>
                             </div>
-                            <div class="kanban-cards-container" id="kanban-propuesta">
-                                <!-- Cards will be injected here -->
+                            <div class="kanban-cards-container" id="kanban-cotizado">
+                                <!-- Cards loaded dynamically -->
                             </div>
                         </div>
 
@@ -850,23 +845,6 @@
                             </div>
                             <div class="kanban-cards-container" id="kanban-promociones">
                                 <!-- Cards will be injected here -->
-                            </div>
-                        </div>
-
-                        <!-- Cotizado -->
-                        <div class="kanban-column" data-stage="cotizado">
-                            <div class="kanban-column-header">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <h3>Cotizado</h3>
-                                    <span class="badge badge-primary column-count" id="count-kanban-cotizado">0</span>
-                                </div>
-                                <span class="sort-arrows-container">
-                                    <i class="fa-solid fa-caret-up sort-arrow sort-kanban-column-asc" data-column="cotizado" title="Ordenar de menor a mayor total"></i>
-                                    <i class="fa-solid fa-caret-down sort-arrow sort-kanban-column-desc" data-column="cotizado" title="Ordenar de mayor a menor total"></i>
-                                </span>
-                            </div>
-                            <div class="kanban-cards-container" id="kanban-cotizado">
-                                <!-- Cards loaded dynamically -->
                             </div>
                         </div>
 

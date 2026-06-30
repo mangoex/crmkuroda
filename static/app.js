@@ -32,9 +32,8 @@ const state = {
     quotesPageSize: 15,
     quotesSortOrder: null, // 'asc', 'desc', or null
     kanbanSortOrders: {
-        propuesta: null,
-        promociones: null,
         cotizado: null,
+        promociones: null,
         vendido: null,
         vencido: null
     }
@@ -1476,9 +1475,8 @@ function renderKanbanColumns() {
     
     // Categorize quotes
     const stages = {
-        propuesta: [],
-        promociones: [],
         cotizado: [],
+        promociones: [],
         vendido: [],
         vencido: []
     };
@@ -1519,16 +1517,14 @@ function renderKanbanColumns() {
 
             if (hasPromotion) {
                 stages.promociones.push(q);
-            } else if (hasQuoteNum) {
-                stages.cotizado.push(q);
             } else {
-                stages.propuesta.push(q);
+                stages.cotizado.push(q);
             }
         }
     });
     
     // Sort columns if sort order is set
-    const columns = ['propuesta', 'promociones', 'cotizado', 'vendido', 'vencido'];
+    const columns = ['cotizado', 'promociones', 'vendido', 'vencido'];
     columns.forEach(col => {
         const order = state.kanbanSortOrders[col];
         if (order) {
