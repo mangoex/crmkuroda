@@ -17,7 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="/static/style.css?v=1.0.2">
+    <link rel="stylesheet" href="/static/style.css?v=1.0.3">
 </head>
 <body class="dark-theme">
     
@@ -1561,9 +1561,19 @@
         </div>
     </div>
 
-    
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-bottom-nav">
+        <a href="#" class="mobile-nav-item active" data-mobile-section="slight-edge" onclick="switchSection('slight-edge'); return false;">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>La Ventaja</span>
+        </a>
+        <a href="#" class="mobile-nav-item" data-mobile-section="promociones" onclick="switchSection('promociones'); return false;">
+            <i class="fa-solid fa-tags"></i>
+            <span>Promociones</span>
+        </a>
+    </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.7"></script>
+    <script src="/static/app.js?v=1.0.9"></script>
 </body>
 </html>

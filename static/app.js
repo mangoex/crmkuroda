@@ -416,6 +416,15 @@ function switchSection(sectionId) {
             item.classList.remove("active");
         }
     });
+
+    // Toggle active mobile bottom nav items
+    document.querySelectorAll(".mobile-nav-item").forEach(item => {
+        if (item.getAttribute("data-mobile-section") === sectionId) {
+            item.classList.add("active");
+        } else {
+            item.classList.remove("active");
+        }
+    });
     
     // Toggle active sections in viewport
     DOM.sections.forEach(sec => {
