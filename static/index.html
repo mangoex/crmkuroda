@@ -401,6 +401,29 @@
                         <button id="btn-generate-goals-modal" class="btn btn-glow"><i class="fa-solid fa-wand-magic-sparkles"></i> Generar Metas de Promo con IA</button>
                     </div>
 
+                    <!-- Promociones KPIs -->
+                    <div class="promociones-kpis-wrapper margin-bottom">
+                        <div class="kpi-section-title" style="margin-bottom: 16px;">
+                            <h3 style="font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-layer-group text-glow" style="color: #38bdf8;"></i> Promociones por Categoría
+                            </h3>
+                            <p style="font-size: 13px; color: hsl(var(--text-secondary)); margin-top: 4px;">Las 4 categorías principales por volumen de productos disponibles.</p>
+                        </div>
+                        <div class="kpi-grid" id="promo-kpi-categories" style="margin-bottom: 24px;">
+                            <!-- Dynamically loaded -->
+                        </div>
+
+                        <div class="kpi-section-title" style="margin-bottom: 16px;">
+                            <h3 style="font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-hand-holding-dollar text-glow" style="color: #10b981;"></i> Top Comisiones y Beneficios
+                            </h3>
+                            <p style="font-size: 13px; color: hsl(var(--text-secondary)); margin-top: 4px;">Categorías con mayores márgenes de promoción (¡Prioridad para comisionar!).</p>
+                        </div>
+                        <div class="kpi-grid" id="promo-kpi-commissions" style="margin-bottom: 24px;">
+                            <!-- Dynamically loaded -->
+                        </div>
+                    </div>
+
                     <!-- AI Goal Generator Card -->
                     <div id="ai-goals-wrapper" class="glass-card form-card hidden animate-fade-in margin-bottom border-glow">
                         <div class="card-header-with-action">

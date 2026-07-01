@@ -82,6 +82,8 @@ const DOM = {
     // Metas Section
     btnGenerateGoalsModal: document.getElementById("btn-generate-goals-modal"),
     aiGoalsWrapper: document.getElementById("ai-goals-wrapper"),
+    promoKpiCategories: document.getElementById("promo-kpi-categories"),
+    promoKpiCommissions: document.getElementById("promo-kpi-commissions"),
     aiGoalsForm: document.getElementById("ai-goals-form"),
     aiGoalsVendedor: document.getElementById("ai-goals-vendedor"),
     aiGoalsGlobal: document.getElementById("ai-goals-global"),
@@ -642,6 +644,69 @@ async function loadPromocionesData() {
             });
         }
         
+        // --- CALCULAR Y RENDERIZAR KPIs DE PROMOCIONES ---
+        const activePromos = statusFilter === "activas" ? promociones : (res.data || []).filter(p => {
+            if (!p.valido_hasta) return true;
+            return new Date(p.valido_hasta) >= today;
+        });
+
+        const catMap = {};
+        activePromos.forEach(p => {
+            const cat = p.descrip_gpo_materiales || "Sin Categoría";
+            if (!catMap[cat]) {
+                catMap[cat] = { name: cat, count: 0, sumMargin: 0 };
+            }
+            catMap[cat].count++;
+            catMap[cat].sumMargin += (p.margen_promocion || 0);
+        });
+
+        const categories = Object.values(catMap).map(c => {
+            c.avgMargin = c.count > 0 ? (c.sumMargin / c.count) : 0;
+            return c;
+        });
+
+        // Top 4 por cantidad de productos
+        const topCategories = [...categories].sort((a, b) => b.count - a.count).slice(0, 4);
+        // Top 4 por mayor margen promedio
+        const topCommissions = [...categories].sort((a, b) => b.avgMargin - a.avgMargin).slice(0, 4);
+
+        if (DOM.promoKpiCategories && DOM.promoKpiCommissions) {
+            if (topCategories.length > 0) {
+                DOM.promoKpiCategories.innerHTML = topCategories.map((c, i) => `
+                    <div class="glass-card kpi-card animate-fade-in" style="animation-delay: ${i * 0.1}s; border-left: 3px solid #38bdf8;">
+                        <div class="kpi-icon icon-blue" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">
+                            <i class="fa-solid fa-boxes-stacked"></i>
+                        </div>
+                        <div class="kpi-data" style="width: calc(100% - 60px);">
+                            <h3 style="font-size: 13px; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;" title="${c.name}">${c.name}</h3>
+                            <p style="font-size: 22px; font-weight: 700;">${c.count} <span style="font-size: 11px; color: hsl(var(--text-secondary)); font-weight: normal;">prods</span></p>
+                            <span style="font-size: 12px; color: #10b981; font-weight: 600;"><i class="fa-solid fa-arrow-trend-up"></i> ${c.avgMargin.toFixed(1)}% margen prom.</span>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                DOM.promoKpiCategories.innerHTML = `<div class="glass-card kpi-card" style="grid-column: 1 / -1;"><div class="kpi-data" style="text-align: center; width: 100%;"><p>No hay promociones activas</p></div></div>`;
+            }
+
+            if (topCommissions.length > 0) {
+                DOM.promoKpiCommissions.innerHTML = topCommissions.map((c, i) => `
+                    <div class="glass-card kpi-card animate-fade-in" style="animation-delay: ${i * 0.1}s; border-left: 3px solid #10b981;">
+                        <div class="kpi-icon icon-green" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                            <i class="fa-solid fa-sack-dollar"></i>
+                        </div>
+                        <div class="kpi-data" style="width: calc(100% - 60px);">
+                            <h3 style="font-size: 13px; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;" title="${c.name}">${c.name}</h3>
+                            <p style="font-size: 22px; font-weight: 700; color: #10b981;">${c.avgMargin.toFixed(1)}% <span style="font-size: 11px; color: hsl(var(--text-secondary)); font-weight: normal;">margen</span></p>
+                            <span style="font-size: 12px; color: hsl(var(--text-secondary)); font-weight: 500;"><i class="fa-solid fa-cubes"></i> ${c.count} productos disp.</span>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                DOM.promoKpiCommissions.innerHTML = `<div class="glass-card kpi-card" style="grid-column: 1 / -1;"><div class="kpi-data" style="text-align: center; width: 100%;"><p>No hay comisiones calculables</p></div></div>`;
+            }
+        }
+        // ----------------------------------------------------
+
         // Filter Search Text
         if (searchTerm) {
             promociones = promociones.filter(p => 
