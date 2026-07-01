@@ -61,6 +61,7 @@ const DOM = {
     
     // Vendedores Section
     menuVendedores: document.getElementById("menu-vendedores"),
+    menuApi: document.getElementById("menu-api"),
     btnAddSeller: document.getElementById("btn-add-seller"),
     sellerFormWrapper: document.getElementById("seller-form-wrapper"),
     sellerForm: document.getElementById("seller-form"),
@@ -325,9 +326,11 @@ async function initSession() {
         if (state.user.rol === "vendedor") {
             DOM.menuVendedores.classList.add("hidden");
             DOM.btnGenerateGoalsModal.classList.add("hidden");
+            if (DOM.menuApi) DOM.menuApi.classList.add("hidden");
         } else {
             DOM.menuVendedores.classList.remove("hidden");
             DOM.btnGenerateGoalsModal.classList.remove("hidden");
+            if (DOM.menuApi) DOM.menuApi.classList.remove("hidden");
         }
 
         // Show/hide conexion menu based on role
