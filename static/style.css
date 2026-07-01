@@ -1881,15 +1881,7 @@ input:checked + .slider:before {
     }
 
     .mobile-nav-item.active {
-        color: hsl(var(--primary));
-    }
-    
-    .mobile-nav-item.active[data-mobile-section="promociones"] {
-        color: #38bdf8;
-    }
-
-    .mobile-nav-item.active i {
-        transform: translateY(-2px);
+        display: none !important;
     }
 
     /* Adjust viewport area to not be covered by bottom nav */
