@@ -4668,7 +4668,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const response = await fetch("/api/v1/cotizaciones/upload", {
                     method: "POST",
                     headers: {
-                        "Authorization": `Bearer ${localStorage.getItem("token")}`
+                        "Authorization": `Bearer ${localStorage.getItem("crm_token")}`
                     },
                     body: formData
                 });
