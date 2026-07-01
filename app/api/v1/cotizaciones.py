@@ -232,22 +232,20 @@ import openpyxl
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_cotizaciones(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: Usuario = Depends(require_admin_or_gerente)
 ):
-    if not file.filename.endswith(".xlsx"):
-        raise HTTPException(status_code=400, detail="El archivo debe ser un Excel (.xlsx)")
-    
+    if not file.filename.endswith(('.xls', '.xlsx')):
+        raise HTTPException(status_code=400, detail="Formato de archivo inválido. Sube un archivo de Excel.")
+        
     contents = await file.read()
     
-    # Process the file in the background so the request doesn't timeout
-    background_tasks.add_task(process_excel_background, contents)
-    
-    return {
-        "status": "success", 
-        "message": "El archivo se está procesando en segundo plano. Actualiza la página en unos minutos."
-    }
+    # Process synchronously to catch any database errors immediately
+    error_msg = await process_excel_background(contents)
+    if error_msg:
+        raise HTTPException(status_code=500, detail=error_msg)
+        
+    return {"message": "El archivo se ha procesado exitosamente."}
 
 async def process_excel_background(contents: bytes):
     from app.core.database import SessionLocal
@@ -358,7 +356,10 @@ async def process_excel_background(contents: bytes):
             db.add_all(new_quotes)
             await db.commit()
             print(f"Background upload finished. Replaced database with {synced_count} nuevas cotizaciones.")
+            return None
             
         except Exception as e:
             await db.rollback()
-            print(f"Error procesando cotizaciones en segundo plano: {str(e)}")
+            err = f"Error procesando cotizaciones: {str(e)}"
+            print(err)
+            return err
