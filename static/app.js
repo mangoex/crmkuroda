@@ -331,10 +331,6 @@ async function initSession() {
         }
 
         // Show/hide conexion menu based on role
-        const menuConexion = document.getElementById("menu-conexion");
-        if (menuConexion) {
-            menuConexion.style.display = (state.user.rol === "admin" || state.user.rol === "gerente") ? "flex" : "none";
-        }
         
         // Go to initial summary view (default to slight-edge on mobile)
         const isMobile = window.innerWidth <= 768;
@@ -457,8 +453,6 @@ async function loadSectionData(sectionId) {
             await loadSlightEdgeData();
         } else if (sectionId === "asignacion") {
             await loadAsignacionData();
-        } else if (sectionId === "conexion") {
-            await loadConexionData();
         }
     } catch (e) {
         showToast(e.message, "error");
@@ -4313,21 +4307,6 @@ async function loadAsignacionData() {
     }
 }
 
-async function loadConexionData() {
-    const csvDriveUrl = document.getElementById("csv-drive-url");
-    if (!csvDriveUrl) return;
-
-    try {
-        const res = await apiRequest("/companies/kuroda/dashboard");
-        if (res && res.csv_drive_url !== undefined) {
-            state.csv_drive_url = res.csv_drive_url;
-            csvDriveUrl.value = res.csv_drive_url || "";
-        }
-    } catch (e) {
-        console.error("Error al cargar configuración de conexión:", e);
-    }
-}
-
 async function loadManagerAsignacionView() {
     const listAvailable = document.getElementById("list-available-clients");
     const listSellers = document.getElementById("list-assign-sellers");
@@ -4668,53 +4647,47 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-// --- CONEXION TAB LOGIC ---
+
+// --- COTIZACIONES UPLOAD LOGIC ---
 document.addEventListener("DOMContentLoaded", () => {
-    const csvDriveUrl = document.getElementById("csv-drive-url");
-    const btnSaveCsvUrl = document.getElementById("btn-save-csv-url");
-    const btnSyncCsv = document.getElementById("btn-sync-csv");
+    const fileUploadCotizaciones = document.getElementById("file-upload-cotizaciones");
+    if (fileUploadCotizaciones) {
+        fileUploadCotizaciones.addEventListener("change", async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
 
-    if (btnSaveCsvUrl) {
-        btnSaveCsvUrl.addEventListener("click", async () => {
-            const url = csvDriveUrl.value.trim();
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const btnUpload = document.getElementById("btn-upload-cotizaciones");
+            const originalHtml = btnUpload.innerHTML;
+            btnUpload.disabled = true;
+            btnUpload.innerHTML = 'Cargando... <i class="fa-solid fa-spinner animate-spin"></i>';
+
             try {
-                btnSaveCsvUrl.disabled = true;
-                const originalHtml = btnSaveCsvUrl.innerHTML;
-                btnSaveCsvUrl.innerHTML = 'Guardando... <i class="fa-solid fa-spinner animate-spin"></i>';
-                await apiRequest("/companies/kuroda/dashboard/target", {
+                const response = await fetch("/api/v1/cotizaciones/upload", {
                     method: "POST",
-                    body: JSON.stringify({
-                        csv_drive_url: url
-                    })
+                    headers: {
+                        "Authorization": `Bearer ${localStorage.getItem("token")}`
+                    },
+                    body: formData
                 });
-                showToast("URL de CSV guardada exitosamente", "success");
-                btnSaveCsvUrl.innerHTML = originalHtml;
-            } catch (e) {
-                console.error(e);
-                showToast("Fallo al guardar URL del CSV", "error");
-                btnSaveCsvUrl.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar URL';
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast(result.message || "Cotizaciones cargadas exitosamente.", "success");
+                    await loadSummaryData(); // Reload table
+                } else {
+                    showToast(result.detail || "Error al cargar cotizaciones.", "error");
+                }
+            } catch (error) {
+                console.error("Error uploading excel:", error);
+                showToast("Ocurrió un error en la conexión con el servidor.", "error");
             } finally {
-                btnSaveCsvUrl.disabled = false;
-            }
-        });
-    }
-
-    if (btnSyncCsv) {
-        btnSyncCsv.addEventListener("click", async () => {
-            try {
-                btnSyncCsv.disabled = true;
-                const originalHtml = btnSyncCsv.innerHTML;
-                btnSyncCsv.innerHTML = 'Sincronizando... <i class="fa-solid fa-spinner animate-spin"></i>';
-                const res = await apiRequest("/api/v1/cotizaciones/sync-csv", { method: "POST" });
-                showToast(res.message || "Sincronización exitosa", "success");
-                await loadSummaryData();
-                btnSyncCsv.innerHTML = originalHtml;
-            } catch (e) {
-                console.error(e);
-                showToast(e.message || "Fallo al sincronizar CSV", "error");
-                btnSyncCsv.innerHTML = '<i class="fa-solid fa-rotate"></i> Sincronizar Ahora';
-            } finally {
-                btnSyncCsv.disabled = false;
+                btnUpload.disabled = false;
+                btnUpload.innerHTML = originalHtml;
+                e.target.value = ""; // Reset input
             }
         });
     }

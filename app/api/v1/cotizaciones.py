@@ -226,200 +226,134 @@ async def update_cotizacion(
         "data": serialize_cotizacion(cotizacion)
     }
 
-@router.post("/sync-csv", status_code=status.HTTP_200_OK)
-async def sync_cotizaciones_csv(
+
+from fastapi import UploadFile, File
+import openpyxl
+
+@router.post("/upload", status_code=status.HTTP_201_CREATED)
+async def upload_cotizaciones(
+    file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(require_admin_or_gerente)
 ):
-    """Syncs quotes from Google Drive CSV linked to the company."""
-    comp_res = await db.execute(select(Company).limit(1))
-    company = comp_res.scalars().first()
+    if not file.filename.endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="El archivo debe ser un Excel (.xlsx)")
     
-    if not company or not company.csv_drive_url:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No se ha configurado la URL del archivo CSV en la pestaña de Conexión."
-        )
-
-    # 1. Download CSV content
+    contents = await file.read()
+    
     try:
-        async with httpx.AsyncClient(follow_redirects=True) as client:
-            response = await client.get(company.csv_drive_url, timeout=15.0)
-            response.raise_for_status()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"No se pudo descargar el CSV: {str(e)}"
-        )
-
-    csv_text = response.text
-    f = io.StringIO(csv_text.strip())
-    reader = csv.DictReader(f)
-    
-    # 2. Get existing quote numbers to prevent duplicates
-    existing_quotes_res = await db.execute(select(Cotizacion.numero_cotizacion).filter(Cotizacion.numero_cotizacion.isnot(None)))
-    existing_quote_numbers = {q for q in existing_quotes_res.scalars().all()}
-    
-    # 3. Get all sellers to map quotes to them
-    sellers_res = await db.execute(select(Usuario).filter(Usuario.codigo_vendedor.isnot(None)))
-    sellers_map = {u.codigo_vendedor.strip().upper(): u.id for u in sellers_res.scalars().all()}
-    
-    synced_count = 0
-    duplicates_count = 0
-    
-    def find_key(row_keys, matches):
-        for k in row_keys:
-            if k.strip().lower() in matches:
-                return k
-        return None
-
-    # Matches for columns
-    name_matches = {"cliente_nombre", "nombre del cliente", "cliente", "nombre", "client_name", "client", "name"}
-    contact_matches = {"datos_contacto", "contacto", "contact_info"}
-    email_matches = {"direccion correo electronico", "email", "correo", "mail", "email_cli"}
-    phone_matches = {"numero de telefono", "telefono", "tel", "phone"}
-    mobile_matches = {"numero de celular", "celular", "cel", "mobile"}
-    num_client_matches = {"numero del cliente", "numero_cliente", "num_cli", "client_number"}
-    total_matches = {"total", "importe cotizado c/iva", "importe", "monto", "amount"}
-    comment_matches = {"comentarios", "comentario", "notes", "comments", "comment"}
-    vendedor_matches = {"vendedor", "codigo_vendedor", "seller", "vendedor_id"}
-    quote_num_matches = {"numero_cotizacion", "numero de cotizacion", "cotizacion", "numero", "quote_number", "num_cot"}
-    date_reg_matches = {"fecha_registro", "fecha de registro", "fecha", "date", "fecha_reg"}
-    channel_matches = {"canal", "canal", "channel"}
-    invoice_num_matches = {"numero_factura", "numero de factura", "factura", "invoice", "num_fac"}
-    invoice_date_matches = {"fecha_factura", "fecha de factura", "fecha_fac"}
-    lost_matches = {"venta_perdida", "venta perdida?", "perdida"}
-
-    def safe_float(val, default=0.0):
-        if val is None or str(val).strip() == "":
-            return default
-        try:
-            clean_val = str(val).replace("$", "").replace(",", "").strip()
-            return float(clean_val)
-        except ValueError:
-            return default
-
-    def safe_date(val):
-        if val is None or str(val).strip() == "":
-            return None
-        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y/%m/%d"):
-            try:
-                return datetime.strptime(str(val).strip(), fmt).date()
-            except ValueError:
+        wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
+        ws = wb.active
+        
+        # Get all users (sellers) to map them by id or code
+        users_res = await db.execute(select(Usuario))
+        users = users_res.scalars().all()
+        # We try to map by seller code or exact name. 
+        # But for robust import, we'll just keep the vendor name if we can't find an ID.
+        
+        synced_count = 0
+        updated_count = 0
+        
+        iter_rows = ws.iter_rows(min_row=2, values_only=True)
+        for row in iter_rows:
+            if not row or not row[0]: # Skip empty rows
                 continue
-        return None
-
-    row_keys = reader.fieldnames if reader.fieldnames else []
-    
-    k_name = find_key(row_keys, name_matches)
-    k_contact = find_key(row_keys, contact_matches)
-    k_email = find_key(row_keys, email_matches)
-    k_phone = find_key(row_keys, phone_matches)
-    k_mobile = find_key(row_keys, mobile_matches)
-    k_num_client = find_key(row_keys, num_client_matches)
-    k_total = find_key(row_keys, total_matches)
-    k_comment = find_key(row_keys, comment_matches)
-    k_vendedor = find_key(row_keys, vendedor_matches)
-    k_quote_num = find_key(row_keys, quote_num_matches)
-    k_date_reg = find_key(row_keys, date_reg_matches)
-    k_channel = find_key(row_keys, channel_matches)
-    k_invoice_num = find_key(row_keys, invoice_num_matches)
-    k_invoice_date = find_key(row_keys, invoice_date_matches)
-    k_lost = find_key(row_keys, lost_matches)
-
-    for row in reader:
-        client_name = row.get(k_name) if k_name else None
-        if not client_name or not client_name.strip():
-            continue
-        client_name = client_name.strip()
-
-        num_cot = None
-        if k_quote_num:
-            val = row.get(k_quote_num)
-            if val is not None:
-                # Format to int if ended in .0
-                val_str = str(val).strip()
-                if val_str.endswith(".0"):
-                    try:
-                        num_cot = str(int(float(val_str)))
-                    except ValueError:
-                        num_cot = val_str
-                else:
-                    num_cot = val_str
-        
-        if num_cot and num_cot in existing_quote_numbers:
-            duplicates_count += 1
-            continue
-
-        vendedor_id = current_user.id
-        if k_vendedor:
-            v_code = str(row.get(k_vendedor) or "").strip().upper()
-            if v_code in sellers_map:
-                vendedor_id = sellers_map[v_code]
-
-        total_val = safe_float(row.get(k_total) if k_total else 0.0)
-
-        email_val = (row.get(k_email) or "").strip()
-        phone_val = (row.get(k_phone) or "").strip()
-        mobile_val = (row.get(k_mobile) or "").strip()
-        num_client_val = (row.get(k_num_client) or "").strip()
-        
-        if k_contact and not email_val and not phone_val:
-            generic_contact = (row.get(k_contact) or "").strip()
-            if "@" in generic_contact:
-                email_val = generic_contact
-            else:
-                phone_val = generic_contact
-
-        datos_contacto = {
-            "email": email_val,
-            "telefono": phone_val,
-            "celular": mobile_val,
-            "numero_cliente": num_client_val
-        }
-
-        fecha_reg = safe_date(row.get(k_date_reg)) if k_date_reg else None
-        if not fecha_reg:
-            fecha_reg = datetime.utcnow().date()
+                
+            fecha_reg = row[0]
+            org_ventas = str(row[1]).strip() if row[1] is not None else None
+            num_cot_val = str(row[2]).strip() if row[2] is not None else None
+            canal_val = str(row[3]).strip() if row[3] is not None else None
+            vend_codigo = str(row[4]).strip() if row[4] is not None else None
+            vend_nombre = str(row[5]).strip() if row[5] is not None else None
+            num_cliente = str(row[6]).strip() if row[6] is not None else None
+            cliente_nombre = str(row[7]).strip() if row[7] is not None else None
+            telefono = str(row[8]).strip() if row[8] is not None else None
+            celular = str(row[9]).strip() if row[9] is not None else None
+            email = str(row[10]).strip() if row[10] is not None else None
+            num_factura = str(row[11]).strip() if row[11] is not None else None
+            fecha_fac = row[12]
             
-        canal_val = str(row.get(k_channel) or "").strip() if k_channel else "Drive CSV"
-        num_fac = str(row.get(k_invoice_num) or "").strip() if k_invoice_num else None
-        fecha_fac = safe_date(row.get(k_invoice_date)) if k_invoice_date else None
-        venta_perdida_val = str(row.get(k_lost) or "").strip() if k_lost else "No"
-        comentarios_val = str(row.get(k_comment) or "").strip() if k_comment else "Sincronizado desde CSV"
+            def safe_float(v):
+                try:
+                    return float(v) if v is not None else 0.0
+                except ValueError:
+                    return 0.0
 
-        new_quote = Cotizacion(
-            vendedor_id=vendedor_id,
-            cliente_nombre=client_name,
-            datos_contacto=datos_contacto,
-            items=[{
-                "producto": "Sincronizado desde CSV",
-                "cantidad": 1,
-                "precio_unitario": total_val
-            }],
-            total=total_val,
-            numero_cotizacion=num_cot,
-            fecha_registro=fecha_reg,
-            canal=canal_val,
-            numero_factura=num_fac,
-            fecha_factura=fecha_fac,
-            venta_perdida=venta_perdida_val,
-            comentarios=comentarios_val
-        )
-        
-        db.add(new_quote)
-        synced_count += 1
-        if num_cot:
-            existing_quote_numbers.add(num_cot)
+            importe_cot = safe_float(row[13])
+            importe_fac = safe_float(row[14])
+            pct_importe = safe_float(row[15])
+            mat_cot = str(row[16]).strip() if row[16] is not None else None
+            mat_fac = str(row[17]).strip() if row[17] is not None else None
+            pct_mat = safe_float(row[18])
+            
+            if not num_cot_val:
+                continue
 
-    if synced_count > 0:
+            # Try to match vendor
+            vendedor_id = None
+            for u in users:
+                if u.codigo_vendedor == vend_codigo or u.nombre == vend_nombre:
+                    vendedor_id = u.id
+                    break
+
+            datos_contacto = {
+                "email": email,
+                "telefono": telefono,
+                "celular": celular
+            }
+
+            # Check if quote exists
+            existing_res = await db.execute(select(Cotizacion).filter(Cotizacion.numero_cotizacion == num_cot_val))
+            existing_quote = existing_res.scalar_one_or_none()
+
+            if existing_quote:
+                existing_quote.fecha_registro = fecha_reg
+                existing_quote.organizacion_ventas = org_ventas
+                existing_quote.canal = canal_val
+                existing_quote.vendedor_id = vendedor_id
+                existing_quote.vendedor_nombre = vend_nombre
+                existing_quote.numero_cliente = num_cliente
+                existing_quote.cliente_nombre = cliente_nombre or existing_quote.cliente_nombre
+                existing_quote.datos_contacto = datos_contacto
+                existing_quote.numero_factura = num_factura
+                existing_quote.fecha_factura = fecha_fac
+                existing_quote.total = importe_cot
+                existing_quote.importe_facturado = importe_fac
+                existing_quote.porcentaje_importe = pct_importe
+                existing_quote.materiales_cotizados = mat_cot
+                existing_quote.materiales_facturados = mat_fac
+                existing_quote.porcentaje_materiales = pct_mat
+                updated_count += 1
+            else:
+                new_quote = Cotizacion(
+                    numero_cotizacion=num_cot_val,
+                    fecha_registro=fecha_reg,
+                    organizacion_ventas=org_ventas,
+                    canal=canal_val,
+                    vendedor_id=vendedor_id,
+                    vendedor_nombre=vend_nombre,
+                    numero_cliente=num_cliente,
+                    cliente_nombre=cliente_nombre or "Cliente Desconocido",
+                    datos_contacto=datos_contacto,
+                    items=[],
+                    numero_factura=num_factura,
+                    fecha_factura=fecha_fac,
+                    total=importe_cot,
+                    importe_facturado=importe_fac,
+                    porcentaje_importe=pct_importe,
+                    materiales_cotizados=mat_cot,
+                    materiales_facturados=mat_fac,
+                    porcentaje_materiales=pct_mat
+                )
+                db.add(new_quote)
+                synced_count += 1
+            
         await db.commit()
-        
-    return {
-        "status": "success",
-        "message": f"Sincronización finalizada exitosamente.",
-        "details": {
-            "imported": synced_count,
-            "duplicates_skipped": duplicates_count
+        return {
+            "status": "success", 
+            "message": f"Se importaron {synced_count} cotizaciones nuevas y se actualizaron {updated_count} existentes."
         }
-    }
+        
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error procesando el archivo: {str(e)}")
