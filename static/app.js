@@ -673,7 +673,7 @@ async function loadPromocionesData() {
         if (DOM.promoKpiCategories && DOM.promoKpiCommissions) {
             if (topCategories.length > 0) {
                 DOM.promoKpiCategories.innerHTML = topCategories.map((c, i) => `
-                    <div class="glass-card kpi-card animate-fade-in" style="animation-delay: ${i * 0.1}s; border-left: 3px solid #38bdf8;">
+                    <div class="glass-card kpi-card animate-fade-in" onclick="const searchInput = document.getElementById('filter-promo-search'); if(searchInput){ searchInput.value = '${escapeHTML(c.name)}'; searchInput.dispatchEvent(new Event('input')); }" style="animation-delay: ${i * 0.1}s; border-left: 3px solid #38bdf8; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(56, 189, 248, 0.15)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
                         <div class="kpi-icon icon-blue" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">
                             <i class="fa-solid fa-boxes-stacked"></i>
                         </div>
@@ -690,7 +690,7 @@ async function loadPromocionesData() {
 
             if (topCommissions.length > 0) {
                 DOM.promoKpiCommissions.innerHTML = topCommissions.map((c, i) => `
-                    <div class="glass-card kpi-card animate-fade-in" style="animation-delay: ${i * 0.1}s; border-left: 3px solid #10b981;">
+                    <div class="glass-card kpi-card animate-fade-in" onclick="const searchInput = document.getElementById('filter-promo-search'); if(searchInput){ searchInput.value = '${escapeHTML(c.name)}'; searchInput.dispatchEvent(new Event('input')); }" style="animation-delay: ${i * 0.1}s; border-left: 3px solid #10b981; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(16, 185, 129, 0.15)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
                         <div class="kpi-icon icon-green" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
                             <i class="fa-solid fa-sack-dollar"></i>
                         </div>
