@@ -251,6 +251,9 @@ async def upload_cotizaciones(
 
 async def process_excel_background(contents: bytes):
     from app.core.database import SessionLocal
+    from app.models.cotizacion import Cotizacion
+    from app.models.usuario import Usuario
+    from sqlalchemy.future import select
     import openpyxl
     import io
     from datetime import datetime
@@ -263,6 +266,7 @@ async def process_excel_background(contents: bytes):
             users_res = await db.execute(select(Usuario))
             users = users_res.scalars().all()
             
+            # Fetch existing quotes and detach them so we don't hit MissingGreenlet on lazy loads
             existing_res = await db.execute(select(Cotizacion).filter(Cotizacion.numero_cotizacion.isnot(None)))
             existing_quotes = existing_res.scalars().all()
             quote_map = {q.numero_cotizacion: q for q in existing_quotes}
@@ -287,6 +291,7 @@ async def process_excel_background(contents: bytes):
                 return v
 
             iter_rows = ws.iter_rows(min_row=2, values_only=True)
+            
             for row in iter_rows:
                 if not row or not row[0]:
                     continue
@@ -369,13 +374,10 @@ async def process_excel_background(contents: bytes):
                         porcentaje_materiales=pct_mat
                     )
                     db.add(new_quote)
-                    quote_map[num_cot_val] = new_quote # ensure we don't insert duplicates from same file
+                    quote_map[num_cot_val] = new_quote
                     synced_count += 1
-                
-                # Chunk commit every 2000
-                if (synced_count + updated_count) % 2000 == 0:
-                    await db.commit()
-                
+                    
+            # A single commit at the end prevents 'MissingGreenlet' from expired ORM objects in chunks
             await db.commit()
             print(f"Background upload finished: {synced_count} nuevas, {updated_count} actualizadas.")
             
