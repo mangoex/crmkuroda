@@ -242,24 +242,47 @@ async def upload_cotizaciones(
     contents = await file.read()
     
     try:
+        from datetime import datetime
         wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
         ws = wb.active
         
-        # Get all users (sellers) to map them by id or code
+        # 1. Fetch all sellers
         users_res = await db.execute(select(Usuario))
         users = users_res.scalars().all()
-        # We try to map by seller code or exact name. 
-        # But for robust import, we'll just keep the vendor name if we can't find an ID.
+        
+        # 2. Fetch all existing quotes and map them by numero_cotizacion
+        # To avoid massive memory, only select numero_cotizacion and id if possible, but 
+        # since we want to UPSERT, we need the ORM objects to modify them.
+        # SQLAlchemy tracks them via the session.
+        existing_res = await db.execute(select(Cotizacion).filter(Cotizacion.numero_cotizacion.isnot(None)))
+        existing_quotes = existing_res.scalars().all()
+        quote_map = {q.numero_cotizacion: q for q in existing_quotes}
         
         synced_count = 0
         updated_count = 0
         
+        def safe_float(v):
+            try:
+                return float(v) if v is not None else 0.0
+            except ValueError:
+                return 0.0
+                
+        def safe_date(v):
+            if hasattr(v, 'date'):
+                return v.date()
+            if isinstance(v, str):
+                try:
+                    return datetime.strptime(v.strip().split(' ')[0], '%Y-%m-%d').date()
+                except Exception:
+                    pass
+            return v
+
         iter_rows = ws.iter_rows(min_row=2, values_only=True)
         for row in iter_rows:
             if not row or not row[0]: # Skip empty rows
                 continue
                 
-            fecha_reg = row[0]
+            fecha_reg = safe_date(row[0])
             org_ventas = str(row[1]).strip() if row[1] is not None else None
             num_cot_val = str(row[2]).strip() if row[2] is not None else None
             canal_val = str(row[3]).strip() if row[3] is not None else None
@@ -271,14 +294,8 @@ async def upload_cotizaciones(
             celular = str(row[9]).strip() if row[9] is not None else None
             email = str(row[10]).strip() if row[10] is not None else None
             num_factura = str(row[11]).strip() if row[11] is not None else None
-            fecha_fac = row[12]
+            fecha_fac = safe_date(row[12])
             
-            def safe_float(v):
-                try:
-                    return float(v) if v is not None else 0.0
-                except ValueError:
-                    return 0.0
-
             importe_cot = safe_float(row[13])
             importe_fac = safe_float(row[14])
             pct_importe = safe_float(row[15])
@@ -289,7 +306,6 @@ async def upload_cotizaciones(
             if not num_cot_val:
                 continue
 
-            # Try to match vendor
             vendedor_id = None
             for u in users:
                 if u.codigo_vendedor == vend_codigo or u.nombre == vend_nombre:
@@ -302,9 +318,7 @@ async def upload_cotizaciones(
                 "celular": celular
             }
 
-            # Check if quote exists
-            existing_res = await db.execute(select(Cotizacion).filter(Cotizacion.numero_cotizacion == num_cot_val))
-            existing_quote = existing_res.scalar_one_or_none()
+            existing_quote = quote_map.get(num_cot_val)
 
             if existing_quote:
                 existing_quote.fecha_registro = fecha_reg
