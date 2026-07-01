@@ -227,13 +227,13 @@ async def update_cotizacion(
     }
 
 
-from fastapi import UploadFile, File
+from fastapi import UploadFile, File, BackgroundTasks
 import openpyxl
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_cotizaciones(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(require_admin_or_gerente)
 ):
     if not file.filename.endswith(".xlsx"):
@@ -241,133 +241,144 @@ async def upload_cotizaciones(
     
     contents = await file.read()
     
-    try:
-        from datetime import datetime
-        wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
-        ws = wb.active
-        
-        # 1. Fetch all sellers
-        users_res = await db.execute(select(Usuario))
-        users = users_res.scalars().all()
-        
-        # 2. Fetch all existing quotes and map them by numero_cotizacion
-        # To avoid massive memory, only select numero_cotizacion and id if possible, but 
-        # since we want to UPSERT, we need the ORM objects to modify them.
-        # SQLAlchemy tracks them via the session.
-        existing_res = await db.execute(select(Cotizacion).filter(Cotizacion.numero_cotizacion.isnot(None)))
-        existing_quotes = existing_res.scalars().all()
-        quote_map = {q.numero_cotizacion: q for q in existing_quotes}
-        
-        synced_count = 0
-        updated_count = 0
-        
-        def safe_float(v):
-            try:
-                return float(v) if v is not None else 0.0
-            except ValueError:
-                return 0.0
-                
-        def safe_date(v):
-            if hasattr(v, 'date'):
-                return v.date()
-            if isinstance(v, str):
+    # Process the file in the background so the request doesn't timeout
+    background_tasks.add_task(process_excel_background, contents)
+    
+    return {
+        "status": "success", 
+        "message": "El archivo se está procesando en segundo plano. Actualiza la página en unos minutos."
+    }
+
+async def process_excel_background(contents: bytes):
+    from app.core.database import SessionLocal
+    import openpyxl
+    import io
+    from datetime import datetime
+    
+    async with SessionLocal() as db:
+        try:
+            wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
+            ws = wb.active
+            
+            users_res = await db.execute(select(Usuario))
+            users = users_res.scalars().all()
+            
+            existing_res = await db.execute(select(Cotizacion).filter(Cotizacion.numero_cotizacion.isnot(None)))
+            existing_quotes = existing_res.scalars().all()
+            quote_map = {q.numero_cotizacion: q for q in existing_quotes}
+            
+            synced_count = 0
+            updated_count = 0
+            
+            def safe_float(v):
                 try:
-                    return datetime.strptime(v.strip().split(' ')[0], '%Y-%m-%d').date()
-                except Exception:
-                    pass
-            return v
+                    return float(v) if v is not None else 0.0
+                except ValueError:
+                    return 0.0
+                    
+            def safe_date(v):
+                if hasattr(v, 'date'):
+                    return v.date()
+                if isinstance(v, str):
+                    try:
+                        return datetime.strptime(v.strip().split(' ')[0], '%Y-%m-%d').date()
+                    except Exception:
+                        pass
+                return v
 
-        iter_rows = ws.iter_rows(min_row=2, values_only=True)
-        for row in iter_rows:
-            if not row or not row[0]: # Skip empty rows
-                continue
+            iter_rows = ws.iter_rows(min_row=2, values_only=True)
+            for row in iter_rows:
+                if not row or not row[0]:
+                    continue
+                    
+                fecha_reg = safe_date(row[0])
+                org_ventas = str(row[1]).strip() if row[1] is not None else None
+                num_cot_val = str(row[2]).strip() if row[2] is not None else None
+                canal_val = str(row[3]).strip() if row[3] is not None else None
+                vend_codigo = str(row[4]).strip() if row[4] is not None else None
+                vend_nombre = str(row[5]).strip() if row[5] is not None else None
+                num_cliente = str(row[6]).strip() if row[6] is not None else None
+                cliente_nombre = str(row[7]).strip() if row[7] is not None else None
+                telefono = str(row[8]).strip() if row[8] is not None else None
+                celular = str(row[9]).strip() if row[9] is not None else None
+                email = str(row[10]).strip() if row[10] is not None else None
+                num_factura = str(row[11]).strip() if row[11] is not None else None
+                fecha_fac = safe_date(row[12])
                 
-            fecha_reg = safe_date(row[0])
-            org_ventas = str(row[1]).strip() if row[1] is not None else None
-            num_cot_val = str(row[2]).strip() if row[2] is not None else None
-            canal_val = str(row[3]).strip() if row[3] is not None else None
-            vend_codigo = str(row[4]).strip() if row[4] is not None else None
-            vend_nombre = str(row[5]).strip() if row[5] is not None else None
-            num_cliente = str(row[6]).strip() if row[6] is not None else None
-            cliente_nombre = str(row[7]).strip() if row[7] is not None else None
-            telefono = str(row[8]).strip() if row[8] is not None else None
-            celular = str(row[9]).strip() if row[9] is not None else None
-            email = str(row[10]).strip() if row[10] is not None else None
-            num_factura = str(row[11]).strip() if row[11] is not None else None
-            fecha_fac = safe_date(row[12])
+                importe_cot = safe_float(row[13])
+                importe_fac = safe_float(row[14])
+                pct_importe = safe_float(row[15])
+                mat_cot = str(row[16]).strip() if row[16] is not None else None
+                mat_fac = str(row[17]).strip() if row[17] is not None else None
+                pct_mat = safe_float(row[18])
+                
+                if not num_cot_val:
+                    continue
+
+                vendedor_id = None
+                for u in users:
+                    if u.codigo_vendedor == vend_codigo or u.nombre == vend_nombre:
+                        vendedor_id = u.id
+                        break
+
+                datos_contacto = {
+                    "email": email,
+                    "telefono": telefono,
+                    "celular": celular
+                }
+
+                existing_quote = quote_map.get(num_cot_val)
+
+                if existing_quote:
+                    existing_quote.fecha_registro = fecha_reg
+                    existing_quote.organizacion_ventas = org_ventas
+                    existing_quote.canal = canal_val
+                    existing_quote.vendedor_id = vendedor_id
+                    existing_quote.vendedor_nombre = vend_nombre
+                    existing_quote.numero_cliente = num_cliente
+                    existing_quote.cliente_nombre = cliente_nombre or existing_quote.cliente_nombre
+                    existing_quote.datos_contacto = datos_contacto
+                    existing_quote.numero_factura = num_factura
+                    existing_quote.fecha_factura = fecha_fac
+                    existing_quote.total = importe_cot
+                    existing_quote.importe_facturado = importe_fac
+                    existing_quote.porcentaje_importe = pct_importe
+                    existing_quote.materiales_cotizados = mat_cot
+                    existing_quote.materiales_facturados = mat_fac
+                    existing_quote.porcentaje_materiales = pct_mat
+                    updated_count += 1
+                else:
+                    new_quote = Cotizacion(
+                        numero_cotizacion=num_cot_val,
+                        fecha_registro=fecha_reg,
+                        organizacion_ventas=org_ventas,
+                        canal=canal_val,
+                        vendedor_id=vendedor_id,
+                        vendedor_nombre=vend_nombre,
+                        numero_cliente=num_cliente,
+                        cliente_nombre=cliente_nombre or "Cliente Desconocido",
+                        datos_contacto=datos_contacto,
+                        items=[],
+                        numero_factura=num_factura,
+                        fecha_factura=fecha_fac,
+                        total=importe_cot,
+                        importe_facturado=importe_fac,
+                        porcentaje_importe=pct_importe,
+                        materiales_cotizados=mat_cot,
+                        materiales_facturados=mat_fac,
+                        porcentaje_materiales=pct_mat
+                    )
+                    db.add(new_quote)
+                    quote_map[num_cot_val] = new_quote # ensure we don't insert duplicates from same file
+                    synced_count += 1
+                
+                # Chunk commit every 2000
+                if (synced_count + updated_count) % 2000 == 0:
+                    await db.commit()
+                
+            await db.commit()
+            print(f"Background upload finished: {synced_count} nuevas, {updated_count} actualizadas.")
             
-            importe_cot = safe_float(row[13])
-            importe_fac = safe_float(row[14])
-            pct_importe = safe_float(row[15])
-            mat_cot = str(row[16]).strip() if row[16] is not None else None
-            mat_fac = str(row[17]).strip() if row[17] is not None else None
-            pct_mat = safe_float(row[18])
-            
-            if not num_cot_val:
-                continue
-
-            vendedor_id = None
-            for u in users:
-                if u.codigo_vendedor == vend_codigo or u.nombre == vend_nombre:
-                    vendedor_id = u.id
-                    break
-
-            datos_contacto = {
-                "email": email,
-                "telefono": telefono,
-                "celular": celular
-            }
-
-            existing_quote = quote_map.get(num_cot_val)
-
-            if existing_quote:
-                existing_quote.fecha_registro = fecha_reg
-                existing_quote.organizacion_ventas = org_ventas
-                existing_quote.canal = canal_val
-                existing_quote.vendedor_id = vendedor_id
-                existing_quote.vendedor_nombre = vend_nombre
-                existing_quote.numero_cliente = num_cliente
-                existing_quote.cliente_nombre = cliente_nombre or existing_quote.cliente_nombre
-                existing_quote.datos_contacto = datos_contacto
-                existing_quote.numero_factura = num_factura
-                existing_quote.fecha_factura = fecha_fac
-                existing_quote.total = importe_cot
-                existing_quote.importe_facturado = importe_fac
-                existing_quote.porcentaje_importe = pct_importe
-                existing_quote.materiales_cotizados = mat_cot
-                existing_quote.materiales_facturados = mat_fac
-                existing_quote.porcentaje_materiales = pct_mat
-                updated_count += 1
-            else:
-                new_quote = Cotizacion(
-                    numero_cotizacion=num_cot_val,
-                    fecha_registro=fecha_reg,
-                    organizacion_ventas=org_ventas,
-                    canal=canal_val,
-                    vendedor_id=vendedor_id,
-                    vendedor_nombre=vend_nombre,
-                    numero_cliente=num_cliente,
-                    cliente_nombre=cliente_nombre or "Cliente Desconocido",
-                    datos_contacto=datos_contacto,
-                    items=[],
-                    numero_factura=num_factura,
-                    fecha_factura=fecha_fac,
-                    total=importe_cot,
-                    importe_facturado=importe_fac,
-                    porcentaje_importe=pct_importe,
-                    materiales_cotizados=mat_cot,
-                    materiales_facturados=mat_fac,
-                    porcentaje_materiales=pct_mat
-                )
-                db.add(new_quote)
-                synced_count += 1
-            
-        await db.commit()
-        return {
-            "status": "success", 
-            "message": f"Se importaron {synced_count} cotizaciones nuevas y se actualizaron {updated_count} existentes."
-        }
-        
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error procesando el archivo: {str(e)}")
+        except Exception as e:
+            await db.rollback()
+            print(f"Error procesando cotizaciones en segundo plano: {str(e)}")
