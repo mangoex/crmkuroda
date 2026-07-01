@@ -25,10 +25,10 @@ class Cotizacion(Base):
     numero_factura = Column(String, nullable=True)
     fecha_factura = Column(Date, nullable=True)
     importe_facturado = Column(Numeric(precision=12, scale=2), nullable=True)
-    porcentaje_importe = Column(Numeric(precision=5, scale=2), nullable=True)
+    porcentaje_importe = Column(Numeric(precision=10, scale=2), nullable=True)
     materiales_cotizados = Column(Text, nullable=True)
     materiales_facturados = Column(Text, nullable=True)
-    porcentaje_materiales = Column(Numeric(precision=5, scale=2), nullable=True)
+    porcentaje_materiales = Column(Numeric(precision=10, scale=2), nullable=True)
     venta_perdida = Column(String, nullable=True)  # 'Si' / 'No'
     comentarios = Column(Text, nullable=True)
 
