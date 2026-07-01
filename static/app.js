@@ -474,7 +474,7 @@ async function loadSummaryData() {
     const metasRes = await apiRequest("/api/v1/metas/?limit=100");
     const metas = metasRes.data || [];
     
-    const quotesRes = await apiRequest("/api/v1/cotizaciones/?limit=3000");
+    const quotesRes = await apiRequest("/api/v1/cotizaciones/?limit=20000");
     const quotes = quotesRes.data || [];
     
     state.vendedores = sellers;
@@ -879,7 +879,7 @@ async function loadCotizacionesData(forceRefresh = true) {
     }
 
     if (forceRefresh || state.cotizaciones.length === 0) {
-        let endpoint = "/api/v1/cotizaciones/?limit=3000";
+        let endpoint = "/api/v1/cotizaciones/?limit=20000";
         const res = await apiRequest(endpoint);
         state.cotizaciones = res.data || [];
     }
@@ -1541,7 +1541,7 @@ async function loadKanbanData(forceRefresh = false) {
     }
     
     if (forceRefresh || state.cotizaciones.length === 0) {
-        let endpoint = "/api/v1/cotizaciones/?limit=3000";
+        let endpoint = "/api/v1/cotizaciones/?limit=20000";
         const res = await apiRequest(endpoint);
         state.cotizaciones = res.data || [];
     }
