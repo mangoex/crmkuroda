@@ -44,7 +44,7 @@ def serialize_cotizacion(c: Cotizacion) -> dict:
 @router.get("/", status_code=status.HTTP_200_OK)
 async def list_cotizaciones(
     vendedor_id: Optional[UUID] = None,
-    limit: int = Query(default=10, ge=1, le=5000),
+    limit: int = Query(default=10, ge=1, le=50000),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
