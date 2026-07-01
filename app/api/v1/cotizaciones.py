@@ -319,7 +319,7 @@ async def process_excel_background(contents: bytes):
 
                 vendedor_id = None
                 for u in users:
-                    if u.codigo_vendedor == vend_codigo or u.nombre == vend_nombre:
+                    if u.codigo_vendedor == vend_codigo or u.nombre_completo == vend_nombre:
                         vendedor_id = u.id
                         break
 
