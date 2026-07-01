@@ -1357,55 +1357,85 @@
 
                 <!-- Section: API WhatsApp -->
                 <section id="section-api" class="dashboard-section hidden animate-fade-in">
-                    <div class="card-header" style="margin-bottom: 24px;">
-                        <h2><i class="fa-brands fa-whatsapp text-glow" style="margin-right: 8px; color: #25D366;"></i>Integración API WhatsApp</h2>
-                        <p style="color: hsl(var(--text-secondary)); margin-top: 8px;">Configuración y documentación para la interacción vía WhatsApp.</p>
+                    <div class="card-header" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h2><i class="fa-brands fa-whatsapp text-glow" style="margin-right: 8px; color: #25D366;"></i>Conectar WhatsApp</h2>
+                            <p style="color: hsl(var(--text-secondary)); margin-top: 8px;">Positivala - Embedded Signup oficial de Meta.</p>
+                        </div>
+                        <span class="badge badge-primary" style="background: rgba(37, 211, 102, 0.2); color: #25D366; border: 1px solid #25D366;">LISTO PARA ABRIR EMBEDDED SIGNUP</span>
                     </div>
 
-                    <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
-                        <!-- Documentation Card -->
-                        <div class="glass-card">
-                            <div class="card-header" style="border-bottom: 1px solid hsl(var(--border-color)); padding-bottom: 15px; margin-bottom: 15px;">
-                                <h3><i class="fa-solid fa-book"></i> Manual de Usuario</h3>
+                    <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 24px;">
+                        
+                        <!-- Columna 1: Embedded Signup -->
+                        <div class="glass-card" style="display: flex; flex-direction: column;">
+                            <div class="card-header" style="margin-bottom: 20px;">
+                                <h3 style="font-size: 1.2rem;">Embedded Signup</h3>
                             </div>
-                            <div style="color: hsl(var(--text-secondary)); font-size: 0.95rem; line-height: 1.6;">
-                                <p>Los vendedores pueden enviar mensajes al bot para consultar sus datos en tiempo real.</p>
-                                <ul style="margin-top: 10px; margin-left: 20px;">
-                                    <li><code>!mis ventas</code>: Resumen de ventas del mes.</li>
-                                    <li><code>!cotizacion [ID]</code>: Descarga PDF de cotización.</li>
-                                    <li><code>!metas</code>: Estado actual de las metas.</li>
-                                </ul>
-                                <div style="margin-top: 15px; padding: 10px; background: rgba(37, 211, 102, 0.1); border-left: 3px solid #25D366; border-radius: 4px;">
-                                    <strong>Nota:</strong> El número de teléfono debe estar registrado en el perfil del vendedor.
-                                </div>
+                            <div style="color: hsl(var(--text-secondary)); font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px;">
+                                Usa este flujo cuando el cliente conecta su propio WABA/numero. El token se guarda cifrado como integracion <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">whatsapp_cloud</code>.
+                            </div>
+                            
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+                                <button type="button" class="btn btn-primary" style="background: #0f766e; border-color: #0f766e; padding: 10px 15px;">Abrir Embedded Signup</button>
+                                <button type="button" class="btn btn-secondary" style="padding: 10px 15px;">Diagnostico</button>
+                                <button type="button" class="btn btn-secondary" style="padding: 10px 15px;">Enviar prueba</button>
+                                <button type="button" class="btn btn-secondary" style="padding: 10px 15px;">Plantillas</button>
+                            </div>
+                            
+                            <div style="margin-top: auto; color: hsl(var(--text-secondary)); font-size: 0.9rem;">
+                                Esperando conexion.
                             </div>
                         </div>
 
-                        <!-- Config Card -->
+                        <!-- Columna 2: Guardar conexion -->
                         <div class="glass-card">
-                            <div class="card-header" style="border-bottom: 1px solid hsl(var(--border-color)); padding-bottom: 15px; margin-bottom: 15px;">
-                                <h3><i class="fa-solid fa-gears"></i> Datos de Conexión</h3>
+                            <div class="card-header" style="margin-bottom: 20px;">
+                                <h3 style="font-size: 1.2rem;">Guardar conexion</h3>
                             </div>
-                            <form id="api-config-form">
-                                <div class="input-group" style="margin-bottom: 15px;">
-                                    <label>URL del Webhook (Para Meta/Twilio)</label>
-                                    <input type="text" value="https://crmkuroda.railway.app/api/webhook/whatsapp" readonly style="background: rgba(0,0,0,0.2);">
+                            <form id="api-config-form" style="display: flex; flex-direction: column; gap: 16px;">
+                                
+                                <div class="input-group">
+                                    <label style="font-size: 0.85rem; font-weight: 600; color: hsl(var(--text-primary));">Authorization code de Meta</label>
+                                    <input type="text" placeholder="" style="background: transparent; border: 1px solid hsl(var(--border-color));">
                                 </div>
-                                <div class="input-group" style="margin-bottom: 15px;">
-                                    <label>Token de Acceso (API Key)</label>
-                                    <input type="password" value="sk_test_1234567890abcdef" readonly style="background: rgba(0,0,0,0.2);">
+                                
+                                <div class="input-group">
+                                    <label style="font-size: 0.85rem; font-weight: 600; color: hsl(var(--text-primary));">Access token temporal/manual</label>
+                                    <div style="position: relative;">
+                                        <input type="password" placeholder="" style="background: transparent; border: 1px solid hsl(var(--border-color)); width: 100%; padding-right: 40px;">
+                                        <button type="button" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: hsl(var(--text-secondary)); cursor: pointer;">
+                                            <i class="fa-regular fa-eye"></i>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div class="input-group" style="margin-bottom: 15px;">
-                                    <label>Proveedor Actual</label>
-                                    <select disabled style="background: rgba(0,0,0,0.2);">
-                                        <option>Meta Cloud API (Oficial)</option>
-                                        <option>Twilio</option>
-                                        <option>Gupshup</option>
-                                    </select>
+                                
+                                <div class="input-group">
+                                    <label style="font-size: 0.85rem; font-weight: 600; color: hsl(var(--text-primary));">Business ID</label>
+                                    <input type="text" value="248668109015895" style="background: transparent; border: 1px solid hsl(var(--border-color));">
                                 </div>
-                                <button type="button" class="btn btn-secondary" style="width: 100%;"><i class="fa-solid fa-copy"></i> Copiar Credenciales</button>
+                                
+                                <div class="input-group">
+                                    <label style="font-size: 0.85rem; font-weight: 600; color: hsl(var(--text-primary));">WABA ID</label>
+                                    <input type="text" value="1511483567038034" style="background: transparent; border: 1px solid hsl(var(--border-color));">
+                                </div>
+                                
+                                <div class="input-group">
+                                    <label style="font-size: 0.85rem; font-weight: 600; color: hsl(var(--text-primary));">Phone Number ID</label>
+                                    <input type="text" value="1173938019132326" style="background: transparent; border: 1px solid hsl(var(--border-color));">
+                                </div>
+                                
+                                <div class="input-group">
+                                    <label style="font-size: 0.85rem; font-weight: 600; color: hsl(var(--text-primary));">Numero visible</label>
+                                    <input type="text" value="+526869032840" style="background: transparent; border: 1px solid hsl(var(--border-color));">
+                                </div>
+                                
+                                <div style="margin-top: 10px;">
+                                    <button type="button" class="btn btn-primary" style="background: #0f172a; border: 1px solid #1e293b; color: white;">Guardar conexion cifrada</button>
+                                </div>
                             </form>
                         </div>
+
                     </div>
                 </section>
 
