@@ -711,7 +711,8 @@ async function loadPromocionesData() {
         if (searchTerm) {
             promociones = promociones.filter(p => 
                 (p.codigo_material && p.codigo_material.toLowerCase().includes(searchTerm)) ||
-                (p.descripcion_material && p.descripcion_material.toLowerCase().includes(searchTerm))
+                (p.descripcion_material && p.descripcion_material.toLowerCase().includes(searchTerm)) ||
+                (p.descrip_gpo_materiales && p.descrip_gpo_materiales.toLowerCase().includes(searchTerm))
             );
         }
         
