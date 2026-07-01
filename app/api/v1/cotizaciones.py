@@ -254,6 +254,7 @@ async def process_excel_background(contents: bytes):
     from app.models.cotizacion import Cotizacion
     from app.models.usuario import Usuario
     from sqlalchemy.future import select
+    from sqlalchemy import delete
     import openpyxl
     import io
     from datetime import datetime
@@ -266,13 +267,11 @@ async def process_excel_background(contents: bytes):
             users_res = await db.execute(select(Usuario))
             users = users_res.scalars().all()
             
-            # Fetch existing quotes and detach them so we don't hit MissingGreenlet on lazy loads
-            existing_res = await db.execute(select(Cotizacion).filter(Cotizacion.numero_cotizacion.isnot(None)))
-            existing_quotes = existing_res.scalars().all()
-            quote_map = {q.numero_cotizacion: q for q in existing_quotes}
+            # ELIMINAR TODAS LAS COTIZACIONES ACTUALES (Sustituir base de datos)
+            await db.execute(delete(Cotizacion))
             
             synced_count = 0
-            updated_count = 0
+            new_quotes = []
             
             def safe_float(v):
                 try:
@@ -332,54 +331,33 @@ async def process_excel_background(contents: bytes):
                     "celular": celular
                 }
 
-                existing_quote = quote_map.get(num_cot_val)
-
-                if existing_quote:
-                    existing_quote.fecha_registro = fecha_reg
-                    existing_quote.organizacion_ventas = org_ventas
-                    existing_quote.canal = canal_val
-                    existing_quote.vendedor_id = vendedor_id
-                    existing_quote.vendedor_nombre = vend_nombre
-                    existing_quote.numero_cliente = num_cliente
-                    existing_quote.cliente_nombre = cliente_nombre or existing_quote.cliente_nombre
-                    existing_quote.datos_contacto = datos_contacto
-                    existing_quote.numero_factura = num_factura
-                    existing_quote.fecha_factura = fecha_fac
-                    existing_quote.total = importe_cot
-                    existing_quote.importe_facturado = importe_fac
-                    existing_quote.porcentaje_importe = pct_importe
-                    existing_quote.materiales_cotizados = mat_cot
-                    existing_quote.materiales_facturados = mat_fac
-                    existing_quote.porcentaje_materiales = pct_mat
-                    updated_count += 1
-                else:
-                    new_quote = Cotizacion(
-                        numero_cotizacion=num_cot_val,
-                        fecha_registro=fecha_reg,
-                        organizacion_ventas=org_ventas,
-                        canal=canal_val,
-                        vendedor_id=vendedor_id,
-                        vendedor_nombre=vend_nombre,
-                        numero_cliente=num_cliente,
-                        cliente_nombre=cliente_nombre or "Cliente Desconocido",
-                        datos_contacto=datos_contacto,
-                        items=[],
-                        numero_factura=num_factura,
-                        fecha_factura=fecha_fac,
-                        total=importe_cot,
-                        importe_facturado=importe_fac,
-                        porcentaje_importe=pct_importe,
-                        materiales_cotizados=mat_cot,
-                        materiales_facturados=mat_fac,
-                        porcentaje_materiales=pct_mat
-                    )
-                    db.add(new_quote)
-                    quote_map[num_cot_val] = new_quote
-                    synced_count += 1
+                new_quote = Cotizacion(
+                    numero_cotizacion=num_cot_val,
+                    fecha_registro=fecha_reg,
+                    organizacion_ventas=org_ventas,
+                    canal=canal_val,
+                    vendedor_id=vendedor_id,
+                    vendedor_nombre=vend_nombre,
+                    numero_cliente=num_cliente,
+                    cliente_nombre=cliente_nombre or "Cliente Desconocido",
+                    datos_contacto=datos_contacto,
+                    items=[],
+                    numero_factura=num_factura,
+                    fecha_factura=fecha_fac,
+                    total=importe_cot,
+                    importe_facturado=importe_fac,
+                    porcentaje_importe=pct_importe,
+                    materiales_cotizados=mat_cot,
+                    materiales_facturados=mat_fac,
+                    porcentaje_materiales=pct_mat
+                )
+                new_quotes.append(new_quote)
+                synced_count += 1
                     
-            # A single commit at the end prevents 'MissingGreenlet' from expired ORM objects in chunks
+            # A single add_all and commit is much faster
+            db.add_all(new_quotes)
             await db.commit()
-            print(f"Background upload finished: {synced_count} nuevas, {updated_count} actualizadas.")
+            print(f"Background upload finished. Replaced database with {synced_count} nuevas cotizaciones.")
             
         except Exception as e:
             await db.rollback()
