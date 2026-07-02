@@ -39,6 +39,9 @@ async def upload_inventario(
         rows_added = 0
         
         for ws in wb.worksheets:
+            if ws.sheet_state == 'hidden':
+                continue
+                
             # Skip header
             iter_rows = ws.iter_rows(min_row=2, values_only=True)
             for row in iter_rows:
