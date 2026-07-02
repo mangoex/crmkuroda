@@ -474,7 +474,7 @@
                     <!-- Upload and Filter panel -->
                     <div class="glass-card filters-card margin-bottom" style="padding: 20px;">
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; align-items: end;">
-                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <div class="input-group">
                                 <label for="filter-promo-status" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Estado</label>
                                 <select id="filter-promo-status" class="form-control" style="width: 100%;">
                                     <option value="activas">Activas</option>
@@ -482,13 +482,13 @@
                                     <option value="todas">Todas</option>
                                 </select>
                             </div>
-                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <div class="input-group">
                                 <label for="filter-promo-proveedor" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Proveedor</label>
                                 <select id="filter-promo-proveedor" class="form-control" style="width: 100%;">
                                     <option value="todos">Todos</option>
                                 </select>
                             </div>
-                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <div class="input-group">
                                 <label for="filter-promo-sort" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Ordenar por</label>
                                 <select id="filter-promo-sort" class="form-control" style="width: 100%;">
                                     <option value="default">Por Defecto</option>
@@ -501,7 +501,7 @@
                                 </select>
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1;">
-                                <label for="filter-promo-search" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Buscar Promoción</label>
+                                <label for="filter-promo-search" style="font-size: 0.85rem; color: hsl(var(--text-secondary));"><i class="fa-solid fa-magnifying-glass"></i> Buscar Promoción</label>
                                 <div style="display: flex; gap: 10px;">
                                     <input type="text" id="filter-promo-search" class="form-control" placeholder="Código o Descripción..." style="flex-grow: 1;">
                                     <button type="button" id="btn-clear-promo-filters" class="btn btn-secondary" title="Limpiar Filtros" style="display: flex; align-items: center; gap: 8px;">
@@ -1657,6 +1657,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.14"></script>
+    <script src="/static/app.js?v=1.0.15"></script>
 </body>
 </html>

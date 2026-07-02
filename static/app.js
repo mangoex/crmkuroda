@@ -662,6 +662,15 @@ async function loadPromocionesData(forceRefresh = false) {
             promociones = promociones.filter(p => (p.proveedor || "Sin Proveedor") === proveedorFilter);
         }
         
+                // Filter Search Text
+        if (searchTerm) {
+            promociones = promociones.filter(p => 
+                (p.codigo_material && p.codigo_material.toLowerCase().includes(searchTerm)) ||
+                (p.descripcion_material && p.descripcion_material.toLowerCase().includes(searchTerm)) ||
+                (p.descrip_gpo_materiales && p.descrip_gpo_materiales.toLowerCase().includes(searchTerm))
+            );
+        }
+
         // --- CALCULAR Y RENDERIZAR KPIs DE PROMOCIONES ---
         const activePromos = statusFilter === "activas" ? promociones : (state.promociones || []).filter(p => {
             if (!p.valido_hasta) return true;
@@ -768,15 +777,6 @@ async function loadPromocionesData(forceRefresh = false) {
             }
         }
         // ----------------------------------------------------
-
-        // Filter Search Text
-        if (searchTerm) {
-            promociones = promociones.filter(p => 
-                (p.codigo_material && p.codigo_material.toLowerCase().includes(searchTerm)) ||
-                (p.descripcion_material && p.descripcion_material.toLowerCase().includes(searchTerm)) ||
-                (p.descrip_gpo_materiales && p.descrip_gpo_materiales.toLowerCase().includes(searchTerm))
-            );
-        }
         
         // Sort
         if (sortFilter === "margen-desc") {
