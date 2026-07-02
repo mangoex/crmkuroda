@@ -1002,6 +1002,7 @@ async function loadPromocionesData(forceRefresh = false) {
                 <td>${p.centro || '-'}</td>
                 <td><strong>${p.codigo_material || '-'}</strong></td>
                 <td>${p.descripcion_material || '-'}</td>
+                <td><strong>${p.indicador_abc || '-'}</strong></td>
                 <td>${p.proveedor || '-'}</td>
                 <td><strong>$${(p.precio_promocion || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong> ${p.moneda || ''}</td>
                 <td>${p.margen_promocion ? (p.margen_promocion).toFixed(2) : '-'}</td>
