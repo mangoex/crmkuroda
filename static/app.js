@@ -94,6 +94,7 @@ const DOM = {
     filterPromoProveedor: document.getElementById("filter-promo-proveedor"),
     promoKpiProveedores: document.getElementById("promo-kpi-proveedores"),
     filterPromoSearch: document.getElementById("filter-promo-search"),
+    btnClearPromoFilters: document.getElementById("btn-clear-promo-filters"),
     filterPromoStatus: document.getElementById("filter-promo-status"),
     filterPromoSort: document.getElementById("filter-promo-sort"),
     tablePromociones: document.querySelector("#table-promociones tbody"),
@@ -2386,6 +2387,13 @@ DOM.aiGoalsForm.addEventListener("submit", async (e) => {
 
 DOM.filterPromoProveedor?.addEventListener("change", loadPromocionesData);
 DOM.filterPromoSearch?.addEventListener("input", loadPromocionesData);
+DOM.btnClearPromoFilters?.addEventListener("click", () => {
+    if (DOM.filterPromoSearch) DOM.filterPromoSearch.value = '';
+    if (DOM.filterPromoStatus) DOM.filterPromoStatus.value = 'activas';
+    if (DOM.filterPromoSort) DOM.filterPromoSort.value = 'default';
+    if (DOM.filterPromoProveedor) DOM.filterPromoProveedor.value = 'todos';
+    loadPromocionesData();
+});
 DOM.filterPromoStatus?.addEventListener("change", loadPromocionesData);
 DOM.filterPromoSort?.addEventListener("change", loadPromocionesData);
 
