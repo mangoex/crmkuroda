@@ -20,6 +20,8 @@ class Promocion(Base):
     valido_hasta = Column(DateTime)
     costo_estandar_promocion = Column(Float)
     margen_promocion = Column(Float)
+    proveedor = Column(String)
+    inventario_disponible = Column(Float)
 
     def to_dict(self):
         return {
@@ -32,5 +34,7 @@ class Promocion(Base):
             "precio_promocion": self.precio_promocion,
             "moneda": self.moneda,
             "margen_promocion": self.margen_promocion,
+            "proveedor": self.proveedor,
+            "inventario_disponible": self.inventario_disponible,
             "valido_hasta": self.valido_hasta.isoformat() if self.valido_hasta else None
         }
