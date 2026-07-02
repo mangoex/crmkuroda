@@ -21,6 +21,7 @@ const state = {
     vendedores: [],
     metas: [],
     promociones: [],
+    inventario_abcf: [],
     cotizaciones: [],
     salesChart: null,
     goalsChart: null,
@@ -103,6 +104,17 @@ const DOM = {
     uploadPromocionesForm: document.getElementById("upload-promociones-form"),
     filePromociones: document.getElementById("file-promociones"),
     
+    
+    // Inventario ABC+F Section
+    tableInventarioAbcf: document.querySelector("#table-inventario-abcf tbody"),
+    uploadInventarioAbcfForm: document.getElementById("upload-inventario-abcf-form"),
+    filterInvSucursal: document.getElementById("filter-inv-sucursal"),
+    filterInvAbcf: document.getElementById("filter-inv-abcf"),
+    filterInvSearch: document.getElementById("filter-inv-search"),
+    btnClearInvFilters: document.getElementById("btn-clear-inv-filters"),
+    pagInventarioAbcf: document.getElementById("pag-inventario-abcf"),
+    fileInventarioAbcf: document.getElementById("file-inventario-abcf"),
+
     // Cotizaciones Section
     btnGenerateQuoteModal: document.getElementById("btn-generate-quote-modal"),
     aiQuoteWrapper: document.getElementById("ai-quote-wrapper"),
@@ -450,6 +462,8 @@ async function loadSectionData(sectionId) {
             await loadVendedoresData();
         } else if (sectionId === "promociones") {
             await loadPromocionesData();
+        } else if (sectionId === "inventario-abcf") {
+            await loadInventarioAbcfData();
         } else if (sectionId === "cotizaciones") {
             await loadCotizacionesData();
         } else if (sectionId === "seguimiento") {
@@ -630,6 +644,98 @@ async function loadVendedoresData() {
             deleteUser(id, email);
         });
     });
+}
+
+
+async function loadInventarioAbcfData(forceRefresh = false) {
+    const searchTerm = DOM.filterInvSearch ? DOM.filterInvSearch.value.toLowerCase() : "";
+    const sucursalFilter = DOM.filterInvSucursal ? DOM.filterInvSucursal.value : "todos";
+    const abcfFilter = DOM.filterInvAbcf ? DOM.filterInvAbcf.value : "todos";
+    
+    try {
+        if (forceRefresh || !state.inventario_abcf || state.inventario_abcf.length === 0) {
+            const res = await apiRequest("/api/v1/inventario-abcf/");
+            state.inventario_abcf = res.data || [];
+        }
+        
+        let inventario = [...state.inventario_abcf];
+        
+        // Populate Selects if empty
+        if (DOM.filterInvSucursal && DOM.filterInvSucursal.options.length <= 1) {
+            const currentSuc = DOM.filterInvSucursal.value;
+            DOM.filterInvSucursal.innerHTML = '<option value="todos">Todos</option>';
+            const sucursales = [...new Set(inventario.map(i => i.nombre_centro).filter(Boolean))].sort();
+            sucursales.forEach(s => {
+                const opt = document.createElement("option");
+                opt.value = s;
+                opt.textContent = s;
+                DOM.filterInvSucursal.appendChild(opt);
+            });
+            DOM.filterInvSucursal.value = currentSuc;
+        }
+
+        if (DOM.filterInvAbcf && DOM.filterInvAbcf.options.length <= 1) {
+            const currentAbcf = DOM.filterInvAbcf.value;
+            DOM.filterInvAbcf.innerHTML = '<option value="todos">Todos</option>';
+            const abcfs = [...new Set(inventario.map(i => i.abc_f).filter(Boolean))].sort();
+            abcfs.forEach(a => {
+                const opt = document.createElement("option");
+                opt.value = a;
+                opt.textContent = a;
+                DOM.filterInvAbcf.appendChild(opt);
+            });
+            DOM.filterInvAbcf.value = currentAbcf;
+        }
+
+        // Apply filters
+        if (sucursalFilter !== "todos") {
+            inventario = inventario.filter(i => i.nombre_centro === sucursalFilter);
+        }
+        if (abcfFilter !== "todos") {
+            inventario = inventario.filter(i => i.abc_f === abcfFilter);
+        }
+        if (searchTerm) {
+            inventario = inventario.filter(i => 
+                (i.codigo_material && String(i.codigo_material).toLowerCase().includes(searchTerm)) ||
+                (i.descripcion_material && String(i.descripcion_material).toLowerCase().includes(searchTerm))
+            );
+        }
+        
+        DOM.tableInventarioAbcf.innerHTML = "";
+        if (inventario.length === 0) {
+            DOM.tableInventarioAbcf.innerHTML = `<tr><td colspan="10" style="text-align: center;">No se encontraron registros de inventario.</td></tr>`;
+            return;
+        }
+        
+        // Pagination logic could be added here, for now limit to 100 or 50
+        const pageItems = inventario.slice(0, 50);
+        
+        pageItems.forEach(i => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td><span class="badge badge-secondary">${escapeHTML(i.nombre_centro || "-")}</span></td>
+                <td>${escapeHTML(i.almacen || "-")}</td>
+                <td><strong>${escapeHTML(i.abc_f || "-")}</strong></td>
+                <td><code>${escapeHTML(i.codigo_material || "-")}</code></td>
+                <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(i.descripcion_material || "")}">${escapeHTML(i.descripcion_material || "-")}</td>
+                <td>${i.cantidad_propia !== null ? i.cantidad_propia.toLocaleString() : "-"}</td>
+                <td>${i.existencia_consignacion !== null ? i.existencia_consignacion.toLocaleString() : "-"}</td>
+                <td>$${i.costo_promedio_unitario !== null ? i.costo_promedio_unitario.toLocaleString(undefined, {minimumFractionDigits: 2}) : "0.00"}</td>
+                <td><strong style="color: #10b981;">$${i.importe_inventario_propio !== null ? i.importe_inventario_propio.toLocaleString(undefined, {minimumFractionDigits: 2}) : "0.00"}</strong></td>
+                <td>${escapeHTML(i.ubicacion || "-")}</td>
+            `;
+            DOM.tableInventarioAbcf.appendChild(tr);
+        });
+
+        // Basic pagination info
+        if(DOM.pagInventarioAbcf) {
+            DOM.pagInventarioAbcf.innerHTML = `<span>Mostrando ${pageItems.length} de ${inventario.length} registros</span>`;
+        }
+        
+    } catch (e) {
+        console.error("Error loading inventario:", e);
+        DOM.tableInventarioAbcf.innerHTML = `<tr><td colspan="10" style="text-align: center; color: #ef4444;">Error al cargar datos</td></tr>`;
+    }
 }
 
 async function loadPromocionesData(forceRefresh = false) {
@@ -1670,6 +1776,7 @@ function renderKanbanColumns() {
     const stages = {
         cotizado: [],
         promociones: [],
+    inventario_abcf: [],
         vendido: [],
         vencido: []
     };
