@@ -4914,3 +4914,65 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 });
+
+
+// INVENTARIO ABC+F EVENTS
+document.addEventListener('DOMContentLoaded', () => {
+    if (DOM.uploadInventarioAbcfForm) {
+        DOM.uploadInventarioAbcfForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const file = DOM.fileInventarioAbcf.files[0];
+            if (!file) {
+                showToast('Por favor selecciona un archivo', 'info');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const btn = DOM.uploadInventarioAbcfForm.querySelector('button[type=\'submit\']');
+            const ogHtml = btn.innerHTML;
+            btn.innerHTML = '<i class=\'fa-solid fa-spinner fa-spin\'></i> Subiendo...';
+            btn.disabled = true;
+            
+            try {
+                const res = await fetch('/api/v1/inventario-abcf/upload', {
+                    method: 'POST',
+                    headers: { 'Authorization': \Bearer \ },
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showToast(data.message || 'Inventario subido correctamente', 'success');
+                    DOM.fileInventarioAbcf.value = '';
+                    const fileNameSpan = document.getElementById('file-inv-name');
+                    if (fileNameSpan) fileNameSpan.textContent = 'Seleccionar Archivo';
+                    await loadInventarioAbcfData(true);
+                } else {
+                    showToast(data.detail || 'Error al subir inventario', 'error');
+                }
+            } catch (err) {
+                showToast('Error de conexión', 'error');
+            } finally {
+                btn.innerHTML = ogHtml;
+                btn.disabled = false;
+            }
+        });
+    }
+
+    if (DOM.filterInvSucursal) DOM.filterInvSucursal.addEventListener('change', () => loadInventarioAbcfData());
+    if (DOM.filterInvAbcf) DOM.filterInvAbcf.addEventListener('change', () => loadInventarioAbcfData());
+    if (DOM.filterInvSearch) DOM.filterInvSearch.addEventListener('input', () => {
+        clearTimeout(window.invSearchTimeout);
+        window.invSearchTimeout = setTimeout(() => loadInventarioAbcfData(), 300);
+    });
+    if (DOM.btnClearInvFilters) {
+        DOM.btnClearInvFilters.addEventListener('click', () => {
+            if (DOM.filterInvSucursal) DOM.filterInvSucursal.value = 'todos';
+            if (DOM.filterInvAbcf) DOM.filterInvAbcf.value = 'todos';
+            if (DOM.filterInvSearch) DOM.filterInvSearch.value = '';
+            loadInventarioAbcfData();
+        });
+    }
+});
