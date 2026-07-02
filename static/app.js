@@ -707,8 +707,33 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             return;
         }
         
-        // Pagination logic could be added here, for now limit to 100 or 50
-        const pageItems = inventario.slice(0, 50);
+        // --- SORTING LOGIC ---
+        if (state.invSortField === undefined) state.invSortField = null;
+        if (state.invSortDir === undefined) state.invSortDir = 'desc';
+        if (state.invCurrentPage === undefined) state.invCurrentPage = 1;
+
+        if (state.invSortField === 'cant_propia') {
+            inventario.sort((a, b) => {
+                const va = a.cantidad_propia || 0;
+                const vb = b.cantidad_propia || 0;
+                return state.invSortDir === 'asc' ? va - vb : vb - va;
+            });
+        } else if (state.invSortField === 'inv_consig') {
+            inventario.sort((a, b) => {
+                const va = a.existencia_consignacion || 0;
+                const vb = b.existencia_consignacion || 0;
+                return state.invSortDir === 'asc' ? va - vb : vb - va;
+            });
+        }
+
+        // --- PAGINATION LOGIC ---
+        const totalItems = inventario.length;
+        const totalPages = Math.ceil(totalItems / 50);
+        if (state.invCurrentPage > totalPages && totalPages > 0) state.invCurrentPage = totalPages;
+        if (state.invCurrentPage < 1) state.invCurrentPage = 1;
+
+        const startIdx = (state.invCurrentPage - 1) * 50;
+        const pageItems = inventario.slice(startIdx, startIdx + 50);
         
         pageItems.forEach(i => {
             const tr = document.createElement("tr");
@@ -729,7 +754,39 @@ async function loadInventarioAbcfData(forceRefresh = false) {
 
         // Basic pagination info
         if(DOM.pagInventarioAbcf) {
-            DOM.pagInventarioAbcf.innerHTML = `<span>Mostrando ${pageItems.length} de ${inventario.length} registros</span>`;
+            let pagHtml = `<span>Mostrando ${startIdx + 1} - ${Math.min(startIdx + 50, totalItems)} de ${totalItems} registros</span>`;
+            if (totalItems > 50) {
+                pagHtml += `
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button class="btn btn-secondary btn-sm" id="btn-inv-prev" ${state.invCurrentPage === 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i> Ant. 50</button>
+                        <span style="font-size: 12px; font-weight: bold; padding: 0 10px;">Pág ${state.invCurrentPage} de ${totalPages || 1}</span>
+                        <button class="btn btn-secondary btn-sm" id="btn-inv-next" ${state.invCurrentPage >= totalPages ? 'disabled' : ''}>Sig. 50 <i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                `;
+            }
+            DOM.pagInventarioAbcf.innerHTML = pagHtml;
+            DOM.pagInventarioAbcf.style.display = 'flex';
+            DOM.pagInventarioAbcf.style.justifyContent = 'space-between';
+            DOM.pagInventarioAbcf.style.alignItems = 'center';
+
+            const btnPrev = document.getElementById("btn-inv-prev");
+            const btnNext = document.getElementById("btn-inv-next");
+            if (btnPrev) btnPrev.addEventListener("click", () => { state.invCurrentPage--; loadInventarioAbcfData(); });
+            if (btnNext) btnNext.addEventListener("click", () => { state.invCurrentPage++; loadInventarioAbcfData(); });
+        }
+        
+        // UPDATE HEADERS UI
+        const thCant = document.getElementById("th-inv-cant");
+        const thConsig = document.getElementById("th-inv-consig");
+        if (thCant) {
+            const icon = thCant.querySelector('i');
+            icon.className = 'fa-solid ' + (state.invSortField === 'cant_propia' ? (state.invSortDir === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort');
+            icon.style.color = state.invSortField === 'cant_propia' ? '#10b981' : '#6b7280';
+        }
+        if (thConsig) {
+            const icon = thConsig.querySelector('i');
+            icon.className = 'fa-solid ' + (state.invSortField === 'inv_consig' ? (state.invSortDir === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort');
+            icon.style.color = state.invSortField === 'inv_consig' ? '#10b981' : '#6b7280';
         }
         
     } catch (e) {
@@ -4961,18 +5018,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (DOM.filterInvSucursal) DOM.filterInvSucursal.addEventListener('change', () => loadInventarioAbcfData());
-    if (DOM.filterInvAbcf) DOM.filterInvAbcf.addEventListener('change', () => loadInventarioAbcfData());
+    if (DOM.filterInvSucursal) DOM.filterInvSucursal.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
+    if (DOM.filterInvAbcf) DOM.filterInvAbcf.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
     if (DOM.filterInvSearch) DOM.filterInvSearch.addEventListener('input', () => {
         clearTimeout(window.invSearchTimeout);
-        window.invSearchTimeout = setTimeout(() => loadInventarioAbcfData(), 300);
+        window.invSearchTimeout = setTimeout(() => { state.invCurrentPage = 1; loadInventarioAbcfData(); }, 300);
     });
     if (DOM.btnClearInvFilters) {
         DOM.btnClearInvFilters.addEventListener('click', () => {
             if (DOM.filterInvSucursal) DOM.filterInvSucursal.value = 'todos';
             if (DOM.filterInvAbcf) DOM.filterInvAbcf.value = 'todos';
             if (DOM.filterInvSearch) DOM.filterInvSearch.value = '';
+            state.invCurrentPage = 1;
             loadInventarioAbcfData();
         });
     }
+
+    const thCant = document.getElementById("th-inv-cant");
+    if (thCant) thCant.addEventListener('click', () => {
+        if (state.invSortField !== 'cant_propia') { state.invSortField = 'cant_propia'; state.invSortDir = 'desc'; }
+        else { state.invSortDir = state.invSortDir === 'asc' ? 'desc' : 'asc'; }
+        loadInventarioAbcfData();
+    });
+
+    const thConsig = document.getElementById("th-inv-consig");
+    if (thConsig) thConsig.addEventListener('click', () => {
+        if (state.invSortField !== 'inv_consig') { state.invSortField = 'inv_consig'; state.invSortDir = 'desc'; }
+        else { state.invSortDir = state.invSortDir === 'asc' ? 'desc' : 'asc'; }
+        loadInventarioAbcfData();
+    });
 });
