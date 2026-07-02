@@ -1323,7 +1323,7 @@ function renderDashboardCharts(filtered) {
                 sellerEmail = seller.email;
             }
         }
-        const label = sellerEmail.includes("@") ? sellerEmail.split("@")[0] : sellerEmail;
+        const label = String(sellerEmail).includes("@") ? String(sellerEmail).split("@")[0] : String(sellerEmail);
         groupedSeller[label] = (groupedSeller[label] || 0) + (Number(q.total) || 0);
     });
     const sortedSellers = Object.keys(groupedSeller).map(k => ({
@@ -1944,7 +1944,7 @@ function renderSalesChart(quotes) {
                 sellerEmail = seller.email;
             }
         }
-        const label = sellerEmail.includes("@") ? sellerEmail.split("@")[0] : sellerEmail;
+        const label = String(sellerEmail).includes("@") ? String(sellerEmail).split("@")[0] : String(sellerEmail);
         grouped[label] = (grouped[label] || 0) + q.total;
     });
     
@@ -2015,8 +2015,8 @@ function renderGoalsChart(metas, quotes, sellers) {
     
     const sellerIds = Array.from(new Set([...Object.keys(goalsBySeller), ...Object.keys(actualsBySeller)]));
     const labels = sellerIds.map(sid => {
-        if (sid === state.user.id) return state.user.email.split("@")[0];
-        return (sellers.find(s => s.id === sid)?.email || sid).split("@")[0];
+        if (String(sid) === String(state.user.id)) return state.user.email.split("@")[0];
+        return String(sellers.find(s => String(s.id) === String(sid))?.email || sid).split("@")[0];
     });
     
     const targetData = sellerIds.map(sid => goalsBySeller[sid] || 0);
