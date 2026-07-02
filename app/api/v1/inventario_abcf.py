@@ -50,6 +50,12 @@ async def upload_inventario(
                 
                 # Map columns according to the extracted structure
                 try:
+                    c_propia = float(row[7]) if len(row)>7 and row[7] is not None else 0.0
+                    e_consig = float(row[8]) if len(row)>8 and row[8] is not None else 0.0
+                    
+                    if c_propia == 0.0 and e_consig == 0.0:
+                        continue
+                        
                     inv = InventarioAbcf(
                         nombre_centro=str(row[0]) if len(row)>0 and row[0] is not None else None,
                         almacen=str(row[1]) if len(row)>1 and row[1] is not None else None,
@@ -58,8 +64,8 @@ async def upload_inventario(
                         abc_f=str(row[4]) if len(row)>4 and row[4] is not None else None,
                         codigo_material=str(row[5]) if len(row)>5 and row[5] is not None else None,
                         descripcion_material=str(row[6]) if len(row)>6 and row[6] is not None else None,
-                        cantidad_propia=float(row[7]) if len(row)>7 and row[7] is not None else None,
-                        existencia_consignacion=float(row[8]) if len(row)>8 and row[8] is not None else None,
+                        cantidad_propia=c_propia,
+                        existencia_consignacion=e_consig,
                         entregas_pendientes=float(row[9]) if len(row)>9 and row[9] is not None else None,
                         existencia_transito=float(row[10]) if len(row)>10 and row[10] is not None else None,
                         existencia_bloqueada=float(row[11]) if len(row)>11 and row[11] is not None else None,
