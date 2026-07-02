@@ -639,6 +639,8 @@ async function loadPromocionesData(forceRefresh = false) {
     const proveedorFilter = DOM.filterPromoProveedor ? DOM.filterPromoProveedor.value : "todos";
     let endpoint = "/api/v1/promociones/";
     
+
+    console.log("loadPromocionesData called! searchTerm:", searchTerm, "proveedorFilter:", proveedorFilter, "statusFilter:", statusFilter);
     try {
         if (forceRefresh || !state.promociones || state.promociones.length === 0) {
             const res = await apiRequest(endpoint);
@@ -658,16 +660,20 @@ async function loadPromocionesData(forceRefresh = false) {
             });
         }
         
+        
+        console.log("Promociones before filter:", promociones.length);
         if (proveedorFilter !== "todos") {
             promociones = promociones.filter(p => (p.proveedor || "Sin Proveedor") === proveedorFilter);
+            console.log("Promociones after proveedor filter:", promociones.length);
         }
+
         
                 // Filter Search Text
         if (searchTerm) {
             promociones = promociones.filter(p => 
-                (p.codigo_material && p.codigo_material.toLowerCase().includes(searchTerm)) ||
-                (p.descripcion_material && p.descripcion_material.toLowerCase().includes(searchTerm)) ||
-                (p.descrip_gpo_materiales && p.descrip_gpo_materiales.toLowerCase().includes(searchTerm))
+                (p.codigo_material && String(p.codigo_material).toLowerCase().includes(searchTerm)) ||
+                (p.descripcion_material && String(p.descripcion_material).toLowerCase().includes(searchTerm)) ||
+                (p.descrip_gpo_materiales && String(p.descrip_gpo_materiales).toLowerCase().includes(searchTerm))
             );
         }
 
