@@ -110,6 +110,7 @@ const DOM = {
     uploadInventarioAbcfForm: document.getElementById("upload-inventario-abcf-form"),
     filterInvSucursal: document.getElementById("filter-inv-sucursal"),
     filterInvAbcf: document.getElementById("filter-inv-abcf"),
+    filterInvProveedor: document.getElementById("filter-inv-proveedor"),
     filterInvSearch: document.getElementById("filter-inv-search"),
     btnClearInvFilters: document.getElementById("btn-clear-inv-filters"),
     pagInventarioAbcf: document.getElementById("pag-inventario-abcf"),
@@ -651,6 +652,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
     const searchTerm = DOM.filterInvSearch ? DOM.filterInvSearch.value.toLowerCase() : "";
     const sucursalFilter = DOM.filterInvSucursal ? DOM.filterInvSucursal.value : "todos";
     const abcfFilter = DOM.filterInvAbcf ? DOM.filterInvAbcf.value : "todos";
+    const proveedorFilter = DOM.filterInvProveedor ? DOM.filterInvProveedor.value : "todos";
     
     try {
         if (forceRefresh || !state.inventario_abcf || state.inventario_abcf.length === 0) {
@@ -687,12 +689,28 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             DOM.filterInvAbcf.value = currentAbcf;
         }
 
+        if (DOM.filterInvProveedor && DOM.filterInvProveedor.options.length <= 1) {
+            const currentProv = DOM.filterInvProveedor.value;
+            DOM.filterInvProveedor.innerHTML = '<option value="todos">Todos</option>';
+            const proveedores = [...new Set(inventario.map(i => i.nombre_proveedor).filter(Boolean))].sort();
+            proveedores.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p;
+                opt.textContent = p;
+                DOM.filterInvProveedor.appendChild(opt);
+            });
+            DOM.filterInvProveedor.value = currentProv;
+        }
+
         // Apply filters
         if (sucursalFilter !== "todos") {
             inventario = inventario.filter(i => i.nombre_centro === sucursalFilter);
         }
         if (abcfFilter !== "todos") {
             inventario = inventario.filter(i => i.abc_f === abcfFilter);
+        }
+        if (proveedorFilter !== "todos") {
+            inventario = inventario.filter(i => i.nombre_proveedor === proveedorFilter);
         }
         if (searchTerm) {
             inventario = inventario.filter(i => 
@@ -740,7 +758,9 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             tr.innerHTML = `
                 <td><span class="badge badge-secondary">${escapeHTML(i.nombre_centro || "-")}</span></td>
                 <td>${escapeHTML(i.almacen || "-")}</td>
+                <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(i.nombre_proveedor || "")}">${escapeHTML(i.nombre_proveedor || "-")}</td>
                 <td><strong>${escapeHTML(i.abc_f || "-")}</strong></td>
+                <td><strong>${escapeHTML(i.abc || "-")}</strong></td>
                 <td><code>${escapeHTML(i.codigo_material || "-")}</code></td>
                 <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(i.descripcion_material || "")}">${escapeHTML(i.descripcion_material || "-")}</td>
                 <td>${i.cantidad_propia !== null ? i.cantidad_propia.toLocaleString() : "-"}</td>
@@ -5020,6 +5040,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (DOM.filterInvSucursal) DOM.filterInvSucursal.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
     if (DOM.filterInvAbcf) DOM.filterInvAbcf.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
+    if (DOM.filterInvProveedor) DOM.filterInvProveedor.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
     if (DOM.filterInvSearch) DOM.filterInvSearch.addEventListener('input', () => {
         clearTimeout(window.invSearchTimeout);
         window.invSearchTimeout = setTimeout(() => { state.invCurrentPage = 1; loadInventarioAbcfData(); }, 300);
@@ -5028,6 +5049,7 @@ document.addEventListener('DOMContentLoaded', () => {
         DOM.btnClearInvFilters.addEventListener('click', () => {
             if (DOM.filterInvSucursal) DOM.filterInvSucursal.value = 'todos';
             if (DOM.filterInvAbcf) DOM.filterInvAbcf.value = 'todos';
+            if (DOM.filterInvProveedor) DOM.filterInvProveedor.value = 'todos';
             if (DOM.filterInvSearch) DOM.filterInvSearch.value = '';
             state.invCurrentPage = 1;
             loadInventarioAbcfData();

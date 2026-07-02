@@ -81,7 +81,7 @@
                     <i class="fa-solid fa-users"></i> <span>Vendedores</span>
                 </a>
                 <a href="#" class="menu-item" data-section="inventario-abcf">
-                    <i class="fa-solid fa-boxes-stacked"></i> <span>Inventario ABC+F</span>
+                    <i class="fa-solid fa-boxes-stacked"></i> <span>Inventario D</span>
                 </a>
                 <a href="#" class="menu-item" data-section="promociones">
                     <i class="fa-solid fa-tags"></i> <span>Promociones</span>
@@ -398,10 +398,10 @@
                     </div>
                 </section>
 
-                <!-- Section Inventario ABC+F -->
+                <!-- Section Inventario D -->
                 <section id="section-inventario-abcf" class="dashboard-section hidden animate-fade-in">
                     <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                        <h2>Inventario ABC+F</h2>
+                        <h2>Inventario D</h2>
                         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                             <form id="upload-inventario-abcf-form" onsubmit="event.preventDefault();" style="display: flex; gap: 10px; align-items: center; margin: 0;">
                                 <label for="file-inventario-abcf" class="btn btn-secondary btn-sm" style="cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 0; padding: 0.5rem 1rem;">
@@ -428,6 +428,12 @@
                                     <option value="todos">Todos</option>
                                 </select>
                             </div>
+                            <div class="input-group">
+                                <label for="filter-inv-proveedor" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Proveedor</label>
+                                <select id="filter-inv-proveedor" class="form-control" style="width: 100%;">
+                                    <option value="todos">Todos</option>
+                                </select>
+                            </div>
                             <div style="display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1;">
                                 <label for="filter-inv-search" style="font-size: 0.85rem; color: hsl(var(--text-secondary));"><i class="fa-solid fa-magnifying-glass"></i> Buscar Material</label>
                                 <div style="display: flex; gap: 10px;">
@@ -447,7 +453,9 @@
                                 <tr>
                                     <th>Centro</th>
                                     <th>Almacén</th>
+                                    <th>Proveedor</th>
                                     <th>ABC+F</th>
+                                    <th>Indicador</th>
                                     <th>Código</th>
                                     <th>Descripción</th>
                                     <th id="th-inv-cant" style="cursor: pointer;">Cant Propia <i class="fa-solid fa-sort" style="color: #6b7280; font-size: 11px; margin-left: 4px;"></i></th>
