@@ -725,6 +725,11 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             return;
         }
         
+        const thImporte = document.getElementById("th-inv-importe");
+        if (thImporte) {
+            thImporte.style.display = (state.user && state.user.rol === "vendedor") ? "none" : "";
+        }
+        
         // --- SORTING LOGIC ---
         if (state.invSortField === undefined) state.invSortField = null;
         if (state.invSortDir === undefined) state.invSortDir = 'desc';
@@ -765,7 +770,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                 <td>${i.cantidad_propia !== null ? i.cantidad_propia.toLocaleString() : "-"}</td>
                 <td>${i.existencia_consignacion !== null ? i.existencia_consignacion.toLocaleString() : "-"}</td>
                 <td>$${i.costo_promedio_unitario !== null ? i.costo_promedio_unitario.toLocaleString(undefined, {minimumFractionDigits: 2}) : "0.00"}</td>
-                <td><strong style="color: #10b981;">$${i.importe_inventario_propio !== null ? i.importe_inventario_propio.toLocaleString(undefined, {minimumFractionDigits: 2}) : "0.00"}</strong></td>
+                ${(state.user && state.user.rol === "vendedor") ? '' : `<td><strong style="color: #10b981;">$${i.importe_inventario_propio !== null ? i.importe_inventario_propio.toLocaleString(undefined, {minimumFractionDigits: 2}) : "0.00"}</strong></td>`}
                 <td>${escapeHTML(i.ubicacion || "-")}</td>
             `;
             DOM.tableInventarioAbcf.appendChild(tr);
