@@ -891,7 +891,17 @@ async function loadCotizacionesData(forceRefresh = true) {
             state.vendedores.forEach(v => {
                 const opt = document.createElement("option");
                 opt.value = v.id;
-                opt.textContent = v.email;
+                
+                let displayName = v.email;
+                if (v.codigo_vendedor && v.nombre_completo) {
+                    displayName = `${v.codigo_vendedor} ${v.nombre_completo}`;
+                } else if (v.codigo_vendedor) {
+                    displayName = v.codigo_vendedor;
+                } else if (v.nombre_completo) {
+                    displayName = v.nombre_completo;
+                }
+                
+                opt.textContent = displayName;
                 DOM.filterQuoteSeller.appendChild(opt);
             });
             if (currentSelected) {
@@ -1592,7 +1602,15 @@ async function loadKanbanData(forceRefresh = false) {
         state.vendedores.forEach(v => {
             const opt = document.createElement("option");
             opt.value = v.id;
-            opt.textContent = v.email;
+            let displayName = v.email;
+            if (v.codigo_vendedor && v.nombre_completo) {
+                displayName = `${v.codigo_vendedor} ${v.nombre_completo}`;
+            } else if (v.codigo_vendedor) {
+                displayName = v.codigo_vendedor;
+            } else if (v.nombre_completo) {
+                displayName = v.nombre_completo;
+            }
+            opt.textContent = displayName;
             DOM.kanbanFilterSeller.appendChild(opt);
         });
     }
@@ -2346,7 +2364,15 @@ DOM.btnGenerateGoalsModal.addEventListener("click", () => {
     state.vendedores.forEach(v => {
         const opt = document.createElement("option");
         opt.value = v.id;
-        opt.textContent = v.email;
+        let displayName = v.email;
+            if (v.codigo_vendedor && v.nombre_completo) {
+                displayName = `${v.codigo_vendedor} ${v.nombre_completo}`;
+            } else if (v.codigo_vendedor) {
+                displayName = v.codigo_vendedor;
+            } else if (v.nombre_completo) {
+                displayName = v.nombre_completo;
+            }
+            opt.textContent = displayName;
         DOM.aiGoalsVendedor.appendChild(opt);
     });
 });
