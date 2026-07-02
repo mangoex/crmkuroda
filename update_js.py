@@ -1,91 +1,31 @@
-﻿with open("static/app.js", "r", encoding="utf-8") as f:
-    js = f.read()
+import sys
 
-# Replace showLoading/hideLoading with inline button logic
-old_save_logic = """    if (btnSaveCsvUrl) {
-        btnSaveCsvUrl.addEventListener("click", async () => {
-            const url = csvDriveUrl.value.trim();
-            try {
-                showLoading();
-                await apiRequest("/api/v1/companies/kuroda/dashboard/target", {
-                    method: "POST",
-                    body: JSON.stringify({
-                        csv_drive_url: url
-                    })
-                });
-                showToast("URL de CSV guardada exitosamente", "success");
-            } catch (e) {
-                console.error(e);
-                showToast("Fallo al guardar URL del CSV", "error");
-            } finally {
-                hideLoading();
-            }
-        });
-    }"""
+file_path = 'c:/Users/Miguel Gonzalez/Downloads/CRMK/crmkuroda/static/app.js'
+with open(file_path, 'r', encoding='utf-8') as f:
+    content = f.read()
 
-new_save_logic = """    if (btnSaveCsvUrl) {
-        btnSaveCsvUrl.addEventListener("click", async () => {
-            const url = csvDriveUrl.value.trim();
-            try {
-                btnSaveCsvUrl.disabled = true;
-                const originalHtml = btnSaveCsvUrl.innerHTML;
-                btnSaveCsvUrl.innerHTML = 'Guardando... <i class="fa-solid fa-spinner animate-spin"></i>';
-                await apiRequest("/api/v1/companies/kuroda/dashboard/target", {
-                    method: "POST",
-                    body: JSON.stringify({
-                        csv_drive_url: url
-                    })
-                });
-                showToast("URL de CSV guardada exitosamente", "success");
-                btnSaveCsvUrl.innerHTML = originalHtml;
-            } catch (e) {
-                console.error(e);
-                showToast("Fallo al guardar URL del CSV", "error");
-                btnSaveCsvUrl.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar URL';
-            } finally {
-                btnSaveCsvUrl.disabled = false;
-            }
-        });
-    }"""
+# 1. Add menuApi to DOM
+dom_target = 'menuVendedores: document.getElementById("menu-vendedores"),'
+dom_replacement = dom_target + '\n    menuApi: document.getElementById("menu-api"),'
+if dom_target in content and 'menuApi:' not in content:
+    content = content.replace(dom_target, dom_replacement)
+    print("Added menuApi to DOM object.")
 
-old_sync_logic = """    if (btnSyncCsv) {
-        btnSyncCsv.addEventListener("click", async () => {
-            try {
-                showLoading();
-                const res = await apiRequest("/api/v1/cotizaciones/sync-csv", { method: "POST" });
-                showToast(res.message || "Sincronización exitosa", "success");
-                await loadDashboardData(true);
-            } catch (e) {
-                console.error(e);
-                showToast(e.message || "Fallo al sincronizar CSV", "error");
-            } finally {
-                hideLoading();
-            }
-        });
-    }"""
+# 2. Add visibility logic
+role_target = 'DOM.btnGenerateGoalsModal.classList.add("hidden");'
+role_replacement = role_target + '\n            if (DOM.menuApi) DOM.menuApi.classList.add("hidden");'
+if role_target in content and 'DOM.menuApi.classList.add("hidden")' not in content:
+    content = content.replace(role_target, role_replacement)
+    print("Added hidden logic for menuApi.")
 
-new_sync_logic = """    if (btnSyncCsv) {
-        btnSyncCsv.addEventListener("click", async () => {
-            try {
-                btnSyncCsv.disabled = true;
-                const originalHtml = btnSyncCsv.innerHTML;
-                btnSyncCsv.innerHTML = 'Sincronizando... <i class="fa-solid fa-spinner animate-spin"></i>';
-                const res = await apiRequest("/api/v1/cotizaciones/sync-csv", { method: "POST" });
-                showToast(res.message || "Sincronización exitosa", "success");
-                await loadDashboardData(true);
-                btnSyncCsv.innerHTML = originalHtml;
-            } catch (e) {
-                console.error(e);
-                showToast(e.message || "Fallo al sincronizar CSV", "error");
-                btnSyncCsv.innerHTML = '<i class="fa-solid fa-rotate"></i> Sincronizar Ahora';
-            } finally {
-                btnSyncCsv.disabled = false;
-            }
-        });
-    }"""
+role_target2 = 'DOM.btnGenerateGoalsModal.classList.remove("hidden");'
+role_replacement2 = role_target2 + '\n            if (DOM.menuApi) DOM.menuApi.classList.remove("hidden");'
+if role_target2 in content and 'DOM.menuApi.classList.remove("hidden")' not in content:
+    content = content.replace(role_target2, role_replacement2)
+    print("Added remove hidden logic for menuApi.")
 
-js = js.replace(old_save_logic, new_save_logic)
-js = js.replace(old_sync_logic, new_sync_logic)
+# We don't necessarily need to add logic for section toggling because app.js handles navigation dynamically using data-section and sections querySelectorAll, which will automatically include the new menu item and section if we just re-query them.
+# Wait, `menuItems` and `sections` are queried statically on load. Since we inserted them in HTML before the script runs, `document.querySelectorAll` will pick them up automatically. No need to update the query!
 
-with open("static/app.js", "w", encoding="utf-8") as f:
-    f.write(js)
+with open(file_path, 'w', encoding='utf-8') as f:
+    f.write(content)

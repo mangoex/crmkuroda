@@ -835,7 +835,7 @@ async function loadPromocionesData(forceRefresh = false) {
 
 // Upload Promociones Handler
 if (DOM.uploadPromocionesForm) {
-    DOM.uploadPromocionesForm.addEventListener("submit", async (e) => {
+    DOM.uploadPromocionesForm?.addEventListener("submit", async (e) => {
         e.preventDefault();
         
         const fileInput = DOM.filePromociones;
@@ -2182,7 +2182,7 @@ function renderQuotesHeatmap(quotes) {
    ========================================================================== */
 
 // Handle Auth Form Submission
-DOM.loginForm.addEventListener("submit", async (e) => {
+DOM.loginForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const email = DOM.loginEmail.value;
     const password = DOM.loginPassword.value;
@@ -2224,14 +2224,14 @@ DOM.menuItems.forEach(item => {
 });
 
 // Logout Button Handler
-DOM.logoutBtn.addEventListener("click", logout);
+DOM.logoutBtn?.addEventListener("click", logout);
 
 /* --- Vendedores/Usuarios Handlers --- */
 let editingUserId = null;
 
 // Dynamically show/hide seller code input depending on selected role
 if (DOM.sellerRole) {
-    DOM.sellerRole.addEventListener("change", (e) => {
+    DOM.sellerRole?.addEventListener("change", (e) => {
         if (e.target.value === "vendedor") {
             DOM.sellerCodeGroup.classList.remove("hidden");
         } else {
@@ -2241,7 +2241,7 @@ if (DOM.sellerRole) {
     });
 }
 
-DOM.btnAddSeller.addEventListener("click", () => {
+DOM.btnAddSeller?.addEventListener("click", () => {
     editingUserId = null;
     DOM.sellerForm.reset();
     DOM.sellerFormTitle.textContent = "Registrar Nuevo Usuario";
@@ -2253,12 +2253,12 @@ DOM.btnAddSeller.addEventListener("click", () => {
     DOM.sellerFormWrapper.scrollIntoView({ behavior: "smooth" });
 });
 
-DOM.btnCancelSeller.addEventListener("click", () => {
+DOM.btnCancelSeller?.addEventListener("click", () => {
     DOM.sellerFormWrapper.classList.add("hidden");
     editingUserId = null;
 });
 
-DOM.btnCloseSellerForm.addEventListener("click", () => {
+DOM.btnCloseSellerForm?.addEventListener("click", () => {
     DOM.sellerFormWrapper.classList.add("hidden");
     editingUserId = null;
 });
@@ -2318,7 +2318,7 @@ async function deleteUser(id, email) {
     }
 }
 
-DOM.sellerForm.addEventListener("submit", async (e) => {
+DOM.sellerForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const email = DOM.sellerEmail.value;
     const fullname = DOM.sellerFullname.value;
@@ -2370,7 +2370,7 @@ DOM.sellerForm.addEventListener("submit", async (e) => {
 });
 
 /* --- Metas Handlers --- */
-DOM.btnGenerateGoalsModal.addEventListener("click", () => {
+DOM.btnGenerateGoalsModal?.addEventListener("click", () => {
     DOM.aiGoalsWrapper.classList.remove("hidden");
     
     // Populate select elements
@@ -2391,15 +2391,15 @@ DOM.btnGenerateGoalsModal.addEventListener("click", () => {
     });
 });
 
-DOM.btnCancelAiGoals.addEventListener("click", () => {
+DOM.btnCancelAiGoals?.addEventListener("click", () => {
     DOM.aiGoalsWrapper.classList.add("hidden");
 });
 
-DOM.btnCloseAiGoals.addEventListener("click", () => {
+DOM.btnCloseAiGoals?.addEventListener("click", () => {
     DOM.aiGoalsWrapper.classList.add("hidden");
 });
 
-DOM.aiGoalsForm.addEventListener("submit", async (e) => {
+DOM.aiGoalsForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const sellerId = DOM.aiGoalsVendedor.value;
     const globalGoals = DOM.aiGoalsGlobal.value;
@@ -2448,19 +2448,19 @@ DOM.filterPromoStatus?.addEventListener("change", () => loadPromocionesData(fals
 DOM.filterPromoSort?.addEventListener("change", () => loadPromocionesData(false));
 
 /* --- Cotizaciones Handlers --- */
-DOM.btnGenerateQuoteModal.addEventListener("click", () => {
+DOM.btnGenerateQuoteModal?.addEventListener("click", () => {
     DOM.aiQuoteWrapper.classList.remove("hidden");
 });
 
-DOM.btnCancelAiQuote.addEventListener("click", () => {
+DOM.btnCancelAiQuote?.addEventListener("click", () => {
     DOM.aiQuoteWrapper.classList.add("hidden");
 });
 
-DOM.btnCloseAiQuote.addEventListener("click", () => {
+DOM.btnCloseAiQuote?.addEventListener("click", () => {
     DOM.aiQuoteWrapper.classList.add("hidden");
 });
 
-DOM.btnAddItemRow.addEventListener("click", () => {
+DOM.btnAddItemRow?.addEventListener("click", () => {
     const row = document.createElement("div");
     row.className = "item-row";
     row.innerHTML = `
@@ -2482,7 +2482,7 @@ document.querySelectorAll(".item-row .btn-remove-row").forEach(btn => {
     });
 });
 
-DOM.aiQuoteForm.addEventListener("submit", async (e) => {
+DOM.aiQuoteForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const clientName = DOM.quoteClientName.value;
     const clientEmail = DOM.quoteClientEmail.value;
@@ -2554,37 +2554,37 @@ DOM.aiQuoteForm.addEventListener("submit", async (e) => {
     }
 });
 
-DOM.searchQuoteClient.addEventListener("input", () => {
+DOM.searchQuoteClient?.addEventListener("input", () => {
     state.quotesCurrentPage = 1;
     renderQuotesTableFiltered();
 });
 
-DOM.filterQuoteSeller.addEventListener("change", () => {
+DOM.filterQuoteSeller?.addEventListener("change", () => {
     state.quotesCurrentPage = 1;
     renderQuotesDashboard();
 });
 
-DOM.filterQuoteDays.addEventListener("change", () => {
+DOM.filterQuoteDays?.addEventListener("change", () => {
     state.quotesCurrentPage = 1;
     renderQuotesDashboard();
 });
 
 if (DOM.filterQuoteStartDate) {
-    DOM.filterQuoteStartDate.addEventListener("change", () => {
+    DOM.filterQuoteStartDate?.addEventListener("change", () => {
         state.quotesCurrentPage = 1;
         renderQuotesDashboard();
     });
 }
 
 if (DOM.filterQuoteEndDate) {
-    DOM.filterQuoteEndDate.addEventListener("change", () => {
+    DOM.filterQuoteEndDate?.addEventListener("change", () => {
         state.quotesCurrentPage = 1;
         renderQuotesDashboard();
     });
 }
 
 if (DOM.btnToggleQuotesDetails) {
-    DOM.btnToggleQuotesDetails.addEventListener("click", () => {
+    DOM.btnToggleQuotesDetails?.addEventListener("click", () => {
         const content = DOM.quotesDetailsContent;
         const icon = DOM.quotesDetailsToggleIcon;
         if (content) {
@@ -2601,24 +2601,24 @@ if (DOM.btnToggleQuotesDetails) {
 
 // Kanban Board event listeners
 if (DOM.kanbanSearchClient) {
-    DOM.kanbanSearchClient.addEventListener("input", () => {
+    DOM.kanbanSearchClient?.addEventListener("input", () => {
         renderKanbanColumns();
     });
 }
 if (DOM.kanbanFilterSeller) {
-    DOM.kanbanFilterSeller.addEventListener("change", () => {
+    DOM.kanbanFilterSeller?.addEventListener("change", () => {
         renderKanbanColumns();
     });
 }
 if (DOM.kanbanFilterDays) {
-    DOM.kanbanFilterDays.addEventListener("change", () => {
+    DOM.kanbanFilterDays?.addEventListener("change", () => {
         renderKanbanColumns();
     });
 }
 
 // Quotes Table Sorting listeners
 if (DOM.sortQuotesAsc) {
-    DOM.sortQuotesAsc.addEventListener("click", () => {
+    DOM.sortQuotesAsc?.addEventListener("click", () => {
         if (state.quotesSortOrder === "asc") {
             state.quotesSortOrder = null;
             DOM.sortQuotesAsc.classList.remove("active");
@@ -2632,7 +2632,7 @@ if (DOM.sortQuotesAsc) {
 }
 
 if (DOM.sortQuotesDesc) {
-    DOM.sortQuotesDesc.addEventListener("click", () => {
+    DOM.sortQuotesDesc?.addEventListener("click", () => {
         if (state.quotesSortOrder === "desc") {
             state.quotesSortOrder = null;
             DOM.sortQuotesDesc.classList.remove("active");
@@ -2689,13 +2689,13 @@ function closeModal() {
     DOM.proposalModal.classList.add("hidden");
 }
 
-DOM.btnCloseProposalModal.addEventListener("click", closeModal);
-DOM.btnCloseProposal.addEventListener("click", closeModal);
-DOM.proposalModal.addEventListener("click", (e) => {
+DOM.btnCloseProposalModal?.addEventListener("click", closeModal);
+DOM.btnCloseProposal?.addEventListener("click", closeModal);
+DOM.proposalModal?.addEventListener("click", (e) => {
     if (e.target === DOM.proposalModal) closeModal();
 });
 
-DOM.btnCopyProposal.addEventListener("click", () => {
+DOM.btnCopyProposal?.addEventListener("click", () => {
     const text = DOM.modalProposalBody.textContent;
     navigator.clipboard.writeText(text).then(() => {
         showToast("Copiado al portapapeles");
@@ -2714,7 +2714,7 @@ if (localStorage.getItem("sidebar_collapsed") === "true" && DOM.sidebar) {
 }
 
 if (DOM.btnToggleSidebar) {
-    DOM.btnToggleSidebar.addEventListener("click", () => {
+    DOM.btnToggleSidebar?.addEventListener("click", () => {
         if (DOM.sidebar) {
             DOM.sidebar.classList.toggle("collapsed");
             const isCollapsed = DOM.sidebar.classList.contains("collapsed");
@@ -2725,14 +2725,14 @@ if (DOM.btnToggleSidebar) {
 
 // Theme Toggle Handler
 if (DOM.themeToggleBtn) {
-    DOM.themeToggleBtn.addEventListener("click", () => {
+    DOM.themeToggleBtn?.addEventListener("click", () => {
         toggleTheme();
     });
 }
 
 // User Profile Modal Handlers
 if (DOM.userAvatarBtn) {
-    DOM.userAvatarBtn.addEventListener("click", () => {
+    DOM.userAvatarBtn?.addEventListener("click", () => {
         // Populate fields
         DOM.profileFullname.value = state.user.nombre_completo || "";
         DOM.profileEmail.value = state.user.email || "";
@@ -2759,17 +2759,17 @@ function closeProfileModal() {
     DOM.profileModal.classList.add("hidden");
 }
 
-if (DOM.btnCloseProfileModal) DOM.btnCloseProfileModal.addEventListener("click", closeProfileModal);
-if (DOM.btnCancelProfile) DOM.btnCancelProfile.addEventListener("click", closeProfileModal);
+if (DOM.btnCloseProfileModal) DOM.btnCloseProfileModal?.addEventListener("click", closeProfileModal);
+if (DOM.btnCancelProfile) DOM.btnCancelProfile?.addEventListener("click", closeProfileModal);
 if (DOM.profileModal) {
-    DOM.profileModal.addEventListener("click", (e) => {
+    DOM.profileModal?.addEventListener("click", (e) => {
         if (e.target === DOM.profileModal) closeProfileModal();
     });
 }
 
 // Click trigger for circular avatar uploader
 if (DOM.profileAvatarUploader && DOM.inputProfileAvatar) {
-    DOM.profileAvatarUploader.addEventListener("click", () => {
+    DOM.profileAvatarUploader?.addEventListener("click", () => {
         DOM.inputProfileAvatar.click();
     });
 }
@@ -2777,7 +2777,7 @@ if (DOM.profileAvatarUploader && DOM.inputProfileAvatar) {
 // Convert uploaded photo to Base64
 let profileAvatarBase64 = null;
 if (DOM.inputProfileAvatar) {
-    DOM.inputProfileAvatar.addEventListener("change", (e) => {
+    DOM.inputProfileAvatar?.addEventListener("change", (e) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
@@ -2794,7 +2794,7 @@ if (DOM.inputProfileAvatar) {
 
 // Handle profile update submit
 if (DOM.profileForm) {
-    DOM.profileForm.addEventListener("submit", async (e) => {
+    DOM.profileForm?.addEventListener("submit", async (e) => {
         e.preventDefault();
         
         const payload = {
@@ -3094,14 +3094,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Setup Slight Edge Date listener
     if (DOM.slightEdgeDate) {
-        DOM.slightEdgeDate.addEventListener("change", () => {
+        DOM.slightEdgeDate?.addEventListener("change", () => {
             loadSellerSlightEdgePlanAndLog();
         });
     }
 
     // Setup Slight Edge Funnel Real toggle listener
     if (DOM.toggleFunnelReal) {
-        DOM.toggleFunnelReal.addEventListener("change", () => {
+        DOM.toggleFunnelReal?.addEventListener("change", () => {
             updateFunnelDisplay();
         });
     }
@@ -3116,29 +3116,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Setup Vendedores Sort listener
     if (DOM.selectSortSellers) {
-        DOM.selectSortSellers.addEventListener("change", () => {
+        DOM.selectSortSellers?.addEventListener("change", () => {
             loadVendedoresData();
         });
     }
 
     // Setup Slight Edge Chat Form
     if (DOM.slightEdgeChatForm) {
-        DOM.slightEdgeChatForm.addEventListener("submit", handleSlightEdgeChatSubmit);
+        DOM.slightEdgeChatForm?.addEventListener("submit", handleSlightEdgeChatSubmit);
     }
 
     // Setup Checklist Save Button
     if (DOM.btnSaveSlightEdgeLog) {
-        DOM.btnSaveSlightEdgeLog.addEventListener("click", saveSlightEdgeLog);
+        DOM.btnSaveSlightEdgeLog?.addEventListener("click", saveSlightEdgeLog);
     }
 
     // Setup Company Target Settings Form
     if (DOM.companySettingsForm) {
-        DOM.companySettingsForm.addEventListener("submit", handleCompanySettingsSubmit);
+        DOM.companySettingsForm?.addEventListener("submit", handleCompanySettingsSubmit);
     }
 
     // Close AI recommendation panel
     if (DOM.btnCloseSlightEdgeAi) {
-        DOM.btnCloseSlightEdgeAi.addEventListener("click", () => {
+        DOM.btnCloseSlightEdgeAi?.addEventListener("click", () => {
             DOM.slightEdgeAiRecommendationCard.classList.add("hidden");
         });
     }
@@ -3184,14 +3184,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Back to Dashboard button listener
     if (DOM.btnSlightEdgeBackToDashboard) {
-        DOM.btnSlightEdgeBackToDashboard.addEventListener("click", () => {
+        DOM.btnSlightEdgeBackToDashboard?.addEventListener("click", () => {
             toggleSlightEdgeMode("dashboard");
         });
     }
 
     // Adjust with Coach button listener
     if (DOM.btnSlightEdgeAdjustCoach) {
-        DOM.btnSlightEdgeAdjustCoach.addEventListener("click", () => {
+        DOM.btnSlightEdgeAdjustCoach?.addEventListener("click", () => {
             toggleSlightEdgeMode("coaching");
             if (DOM.btnSlightEdgeBackToDashboard) DOM.btnSlightEdgeBackToDashboard.classList.remove("hidden");
         });
@@ -3199,7 +3199,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Adjust Weights button listener
     if (DOM.btnSlightEdgeAdjustWeights) {
-        DOM.btnSlightEdgeAdjustWeights.addEventListener("click", () => {
+        DOM.btnSlightEdgeAdjustWeights?.addEventListener("click", () => {
             openWeightsModal();
         });
     }
@@ -3226,7 +3226,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // New Task button listener
     if (DOM.btnSlightEdgeNewTask) {
-        DOM.btnSlightEdgeNewTask.addEventListener("click", () => {
+        DOM.btnSlightEdgeNewTask?.addEventListener("click", () => {
             document.getElementById("new-task-modal").classList.remove("hidden");
         });
     }
@@ -3253,14 +3253,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Slight Edge Summary Card button listeners
     if (DOM.btnSlightEdgeSummaryCoach) {
-        DOM.btnSlightEdgeSummaryCoach.addEventListener("click", () => {
+        DOM.btnSlightEdgeSummaryCoach?.addEventListener("click", () => {
             switchSection("slight-edge");
             toggleSlightEdgeMode("coaching");
             if (DOM.btnSlightEdgeBackToDashboard) DOM.btnSlightEdgeBackToDashboard.classList.remove("hidden");
         });
     }
     if (DOM.btnSlightEdgeSummaryGo) {
-        DOM.btnSlightEdgeSummaryGo.addEventListener("click", () => {
+        DOM.btnSlightEdgeSummaryGo?.addEventListener("click", () => {
             switchSection("slight-edge");
             toggleSlightEdgeMode("dashboard");
         });
