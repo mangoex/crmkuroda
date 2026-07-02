@@ -33,12 +33,8 @@ async def upload_inventario(
     
     try:
         wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
-        # Try to find the 'Inventario MKS' sheet, else use the active one
-        sheet_name = 'Inventario MKS'
-        if sheet_name in wb.sheetnames:
-            ws = wb[sheet_name]
-        else:
-            ws = wb.active
+        # Siempre usar la hoja activa para evitar confusiones con hojas antiguas o renombradas
+        ws = wb.active
             
         # Eliminar inventario anterior
         await db.execute(delete(InventarioAbcf))
