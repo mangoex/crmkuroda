@@ -4938,7 +4938,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const res = await fetch('/api/v1/inventario-abcf/upload', {
                     method: 'POST',
-                    headers: { 'Authorization': \Bearer \ },
+                    headers: { 'Authorization': `Bearer ${state.token}` },
                     body: formData
                 });
                 const data = await res.json();
