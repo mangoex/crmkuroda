@@ -760,7 +760,6 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                 <td>${escapeHTML(i.almacen || "-")}</td>
                 <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(i.nombre_proveedor || "")}">${escapeHTML(i.nombre_proveedor || "-")}</td>
                 <td><strong>${escapeHTML(i.abc_f || "-")}</strong></td>
-                <td><strong>${escapeHTML(i.abc || "-")}</strong></td>
                 <td><code>${escapeHTML(i.codigo_material || "-")}</code></td>
                 <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(i.descripcion_material || "")}">${escapeHTML(i.descripcion_material || "-")}</td>
                 <td>${i.cantidad_propia !== null ? i.cantidad_propia.toLocaleString() : "-"}</td>
