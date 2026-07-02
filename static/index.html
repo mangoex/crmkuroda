@@ -496,6 +496,8 @@
                                     <option value="margen-asc">Menor Margen</option>
                                     <option value="precio-desc">Mayor Precio</option>
                                     <option value="precio-asc">Menor Precio</option>
+                                    <option value="inv-desc">Mayor Inventario</option>
+                                    <option value="inv-asc">Menor Inventario</option>
                                 </select>
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1;">
@@ -521,7 +523,7 @@
                                     <th>Proveedor</th>
                                     <th>Precio Promo</th>
                                     <th>Margen</th>
-                                    <th>Inv. Disp.</th>
+                                    <th style="cursor: pointer; user-select: none;" id="th-inv-disp">Inv. Disp. <i class="fa-solid fa-sort" style="color: hsl(var(--text-secondary)); font-size: 12px; margin-left: 4px;"></i></th>
                                     <th>Válido Hasta</th>
                                 </tr>
                             </thead>

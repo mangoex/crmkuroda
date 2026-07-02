@@ -94,6 +94,7 @@ const DOM = {
     filterPromoProveedor: document.getElementById("filter-promo-proveedor"),
     promoKpiProveedores: document.getElementById("promo-kpi-proveedores"),
     filterPromoSearch: document.getElementById("filter-promo-search"),
+    thInvDisp: document.getElementById("th-inv-disp"),
     btnClearPromoFilters: document.getElementById("btn-clear-promo-filters"),
     filterPromoStatus: document.getElementById("filter-promo-status"),
     filterPromoSort: document.getElementById("filter-promo-sort"),
@@ -631,7 +632,7 @@ async function loadVendedoresData() {
     });
 }
 
-async function loadPromocionesData() {
+async function loadPromocionesData(forceRefresh = false) {
     const searchTerm = DOM.filterPromoSearch ? DOM.filterPromoSearch.value.toLowerCase() : "";
     const statusFilter = DOM.filterPromoStatus ? DOM.filterPromoStatus.value : "activas";
     const sortFilter = DOM.filterPromoSort ? DOM.filterPromoSort.value : "default";
@@ -639,8 +640,11 @@ async function loadPromocionesData() {
     let endpoint = "/api/v1/promociones/";
     
     try {
-        const res = await apiRequest(endpoint);
-        let promociones = res.data || [];
+        if (forceRefresh || !state.promociones || state.promociones.length === 0) {
+            const res = await apiRequest(endpoint);
+            state.promociones = res.data || [];
+        }
+        let promociones = [...state.promociones];
         const today = new Date();
         today.setHours(0,0,0,0);
         
@@ -659,7 +663,7 @@ async function loadPromocionesData() {
         }
         
         // --- CALCULAR Y RENDERIZAR KPIs DE PROMOCIONES ---
-        const activePromos = statusFilter === "activas" ? promociones : (res.data || []).filter(p => {
+        const activePromos = statusFilter === "activas" ? promociones : (state.promociones || []).filter(p => {
             if (!p.valido_hasta) return true;
             return new Date(p.valido_hasta) >= today;
         });
@@ -716,7 +720,7 @@ async function loadPromocionesData() {
         if (DOM.promoKpiCategories && DOM.promoKpiCommissions) {
             if (topCategories.length > 0) {
                 DOM.promoKpiCategories.innerHTML = topCategories.map((c, i) => `
-                    <div class="glass-card kpi-card animate-fade-in" onclick="const searchInput = document.getElementById('filter-promo-search'); if(searchInput){ searchInput.value = '${escapeHTML(c.name)}'; searchInput.dispatchEvent(new Event('input')); }" style="animation-delay: ${i * 0.1}s; border-left: 3px solid #38bdf8; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(56, 189, 248, 0.15)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+                    <div class="glass-card kpi-card animate-fade-in" onclick="const searchInput = document.getElementById('filter-promo-search'); if(searchInput){ searchInput.value = '${escapeHTML(c.name)}'; searchInput.dispatchEvent(new Event('input')); }" style="animation-delay: ${i * 0.1}s; border-radius: 12px; border-left: 3px solid #38bdf8; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(56, 189, 248, 0.15)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
                         <div class="kpi-icon icon-blue" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">
                             <i class="fa-solid fa-boxes-stacked"></i>
                         </div>
@@ -733,7 +737,7 @@ async function loadPromocionesData() {
 
             if (topCommissions.length > 0) {
                 DOM.promoKpiCommissions.innerHTML = topCommissions.map((c, i) => `
-                    <div class="glass-card kpi-card animate-fade-in" onclick="const searchInput = document.getElementById('filter-promo-search'); if(searchInput){ searchInput.value = '${escapeHTML(c.name)}'; searchInput.dispatchEvent(new Event('input')); }" style="animation-delay: ${i * 0.1}s; border-left: 3px solid #10b981; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(16, 185, 129, 0.15)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+                    <div class="glass-card kpi-card animate-fade-in" onclick="const searchInput = document.getElementById('filter-promo-search'); if(searchInput){ searchInput.value = '${escapeHTML(c.name)}'; searchInput.dispatchEvent(new Event('input')); }" style="animation-delay: ${i * 0.1}s; border-radius: 12px; border-left: 3px solid #10b981; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(16, 185, 129, 0.15)';" onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
                         <div class="kpi-icon icon-green" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
                             <i class="fa-solid fa-sack-dollar"></i>
                         </div>
@@ -751,7 +755,7 @@ async function loadPromocionesData() {
         if (DOM.promoKpiProveedores) {
             if (topProviders.length > 0) {
                 DOM.promoKpiProveedores.innerHTML = topProviders.map((p, i) => `
-                    <div class="glass-card kpi-card animate-fade-in" onclick="const sel = document.getElementById('filter-promo-proveedor'); if(sel){ sel.value = '${escapeHTML(p.name)}'; sel.dispatchEvent(new Event('change')); }" style="animation-delay: ${i * 0.1}s; cursor: pointer; border-left: 4px solid #a855f7;">
+                    <div class="glass-card kpi-card animate-fade-in" onclick="const sel = document.getElementById('filter-promo-proveedor'); if(sel){ sel.value = '${escapeHTML(p.name)}'; sel.dispatchEvent(new Event('change')); }" style="animation-delay: ${i * 0.1}s; cursor: pointer; border-radius: 12px; border-left: 4px solid #a855f7;">
                         <h4 style="color: #c084fc;">${escapeHTML(p.name)}</h4>
                         <div class="kpi-data" style="margin-top: 10px;">
                             <span style="font-size: 1.1rem; font-weight: 600;">${p.avgMargin.toFixed(2)}% Margen</span>
@@ -783,6 +787,10 @@ async function loadPromocionesData() {
             promociones.sort((a, b) => (b.precio_promocion || 0) - (a.precio_promocion || 0));
         } else if (sortFilter === "precio-asc") {
             promociones.sort((a, b) => (a.precio_promocion || 0) - (b.precio_promocion || 0));
+        } else if (sortFilter === "inv-asc") {
+            promociones.sort((a, b) => (a.inventario_disponible || 0) - (b.inventario_disponible || 0));
+        } else if (sortFilter === "inv-desc") {
+            promociones.sort((a, b) => (b.inventario_disponible || 0) - (a.inventario_disponible || 0));
         }
         
         DOM.tablePromociones.innerHTML = "";
@@ -2411,17 +2419,27 @@ DOM.aiGoalsForm.addEventListener("submit", async (e) => {
     }
 });
 
-DOM.filterPromoProveedor?.addEventListener("change", loadPromocionesData);
-DOM.filterPromoSearch?.addEventListener("input", loadPromocionesData);
+DOM.filterPromoProveedor?.addEventListener("change", () => loadPromocionesData(false));
+DOM.filterPromoSearch?.addEventListener("input", () => loadPromocionesData(false));
+DOM.thInvDisp?.addEventListener("click", () => {
+    if (DOM.filterPromoSort) {
+        if (DOM.filterPromoSort.value === "inv-asc") {
+            DOM.filterPromoSort.value = "inv-desc";
+        } else {
+            DOM.filterPromoSort.value = "inv-asc";
+        }
+        loadPromocionesData(false);
+    }
+});
 DOM.btnClearPromoFilters?.addEventListener("click", () => {
     if (DOM.filterPromoSearch) DOM.filterPromoSearch.value = '';
     if (DOM.filterPromoStatus) DOM.filterPromoStatus.value = 'activas';
     if (DOM.filterPromoSort) DOM.filterPromoSort.value = 'default';
     if (DOM.filterPromoProveedor) DOM.filterPromoProveedor.value = 'todos';
-    loadPromocionesData();
+    loadPromocionesData(false);
 });
-DOM.filterPromoStatus?.addEventListener("change", loadPromocionesData);
-DOM.filterPromoSort?.addEventListener("change", loadPromocionesData);
+DOM.filterPromoStatus?.addEventListener("change", () => loadPromocionesData(false));
+DOM.filterPromoSort?.addEventListener("change", () => loadPromocionesData(false));
 
 /* --- Cotizaciones Handlers --- */
 DOM.btnGenerateQuoteModal.addEventListener("click", () => {
