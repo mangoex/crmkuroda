@@ -397,9 +397,18 @@
 
                 <!-- Section 3: Promociones -->
                 <section id="section-promociones" class="dashboard-section hidden animate-fade-in">
-                    <div class="panel-header">
+                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                         <h2>Promociones Activas</h2>
-                        <button id="btn-generate-goals-modal" class="btn btn-glow"><i class="fa-solid fa-wand-magic-sparkles"></i> Generar Metas de Promo con IA</button>
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <form id="upload-promociones-form" onsubmit="event.preventDefault();" style="display: flex; gap: 10px; align-items: center; margin: 0;">
+                                <label for="file-promociones" class="btn btn-secondary btn-sm" style="cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 0; padding: 0.5rem 1rem;">
+                                    <i class="fa-solid fa-file-excel"></i> <span id="file-promo-name">Seleccionar Archivo</span>
+                                </label>
+                                <input type="file" id="file-promociones" accept=".xlsx" required style="display: none;" onchange="document.getElementById('file-promo-name').textContent = this.files[0] ? this.files[0].name : 'Seleccionar Archivo';">
+                                <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Subir Promociones</button>
+                            </form>
+                            <button id="btn-generate-goals-modal" class="btn btn-glow"><i class="fa-solid fa-wand-magic-sparkles"></i> Generar Metas de Promo con IA</button>
+                        </div>
                     </div>
 
                     <!-- Promociones KPIs -->
@@ -464,45 +473,37 @@
                     </div>
 
                     <!-- Upload and Filter panel -->
-                    <div class="glass-card filters-card margin-bottom">
-                        <div class="filters-layout" style="justify-content: space-between; align-items: center;">
-                            <div class="upload-group" style="display: flex; gap: 10px; align-items: center;">
-                                <form id="upload-promociones-form" onsubmit="event.preventDefault();" style="display: flex; gap: 10px; align-items: center; margin: 0;">
-                                    <input type="file" id="file-promociones" accept=".xlsx" required style="max-width: 250px;">
-                                    <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Subir Promociones</button>
-                                </form>
+                    <div class="glass-card filters-card margin-bottom" style="padding: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; align-items: end;">
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <label for="filter-promo-status" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Estado</label>
+                                <select id="filter-promo-status" class="form-control" style="width: 100%;">
+                                    <option value="activas">Activas</option>
+                                    <option value="vencidas">Vencidas</option>
+                                    <option value="todas">Todas</option>
+                                </select>
                             </div>
-                            <div class="input-group-inline" style="flex-wrap: wrap; gap: 15px;">
-                                <div class="input-group-inline" style="margin-bottom: 0;">
-                                    <label for="filter-promo-status">Estado:</label>
-                                    <select id="filter-promo-status" style="width: auto;">
-                                        <option value="activas">Activas</option>
-                                        <option value="vencidas">Vencidas</option>
-                                        <option value="todas">Todas</option>
-                                    </select>
-                                </div>
-                                <div class="input-group-inline" style="margin-bottom: 0;">
-                                    <label for="filter-promo-proveedor">Proveedor:</label>
-                                    <select id="filter-promo-proveedor" style="width: auto; max-width: 150px;">
-                                        <option value="todos">Todos</option>
-                                    </select>
-                                </div>
-                                <div class="input-group-inline" style="margin-bottom: 0;">
-                                    <label for="filter-promo-sort">Ordenar por:</label>
-                                    <select id="filter-promo-sort" style="width: auto;">
-                                        <option value="default">Por Defecto</option>
-                                        <option value="margen-desc">Mayor Rentabilidad</option>
-                                        <option value="margen-asc">Menor Rentabilidad</option>
-                                        <option value="precio-desc">Mayor Precio</option>
-                                        <option value="precio-asc">Menor Precio</option>
-                                    </select>
-                                </div>
-                                <div class="input-group-inline" style="margin-bottom: 0;">
-                                    <label for="filter-promo-search">Buscar:</label>
-                                    <input type="text" id="filter-promo-search" placeholder="Código o Descripción...">
-                                </div>
-                                <div class="input-group-inline" style="margin-bottom: 0;">
-                                    <button type="button" id="btn-clear-promo-filters" class="btn btn-secondary" style="height: 100%; display: flex; align-items: center; gap: 8px;">
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <label for="filter-promo-proveedor" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Proveedor</label>
+                                <select id="filter-promo-proveedor" class="form-control" style="width: 100%;">
+                                    <option value="todos">Todos</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <label for="filter-promo-sort" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Ordenar por</label>
+                                <select id="filter-promo-sort" class="form-control" style="width: 100%;">
+                                    <option value="default">Por Defecto</option>
+                                    <option value="margen-desc">Mayor Margen</option>
+                                    <option value="margen-asc">Menor Margen</option>
+                                    <option value="precio-desc">Mayor Precio</option>
+                                    <option value="precio-asc">Menor Precio</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1;">
+                                <label for="filter-promo-search" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Buscar Promoción</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="text" id="filter-promo-search" class="form-control" placeholder="Código o Descripción..." style="flex-grow: 1;">
+                                    <button type="button" id="btn-clear-promo-filters" class="btn btn-secondary" title="Limpiar Filtros" style="display: flex; align-items: center; gap: 8px;">
                                         <i class="fa-solid fa-filter-circle-xmark"></i> Limpiar Filtros
                                     </button>
                                 </div>
