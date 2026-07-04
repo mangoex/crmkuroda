@@ -370,9 +370,10 @@ async function initSession() {
 
         // Show/hide conexion menu based on role
         
-        // Go to initial summary view (default to slight-edge on mobile)
+        // Go to initial summary view. Sellers should land on their redesigned home,
+        // including on mobile/tablet where the old flow used to jump to Slight Edge.
         const isMobile = window.innerWidth <= 768;
-        if (isMobile) {
+        if (isMobile && state.user.rol !== "vendedor") {
             switchSection("slight-edge");
         } else {
             switchSection(state.currentSection || "summary");

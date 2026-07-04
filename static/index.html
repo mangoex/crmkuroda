@@ -17,7 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="/static/style.css?v=1.0.5">
+    <link rel="stylesheet" href="/static/style.css?v=1.0.6">
 </head>
 <body class="dark-theme">
     
@@ -1793,7 +1793,11 @@
 
     <!-- Mobile Bottom Navigation -->
     <nav class="mobile-bottom-nav">
-        <a href="#" class="mobile-nav-item active" data-mobile-section="slight-edge" onclick="switchSection('slight-edge'); return false;">
+        <a href="#" class="mobile-nav-item active" data-mobile-section="summary" onclick="switchSection('summary'); return false;">
+            <i class="fa-solid fa-house"></i>
+            <span>Inicio</span>
+        </a>
+        <a href="#" class="mobile-nav-item" data-mobile-section="slight-edge" onclick="switchSection('slight-edge'); return false;">
             <i class="fa-solid fa-chart-line"></i>
             <span>La Ventaja</span>
         </a>
@@ -1804,6 +1808,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.18"></script>
+    <script src="/static/app.js?v=1.0.19"></script>
 </body>
 </html>
