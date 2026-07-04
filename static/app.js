@@ -703,14 +703,21 @@ function renderSellerFollowups(quotes, plan, logToday, search) {
         const completed = logToday?.completed_activities || {};
         activities.slice(0, 2).forEach(activity => {
             const done = completed[activity.activity] || 0;
+            const hasProgress = done > 0;
             const item = document.createElement("div");
             item.className = "seller-follow-card";
             item.innerHTML = `
-                <div>
-                    <strong>${escapeHTML(activity.activity)}</strong>
-                    <span>${done > 0 ? `${done} completadas hoy` : "Pendiente por registrar"}</span>
+                <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px;">
+                    <div>
+                        <strong>${escapeHTML(activity.activity)}</strong>
+                        <span>${hasProgress ? "Completadas hoy" : "Pendiente por registrar"}</span>
+                    </div>
+                    <div style="min-width: 78px; padding: 9px 11px; border-radius: 8px; text-align: center; background: ${hasProgress ? "rgba(34, 197, 94, 0.14)" : "rgba(148, 163, 184, 0.10)"}; border: 1px solid ${hasProgress ? "rgba(34, 197, 94, 0.35)" : "rgba(148, 163, 184, 0.20)"};">
+                        <strong style="display: block; margin: 0; color: ${hasProgress ? "#4ade80" : "hsl(var(--text-secondary))"}; font-size: 34px; line-height: 0.9;">${done}</strong>
+                        <small style="display: block; margin-top: 4px; color: ${hasProgress ? "#86efac" : "hsl(var(--text-secondary))"}; font-size: 10px; font-weight: 800; text-transform: uppercase;">hoy</small>
+                    </div>
                 </div>
-                <button class="call" data-seller-jump="slight-edge"><i class="fa-solid fa-check"></i> Registrar</button>
+                <button class="call" style="width: 100%; margin-top: 10px;" data-seller-jump="slight-edge"><i class="fa-solid fa-check"></i> Registrar</button>
             `;
             DOM.sellerFollowupList.appendChild(item);
         });
