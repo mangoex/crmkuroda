@@ -383,10 +383,11 @@ async function initSession() {
 
         // Show/hide conexion menu based on role
         
-        // Always load the selected initial view and wait for its data before
+        // Always load the main dashboard and wait for its data before
         // considering the session ready. This prevents stale data from the
         // previously viewed user/section from remaining visible.
-        await switchSection(state.currentSection || "summary");
+        state.currentSection = "summary";
+        await switchSection("summary");
     } else {
         DOM.authContainer.classList.remove("hidden");
         DOM.dashboardContainer.classList.add("hidden");
@@ -572,10 +573,22 @@ async function loadSummaryData() {
     DOM.kpiTotalQuotes.textContent = quotes.length;
     DOM.kpiTotalSellers.textContent = state.user.rol === "vendedor" ? 1 : sellers.length;
     
-    // Render Charts
-    renderSalesChart(quotes);
-    renderGoalsChart(metas, quotes, sellers);
-    renderQuotesHeatmap(quotes);
+    // Render visual modules independently so one widget cannot freeze the dashboard refresh.
+    try {
+        renderSalesChart(quotes);
+    } catch (chartErr) {
+        console.error("Error renderizando grafica de ventas:", chartErr);
+    }
+    try {
+        renderGoalsChart(metas, quotes, sellers);
+    } catch (chartErr) {
+        console.error("Error renderizando grafica de metas:", chartErr);
+    }
+    try {
+        renderQuotesHeatmap(quotes);
+    } catch (heatmapErr) {
+        console.error("Error renderizando mapa de calor:", heatmapErr);
+    }
     
     // Load Slight Edge summary tracking card
     await loadSlightEdgeSummaryWidget();
@@ -1458,6 +1471,10 @@ async function applyHeatmapQuoteFilter(filter) {
     if (DOM.filterQuoteStartDate) DOM.filterQuoteStartDate.value = "";
     if (DOM.filterQuoteEndDate) DOM.filterQuoteEndDate.value = "";
 
+    if (state.cotizaciones.length > 0) {
+        renderQuotesDashboard();
+    }
+
     await switchSection("cotizaciones");
     showToast(`Filtro aplicado: ${filter.amountLabel} · ${filter.ageLabel}`, "info");
 }
@@ -1583,14 +1600,22 @@ function renderQuotesDashboard() {
     if (DOM.kpiQuotesExpiredCount) DOM.kpiQuotesExpiredCount.textContent = expiredCount;
     if (DOM.kpiQuotesExpiredAmount) DOM.kpiQuotesExpiredAmount.textContent = `$${expiredSum.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
     
-    // Render visual charts
-    renderDashboardCharts(filtered);
-    
     // Render list details
     renderQuotesTableFiltered();
 
+    // Render visual charts independently; the table above must refresh even if a chart fails.
+    try {
+        renderDashboardCharts(filtered);
+    } catch (chartErr) {
+        console.error("Error renderizando graficas de cotizaciones:", chartErr);
+    }
+
     // Update Quotes funnel card
-    updateQuotesFunnelDisplay();
+    try {
+        updateQuotesFunnelDisplay();
+    } catch (funnelErr) {
+        console.error("Error actualizando embudo de cotizaciones:", funnelErr);
+    }
 }
 
 function updateQuotesFunnelDisplay() {
