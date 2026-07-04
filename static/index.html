@@ -140,8 +140,75 @@
                 
                 <!-- Section 1: Summary / Dashboard -->
                 <section id="section-summary" class="dashboard-section active animate-fade-in">
+                    <div id="seller-home-dashboard" class="seller-home-dashboard hidden">
+                        <div class="seller-command-row">
+                            <div class="seller-search-box">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="search" id="seller-dashboard-search" placeholder="Buscar cliente, producto o cotización...">
+                            </div>
+                            <button class="seller-avatar-chip" id="seller-dashboard-profile" title="Perfil">
+                                <span id="seller-dashboard-initials">JP</span>
+                                <i class="fa-solid fa-user"></i>
+                            </button>
+                        </div>
+
+                        <div class="seller-hero-card">
+                            <div class="seller-progress-ring" id="seller-monthly-progress-ring" style="--progress: 0;">
+                                <div>
+                                    <strong id="seller-monthly-progress-percent">0%</strong>
+                                </div>
+                            </div>
+                            <div class="seller-hero-main">
+                                <span id="seller-monthly-goal-label">Meta mensual: $0</span>
+                                <strong id="seller-monthly-current">$0 (0%)</strong>
+                                <small id="seller-monthly-remaining">Faltan $0</small>
+                            </div>
+                            <div class="seller-hero-days">
+                                <span>Días restantes</span>
+                                <strong id="seller-monthly-days-left">0 días restantes</strong>
+                            </div>
+                        </div>
+
+                        <div class="seller-focus-grid">
+                            <article class="seller-panel-card">
+                                <div class="seller-panel-head">
+                                    <h2><i class="fa-regular fa-file-lines"></i> Cotizaciones Pendientes</h2>
+                                    <div class="seller-panel-count">
+                                        <strong id="seller-pending-count">0</strong>
+                                        <span>Pendientes</span>
+                                    </div>
+                                </div>
+                                <div id="seller-pending-list" class="seller-stack-list"></div>
+                                <button class="seller-link-button" data-seller-jump="cotizaciones">Ver todas <i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+                            </article>
+
+                            <article class="seller-panel-card">
+                                <div class="seller-panel-head">
+                                    <h2><i class="fa-solid fa-people-arrows"></i> Seguimiento Hoy</h2>
+                                    <span class="seller-alert-pill" id="seller-followup-alert">0</span>
+                                </div>
+                                <div id="seller-followup-list" class="seller-stack-list"></div>
+                                <button class="seller-link-button" data-seller-jump="seguimiento">Ver lista completa <i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+                            </article>
+
+                            <article class="seller-panel-card">
+                                <div class="seller-panel-head">
+                                    <h2><i class="fa-solid fa-tags"></i> Productos y Promociones</h2>
+                                </div>
+                                <div id="seller-promo-list" class="seller-stack-list"></div>
+                                <button class="seller-link-button" data-seller-jump="promociones">Ver detalles <i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+                            </article>
+                        </div>
+
+                        <div class="seller-quick-strip">
+                            <button class="seller-quick-action" data-seller-jump="slight-edge"><i class="fa-solid fa-chart-line"></i> Registrar actividades</button>
+                            <button class="seller-quick-action" data-seller-jump="cotizaciones"><i class="fa-solid fa-plus"></i> Nueva cotización</button>
+                            <button class="seller-quick-action" data-seller-jump="asignacion"><i class="fa-solid fa-user-check"></i> Clientes asignados</button>
+                        </div>
+                    </div>
+
                     <!-- KPI Cards -->
-                    <div class="kpi-grid">
+                    <div id="summary-admin-kpis" class="kpi-grid">
                         <div class="glass-card kpi-card">
                             <div class="kpi-icon icon-blue">
                                 <i class="fa-solid fa-hand-holding-dollar"></i>
@@ -181,7 +248,7 @@
                     </div>
 
                     <!-- Charts Grid -->
-                    <div class="charts-grid">
+                    <div id="summary-admin-charts" class="charts-grid">
                         <div class="glass-card chart-container">
                             <div class="card-header">
                                 <h2>Monto Cotizado por Vendedor</h2>
@@ -201,7 +268,7 @@
                     </div>
 
                     <!-- Heatmap Card -->
-                    <div class="glass-card border-glow" style="margin-top: 24px; padding: 24px;">
+                    <div id="summary-admin-heatmap" class="glass-card border-glow" style="margin-top: 24px; padding: 24px;">
                         <div class="card-header" style="margin-bottom: 20px;">
                             <h2><i class="fa-solid fa-fire text-glow" style="margin-right: 8px; color: #ef4444;"></i>Concentración de Cotizaciones: Mapa de Calor y Temperatura</h2>
                             <p style="font-size: 13px; color: hsl(var(--text-secondary)); margin-top: 4px;">Distribución cruzada de cotizaciones por volumen/rango de total facturado (Y) frente a días transcurridos desde su registro (X).</p>

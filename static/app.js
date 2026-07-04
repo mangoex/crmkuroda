@@ -59,6 +59,24 @@ const DOM = {
     kpiActiveGoals: document.getElementById("kpi-active-goals"),
     kpiTotalQuotes: document.getElementById("kpi-total-quotes"),
     kpiTotalSellers: document.getElementById("kpi-total-sellers"),
+    sellerHomeDashboard: document.getElementById("seller-home-dashboard"),
+    sellerDashboardSearch: document.getElementById("seller-dashboard-search"),
+    sellerDashboardProfile: document.getElementById("seller-dashboard-profile"),
+    sellerDashboardInitials: document.getElementById("seller-dashboard-initials"),
+    sellerMonthlyProgressRing: document.getElementById("seller-monthly-progress-ring"),
+    sellerMonthlyProgressPercent: document.getElementById("seller-monthly-progress-percent"),
+    sellerMonthlyGoalLabel: document.getElementById("seller-monthly-goal-label"),
+    sellerMonthlyCurrent: document.getElementById("seller-monthly-current"),
+    sellerMonthlyRemaining: document.getElementById("seller-monthly-remaining"),
+    sellerMonthlyDaysLeft: document.getElementById("seller-monthly-days-left"),
+    sellerPendingCount: document.getElementById("seller-pending-count"),
+    sellerPendingList: document.getElementById("seller-pending-list"),
+    sellerFollowupAlert: document.getElementById("seller-followup-alert"),
+    sellerFollowupList: document.getElementById("seller-followup-list"),
+    sellerPromoList: document.getElementById("seller-promo-list"),
+    summaryAdminKpis: document.getElementById("summary-admin-kpis"),
+    summaryAdminCharts: document.getElementById("summary-admin-charts"),
+    summaryAdminHeatmap: document.getElementById("summary-admin-heatmap"),
     
     // Vendedores Section
     menuVendedores: document.getElementById("menu-vendedores"),
@@ -502,6 +520,31 @@ async function loadSummaryData() {
     state.vendedores = sellers;
     state.metas = metas;
     state.cotizaciones = quotes;
+
+    if (state.user.rol === "vendedor") {
+        if (DOM.sellerHomeDashboard) DOM.sellerHomeDashboard.classList.remove("hidden");
+        if (DOM.summaryAdminKpis) DOM.summaryAdminKpis.classList.add("hidden");
+        if (DOM.summaryAdminCharts) DOM.summaryAdminCharts.classList.add("hidden");
+        if (DOM.summaryAdminHeatmap) DOM.summaryAdminHeatmap.classList.add("hidden");
+        if (DOM.slightEdgeSummaryCard) DOM.slightEdgeSummaryCard.classList.add("hidden");
+
+        let promociones = state.promociones || [];
+        try {
+            const promosRes = await apiRequest("/api/v1/promociones/");
+            promociones = promosRes.data || [];
+            state.promociones = promociones;
+        } catch (err) {
+            console.warn("No se pudieron cargar promociones para el panel vendedor:", err);
+        }
+
+        await renderSellerHomeDashboard({ metas, quotes, promociones });
+        return;
+    }
+
+    if (DOM.sellerHomeDashboard) DOM.sellerHomeDashboard.classList.add("hidden");
+    if (DOM.summaryAdminKpis) DOM.summaryAdminKpis.classList.remove("hidden");
+    if (DOM.summaryAdminCharts) DOM.summaryAdminCharts.classList.remove("hidden");
+    if (DOM.summaryAdminHeatmap) DOM.summaryAdminHeatmap.classList.remove("hidden");
     
     // Calculate totals
     const totalCotizado = quotes.reduce((acc, q) => acc + q.total, 0);
@@ -520,6 +563,217 @@ async function loadSummaryData() {
     
     // Load Slight Edge summary tracking card
     await loadSlightEdgeSummaryWidget();
+}
+
+function formatSellerMoney(value) {
+    return `$${Number(value || 0).toLocaleString('es-MX', { maximumFractionDigits: 0 })}`;
+}
+
+function quoteAgeDays(quote) {
+    if (!quote.fecha_registro) return 999;
+    const quoteDate = new Date(`${quote.fecha_registro}T12:00:00`);
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    return Math.max(0, Math.floor((today - quoteDate) / (1000 * 60 * 60 * 24)));
+}
+
+function isQuoteLost(quote) {
+    return String(quote.venta_perdida || "").toLowerCase() === "si";
+}
+
+function isPendingQuote(quote) {
+    return !quote.numero_factura && !isQuoteLost(quote);
+}
+
+function getDaysLeftInMonth() {
+    const today = new Date();
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    return Math.max(0, lastDay - today.getDate());
+}
+
+function getInitials(name) {
+    return (name || "JP")
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(part => part[0])
+        .join("")
+        .toUpperCase();
+}
+
+function filterSellerDashboardItems(items, search) {
+    if (!search) return items;
+    const needle = search.toLowerCase();
+    return items.filter(item => JSON.stringify(item).toLowerCase().includes(needle));
+}
+
+function renderEmptySellerCard(container, message) {
+    if (!container) return;
+    container.innerHTML = `<div class="seller-empty-state">${escapeHTML(message)}</div>`;
+}
+
+function renderSellerPendingQuotes(quotes, search) {
+    const pending = filterSellerDashboardItems(
+        quotes.filter(isPendingQuote).sort((a, b) => quoteAgeDays(b) - quoteAgeDays(a)),
+        search
+    );
+
+    if (DOM.sellerPendingCount) DOM.sellerPendingCount.textContent = pending.length;
+    if (!DOM.sellerPendingList) return;
+    DOM.sellerPendingList.innerHTML = "";
+
+    if (pending.length === 0) {
+        renderEmptySellerCard(DOM.sellerPendingList, "No hay cotizaciones pendientes con ese criterio.");
+        return;
+    }
+
+    pending.slice(0, 2).forEach((quote, index) => {
+        const age = quoteAgeDays(quote);
+        const remaining = Math.max(0, 30 - age);
+        const urgent = remaining <= 1 || age >= 30;
+        const card = document.createElement("div");
+        card.className = `seller-quote-card ${urgent ? "danger" : index === 1 ? "warning" : ""}`;
+        card.innerHTML = `
+            <span>${escapeHTML(quote.cliente_nombre || "Cliente")}</span>
+            <strong>${urgent ? "VENCE HOY" : `En ${remaining} dias`}</strong>
+            <small>${formatSellerMoney(quote.total)} cotizados</small>
+            <button data-seller-jump="cotizaciones">${urgent ? "Aprobar y enviar" : "Revisar"} <i class="fa-regular fa-file-lines"></i></button>
+        `;
+        DOM.sellerPendingList.appendChild(card);
+    });
+}
+
+function renderSellerFollowups(quotes, plan, logToday, search) {
+    const followups = filterSellerDashboardItems(
+        quotes.filter(isPendingQuote).sort((a, b) => quoteAgeDays(b) - quoteAgeDays(a)),
+        search
+    );
+    const count = followups.length;
+    if (DOM.sellerFollowupAlert) DOM.sellerFollowupAlert.textContent = `RED ${Math.min(count, 9)}`;
+    if (!DOM.sellerFollowupList) return;
+    DOM.sellerFollowupList.innerHTML = "";
+
+    if (followups.length === 0) {
+        const activities = plan?.activities_config || [];
+        if (activities.length === 0) {
+            renderEmptySellerCard(DOM.sellerFollowupList, "Configura tu plan en La Ventaja para ver acciones diarias.");
+            return;
+        }
+        const completed = logToday?.completed_activities || {};
+        activities.slice(0, 2).forEach(activity => {
+            const done = completed[activity.activity] || 0;
+            const item = document.createElement("div");
+            item.className = "seller-follow-card";
+            item.innerHTML = `
+                <div>
+                    <strong>${escapeHTML(activity.activity)}</strong>
+                    <span>${done > 0 ? `${done} completadas hoy` : "Pendiente por registrar"}</span>
+                </div>
+                <button class="call" data-seller-jump="slight-edge"><i class="fa-solid fa-check"></i> Registrar</button>
+            `;
+            DOM.sellerFollowupList.appendChild(item);
+        });
+        return;
+    }
+
+    followups.slice(0, 2).forEach(quote => {
+        const age = quoteAgeDays(quote);
+        const phone = quote.datos_contacto?.telefono || quote.datos_contacto?.celular || "";
+        const item = document.createElement("div");
+        item.className = "seller-follow-card";
+        item.innerHTML = `
+            <div>
+                <strong>${escapeHTML(quote.cliente_nombre || "Cliente")}</strong>
+                <span>Llamar para confirmar precio</span>
+                <small>Ultimo contacto: hace ${age} dias</small>
+            </div>
+            <div class="seller-follow-actions">
+                <a class="call" href="${phone ? `tel:${escapeHTML(phone)}` : "#"}"><i class="fa-solid fa-phone"></i> Llamar</a>
+                <a class="whatsapp" href="${phone ? `https://wa.me/${escapeHTML(String(phone).replace(/\D/g, ""))}` : "#"}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+            </div>
+        `;
+        DOM.sellerFollowupList.appendChild(item);
+    });
+}
+
+function renderSellerPromos(promociones, search) {
+    const today = new Date();
+    const activePromos = filterSellerDashboardItems(
+        promociones.filter(p => !p.valido_hasta || new Date(p.valido_hasta) >= today),
+        search
+    );
+
+    if (!DOM.sellerPromoList) return;
+    DOM.sellerPromoList.innerHTML = "";
+
+    if (activePromos.length === 0) {
+        renderEmptySellerCard(DOM.sellerPromoList, "No hay promociones activas con ese criterio.");
+        return;
+    }
+
+    activePromos.slice(0, 2).forEach((promo, index) => {
+        const validDate = promo.valido_hasta ? new Date(promo.valido_hasta).toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "vigencia abierta";
+        const badge = promo.margen_promocion ? `${Math.round(Math.abs(promo.margen_promocion))}% OFF` : (index === 0 ? "Promo" : "2x1");
+        const item = document.createElement("div");
+        item.className = "seller-promo-card";
+        item.innerHTML = `
+            <div class="seller-promo-thumb"><i class="fa-solid ${index === 0 ? "fa-box-open" : "fa-faucet-drip"}"></i></div>
+            <div>
+                <strong>${escapeHTML(badge)}</strong>
+                <span>${escapeHTML(promo.descripcion_material || promo.codigo_material || "Producto en promocion")}</span>
+                <small>Vence ${escapeHTML(validDate)}</small>
+            </div>
+            <button data-seller-jump="cotizaciones">Añadir</button>
+        `;
+        DOM.sellerPromoList.appendChild(item);
+    });
+}
+
+async function renderSellerHomeDashboard({ metas, quotes, promociones }) {
+    const search = DOM.sellerDashboardSearch ? DOM.sellerDashboardSearch.value.trim() : "";
+    const sellerName = state.user.nombre_completo || state.user.email || "Vendedor";
+    const activeMeta = metas
+        .filter(meta => meta.estado !== "completada")
+        .sort((a, b) => Number(b.monto_objetivo || 0) - Number(a.monto_objetivo || 0))[0];
+    const monthlyGoal = Number(activeMeta?.monto_objetivo || 300000);
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const currentMonthQuotes = quotes.filter(q => {
+        if (!q.fecha_registro) return false;
+        const qDate = new Date(`${q.fecha_registro}T12:00:00`);
+        return qDate.getMonth() === currentMonth && qDate.getFullYear() === currentYear;
+    });
+    const wonTotal = currentMonthQuotes
+        .filter(q => q.numero_factura && !isQuoteLost(q))
+        .reduce((sum, q) => sum + Number(q.total || 0), 0);
+    const quotedTotal = currentMonthQuotes.reduce((sum, q) => sum + Number(q.total || 0), 0);
+    const progressBase = wonTotal > 0 ? wonTotal : quotedTotal;
+    const percent = monthlyGoal > 0 ? Math.min(100, Math.round((progressBase / monthlyGoal) * 100)) : 0;
+    const remaining = Math.max(0, monthlyGoal - progressBase);
+
+    if (DOM.sellerDashboardInitials) DOM.sellerDashboardInitials.textContent = getInitials(sellerName);
+    if (DOM.sellerMonthlyProgressRing) DOM.sellerMonthlyProgressRing.style.setProperty("--progress", percent);
+    if (DOM.sellerMonthlyProgressPercent) DOM.sellerMonthlyProgressPercent.textContent = `${percent}%`;
+    if (DOM.sellerMonthlyGoalLabel) DOM.sellerMonthlyGoalLabel.textContent = `Meta mensual: ${formatSellerMoney(monthlyGoal)}`;
+    if (DOM.sellerMonthlyCurrent) DOM.sellerMonthlyCurrent.textContent = `${formatSellerMoney(progressBase)} (${percent}%)`;
+    if (DOM.sellerMonthlyRemaining) DOM.sellerMonthlyRemaining.textContent = `Faltan: ${formatSellerMoney(remaining)}`;
+    if (DOM.sellerMonthlyDaysLeft) DOM.sellerMonthlyDaysLeft.textContent = `${getDaysLeftInMonth()} dias restantes`;
+
+    let plan = null;
+    let logToday = null;
+    try {
+        const planRes = await apiRequest(`/api/slight-edge/plan/${state.user.id}`);
+        plan = planRes.data || null;
+        const todayStr = new Date().toISOString().split("T")[0];
+        const logRes = await apiRequest(`/api/slight-edge/log/${state.user.id}?date_str=${todayStr}`);
+        logToday = logRes.data || null;
+    } catch (err) {
+        console.warn("No se pudo cargar La Ventaja para el panel vendedor:", err);
+    }
+
+    renderSellerPendingQuotes(quotes, search);
+    renderSellerFollowups(quotes, plan, logToday, search);
+    renderSellerPromos(promociones, search);
 }
 
 async function loadVendedoresData() {
@@ -3264,6 +3518,33 @@ function toggleTheme() {
 document.addEventListener("DOMContentLoaded", () => {
     initTheme();
     initSession();
+
+    if (DOM.sellerDashboardSearch) {
+        DOM.sellerDashboardSearch.addEventListener("input", () => {
+            if (state.user?.rol === "vendedor" && state.currentSection === "summary") {
+                renderSellerHomeDashboard({
+                    metas: state.metas || [],
+                    quotes: state.cotizaciones || [],
+                    promociones: state.promociones || []
+                });
+            }
+        });
+    }
+
+    if (DOM.sellerHomeDashboard) {
+        DOM.sellerHomeDashboard.addEventListener("click", (event) => {
+            const jumpButton = event.target.closest("[data-seller-jump]");
+            if (!jumpButton) return;
+            event.preventDefault();
+            switchSection(jumpButton.getAttribute("data-seller-jump"));
+        });
+    }
+
+    if (DOM.sellerDashboardProfile) {
+        DOM.sellerDashboardProfile.addEventListener("click", () => {
+            if (DOM.userAvatarBtn) DOM.userAvatarBtn.click();
+        });
+    }
     
     // Password toggle
     const btnTogglePassword = document.getElementById("btn-toggle-password");
