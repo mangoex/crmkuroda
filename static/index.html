@@ -17,7 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="/static/style.css?v=1.0.6">
+    <link rel="stylesheet" href="/static/style.css?v=1.0.7">
 </head>
 <body class="dark-theme">
     
@@ -785,6 +785,15 @@
                                 </select>
                             </div>
                         </div>
+                    </div>
+                    <div id="active-heatmap-filter" class="hidden" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -12px 0 24px; padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(93, 95, 239, 0.35); background: rgba(93, 95, 239, 0.12); color: hsl(var(--text-primary));">
+                        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700;">
+                            <i class="fa-solid fa-filter"></i>
+                            <span id="active-heatmap-filter-text">Filtro de mapa de calor activo</span>
+                        </div>
+                        <button type="button" id="btn-clear-heatmap-filter" style="min-height: 32px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 8px; background: rgba(255, 255, 255, 0.08); color: hsl(var(--text-primary)); padding: 0 12px; font-size: 12px; font-weight: 800; cursor: pointer;">
+                            Limpiar filtro <i class="fa-solid fa-xmark"></i>
+                        </button>
                     </div>
 
                     <!-- Dashboard Metrics & Funnel Grid -->
@@ -1808,6 +1817,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.20"></script>
+    <script src="/static/app.js?v=1.0.21"></script>
 </body>
 </html>

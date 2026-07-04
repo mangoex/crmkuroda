@@ -32,6 +32,7 @@ const state = {
     quotesCurrentPage: 1,
     quotesPageSize: 15,
     quotesSortOrder: null, // 'asc', 'desc', or null
+    activeHeatmapFilter: null,
     kanbanSortOrders: {
         cotizado: null,
         promociones: null,
@@ -152,6 +153,9 @@ const DOM = {
     filterQuoteDays: document.getElementById("filter-quote-days"),
     filterQuoteStartDate: document.getElementById("filter-quote-start-date"),
     filterQuoteEndDate: document.getElementById("filter-quote-end-date"),
+    activeHeatmapFilter: document.getElementById("active-heatmap-filter"),
+    activeHeatmapFilterText: document.getElementById("active-heatmap-filter-text"),
+    btnClearHeatmapFilter: document.getElementById("btn-clear-heatmap-filter"),
     kpiQuotesTotalCount: document.getElementById("kpi-quotes-total-count"),
     kpiQuotesTotalAmount: document.getElementById("kpi-quotes-total-amount"),
     kpiQuotesSoldCount: document.getElementById("kpi-quotes-sold-count"),
@@ -337,6 +341,7 @@ async function initSession() {
                     state.metas = [];
                     state.promociones = [];
                     state.cotizaciones = [];
+                    state.activeHeatmapFilter = null;
                 }
             }
         } catch (e) {
@@ -439,6 +444,7 @@ function logout() {
     state.metas = [];
     state.promociones = [];
     state.cotizaciones = [];
+    state.activeHeatmapFilter = null;
     localStorage.removeItem("crm_token");
     localStorage.removeItem("crm_user");
     initSession();
@@ -599,6 +605,14 @@ function getDaysLeftInMonth() {
     const today = new Date();
     const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     return Math.max(0, lastDay - today.getDate());
+}
+
+function getQuoteAgeDays(quote) {
+    if (!quote.fecha_registro) return 999;
+    const quoteDate = new Date(`${quote.fecha_registro}T12:00:00Z`);
+    const refDate = new Date();
+    const ageDays = Math.floor((refDate - quoteDate) / (1000 * 60 * 60 * 24));
+    return Math.max(0, ageDays);
 }
 
 function getInitials(name) {
@@ -1423,11 +1437,44 @@ async function loadCotizacionesData(forceRefresh = true) {
     renderQuotesDashboard();
 }
 
+function updateActiveHeatmapFilterBadge() {
+    if (!DOM.activeHeatmapFilter || !DOM.activeHeatmapFilterText) return;
+
+    if (!state.activeHeatmapFilter) {
+        DOM.activeHeatmapFilter.classList.add("hidden");
+        return;
+    }
+
+    DOM.activeHeatmapFilterText.textContent = `Mapa de calor: ${state.activeHeatmapFilter.amountLabel} · ${state.activeHeatmapFilter.ageLabel}`;
+    DOM.activeHeatmapFilter.classList.remove("hidden");
+}
+
+async function applyHeatmapQuoteFilter(filter) {
+    state.activeHeatmapFilter = filter;
+    state.quotesCurrentPage = 1;
+
+    if (DOM.searchQuoteClient) DOM.searchQuoteClient.value = "";
+    if (DOM.filterQuoteDays) DOM.filterQuoteDays.value = "all";
+    if (DOM.filterQuoteStartDate) DOM.filterQuoteStartDate.value = "";
+    if (DOM.filterQuoteEndDate) DOM.filterQuoteEndDate.value = "";
+
+    await switchSection("cotizaciones");
+    showToast(`Filtro aplicado: ${filter.amountLabel} · ${filter.ageLabel}`, "info");
+}
+
+function clearHeatmapQuoteFilter() {
+    state.activeHeatmapFilter = null;
+    state.quotesCurrentPage = 1;
+    updateActiveHeatmapFilterBadge();
+    renderQuotesDashboard();
+}
+
 function renderQuotesDashboard() {
     const sellerVal = state.user.rol === "vendedor" ? state.user.id : (DOM.filterQuoteSeller ? DOM.filterQuoteSeller.value : "");
     const startDate = DOM.filterQuoteStartDate ? DOM.filterQuoteStartDate.value : "";
     const endDate = DOM.filterQuoteEndDate ? DOM.filterQuoteEndDate.value : "";
     const daysVal = DOM.filterQuoteDays ? DOM.filterQuoteDays.value : "all";
+    updateActiveHeatmapFilterBadge();
     
     const refDate = new Date(); // Reference date for mock data
     
@@ -1451,6 +1498,13 @@ function renderQuotesDashboard() {
         if (q.fecha_registro) {
             const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
             ageDays = Math.floor((refDate - qDate) / (1000 * 60 * 60 * 24));
+        }
+
+        if (state.activeHeatmapFilter) {
+            const heatmapFilter = state.activeHeatmapFilter;
+            const total = Number(q.total) || 0;
+            if (total < heatmapFilter.minVal || total >= heatmapFilter.maxVal) return false;
+            if (ageDays < heatmapFilter.minDays || ageDays > heatmapFilter.maxDays) return false;
         }
         
         const isExpired = !hasInvoice && (isLost || ageDays > 30);
@@ -2545,18 +2599,8 @@ function renderQuotesHeatmap(quotes) {
     const matrix = Array(yCategories.length).fill(null).map(() => 
         Array(xCategories.length).fill(null).map(() => ({ count: 0, sum: 0 }))
     );
-
-    const refDate = new Date();
-
     quotes.forEach(q => {
-        let ageDays = 0;
-        if (q.fecha_registro) {
-            const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
-            ageDays = Math.floor((refDate - qDate) / (1000 * 60 * 60 * 24));
-            if (ageDays < 0) ageDays = 0;
-        } else {
-            ageDays = 999;
-        }
+        const ageDays = getQuoteAgeDays(q);
 
         const amt = Number(q.total);
 
@@ -2610,6 +2654,13 @@ function renderQuotesHeatmap(quotes) {
 
             const cell = document.createElement("div");
             cell.className = `heatmap-cell ${tempClass}`;
+            cell.setAttribute("role", "button");
+            cell.setAttribute("tabindex", cellData.count > 0 ? "0" : "-1");
+            cell.setAttribute("aria-label", `Filtrar cotizaciones: ${yCat.label}, ${xCat.label}, ${cellData.count} cotizaciones`);
+            if (cellData.count === 0) {
+                cell.classList.add("is-empty");
+                cell.style.cursor = "default";
+            }
 
             const sumStr = cellData.sum > 0 ? 
                 `$${(cellData.sum / 1000).toFixed(1)}k` : 
@@ -2625,6 +2676,23 @@ function renderQuotesHeatmap(quotes) {
                     <strong>Total:</strong> $${cellData.sum.toLocaleString('es-MX', { maximumFractionDigits: 0 })}
                 </div>
             `;
+            if (cellData.count > 0) {
+                const filter = {
+                    minDays: xCat.minDays,
+                    maxDays: xCat.maxDays,
+                    minVal: yCat.minVal,
+                    maxVal: yCat.maxVal,
+                    ageLabel: xCat.label,
+                    amountLabel: yCat.label
+                };
+                cell.addEventListener("click", () => applyHeatmapQuoteFilter(filter));
+                cell.addEventListener("keydown", (event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        applyHeatmapQuoteFilter(filter);
+                    }
+                });
+            }
             gridEl.appendChild(cell);
         });
     }
@@ -3013,17 +3081,20 @@ DOM.searchQuoteClient?.addEventListener("input", () => {
 });
 
 DOM.filterQuoteSeller?.addEventListener("change", () => {
+    state.activeHeatmapFilter = null;
     state.quotesCurrentPage = 1;
     renderQuotesDashboard();
 });
 
 DOM.filterQuoteDays?.addEventListener("change", () => {
+    state.activeHeatmapFilter = null;
     state.quotesCurrentPage = 1;
     renderQuotesDashboard();
 });
 
 if (DOM.filterQuoteStartDate) {
     DOM.filterQuoteStartDate?.addEventListener("change", () => {
+        state.activeHeatmapFilter = null;
         state.quotesCurrentPage = 1;
         renderQuotesDashboard();
     });
@@ -3031,10 +3102,15 @@ if (DOM.filterQuoteStartDate) {
 
 if (DOM.filterQuoteEndDate) {
     DOM.filterQuoteEndDate?.addEventListener("change", () => {
+        state.activeHeatmapFilter = null;
         state.quotesCurrentPage = 1;
         renderQuotesDashboard();
     });
 }
+
+DOM.btnClearHeatmapFilter?.addEventListener("click", () => {
+    clearHeatmapQuoteFilter();
+});
 
 if (DOM.btnToggleQuotesDetails) {
     DOM.btnToggleQuotesDetails?.addEventListener("click", () => {
