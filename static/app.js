@@ -351,33 +351,37 @@ async function initSession() {
         }
 
         // Hide login, show dashboard
-        DOM.authContainer.classList.add("hidden");
-        DOM.dashboardContainer.classList.remove("hidden");
+        DOM.authContainer?.classList.add("hidden");
+        DOM.dashboardContainer?.classList.remove("hidden");
         
         // Set user badge
         const displayName = state.user.nombre_completo || state.user.email.split("@")[0].toUpperCase();
-        DOM.userDisplayName.textContent = displayName;
-        DOM.userRoleBadge.textContent = state.user.rol.toUpperCase();
+        if (DOM.userDisplayName) DOM.userDisplayName.textContent = displayName;
+        if (DOM.userRoleBadge) DOM.userRoleBadge.textContent = state.user.rol.toUpperCase();
         
         // Show avatar image if exists
         if (state.user.avatar) {
-            DOM.userAvatarImg.src = state.user.avatar;
-            DOM.userAvatarImg.classList.remove("hidden");
-            DOM.userAvatarPlaceholder.classList.add("hidden");
+            if (DOM.userAvatarImg) {
+                DOM.userAvatarImg.src = state.user.avatar;
+                DOM.userAvatarImg.classList.remove("hidden");
+            }
+            if (DOM.userAvatarPlaceholder) DOM.userAvatarPlaceholder.classList.add("hidden");
         } else {
-            DOM.userAvatarImg.src = "";
-            DOM.userAvatarImg.classList.add("hidden");
-            DOM.userAvatarPlaceholder.classList.remove("hidden");
+            if (DOM.userAvatarImg) {
+                DOM.userAvatarImg.src = "";
+                DOM.userAvatarImg.classList.add("hidden");
+            }
+            if (DOM.userAvatarPlaceholder) DOM.userAvatarPlaceholder.classList.remove("hidden");
         }
         
         // Manage visible menu entries based on role (vendedores is admin/gerente only)
         if (state.user.rol === "vendedor") {
-            DOM.menuVendedores.classList.add("hidden");
-            DOM.btnGenerateGoalsModal.classList.add("hidden");
+            DOM.menuVendedores?.classList.add("hidden");
+            DOM.btnGenerateGoalsModal?.classList.add("hidden");
             if (DOM.menuApi) DOM.menuApi.classList.add("hidden");
         } else {
-            DOM.menuVendedores.classList.remove("hidden");
-            DOM.btnGenerateGoalsModal.classList.remove("hidden");
+            DOM.menuVendedores?.classList.remove("hidden");
+            DOM.btnGenerateGoalsModal?.classList.remove("hidden");
             if (DOM.menuApi) DOM.menuApi.classList.remove("hidden");
         }
 
@@ -389,8 +393,8 @@ async function initSession() {
         state.currentSection = "summary";
         await switchSection("summary");
     } else {
-        DOM.authContainer.classList.remove("hidden");
-        DOM.dashboardContainer.classList.add("hidden");
+        DOM.authContainer?.classList.remove("hidden");
+        DOM.dashboardContainer?.classList.add("hidden");
     }
 }
 
