@@ -324,12 +324,20 @@ function parseJwt(token) {
 
 async function initSession() {
     if (state.token) {
+        const previousUserId = state.user?.id || null;
         try {
             // Fetch fresh user profile
             const profileRes = await apiRequest("/api/auth/me");
             if (profileRes.status === "success" && profileRes.data) {
                 state.user = profileRes.data;
                 localStorage.setItem("crm_user", JSON.stringify(state.user));
+                if (previousUserId && previousUserId !== state.user.id) {
+                    state.currentSection = "summary";
+                    state.vendedores = [];
+                    state.metas = [];
+                    state.promociones = [];
+                    state.cotizaciones = [];
+                }
             }
         } catch (e) {
             console.error("Fallo al validar sesión:", e);
@@ -370,14 +378,10 @@ async function initSession() {
 
         // Show/hide conexion menu based on role
         
-        // Go to initial summary view. Sellers should land on their redesigned home,
-        // including on mobile/tablet where the old flow used to jump to Slight Edge.
-        const isMobile = window.innerWidth <= 768;
-        if (isMobile && state.user.rol !== "vendedor") {
-            switchSection("slight-edge");
-        } else {
-            switchSection(state.currentSection || "summary");
-        }
+        // Always load the selected initial view and wait for its data before
+        // considering the session ready. This prevents stale data from the
+        // previously viewed user/section from remaining visible.
+        await switchSection(state.currentSection || "summary");
     } else {
         DOM.authContainer.classList.remove("hidden");
         DOM.dashboardContainer.classList.add("hidden");
@@ -430,6 +434,11 @@ function loggerError(msg) {
 function logout() {
     state.token = null;
     state.user = null;
+    state.currentSection = "summary";
+    state.vendedores = [];
+    state.metas = [];
+    state.promociones = [];
+    state.cotizaciones = [];
     localStorage.removeItem("crm_token");
     localStorage.removeItem("crm_user");
     initSession();
@@ -440,7 +449,7 @@ function logout() {
    ROUTING & VIEW SWITCHER
    ========================================================================== */
 
-function switchSection(sectionId) {
+async function switchSection(sectionId) {
     state.currentSection = sectionId;
     
     // Toggle active sidebar items
@@ -471,7 +480,7 @@ function switchSection(sectionId) {
     });
     
     // Load fresh data for the section
-    loadSectionData(sectionId);
+    await loadSectionData(sectionId);
 }
 
 async function loadSectionData(sectionId) {
@@ -2652,7 +2661,7 @@ DOM.loginForm?.addEventListener("submit", async (e) => {
         
         // initSession will fetch the fresh user profile via /api/auth/me
         showToast("¡Inicio de sesión exitoso!");
-        initSession();
+        await initSession();
     } catch (e) {
         showToast(e.message, "error");
     }
