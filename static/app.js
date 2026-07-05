@@ -31,7 +31,7 @@ const state = {
     chartQuoteChannel: null,
     quotesCurrentPage: 1,
     quotesPageSize: 15,
-    quotesSortOrder: null, // 'asc', 'desc', or null
+    quotesSortOrder: "desc", // date sort: 'asc' or 'desc'
     activeHeatmapFilter: null,
     kanbanSortOrders: {
         cotizado: null,
@@ -602,20 +602,41 @@ function formatSellerMoney(value) {
     return `$${Number(value || 0).toLocaleString('es-MX', { maximumFractionDigits: 0 })}`;
 }
 
-function quoteAgeDays(quote) {
+function quoteAgeDays(quote, refDate = new Date()) {
     if (!quote.fecha_registro) return 999;
     const quoteDate = new Date(`${quote.fecha_registro}T12:00:00`);
-    const today = new Date();
+    const today = new Date(refDate);
     today.setHours(12, 0, 0, 0);
     return Math.max(0, Math.floor((today - quoteDate) / (1000 * 60 * 60 * 24)));
 }
 
-function isQuoteLost(quote) {
+function getQuoteDate(quote) {
+    if (!quote.fecha_registro) return null;
+    const date = new Date(`${quote.fecha_registro}T12:00:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isQuoteAutoLostByAge(quote, refDate = new Date()) {
+    if (quote.numero_factura) return false;
+    const quoteDate = getQuoteDate(quote);
+    if (!quoteDate) return false;
+    const cutoff = new Date(refDate);
+    cutoff.setHours(12, 0, 0, 0);
+    cutoff.setMonth(cutoff.getMonth() - 3);
+    return quoteDate <= cutoff;
+}
+
+function isQuoteLost(quote, refDate = new Date()) {
+    if (isQuoteAutoLostByAge(quote, refDate)) return true;
     return String(quote.venta_perdida || "").toLowerCase() === "si";
 }
 
+function isQuoteExpired(quote, refDate = new Date()) {
+    return !quote.numero_factura && (isQuoteLost(quote, refDate) || quoteAgeDays(quote, refDate) > 30);
+}
+
 function isPendingQuote(quote) {
-    return !quote.numero_factura && !isQuoteLost(quote);
+    return !quote.numero_factura && !isQuoteExpired(quote);
 }
 
 function getDaysLeftInMonth() {
@@ -1521,7 +1542,7 @@ function renderQuotesDashboard() {
         
         // 3. Expiry / Status Calculations
         const hasInvoice = !!q.numero_factura;
-        const isLost = q.venta_perdida === "Si" || q.venta_perdida === "si";
+        const isLost = isQuoteLost(q, refDate);
         let ageDays = 999;
         if (q.fecha_registro) {
             const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
@@ -1536,7 +1557,7 @@ function renderQuotesDashboard() {
         }
         
         const isExpired = !hasInvoice && (isLost || ageDays > 30);
-        const isPending = !hasInvoice && !isLost && ageDays <= 30;
+        const isPending = !hasInvoice && !isExpired;
         const remainingDays = 30 - ageDays;
         
         // Status dropdown filter
@@ -1572,11 +1593,8 @@ function renderQuotesDashboard() {
     
     filtered.forEach(q => {
         const total = Number(q.total) || 0;
-        totalCount++;
-        totalSum += total;
-        
         const hasInvoice = !!q.numero_factura;
-        const isLost = q.venta_perdida === "Si" || q.venta_perdida === "si";
+        const isLost = isQuoteLost(q, refDate);
         let ageDays = 999;
         if (q.fecha_registro) {
             const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
@@ -1584,7 +1602,12 @@ function renderQuotesDashboard() {
         }
         
         const isExpired = !hasInvoice && (isLost || ageDays > 30);
-        const isPending = !hasInvoice && !isLost && ageDays <= 30;
+        const isPending = !hasInvoice && !isExpired;
+
+        if (!isExpired) {
+            totalCount++;
+            totalSum += total;
+        }
         
         if (hasInvoice) {
             soldCount++;
@@ -1669,7 +1692,7 @@ function updateQuotesFunnelDisplay() {
 
     const wonQuotes = currentMonthQuotes.filter(q => {
         const hasInvoice = !!q.numero_factura;
-        const isLost = q.venta_perdida === "Si" || q.venta_perdida === "si";
+        const isLost = isQuoteLost(q, now);
         return hasInvoice && !isLost;
     });
 
@@ -1804,7 +1827,7 @@ function renderDashboardCharts(filtered) {
     const refDate = new Date();
     filtered.forEach(q => {
         const hasInvoice = !!q.numero_factura;
-        const isLost = q.venta_perdida === "Si" || q.venta_perdida === "si";
+        const isLost = isQuoteLost(q, refDate);
         let ageDays = 999;
         if (q.fecha_registro) {
             const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
@@ -2015,14 +2038,11 @@ function renderQuotesTableFiltered() {
         filteredQuotes = filteredQuotes.filter(q => q.cliente_nombre.toLowerCase().includes(searchVal));
     }
     
-    // Sort by Total
-    if (state.quotesSortOrder) {
-        if (state.quotesSortOrder === "asc") {
-            filteredQuotes = [...filteredQuotes].sort((a, b) => Number(a.total) - Number(b.total));
-        } else if (state.quotesSortOrder === "desc") {
-            filteredQuotes = [...filteredQuotes].sort((a, b) => Number(b.total) - Number(a.total));
-        }
-    }
+    filteredQuotes = [...filteredQuotes].sort((a, b) => {
+        const aTime = getQuoteDate(a)?.getTime() || 0;
+        const bTime = getQuoteDate(b)?.getTime() || 0;
+        return state.quotesSortOrder === "asc" ? aTime - bTime : bTime - aTime;
+    });
     
     // Set up pagination
     const totalItems = filteredQuotes.length;
@@ -2057,8 +2077,8 @@ function renderQuotesTableFiltered() {
             const dateStr = c.fecha_registro || '-';
             const quoteNum = c.numero_cotizacion || '-';
             const canal = c.canal || '-';
-            const lossPill = c.venta_perdida === "Si" ? 
-                `<span class="status-pill status-pendiente">Si</span>` : 
+            const lossPill = isQuoteLost(c) ?
+                `<span class="status-pill status-pendiente">Si</span>` :
                 `<span class="status-pill status-completada">No</span>`;
                 
             const tr = document.createElement("tr");
@@ -2221,7 +2241,7 @@ function renderKanbanColumns() {
     
     filteredQuotes.forEach(q => {
         const hasInvoice = !!q.numero_factura;
-        const isLost = q.venta_perdida === "Si";
+        const isLost = isQuoteLost(q, refDate);
         const hasQuoteNum = !!q.numero_cotizacion;
         
         let ageDays = 0;
@@ -2307,7 +2327,7 @@ function renderKanbanColumns() {
             if (col === "vendido") {
                 statusBadge = `<span class="kanban-card-badge kanban-card-badge-sold" title="Factura: ${q.numero_factura || ''}">Vendido</span>`;
             } else if (col === "vencido") {
-                statusBadge = `<span class="kanban-card-badge kanban-card-badge-lost">${q.venta_perdida === "Si" ? 'Perdida' : 'Expirada'}</span>`;
+                statusBadge = `<span class="kanban-card-badge kanban-card-badge-lost">${isQuoteLost(q) ? 'Perdida' : 'Expirada'}</span>`;
             }
             
             card.innerHTML = `
@@ -3184,28 +3204,18 @@ if (DOM.kanbanFilterDays) {
 // Quotes Table Sorting listeners
 if (DOM.sortQuotesAsc) {
     DOM.sortQuotesAsc?.addEventListener("click", () => {
-        if (state.quotesSortOrder === "asc") {
-            state.quotesSortOrder = null;
-            DOM.sortQuotesAsc.classList.remove("active");
-        } else {
-            state.quotesSortOrder = "asc";
-            DOM.sortQuotesAsc.classList.add("active");
-            if (DOM.sortQuotesDesc) DOM.sortQuotesDesc.classList.remove("active");
-        }
+        state.quotesSortOrder = "asc";
+        DOM.sortQuotesAsc.classList.add("active");
+        if (DOM.sortQuotesDesc) DOM.sortQuotesDesc.classList.remove("active");
         renderQuotesTableFiltered();
     });
 }
 
 if (DOM.sortQuotesDesc) {
     DOM.sortQuotesDesc?.addEventListener("click", () => {
-        if (state.quotesSortOrder === "desc") {
-            state.quotesSortOrder = null;
-            DOM.sortQuotesDesc.classList.remove("active");
-        } else {
-            state.quotesSortOrder = "desc";
-            DOM.sortQuotesDesc.classList.add("active");
-            if (DOM.sortQuotesAsc) DOM.sortQuotesAsc.classList.remove("active");
-        }
+        state.quotesSortOrder = "desc";
+        DOM.sortQuotesDesc.classList.add("active");
+        if (DOM.sortQuotesAsc) DOM.sortQuotesAsc.classList.remove("active");
         renderQuotesTableFiltered();
     });
 }
@@ -3997,7 +4007,7 @@ async function loadSellerSlightEdgePlanAndLog() {
 
         const wonQuotes = currentMonthQuotes.filter(q => {
             const hasInvoice = !!q.numero_factura;
-            const isLost = q.venta_perdida === "Si" || q.venta_perdida === "si";
+            const isLost = isQuoteLost(q, now);
             return hasInvoice && !isLost;
         });
 
