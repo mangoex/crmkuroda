@@ -1146,7 +1146,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         
         DOM.tableInventarioAbcf.innerHTML = "";
         if (inventario.length === 0) {
-            DOM.tableInventarioAbcf.innerHTML = `<tr><td colspan="10" style="text-align: center;">No se encontraron registros de inventario.</td></tr>`;
+            DOM.tableInventarioAbcf.innerHTML = `<tr><td colspan="12" style="text-align: center;">No se encontraron registros de inventario.</td></tr>`;
             return;
         }
         
@@ -1185,7 +1185,17 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         
         pageItems.forEach(i => {
             const tr = document.createElement("tr");
+            const imageSearchUrl = buildProductImageSearchUrl({
+                codigo_material: i.codigo_material,
+                descripcion_material: i.descripcion_material,
+                proveedor: i.nombre_proveedor
+            });
             tr.innerHTML = `
+                <td>
+                    <a href="${imageSearchUrl}" target="_blank" rel="noopener" title="Buscar imagen del producto" class="btn btn-secondary btn-sm" style="min-width: 34px; padding: 7px 9px; display: inline-flex; align-items: center; justify-content: center;">
+                        <i class="fa-regular fa-image"></i>
+                    </a>
+                </td>
                 <td><span class="badge badge-secondary">${escapeHTML(i.nombre_centro || "-")}</span></td>
                 <td>${escapeHTML(i.almacen || "-")}</td>
                 <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(i.nombre_proveedor || "")}">${escapeHTML(i.nombre_proveedor || "-")}</td>
