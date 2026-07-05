@@ -122,11 +122,14 @@ const DOM = {
     pagPromociones: document.getElementById("pag-promociones"),
     uploadPromocionesForm: document.getElementById("upload-promociones-form"),
     filePromociones: document.getElementById("file-promociones"),
+    uploadPromocionesWrapper: document.getElementById("upload-promociones-wrapper"),
+    lastUploadPromociones: document.getElementById("last-upload-promociones"),
     
     
     // Inventario ABC+F Section
     tableInventarioAbcf: document.querySelector("#table-inventario-abcf tbody"),
     uploadInventarioAbcfForm: document.getElementById("upload-inventario-abcf-form"),
+    uploadInventarioAbcfWrapper: document.getElementById("upload-inventario-abcf-wrapper"),
     filterInvSucursal: document.getElementById("filter-inv-sucursal"),
     filterInvAbcf: document.getElementById("filter-inv-abcf"),
     filterInvProveedor: document.getElementById("filter-inv-proveedor"),
@@ -134,6 +137,7 @@ const DOM = {
     btnClearInvFilters: document.getElementById("btn-clear-inv-filters"),
     pagInventarioAbcf: document.getElementById("pag-inventario-abcf"),
     fileInventarioAbcf: document.getElementById("file-inventario-abcf"),
+    lastUploadInventarioAbcf: document.getElementById("last-upload-inventario-abcf"),
 
     // Cotizaciones Section
     btnGenerateQuoteModal: document.getElementById("btn-generate-quote-modal"),
@@ -168,6 +172,8 @@ const DOM = {
     quotesDetailsToggleIcon: document.getElementById("quotes-details-toggle-icon"),
     quotesDetailsContent: document.getElementById("quotes-details-content"),
     tableCotizaciones: document.querySelector("#table-cotizaciones tbody"),
+    uploadCotizacionesWrapper: document.getElementById("upload-cotizaciones-wrapper"),
+    lastUploadCotizaciones: document.getElementById("last-upload-cotizaciones"),
     pagCotizaciones: document.getElementById("pag-cotizaciones"),
     
     // Kanban board elements
@@ -393,6 +399,8 @@ async function initSession() {
             DOM.btnGenerateGoalsModal?.classList.remove("hidden");
             if (DOM.menuApi) DOM.menuApi.classList.remove("hidden");
         }
+        updateUploadControlsVisibility();
+        renderLastUploadLabels();
 
         // Show/hide conexion menu based on role
         
@@ -671,6 +679,56 @@ function buildLostReasonComments(reason) {
 function hasLostReason(quote) {
     const reason = parseLostReason(quote);
     return !!(reason?.reason && reason?.justification);
+}
+
+const uploadMeta = {
+    "inventario-abcf": {
+        key: "crm_last_upload_inventario_abcf",
+        label: () => DOM.lastUploadInventarioAbcf,
+        wrapper: () => DOM.uploadInventarioAbcfWrapper
+    },
+    promociones: {
+        key: "crm_last_upload_promociones",
+        label: () => DOM.lastUploadPromociones,
+        wrapper: () => DOM.uploadPromocionesWrapper
+    },
+    cotizaciones: {
+        key: "crm_last_upload_cotizaciones",
+        label: () => DOM.lastUploadCotizaciones,
+        wrapper: () => DOM.uploadCotizacionesWrapper
+    }
+};
+
+function formatUploadTimestamp(value) {
+    if (!value) return "Última carga: sin registro";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Última carga: sin registro";
+    return `Última carga: ${date.toLocaleString("es-MX", {
+        dateStyle: "short",
+        timeStyle: "short"
+    })}`;
+}
+
+function renderLastUploadLabels() {
+    Object.values(uploadMeta).forEach(meta => {
+        const label = meta.label();
+        if (label) label.textContent = formatUploadTimestamp(localStorage.getItem(meta.key));
+    });
+}
+
+function markLastUpload(type) {
+    const meta = uploadMeta[type];
+    if (!meta) return;
+    localStorage.setItem(meta.key, new Date().toISOString());
+    renderLastUploadLabels();
+}
+
+function updateUploadControlsVisibility() {
+    const canUpload = state.user && ["admin", "gerente"].includes(state.user.rol);
+    Object.values(uploadMeta).forEach(meta => {
+        const wrapper = meta.wrapper();
+        if (wrapper) wrapper.classList.toggle("hidden", !canUpload);
+    });
 }
 
 function getDaysLeftInMonth() {
@@ -1405,6 +1463,7 @@ if (DOM.uploadPromocionesForm) {
             if (response.ok) {
                 showToast(data.message, "success");
                 DOM.uploadPromocionesForm.reset();
+                markLastUpload("promociones");
                 loadPromocionesData();
             } else {
                 throw new Error(data.message || "Error al subir el archivo");
@@ -5496,6 +5555,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 if (response.ok) {
                     showToast(result.message || "Cotizaciones cargadas exitosamente.", "success");
+                    markLastUpload("cotizaciones");
                     await loadSummaryData(); // Reload table
                 } else {
                     showToast(result.detail || "Error al cargar cotizaciones.", "error");
@@ -5542,6 +5602,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (res.ok) {
                     showToast(data.message || 'Inventario subido correctamente', 'success');
+                    markLastUpload("inventario-abcf");
                     DOM.fileInventarioAbcf.value = '';
                     const fileNameSpan = document.getElementById('file-inv-name');
                     if (fileNameSpan) fileNameSpan.textContent = 'Seleccionar Archivo';

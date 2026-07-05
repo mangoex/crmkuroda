@@ -472,7 +472,7 @@
                 <section id="section-inventario-abcf" class="dashboard-section hidden animate-fade-in">
                     <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                         <h2>Inventario D</h2>
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <div id="upload-inventario-abcf-wrapper" style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
                             <form id="upload-inventario-abcf-form" onsubmit="event.preventDefault();" style="display: flex; gap: 10px; align-items: center; margin: 0;">
                                 <label for="file-inventario-abcf" class="btn btn-secondary btn-sm" style="cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 0; padding: 0.5rem 1rem;">
                                     <i class="fa-solid fa-file-excel"></i> <span id="file-inv-name">Seleccionar Archivo</span>
@@ -480,6 +480,7 @@
                                 <input type="file" id="file-inventario-abcf" accept=".xlsx,.XLSX" required style="display: none;" onchange="document.getElementById('file-inv-name').textContent = this.files[0] ? this.files[0].name : 'Seleccionar Archivo';">
                                 <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Subir Inventario</button>
                             </form>
+                            <small id="last-upload-inventario-abcf" style="color: hsl(var(--text-muted)); font-size: 11px;">Última carga: sin registro</small>
                         </div>
                     </div>
 
@@ -548,7 +549,7 @@
                 <section id="section-promociones" class="dashboard-section hidden animate-fade-in">
                     <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                         <h2>Promociones Activas</h2>
-                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <div id="upload-promociones-wrapper" style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
                             <form id="upload-promociones-form" onsubmit="event.preventDefault();" style="display: flex; gap: 10px; align-items: center; margin: 0;">
                                 <label for="file-promociones" class="btn btn-secondary btn-sm" style="cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 0; padding: 0.5rem 1rem;">
                                     <i class="fa-solid fa-file-excel"></i> <span id="file-promo-name">Seleccionar Archivo</span>
@@ -556,6 +557,7 @@
                                 <input type="file" id="file-promociones" accept=".xlsx" required style="display: none;" onchange="document.getElementById('file-promo-name').textContent = this.files[0] ? this.files[0].name : 'Seleccionar Archivo';">
                                 <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Subir Promociones</button>
                             </form>
+                            <small id="last-upload-promociones" style="color: hsl(var(--text-muted)); font-size: 11px;">Última carga: sin registro</small>
                         </div>
                     </div>
 
@@ -692,9 +694,10 @@
                     <div class="panel-header">
                         <h2>Cotizaciones y Propuestas Comerciales</h2>
                         <div style="display: flex; gap: 10px;">
-                            <div class="role-restricted role-admin role-gerente">
+                            <div id="upload-cotizaciones-wrapper" class="role-restricted role-admin role-gerente" style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
                                 <input type="file" id="file-upload-cotizaciones" accept=".xlsx" style="display: none;">
                                 <button id="btn-upload-cotizaciones" class="btn btn-secondary" onclick="document.getElementById('file-upload-cotizaciones').click()"><i class="fa-solid fa-file-excel"></i> Cargar Excel</button>
+                                <small id="last-upload-cotizaciones" style="color: hsl(var(--text-muted)); font-size: 11px;">Última carga: sin registro</small>
                             </div>
                         </div>
                     </div>
@@ -1850,6 +1853,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.27"></script>
+    <script src="/static/app.js?v=1.0.28"></script>
 </body>
 </html>
