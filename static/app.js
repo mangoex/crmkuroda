@@ -731,6 +731,16 @@ function updateUploadControlsVisibility() {
     });
 }
 
+function buildProductImageSearchUrl(product) {
+    const parts = [
+        product.codigo_material,
+        product.descripcion_material,
+        product.proveedor
+    ].filter(Boolean);
+    const query = parts.join(" ");
+    return `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
+}
+
 function getDaysLeftInMonth() {
     const today = new Date();
     const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -1403,12 +1413,13 @@ async function loadPromocionesData(forceRefresh = false) {
         
         DOM.tablePromociones.innerHTML = "";
         if (promociones.length === 0) {
-            DOM.tablePromociones.innerHTML = `<tr><td colspan="6" style="text-align: center;">No se encontraron promociones cargadas.</td></tr>`;
+            DOM.tablePromociones.innerHTML = `<tr><td colspan="10" style="text-align: center;">No se encontraron promociones cargadas.</td></tr>`;
             return;
         }
         
         promociones.forEach(p => {
             const tr = document.createElement("tr");
+            const imageSearchUrl = buildProductImageSearchUrl(p);
             let isActive = true;
             if (p.valido_hasta) {
                 const vDate = new Date(p.valido_hasta);
@@ -1419,6 +1430,11 @@ async function loadPromocionesData(forceRefresh = false) {
             }
             
             tr.innerHTML = `
+                <td>
+                    <a href="${imageSearchUrl}" target="_blank" rel="noopener" title="Buscar imagen del producto" class="btn btn-secondary btn-sm" style="min-width: 34px; padding: 7px 9px; display: inline-flex; align-items: center; justify-content: center;">
+                        <i class="fa-regular fa-image"></i>
+                    </a>
+                </td>
                 <td>${p.centro || '-'}</td>
                 <td><strong>${p.codigo_material || '-'}</strong></td>
                 <td>${p.descripcion_material || '-'}</td>
