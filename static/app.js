@@ -2052,7 +2052,7 @@ function renderQuotesTableFiltered() {
         pageQuotes.forEach(c => {
             const sellerEmail = c.vendedor_id === state.user.id ? state.user.email : (state.vendedores.find(v => v.id === c.vendedor_id)?.email || c.vendedor_id);
             const contactInfo = `Email: ${c.datos_contacto.email || '-'}<br>Tel: ${c.datos_contacto.telefono || '-'}`;
-            const itemsSummary = c.items.map(i => `${i.producto} (${i.cantidad})`).join(", ");
+            const invoiceNumber = c.numero_factura || "";
             
             const dateStr = c.fecha_registro || '-';
             const quoteNum = c.numero_cotizacion || '-';
@@ -2071,7 +2071,7 @@ function renderQuotesTableFiltered() {
                 <td><strong>$${c.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong></td>
                 <td>${sellerEmail}</td>
                 <td>${lossPill}</td>
-                <td><span class="text-muted" title="${itemsSummary}">${itemsSummary.length > 35 ? itemsSummary.slice(0, 35) + "..." : itemsSummary}</span></td>
+                <td>${invoiceNumber ? `<code title="Factura">${escapeHTML(invoiceNumber)}</code>` : `<span class="text-muted">-</span>`}</td>
                 <td>
                     <button class="btn btn-secondary btn-sm view-proposal-btn" data-id="${c.id}">
                         <i class="fa-regular fa-file-lines"></i> Ver Propuesta
