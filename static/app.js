@@ -190,6 +190,15 @@ const DOM = {
     btnCopyProposal: document.getElementById("btn-copy-proposal"),
     btnCloseProposalModal: document.getElementById("btn-close-proposal-modal"),
     btnCloseProposal: document.getElementById("btn-close-proposal"),
+    lostReasonModal: document.getElementById("lost-reason-modal"),
+    lostReasonTitle: document.getElementById("lost-reason-title"),
+    lostReasonForm: document.getElementById("lost-reason-form"),
+    lostReasonQuoteId: document.getElementById("lost-reason-quote-id"),
+    lostReasonPrice: document.getElementById("lost-reason-price"),
+    lostReasonStock: document.getElementById("lost-reason-stock"),
+    lostReasonJustification: document.getElementById("lost-reason-justification"),
+    btnCloseLostReasonModal: document.getElementById("btn-close-lost-reason-modal"),
+    btnCancelLostReason: document.getElementById("btn-cancel-lost-reason"),
     
     // Sidebar Collapse & Profile Edit
     btnToggleSidebar: document.getElementById("btn-toggle-sidebar"),
@@ -637,6 +646,31 @@ function isQuoteExpired(quote, refDate = new Date()) {
 
 function isPendingQuote(quote) {
     return !quote.numero_factura && !isQuoteExpired(quote);
+}
+
+function parseLostReason(quote) {
+    if (!quote?.comentarios) return null;
+    try {
+        const data = JSON.parse(quote.comentarios);
+        return data?.lost_reason || null;
+    } catch {
+        return null;
+    }
+}
+
+function buildLostReasonComments(reason) {
+    return JSON.stringify({
+        lost_reason: {
+            reason: reason.reason,
+            justification: reason.justification,
+            updated_at: new Date().toISOString()
+        }
+    });
+}
+
+function hasLostReason(quote) {
+    const reason = parseLostReason(quote);
+    return !!(reason?.reason && reason?.justification);
 }
 
 function getDaysLeftInMonth() {
@@ -2077,7 +2111,11 @@ function renderQuotesTableFiltered() {
             const dateStr = c.fecha_registro || '-';
             const quoteNum = c.numero_cotizacion || '-';
             const canal = c.canal || '-';
-            const lossPill = isQuoteLost(c) ?
+            const lost = isQuoteLost(c);
+            const noteSaved = hasLostReason(c);
+            const noteColor = !lost ? "hsl(var(--text-muted))" : noteSaved ? "#22c55e" : "#ffffff";
+            const noteTitle = !lost ? "Disponible solo para ventas perdidas" : noteSaved ? "Editar motivo de perdida" : "Registrar motivo de perdida";
+            const lossPill = lost ?
                 `<span class="status-pill status-pendiente">Si</span>` :
                 `<span class="status-pill status-completada">No</span>`;
                 
@@ -2093,22 +2131,19 @@ function renderQuotesTableFiltered() {
                 <td>${lossPill}</td>
                 <td>${invoiceNumber ? `<code title="Factura">${escapeHTML(invoiceNumber)}</code>` : `<span class="text-muted">-</span>`}</td>
                 <td>
-                    <button class="btn btn-secondary btn-sm view-proposal-btn" data-id="${c.id}">
-                        <i class="fa-regular fa-file-lines"></i> Ver Propuesta
+                    <button class="btn btn-secondary btn-sm lost-reason-btn" data-id="${c.id}" title="${noteTitle}" ${lost ? "" : "disabled"} style="min-width: 38px; padding: 8px 10px; color: ${noteColor}; opacity: ${lost ? "1" : "0.45"};">
+                        <i class="fa-regular fa-note-sticky"></i>
                     </button>
                 </td>
             `;
             DOM.tableCotizaciones.appendChild(tr);
         });
         
-        // Attach click events to View Proposal buttons
-        document.querySelectorAll(".view-proposal-btn").forEach(btn => {
+        document.querySelectorAll(".lost-reason-btn").forEach(btn => {
             btn.addEventListener("click", () => {
                 const id = btn.getAttribute("data-id");
                 const quote = state.cotizaciones.find(q => q.id === id);
-                if (quote) {
-                    showProposalModal(quote);
-                }
+                if (quote && isQuoteLost(quote)) openLostReasonModal(quote);
             });
         });
     }
@@ -2153,6 +2188,63 @@ function renderPagination(totalPages) {
                 renderQuotesTableFiltered();
             }
         });
+    }
+}
+
+function closeLostReasonModal() {
+    DOM.lostReasonModal?.classList.add("hidden");
+}
+
+function openLostReasonModal(quote) {
+    if (!DOM.lostReasonModal || !DOM.lostReasonForm) return;
+    const reason = parseLostReason(quote);
+    if (DOM.lostReasonQuoteId) DOM.lostReasonQuoteId.value = quote.id;
+    if (DOM.lostReasonTitle) DOM.lostReasonTitle.textContent = `Motivo de Venta Perdida - ${quote.cliente_nombre || "Cliente"}`;
+    if (DOM.lostReasonPrice) DOM.lostReasonPrice.checked = reason?.reason === "precio";
+    if (DOM.lostReasonStock) DOM.lostReasonStock.checked = reason?.reason === "existencia";
+    if (DOM.lostReasonJustification) DOM.lostReasonJustification.value = reason?.justification || "";
+    DOM.lostReasonModal.classList.remove("hidden");
+}
+
+async function saveLostReason(event) {
+    event.preventDefault();
+    const quoteId = DOM.lostReasonQuoteId?.value;
+    const quote = state.cotizaciones.find(q => q.id === quoteId);
+    if (!quote || !isQuoteLost(quote)) {
+        showToast("Solo puedes registrar motivo en ventas perdidas.", "error");
+        return;
+    }
+
+    const reason = DOM.lostReasonPrice?.checked ? "precio" : DOM.lostReasonStock?.checked ? "existencia" : "";
+    const justification = DOM.lostReasonJustification?.value.trim() || "";
+
+    if (!reason) {
+        showToast("Selecciona Precio o Existencia.", "error");
+        return;
+    }
+    if (!justification) {
+        showToast("Agrega una justificación breve.", "error");
+        return;
+    }
+
+    try {
+        const res = await apiRequest(`/api/v1/cotizaciones/${quoteId}`, {
+            method: "PUT",
+            body: JSON.stringify({
+                comentarios: buildLostReasonComments({ reason, justification })
+            })
+        });
+
+        if (res.data) {
+            const idx = state.cotizaciones.findIndex(q => q.id === quoteId);
+            if (idx !== -1) state.cotizaciones[idx] = res.data;
+        }
+
+        closeLostReasonModal();
+        renderQuotesDashboard();
+        showToast("Motivo de venta perdida guardado.");
+    } catch (e) {
+        showToast(e.message, "error");
     }
 }
 
@@ -3219,6 +3311,16 @@ if (DOM.sortQuotesDesc) {
         renderQuotesTableFiltered();
     });
 }
+
+DOM.lostReasonForm?.addEventListener("submit", saveLostReason);
+DOM.btnCloseLostReasonModal?.addEventListener("click", closeLostReasonModal);
+DOM.btnCancelLostReason?.addEventListener("click", closeLostReasonModal);
+DOM.lostReasonPrice?.addEventListener("change", () => {
+    if (DOM.lostReasonPrice.checked && DOM.lostReasonStock) DOM.lostReasonStock.checked = false;
+});
+DOM.lostReasonStock?.addEventListener("change", () => {
+    if (DOM.lostReasonStock.checked && DOM.lostReasonPrice) DOM.lostReasonPrice.checked = false;
+});
 
 // Kanban Column Sorting listeners
 document.addEventListener("click", (e) => {

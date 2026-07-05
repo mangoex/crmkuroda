@@ -1635,6 +1635,37 @@
         </div>
     </div>
 
+    <!-- Lost Quote Reason Modal -->
+    <div id="lost-reason-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3 id="lost-reason-title">Motivo de Venta Perdida</h3>
+                <button id="btn-close-lost-reason-modal" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="lost-reason-form" class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+                <input type="hidden" id="lost-reason-quote-id">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <label style="display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); cursor: pointer;">
+                        <input type="checkbox" id="lost-reason-price" value="precio" style="width: 16px; height: 16px; accent-color: #22c55e;">
+                        <span><i class="fa-solid fa-tag"></i> Precio</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); cursor: pointer;">
+                        <input type="checkbox" id="lost-reason-stock" value="existencia" style="width: 16px; height: 16px; accent-color: #22c55e;">
+                        <span><i class="fa-solid fa-boxes-stacked"></i> Existencia</span>
+                    </label>
+                </div>
+                <div class="input-group" style="margin-bottom: 0;">
+                    <label for="lost-reason-justification">Justificación</label>
+                    <textarea id="lost-reason-justification" rows="4" placeholder="Describe brevemente qué pasó con esta cotización..." style="resize: vertical;"></textarea>
+                </div>
+                <div class="modal-footer" style="padding: 0; border-top: 0;">
+                    <button type="button" id="btn-cancel-lost-reason" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- New Task Modal -->
     <div id="new-task-modal" class="modal-wrapper hidden">
         <div class="glass-card modal-card animate-scale-up" style="max-width: 400px;">
@@ -1819,6 +1850,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.26"></script>
+    <script src="/static/app.js?v=1.0.27"></script>
 </body>
 </html>
