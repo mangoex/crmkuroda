@@ -1139,10 +1139,21 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             inventario = inventario.filter(i => i.nombre_proveedor === proveedorFilter);
         }
         if (searchTerm) {
-            inventario = inventario.filter(i => 
-                (i.codigo_material && String(i.codigo_material).toLowerCase().includes(searchTerm)) ||
-                (i.descripcion_material && String(i.descripcion_material).toLowerCase().includes(searchTerm))
-            );
+            inventario = inventario.filter(i => {
+                const searchableFields = [
+                    i.codigo_material,
+                    i.descripcion_material,
+                    i.nombre_proveedor,
+                    i.numero_proveedor,
+                    i.codigo_anterior_material,
+                    i.grupo_materiales,
+                    i.descrip_gpo_materiales
+                ];
+                
+                return searchableFields.some(value =>
+                    value && String(value).toLowerCase().includes(searchTerm)
+                );
+            });
         }
         
         DOM.tableInventarioAbcf.innerHTML = "";
