@@ -811,7 +811,7 @@
                         <div id="quotes-kpi-grid-container" style="flex: 2; min-width: 350px;">
                             <div class="kpi-grid" id="quotes-kpi-grid" style="margin-bottom: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; height: 100%;">
                                 <!-- KPI Card 1: Total Cotizaciones -->
-                                <div class="glass-card kpi-card" style="height: 100%;">
+                                <div class="glass-card kpi-card quote-filter-card" id="quote-filter-card-total" data-quote-filter="total" role="button" tabindex="0" title="Filtrar cotizaciones totales vigentes" style="height: 100%;">
                                     <div class="kpi-icon icon-blue">
                                         <i class="fa-solid fa-file-invoice-dollar"></i>
                                     </div>
@@ -822,7 +822,7 @@
                                     </div>
                                 </div>
                                 <!-- KPI Card 2: Concretadas / Vendidas -->
-                                <div class="glass-card kpi-card" style="height: 100%;">
+                                <div class="glass-card kpi-card quote-filter-card" id="quote-filter-card-sold" data-quote-filter="concretadas" role="button" tabindex="0" title="Filtrar cotizaciones vendidas" style="height: 100%;">
                                     <div class="kpi-icon icon-green">
                                         <i class="fa-solid fa-circle-check"></i>
                                     </div>
@@ -833,7 +833,7 @@
                                     </div>
                                 </div>
                                 <!-- KPI Card 3: Pendientes -->
-                                <div class="glass-card kpi-card" style="height: 100%;">
+                                <div class="glass-card kpi-card quote-filter-card" id="quote-filter-card-pending" data-quote-filter="pendientes" role="button" tabindex="0" title="Filtrar cotizaciones pendientes" style="height: 100%;">
                                     <div class="kpi-icon icon-orange">
                                         <i class="fa-solid fa-clock"></i>
                                     </div>
@@ -844,7 +844,7 @@
                                     </div>
                                 </div>
                                 <!-- KPI Card 4: Vencidas / Perdidas -->
-                                <div class="glass-card kpi-card" style="height: 100%;">
+                                <div class="glass-card kpi-card quote-filter-card" id="quote-filter-card-expired" data-quote-filter="vencidas" role="button" tabindex="0" title="Filtrar cotizaciones vencidas o perdidas" style="height: 100%;">
                                     <div class="kpi-icon icon-purple" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">
                                         <i class="fa-solid fa-circle-xmark"></i>
                                     </div>

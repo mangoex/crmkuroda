@@ -33,6 +33,7 @@ const state = {
     quotesPageSize: 15,
     quotesSortOrder: "desc", // date sort: 'asc' or 'desc'
     activeHeatmapFilter: null,
+    activeQuoteStatusFilter: "all",
     kanbanSortOrders: {
         cotizado: null,
         promociones: null,
@@ -168,6 +169,7 @@ const DOM = {
     kpiQuotesPendingAmount: document.getElementById("kpi-quotes-pending-amount"),
     kpiQuotesExpiredCount: document.getElementById("kpi-quotes-expired-count"),
     kpiQuotesExpiredAmount: document.getElementById("kpi-quotes-expired-amount"),
+    quoteFilterCards: document.querySelectorAll(".quote-filter-card"),
     btnToggleQuotesDetails: document.getElementById("btn-toggle-quotes-details"),
     quotesDetailsToggleIcon: document.getElementById("quotes-details-toggle-icon"),
     quotesDetailsContent: document.getElementById("quotes-details-content"),
@@ -1621,6 +1623,7 @@ async function applyHeatmapQuoteFilter(filter) {
     if (DOM.filterQuoteDays) DOM.filterQuoteDays.value = "all";
     if (DOM.filterQuoteStartDate) DOM.filterQuoteStartDate.value = "";
     if (DOM.filterQuoteEndDate) DOM.filterQuoteEndDate.value = "";
+    state.activeQuoteStatusFilter = "all";
 
     if (state.cotizaciones.length > 0) {
         renderQuotesDashboard();
@@ -1646,8 +1649,13 @@ function renderQuotesDashboard() {
     
     const refDate = new Date(); // Reference date for mock data
     
-    // Apply filters
-    const filtered = state.cotizaciones.filter(q => {
+    if (!state.activeQuoteStatusFilter) {
+        state.activeQuoteStatusFilter = daysVal;
+    }
+    
+    // Apply base filters first. KPI cards use this dataset so their counts stay useful
+    // even after one status card is selected.
+    const baseFiltered = state.cotizaciones.filter(q => {
         // 1. Seller Filter
         if (sellerVal && q.vendedor_id !== sellerVal) return false;
         
@@ -1659,40 +1667,18 @@ function renderQuotesDashboard() {
             if (startDate || endDate) return false;
         }
         
-        // 3. Expiry / Status Calculations
-        const hasInvoice = !!q.numero_factura;
-        const isLost = isQuoteLost(q, refDate);
-        let ageDays = 999;
-        if (q.fecha_registro) {
-            const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
-            ageDays = Math.floor((refDate - qDate) / (1000 * 60 * 60 * 24));
-        }
-
         if (state.activeHeatmapFilter) {
             const heatmapFilter = state.activeHeatmapFilter;
             const total = Number(q.total) || 0;
+            const ageDays = quoteAgeDays(q, refDate);
             if (total < heatmapFilter.minVal || total >= heatmapFilter.maxVal) return false;
             if (ageDays < heatmapFilter.minDays || ageDays > heatmapFilter.maxDays) return false;
         }
-        
-        const isExpired = !hasInvoice && (isLost || ageDays > 30);
-        const isPending = !hasInvoice && !isExpired;
-        const remainingDays = 30 - ageDays;
-        
-        // Status dropdown filter
-        if (daysVal === "concretadas") {
-            if (!hasInvoice) return false;
-        } else if (daysVal === "vencidas") {
-            if (!isExpired) return false;
-        } else if (daysVal === "pendientes") {
-            if (!isPending) return false;
-        } else if (["7", "15", "30", "60", "90"].includes(daysVal)) {
-            const limit = parseInt(daysVal);
-            if (!isPending || remainingDays < 0 || remainingDays > limit) return false;
-        }
-        
         return true;
     });
+
+    const activeStatusFilter = state.activeQuoteStatusFilter || daysVal;
+    const filtered = baseFiltered.filter(q => quoteMatchesStatusFilter(q, activeStatusFilter, refDate));
     
     // Save to state for table rendering
     state.filteredQuotesForTable = filtered;
@@ -1710,31 +1696,22 @@ function renderQuotesDashboard() {
     let expiredCount = 0;
     let expiredSum = 0;
     
-    filtered.forEach(q => {
+    baseFiltered.forEach(q => {
         const total = Number(q.total) || 0;
-        const hasInvoice = !!q.numero_factura;
-        const isLost = isQuoteLost(q, refDate);
-        let ageDays = 999;
-        if (q.fecha_registro) {
-            const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
-            ageDays = Math.floor((refDate - qDate) / (1000 * 60 * 60 * 24));
-        }
+        const statusInfo = getQuoteStatusInfo(q, refDate);
         
-        const isExpired = !hasInvoice && (isLost || ageDays > 30);
-        const isPending = !hasInvoice && !isExpired;
-
-        if (!isExpired) {
+        if (!statusInfo.isExpired) {
             totalCount++;
             totalSum += total;
         }
         
-        if (hasInvoice) {
+        if (statusInfo.hasInvoice) {
             soldCount++;
             soldSum += total;
-        } else if (isExpired) {
+        } else if (statusInfo.isExpired) {
             expiredCount++;
             expiredSum += total;
-        } else if (isPending) {
+        } else if (statusInfo.isPending) {
             pendingCount++;
             pendingSum += total;
         }
@@ -1752,6 +1729,7 @@ function renderQuotesDashboard() {
     
     if (DOM.kpiQuotesExpiredCount) DOM.kpiQuotesExpiredCount.textContent = expiredCount;
     if (DOM.kpiQuotesExpiredAmount) DOM.kpiQuotesExpiredAmount.textContent = `$${expiredSum.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    updateQuoteFilterCards(activeStatusFilter);
     
     // Render list details
     renderQuotesTableFiltered();
@@ -1769,6 +1747,44 @@ function renderQuotesDashboard() {
     } catch (funnelErr) {
         console.error("Error actualizando embudo de cotizaciones:", funnelErr);
     }
+}
+
+function getQuoteStatusInfo(q, refDate = new Date()) {
+    const hasInvoice = !!q.numero_factura;
+    const isLost = isQuoteLost(q, refDate);
+    const ageDays = quoteAgeDays(q, refDate);
+    const isExpired = isQuoteExpired(q, refDate);
+    const isPending = !hasInvoice && !isExpired;
+    const remainingDays = 30 - ageDays;
+    
+    return { hasInvoice, isLost, isExpired, isPending, remainingDays };
+}
+
+function quoteMatchesStatusFilter(q, filterValue, refDate = new Date()) {
+    if (!filterValue || filterValue === "all") return true;
+    
+    const statusInfo = getQuoteStatusInfo(q, refDate);
+    
+    if (filterValue === "total") return !statusInfo.isExpired;
+    if (filterValue === "concretadas") return statusInfo.hasInvoice;
+    if (filterValue === "vencidas") return statusInfo.isExpired;
+    if (filterValue === "pendientes") return statusInfo.isPending;
+    
+    if (["7", "15", "30", "60", "90"].includes(filterValue)) {
+        const limit = parseInt(filterValue);
+        return statusInfo.isPending && statusInfo.remainingDays >= 0 && statusInfo.remainingDays <= limit;
+    }
+    
+    return true;
+}
+
+function updateQuoteFilterCards(activeFilter = "all") {
+    DOM.quoteFilterCards?.forEach(card => {
+        const cardFilter = card.getAttribute("data-quote-filter") || "all";
+        const isActive = cardFilter === activeFilter;
+        card.classList.toggle("active", isActive);
+        card.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
 }
 
 function updateQuotesFunnelDisplay() {
@@ -3322,7 +3338,37 @@ DOM.filterQuoteSeller?.addEventListener("change", () => {
 DOM.filterQuoteDays?.addEventListener("change", () => {
     state.activeHeatmapFilter = null;
     state.quotesCurrentPage = 1;
+    state.activeQuoteStatusFilter = DOM.filterQuoteDays.value || "all";
     renderQuotesDashboard();
+});
+
+DOM.quoteFilterCards?.forEach(card => {
+    const applyCardFilter = () => {
+        const filterValue = card.getAttribute("data-quote-filter") || "all";
+        state.activeQuoteStatusFilter = filterValue;
+        state.activeHeatmapFilter = null;
+        state.quotesCurrentPage = 1;
+        updateActiveHeatmapFilterBadge();
+        
+        if (DOM.filterQuoteDays) {
+            DOM.filterQuoteDays.value = filterValue === "total" ? "all" : filterValue;
+        }
+        
+        if (DOM.quotesDetailsContent?.classList.contains("hidden")) {
+            DOM.quotesDetailsContent.classList.remove("hidden");
+            if (DOM.quotesDetailsToggleIcon) DOM.quotesDetailsToggleIcon.style.transform = "rotate(180deg)";
+        }
+        
+        renderQuotesDashboard();
+    };
+    
+    card.addEventListener("click", applyCardFilter);
+    card.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            applyCardFilter();
+        }
+    });
 });
 
 if (DOM.filterQuoteStartDate) {

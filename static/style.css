@@ -493,6 +493,25 @@ h1, h2, h3, h4, h5, h6 {
     gap: 20px;
 }
 
+.quote-filter-card {
+    cursor: pointer;
+    border: 1px solid hsl(var(--border-color));
+    transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.quote-filter-card:hover,
+.quote-filter-card:focus-visible {
+    transform: translateY(-2px);
+    border-color: hsl(var(--primary));
+    box-shadow: 0 12px 30px rgba(93, 95, 239, 0.18);
+    outline: none;
+}
+
+.quote-filter-card.active {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 1px rgba(93, 95, 239, 0.35), 0 16px 36px rgba(93, 95, 239, 0.16);
+}
+
 .kpi-icon {
     width: 48px;
     height: 48px;
