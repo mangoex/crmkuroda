@@ -33,7 +33,6 @@ const state = {
     quotesPageSize: 15,
     quotesSortOrder: "desc", // date sort: 'asc' or 'desc'
     activeHeatmapFilter: null,
-    activeQuoteStatusFilter: "all",
     kanbanSortOrders: {
         cotizado: null,
         promociones: null,
@@ -1623,7 +1622,6 @@ async function applyHeatmapQuoteFilter(filter) {
     if (DOM.filterQuoteDays) DOM.filterQuoteDays.value = "all";
     if (DOM.filterQuoteStartDate) DOM.filterQuoteStartDate.value = "";
     if (DOM.filterQuoteEndDate) DOM.filterQuoteEndDate.value = "";
-    state.activeQuoteStatusFilter = "all";
 
     if (state.cotizaciones.length > 0) {
         renderQuotesDashboard();
@@ -1649,10 +1647,6 @@ function renderQuotesDashboard() {
     
     const refDate = new Date(); // Reference date for mock data
     
-    if (!state.activeQuoteStatusFilter) {
-        state.activeQuoteStatusFilter = daysVal;
-    }
-    
     // Apply base filters first. KPI cards use this dataset so their counts stay useful
     // even after one status card is selected.
     const baseFiltered = state.cotizaciones.filter(q => {
@@ -1677,8 +1671,7 @@ function renderQuotesDashboard() {
         return true;
     });
 
-    const activeStatusFilter = state.activeQuoteStatusFilter || daysVal;
-    const filtered = baseFiltered.filter(q => quoteMatchesStatusFilter(q, activeStatusFilter, refDate));
+    const filtered = baseFiltered.filter(q => quoteMatchesStatusFilter(q, daysVal, refDate));
     
     // Save to state for table rendering
     state.filteredQuotesForTable = filtered;
@@ -1729,7 +1722,7 @@ function renderQuotesDashboard() {
     
     if (DOM.kpiQuotesExpiredCount) DOM.kpiQuotesExpiredCount.textContent = expiredCount;
     if (DOM.kpiQuotesExpiredAmount) DOM.kpiQuotesExpiredAmount.textContent = `$${expiredSum.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-    updateQuoteFilterCards(activeStatusFilter);
+    updateQuoteFilterCards(daysVal);
     
     // Render list details
     renderQuotesTableFiltered();
@@ -3338,20 +3331,18 @@ DOM.filterQuoteSeller?.addEventListener("change", () => {
 DOM.filterQuoteDays?.addEventListener("change", () => {
     state.activeHeatmapFilter = null;
     state.quotesCurrentPage = 1;
-    state.activeQuoteStatusFilter = DOM.filterQuoteDays.value || "all";
     renderQuotesDashboard();
 });
 
 DOM.quoteFilterCards?.forEach(card => {
     const applyCardFilter = () => {
         const filterValue = card.getAttribute("data-quote-filter") || "all";
-        state.activeQuoteStatusFilter = filterValue;
         state.activeHeatmapFilter = null;
         state.quotesCurrentPage = 1;
         updateActiveHeatmapFilterBadge();
         
         if (DOM.filterQuoteDays) {
-            DOM.filterQuoteDays.value = filterValue === "total" ? "all" : filterValue;
+            DOM.filterQuoteDays.value = filterValue;
         }
         
         if (DOM.quotesDetailsContent?.classList.contains("hidden")) {
