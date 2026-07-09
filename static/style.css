@@ -2371,3 +2371,23 @@ input:checked + .slider:before {
         grid-template-columns: 1fr;
     }
 }
+
+/* ==========================================================================
+   SOBREPEDIDOS CUSTOM STYLES
+   ========================================================================== */
+
+.status-alerta {
+    background: rgba(239, 68, 68, 0.1);
+    color: hsl(var(--danger));
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.row-delayed-alert {
+    background: rgba(239, 68, 68, 0.08) !important;
+    border-left: 4px solid hsl(var(--danger)) !important;
+}
+
+.cell-delayed-text {
+    color: hsl(var(--danger)) !important;
+    font-weight: 700 !important;
+}

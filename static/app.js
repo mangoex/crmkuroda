@@ -522,6 +522,8 @@ async function loadSectionData(sectionId) {
             await loadPromocionesData();
         } else if (sectionId === "inventario-abcf") {
             await loadInventarioAbcfData();
+        } else if (sectionId === "sobrepedidos") {
+            await loadSobrepedidosData();
         } else if (sectionId === "cotizaciones") {
             await loadCotizacionesData();
         } else if (sectionId === "seguimiento") {
@@ -687,6 +689,11 @@ const uploadMeta = {
         key: "crm_last_upload_inventario_abcf",
         label: () => DOM.lastUploadInventarioAbcf,
         wrapper: () => DOM.uploadInventarioAbcfWrapper
+    },
+    sobrepedidos: {
+        key: "crm_last_upload_sobrepedidos",
+        label: () => DOM.lastUploadSobrepedidos,
+        wrapper: () => DOM.uploadSobrepedidosWrapper
     },
     promociones: {
         key: "crm_last_upload_promociones",
@@ -1263,6 +1270,220 @@ async function loadInventarioAbcfData(forceRefresh = false) {
     } catch (e) {
         console.error("Error loading inventario:", e);
         DOM.tableInventarioAbcf.innerHTML = `<tr><td colspan="10" style="text-align: center; color: #ef4444;">Error al cargar datos</td></tr>`;
+    }
+}
+
+async function loadSobrepedidosData(forceRefresh = false) {
+    const searchTerm = DOM.filterSobrepedidosSearch ? DOM.filterSobrepedidosSearch.value.toLowerCase() : "";
+    const proveedorFilter = DOM.filterSobrepedidosProveedor ? DOM.filterSobrepedidosProveedor.value : "todos";
+    const estadoFilter = DOM.filterSobrepedidosEstado ? DOM.filterSobrepedidosEstado.value : "todos";
+    
+    try {
+        if (forceRefresh || !state.sobrepedidos || state.sobrepedidos.length === 0) {
+            const res = await apiRequest("/api/v1/sobrepedidos/");
+            state.sobrepedidos = res.data || [];
+        }
+        
+        let records = [...state.sobrepedidos];
+        
+        // Populate Proveedor Select dynamically if empty
+        if (DOM.filterSobrepedidosProveedor && DOM.filterSobrepedidosProveedor.options.length <= 1) {
+            const currentProv = DOM.filterSobrepedidosProveedor.value;
+            DOM.filterSobrepedidosProveedor.innerHTML = '<option value="todos">Todos</option>';
+            const proveedores = [...new Set(records.map(r => r.proveedor).filter(Boolean))].sort();
+            proveedores.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p;
+                opt.textContent = p;
+                DOM.filterSobrepedidosProveedor.appendChild(opt);
+            });
+            DOM.filterSobrepedidosProveedor.value = currentProv;
+        }
+        
+        // Apply filters
+        if (proveedorFilter !== "todos") {
+            records = records.filter(r => r.proveedor === proveedorFilter);
+        }
+        if (estadoFilter !== "todos") {
+            records = records.filter(r => {
+                if (estadoFilter === "verde") return r.estado_crm.includes("Verde");
+                if (estadoFilter === "amarillo") return r.estado_crm.includes("Amarillo");
+                if (estadoFilter === "rojo") return r.estado_crm.includes("Rojo");
+                return true;
+            });
+        }
+        if (searchTerm) {
+            records = records.filter(r => {
+                const searchableFields = [
+                    String(r.id_pedido_erp),
+                    r.cliente_nombre,
+                    r.producto_sku,
+                    r.producto_desc,
+                    r.proveedor,
+                    r.vendedor_nombre,
+                    r.estatus_compras
+                ];
+                return searchableFields.some(value =>
+                    value && String(value).toLowerCase().includes(searchTerm)
+                );
+            });
+        }
+        
+        DOM.tableSobrepedidos.innerHTML = "";
+        if (records.length === 0) {
+            DOM.tableSobrepedidos.innerHTML = `<tr><td colspan="10" style="text-align: center;">No se encontraron registros de sobrepedidos.</td></tr>`;
+            if (DOM.pagSobrepedidos) DOM.pagSobrepedidos.innerHTML = "";
+            return;
+        }
+        
+        // --- SORTING LOGIC ---
+        if (state.spSortField === undefined) state.spSortField = null;
+        if (state.spSortDir === undefined) state.spSortDir = 'desc';
+        if (state.spCurrentPage === undefined) state.spCurrentPage = 1;
+
+        if (state.spSortField === 'pedido') {
+            records.sort((a, b) => {
+                return state.spSortDir === 'asc' ? a.id_pedido_erp - b.id_pedido_erp : b.id_pedido_erp - a.id_pedido_erp;
+            });
+        } else if (state.spSortField === 'sku') {
+            records.sort((a, b) => {
+                const va = String(a.producto_sku || "");
+                const vb = String(b.producto_sku || "");
+                return state.spSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+            });
+        } else if (state.spSortField === 'cant') {
+            records.sort((a, b) => {
+                return state.spSortDir === 'asc' ? a.cantidad_pendiente - b.cantidad_pendiente : b.cantidad_pendiente - a.cantidad_pendiente;
+            });
+        } else if (state.spSortField === 'fecha') {
+            records.sort((a, b) => {
+                const da = a.fecha_pedido ? new Date(a.fecha_pedido) : new Date(0);
+                const db = b.fecha_pedido ? new Date(b.fecha_pedido) : new Date(0);
+                return state.spSortDir === 'asc' ? da - db : db - da;
+            });
+        }
+
+        // --- PAGINATION ---
+        const totalItems = records.length;
+        const itemsPerPage = 50;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        if (state.spCurrentPage > totalPages && totalPages > 0) state.spCurrentPage = totalPages;
+        if (state.spCurrentPage < 1) state.spCurrentPage = 1;
+
+        const startIdx = (state.spCurrentPage - 1) * itemsPerPage;
+        const pageItems = records.slice(startIdx, startIdx + itemsPerPage);
+        
+        // Render rows
+        const today = new Date();
+        pageItems.forEach(item => {
+            let rowClass = "";
+            let isDelayed = false;
+            let daysDelay = 0;
+            
+            if (item.fecha_pedido) {
+                const orderDate = new Date(item.fecha_pedido);
+                const diffTime = today - orderDate;
+                daysDelay = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                if (item.estado_crm.includes("Rojo") && daysDelay > 15) {
+                    rowClass = "row-delayed-alert";
+                    isDelayed = true;
+                }
+            }
+            
+            // Map CRM Status Pill
+            let statusPill = "";
+            if (item.estado_crm.includes("Verde")) {
+                statusPill = `<span class="status-pill status-completada">Listo en Almacén</span>`;
+            } else if (item.estado_crm.includes("Amarillo")) {
+                statusPill = `<span class="status-pill status-pendiente">En Proceso</span>`;
+            } else {
+                statusPill = `<span class="status-pill status-alerta">Alerta (Rojo)</span>`;
+            }
+            
+            const tr = document.createElement("tr");
+            if (rowClass) tr.className = rowClass;
+            
+            const cellPedido = `<td>${item.id_pedido_erp}</td>`;
+            const cellCliente = `<td>${item.cliente_nombre}</td>`;
+            const cellVendedor = `<td>${item.vendedor_nombre || ""}</td>`;
+            const cellSku = `<td><code>${item.producto_sku}</code></td>`;
+            const cellDesc = `<td>${item.producto_desc}</td>`;
+            const cellCant = `<td style="text-align: right; font-weight: 600;">${item.cantidad_pendiente}</td>`;
+            
+            // Highlight date cell if delayed
+            const dateText = item.fecha_pedido || "Sin fecha";
+            const dateDisplay = isDelayed ? `<span class="cell-delayed-text" title="Retraso crítico: ${daysDelay} días">${dateText} (${daysDelay}d)</span>` : dateText;
+            const cellFecha = `<td>${dateDisplay}</td>`;
+            
+            const cellProv = `<td>${item.proveedor}</td>`;
+            
+            const commentDisplay = isDelayed ? `<span class="cell-delayed-text">${item.estatus_compras}</span>` : item.estatus_compras;
+            const cellComments = `<td>${commentDisplay}</td>`;
+            const cellStatus = `<td>${statusPill}</td>`;
+            
+            tr.innerHTML = cellPedido + cellCliente + cellVendedor + cellSku + cellDesc + cellCant + cellFecha + cellProv + cellComments + cellStatus;
+            DOM.tableSobrepedidos.appendChild(tr);
+        });
+
+        // Render Pagination UI
+        if (DOM.pagSobrepedidos) {
+            DOM.pagSobrepedidos.innerHTML = "";
+            if (totalPages > 1) {
+                const btnPrev = document.createElement("button");
+                btnPrev.className = "btn btn-secondary btn-sm";
+                btnPrev.disabled = state.spCurrentPage === 1;
+                btnPrev.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+                btnPrev.addEventListener("click", () => {
+                    state.spCurrentPage--;
+                    loadSobrepedidosData();
+                });
+                
+                const spanInfo = document.createElement("span");
+                spanInfo.textContent = ` Página ${state.spCurrentPage} de ${totalPages} (Total: ${totalItems}) `;
+                spanInfo.style.margin = "0 10px";
+                spanInfo.style.fontSize = "13px";
+                
+                const btnNext = document.createElement("button");
+                btnNext.className = "btn btn-secondary btn-sm";
+                btnNext.disabled = state.spCurrentPage === totalPages;
+                btnNext.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+                btnNext.addEventListener("click", () => {
+                    state.spCurrentPage++;
+                    loadSobrepedidosData();
+                });
+                
+                DOM.pagSobrepedidos.appendChild(btnPrev);
+                DOM.pagSobrepedidos.appendChild(spanInfo);
+                DOM.pagSobrepedidos.appendChild(btnNext);
+            } else {
+                DOM.pagSobrepedidos.innerHTML = `<span style="font-size: 13px; color: hsl(var(--text-muted));">Mostrando todos los ${totalItems} registros</span>`;
+            }
+        }
+        
+        // Update header sorting icons
+        const thPedido = document.getElementById("th-sobrepedidos-pedido");
+        const thSku = document.getElementById("th-sobrepedidos-sku");
+        const thCant = document.getElementById("th-sobrepedidos-cant");
+        const thFecha = document.getElementById("th-sobrepedidos-fecha");
+        
+        [
+            { th: thPedido, field: 'pedido' },
+            { th: thSku, field: 'sku' },
+            { th: thCant, field: 'cant' },
+            { th: thFecha, field: 'fecha' }
+        ].forEach(item => {
+            if (item.th) {
+                const icon = item.th.querySelector('i');
+                if (icon) {
+                    icon.className = 'fa-solid ' + (state.spSortField === item.field ? (state.spSortDir === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort');
+                    icon.style.color = state.spSortField === item.field ? '#10b981' : '#6b7280';
+                }
+            }
+        });
+        
+    } catch (e) {
+        console.error("Error loading sobrepedidos:", e);
+        DOM.tableSobrepedidos.innerHTML = `<tr><td colspan="10" style="text-align: center; color: #ef4444;">Error al cargar datos</td></tr>`;
     }
 }
 
@@ -5723,5 +5944,92 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.invSortField !== 'inv_consig') { state.invSortField = 'inv_consig'; state.invSortDir = 'desc'; }
         else { state.invSortDir = state.invSortDir === 'asc' ? 'desc' : 'asc'; }
         loadInventarioAbcfData();
+    });
+
+    // SOBREPEDIDOS EVENTS
+    if (DOM.uploadSobrepedidosForm) {
+        DOM.uploadSobrepedidosForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const file = DOM.fileSobrepedidos.files[0];
+            if (!file) {
+                showToast('Por favor selecciona un archivo', 'info');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const btn = DOM.uploadSobrepedidosForm.querySelector("button[type='submit']");
+            const ogHtml = btn.innerHTML;
+            btn.innerHTML = "<i class='fa-solid fa-spinner fa-spin'></i> Subiendo...";
+            btn.disabled = true;
+            
+            try {
+                const res = await fetch('/api/v1/sobrepedidos/upload', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${state.token}` },
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    showToast(data.message || 'Reporte de sobrepedidos subido correctamente', 'success');
+                    markLastUpload("sobrepedidos");
+                    DOM.fileSobrepedidos.value = '';
+                    const fileNameSpan = document.getElementById('file-sobrepedidos-name');
+                    if (fileNameSpan) fileNameSpan.textContent = 'Seleccionar Archivo';
+                    await loadSobrepedidosData(true);
+                } else {
+                    showToast(data.detail || 'Error al subir reporte', 'error');
+                }
+            } catch (err) {
+                showToast('Error de conexión', 'error');
+            } finally {
+                btn.innerHTML = ogHtml;
+                btn.disabled = false;
+            }
+        });
+    }
+
+    if (DOM.filterSobrepedidosProveedor) DOM.filterSobrepedidosProveedor.addEventListener('change', () => { state.spCurrentPage = 1; loadSobrepedidosData(); });
+    if (DOM.filterSobrepedidosEstado) DOM.filterSobrepedidosEstado.addEventListener('change', () => { state.spCurrentPage = 1; loadSobrepedidosData(); });
+    if (DOM.filterSobrepedidosSearch) DOM.filterSobrepedidosSearch.addEventListener('input', () => {
+        clearTimeout(window.spSearchTimeout);
+        window.spSearchTimeout = setTimeout(() => { state.spCurrentPage = 1; loadSobrepedidosData(); }, 300);
+    });
+    if (DOM.btnClearSobrepedidosFilters) {
+        DOM.btnClearSobrepedidosFilters.addEventListener('click', () => {
+            if (DOM.filterSobrepedidosProveedor) DOM.filterSobrepedidosProveedor.value = 'todos';
+            if (DOM.filterSobrepedidosEstado) DOM.filterSobrepedidosEstado.value = 'todos';
+            if (DOM.filterSobrepedidosSearch) DOM.filterSobrepedidosSearch.value = '';
+            state.spCurrentPage = 1;
+            loadSobrepedidosData();
+        });
+    }
+
+    // Sorting Headers
+    const thSpPedido = document.getElementById("th-sobrepedidos-pedido");
+    if (thSpPedido) thSpPedido.addEventListener('click', () => {
+        if (state.spSortField !== 'pedido') { state.spSortField = 'pedido'; state.spSortDir = 'desc'; }
+        else { state.spSortDir = state.spSortDir === 'asc' ? 'desc' : 'asc'; }
+        loadSobrepedidosData();
+    });
+    const thSpSku = document.getElementById("th-sobrepedidos-sku");
+    if (thSpSku) thSpSku.addEventListener('click', () => {
+        if (state.spSortField !== 'sku') { state.spSortField = 'sku'; state.spSortDir = 'desc'; }
+        else { state.spSortDir = state.spSortDir === 'asc' ? 'desc' : 'asc'; }
+        loadSobrepedidosData();
+    });
+    const thSpCant = document.getElementById("th-sobrepedidos-cant");
+    if (thSpCant) thSpCant.addEventListener('click', () => {
+        if (state.spSortField !== 'cant') { state.spSortField = 'cant'; state.spSortDir = 'desc'; }
+        else { state.spSortDir = state.spSortDir === 'asc' ? 'desc' : 'asc'; }
+        loadSobrepedidosData();
+    });
+    const thSpFecha = document.getElementById("th-sobrepedidos-fecha");
+    if (thSpFecha) thSpFecha.addEventListener('click', () => {
+        if (state.spSortField !== 'fecha') { state.spSortField = 'fecha'; state.spSortDir = 'desc'; }
+        else { state.spSortDir = state.spSortDir === 'asc' ? 'desc' : 'asc'; }
+        loadSobrepedidosData();
     });
 });

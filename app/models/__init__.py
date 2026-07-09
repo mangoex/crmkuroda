@@ -9,6 +9,7 @@ from app.models.slight_edge_plan import SlightEdgePlan
 from app.models.slight_edge_log import SlightEdgeLog
 from app.models.cliente_asignacion import ClienteDisponible, PujaCliente
 from app.models.promocion import Promocion
+from app.models.sobrepedido import Sobrepedido
 
 __all__ = [
     "Base", 
@@ -22,5 +23,6 @@ __all__ = [
     "SlightEdgeLog",
     "ClienteDisponible",
     "PujaCliente",
-    "Promocion"
+    "Promocion",
+    "Sobrepedido"
 ]
