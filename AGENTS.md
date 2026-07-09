@@ -57,13 +57,10 @@ La aplicacion usa:
 - `app/agents/cotizaciones_agent.py` calcula totales en Python antes de pedir redaccion al LLM; preservar ese patron.
 - `static/app.js` concentra mucha logica de UI. Buscar funciones existentes antes de crear una nueva abstraccion.
 
-## Estado observado el 2026-07-06
+## Estado observado el 2026-07-09
 
-Tras `git fetch origin --prune`, la copia local estaba en `main` detras de `origin/main` por 15 commits. Tambien habia cambios locales:
-
-- `static/app.js` modificado: agrega un `setTimeout` de 100 ms al cambiar de seccion para evitar dashboard vacio al dibujar graficas.
-- `update_inv.py` sin seguimiento.
-
-Los commits remotos recientes agregan/redisenan especialmente UI de vendedor, heatmap, carga/ultima carga, motivos de venta perdida, factura en cotizaciones, busqueda visual en promociones e inventario, y ajustes para datos congelados.
-
-Antes de sincronizar con remoto, revisar si esos cambios locales deben conservarse, integrarse o descartarse por instruccion explicita de Miguel.
+- **Sincronización con GitHub:** La rama local `main` se encuentra completamente al día y sincronizada con `origin/main`. Los 15 commits remotos previos (que incluyen rediseños de la interfaz de vendedor, mapa de calor, controles de carga de inventario/promociones, motivos de venta perdida, factura en cotizaciones y búsquedas visuales) se han integrado con éxito.
+- **Cambios locales y archivos sin seguimiento:**
+  - La copia local de `static/app.js` está limpia y sin modificaciones pendientes frente al repositorio remoto.
+  - El archivo `update_inv.py` permanece en el directorio como archivo sin seguimiento (untracked). Contiene la lógica preliminar para ordenar y paginar el inventario, cuyos cambios ya están aplicados y confirmados en el repositorio oficial (`static/index.html` y `static/app.js`).
+- **Estado de la carpeta raíz del proyecto (`C:\Users\Miguel Gonzalez\Downloads\CRMK`):** Además del repositorio `crmkuroda`, contiene los archivos Excel de entrada (`Cotizaciones`, `Inventario`, `Promociones`) y la documentación del PRD y Plan de Arquitectura.
