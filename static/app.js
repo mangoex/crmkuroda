@@ -295,7 +295,19 @@ const DOM = {
     tableSlightEdgePerformance: document.querySelector("#table-slight-edge-performance tbody"),
     slightEdgeAiRecommendationCard: document.getElementById("slight-edge-ai-recommendation-card"),
     btnCloseSlightEdgeAi: document.getElementById("btn-close-slight-edge-ai"),
-    slightEdgeAiContent: document.getElementById("slight-edge-ai-content")
+    slightEdgeAiContent: document.getElementById("slight-edge-ai-content"),
+
+    // Sobrepedidos Section
+    tableSobrepedidos: document.querySelector("#table-sobrepedidos tbody"),
+    uploadSobrepedidosForm: document.getElementById("upload-sobrepedidos-form"),
+    uploadSobrepedidosWrapper: document.getElementById("upload-sobrepedidos-wrapper"),
+    filterSobrepedidosProveedor: document.getElementById("filter-sobrepedidos-proveedor"),
+    filterSobrepedidosEstado: document.getElementById("filter-sobrepedidos-estado"),
+    filterSobrepedidosSearch: document.getElementById("filter-sobrepedidos-search"),
+    btnClearSobrepedidosFilters: document.getElementById("btn-clear-sobrepedidos-filters"),
+    pagSobrepedidos: document.getElementById("pag-sobrepedidos"),
+    fileSobrepedidos: document.getElementById("file-sobrepedidos"),
+    lastUploadSobrepedidos: document.getElementById("last-upload-sobrepedidos")
 };
 
 /* ==========================================================================
