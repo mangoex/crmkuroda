@@ -307,6 +307,7 @@ const DOM = {
     uploadSobrepedidosForm: document.getElementById("upload-sobrepedidos-form"),
     uploadSobrepedidosWrapper: document.getElementById("upload-sobrepedidos-wrapper"),
     filterSobrepedidosProveedor: document.getElementById("filter-sobrepedidos-proveedor"),
+    filterSobrepedidosVendedorWrapper: document.getElementById("filter-sobrepedidos-vendedor-wrapper"),
     filterSobrepedidosVendedor: document.getElementById("filter-sobrepedidos-vendedor"),
     filterSobrepedidosGrupo: document.getElementById("filter-sobrepedidos-grupo"),
     filterSobrepedidosEstado: document.getElementById("filter-sobrepedidos-estado"),
@@ -756,6 +757,13 @@ function updateUploadControlsVisibility() {
         const wrapper = meta.wrapper();
         if (wrapper) wrapper.classList.toggle("hidden", !canUpload);
     });
+    const canFilterBySeller = state.user && ["admin", "gerente"].includes(state.user.rol);
+    if (DOM.filterSobrepedidosVendedorWrapper) {
+        DOM.filterSobrepedidosVendedorWrapper.classList.toggle("hidden", !canFilterBySeller);
+    }
+    if (!canFilterBySeller && DOM.filterSobrepedidosVendedor) {
+        DOM.filterSobrepedidosVendedor.value = "todos";
+    }
 }
 
 function buildProductImageSearchUrl(product) {
