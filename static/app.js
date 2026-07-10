@@ -317,7 +317,16 @@ const DOM = {
     btnClearSobrepedidosFilters: document.getElementById("btn-clear-sobrepedidos-filters"),
     pagSobrepedidos: document.getElementById("pag-sobrepedidos"),
     fileSobrepedidos: document.getElementById("file-sobrepedidos"),
-    lastUploadSobrepedidos: document.getElementById("last-upload-sobrepedidos")
+    lastUploadSobrepedidos: document.getElementById("last-upload-sobrepedidos"),
+
+    // Por Entregar Section
+    tablePorEntregar: document.querySelector("#table-por-entregar tbody"),
+    filterPorEntregarVendedorWrapper: document.getElementById("filter-por-entregar-vendedor-wrapper"),
+    filterPorEntregarVendedor: document.getElementById("filter-por-entregar-vendedor"),
+    filterPorEntregarEstado: document.getElementById("filter-por-entregar-estado"),
+    filterPorEntregarSearch: document.getElementById("filter-por-entregar-search"),
+    btnClearPorEntregarFilters: document.getElementById("btn-clear-por-entregar-filters"),
+    pagPorEntregar: document.getElementById("pag-por-entregar")
 };
 
 /* ==========================================================================
@@ -546,6 +555,8 @@ async function loadSectionData(sectionId) {
             await loadInventarioAbcfData();
         } else if (sectionId === "sobrepedidos") {
             await loadSobrepedidosData();
+        } else if (sectionId === "por-entregar") {
+            await loadPorEntregarData();
         } else if (sectionId === "cotizaciones") {
             await loadCotizacionesData();
         } else if (sectionId === "seguimiento") {
@@ -765,6 +776,12 @@ function updateUploadControlsVisibility() {
     }
     if (!canFilterBySeller && DOM.filterSobrepedidosVendedor) {
         DOM.filterSobrepedidosVendedor.value = "todos";
+    }
+    if (DOM.filterPorEntregarVendedorWrapper) {
+        DOM.filterPorEntregarVendedorWrapper.classList.toggle("hidden", !canFilterBySeller);
+    }
+    if (!canFilterBySeller && DOM.filterPorEntregarVendedor) {
+        DOM.filterPorEntregarVendedor.value = "todos";
     }
 }
 
@@ -1791,6 +1808,131 @@ function setText(id, value) {
 function formatCurrency(value) {
     const numericValue = Number(value || 0);
     return numericValue.toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 });
+}
+
+async function loadPorEntregarData(forceRefresh = false) {
+    const searchTerm = DOM.filterPorEntregarSearch ? DOM.filterPorEntregarSearch.value.toLowerCase() : "";
+    const vendedorFilter = DOM.filterPorEntregarVendedor ? DOM.filterPorEntregarVendedor.value : "todos";
+    const estadoFilter = DOM.filterPorEntregarEstado ? DOM.filterPorEntregarEstado.value : "todos";
+
+    try {
+        if (forceRefresh || !state.porEntregar || state.porEntregar.length === 0) {
+            const res = await apiRequest("/api/v1/por-entregar/");
+            state.porEntregar = res.data || [];
+        }
+
+        let records = [...state.porEntregar];
+        populateSobrepedidosSelect(DOM.filterPorEntregarVendedor, records.map(r => r.vendedor_codigo || r.vendedor_nombre));
+
+        if (vendedorFilter !== "todos") {
+            records = records.filter(r => (r.vendedor_codigo || r.vendedor_nombre) === vendedorFilter);
+        }
+        if (estadoFilter !== "todos") {
+            records = records.filter(r => {
+                if (estadoFilter === "verde") return r.estado_crm.includes("Verde");
+                if (estadoFilter === "amarillo") return r.estado_crm.includes("Amarillo");
+                if (estadoFilter === "rojo") return r.estado_crm.includes("Rojo");
+                return true;
+            });
+        }
+        if (searchTerm) {
+            records = records.filter(r => {
+                const searchableFields = [
+                    r.factura,
+                    r.numero_cliente,
+                    r.cliente_nombre,
+                    r.vendedor_codigo,
+                    r.producto_sku,
+                    r.producto_desc,
+                    r.motivo_estado
+                ];
+                return searchableFields.some(value => value && String(value).toLowerCase().includes(searchTerm));
+            });
+        }
+
+        DOM.tablePorEntregar.innerHTML = "";
+        if (records.length === 0) {
+            DOM.tablePorEntregar.innerHTML = `<tr><td colspan="11" style="text-align: center;">No se encontraron registros por entregar.</td></tr>`;
+            if (DOM.pagPorEntregar) DOM.pagPorEntregar.innerHTML = "";
+            return;
+        }
+
+        if (state.peCurrentPage === undefined) state.peCurrentPage = 1;
+        records.sort((a, b) => Number(b.dias_disponible || 0) - Number(a.dias_disponible || 0));
+
+        const totalItems = records.length;
+        const itemsPerPage = 50;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        if (state.peCurrentPage > totalPages && totalPages > 0) state.peCurrentPage = totalPages;
+        if (state.peCurrentPage < 1) state.peCurrentPage = 1;
+
+        const startIdx = (state.peCurrentPage - 1) * itemsPerPage;
+        const pageItems = records.slice(startIdx, startIdx + itemsPerPage);
+
+        pageItems.forEach(item => {
+            let statusPill = "";
+            if (item.estado_crm.includes("Verde")) {
+                statusPill = `<span class="status-pill status-completada">Verde</span>`;
+            } else if (item.estado_crm.includes("Amarillo")) {
+                statusPill = `<span class="status-pill status-pendiente">Amarillo</span>`;
+            } else {
+                statusPill = `<span class="status-pill status-alerta">Rojo</span>`;
+            }
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = [
+                `<td>${escapeHTML(item.factura)}</td>`,
+                `<td><code>${escapeHTML(item.producto_sku)}</code></td>`,
+                `<td>${escapeHTML(item.producto_desc)}</td>`,
+                `<td style="text-align: right; font-weight: 600;">${formatNumber(item.cantidad_entregar || 0)}</td>`,
+                `<td>${escapeHTML(item.vendedor_codigo || item.vendedor_nombre || "")}</td>`,
+                `<td>${escapeHTML(item.numero_cliente)}</td>`,
+                `<td>${escapeHTML(item.cliente_nombre)}</td>`,
+                `<td>${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
+                `<td style="text-align: right;">${item.dias_disponible ?? "-"}</td>`,
+                `<td>${escapeHTML(item.motivo_estado)}</td>`,
+                `<td>${statusPill}</td>`
+            ].join("");
+            DOM.tablePorEntregar.appendChild(tr);
+        });
+
+        if (DOM.pagPorEntregar) {
+            DOM.pagPorEntregar.innerHTML = "";
+            if (totalPages > 1) {
+                const btnPrev = document.createElement("button");
+                btnPrev.className = "btn btn-secondary btn-sm";
+                btnPrev.disabled = state.peCurrentPage === 1;
+                btnPrev.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+                btnPrev.addEventListener("click", () => {
+                    state.peCurrentPage--;
+                    loadPorEntregarData();
+                });
+
+                const spanInfo = document.createElement("span");
+                spanInfo.textContent = ` Pagina ${state.peCurrentPage} de ${totalPages} (Total: ${totalItems}) `;
+                spanInfo.style.margin = "0 10px";
+                spanInfo.style.fontSize = "13px";
+
+                const btnNext = document.createElement("button");
+                btnNext.className = "btn btn-secondary btn-sm";
+                btnNext.disabled = state.peCurrentPage === totalPages;
+                btnNext.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+                btnNext.addEventListener("click", () => {
+                    state.peCurrentPage++;
+                    loadPorEntregarData();
+                });
+
+                DOM.pagPorEntregar.appendChild(btnPrev);
+                DOM.pagPorEntregar.appendChild(spanInfo);
+                DOM.pagPorEntregar.appendChild(btnNext);
+            } else {
+                DOM.pagPorEntregar.innerHTML = `<span style="font-size: 13px; color: hsl(var(--text-muted));">Mostrando todos los ${totalItems} registros</span>`;
+            }
+        }
+    } catch (e) {
+        console.error("Error loading por entregar:", e);
+        DOM.tablePorEntregar.innerHTML = `<tr><td colspan="11" style="text-align: center; color: #ef4444;">Error al cargar datos</td></tr>`;
+    }
 }
 
 async function loadPromocionesData(forceRefresh = false) {
@@ -6284,7 +6426,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     DOM.fileSobrepedidos.value = '';
                     const fileNameSpan = document.getElementById('file-sobrepedidos-name');
                     if (fileNameSpan) fileNameSpan.textContent = 'Seleccionar Archivo';
+                    state.porEntregar = [];
                     await loadSobrepedidosData(true);
+                    if (state.currentSection === "por-entregar") await loadPorEntregarData(true);
                 } else {
                     showToast(data.detail || 'Error al subir reporte', 'error');
                 }
@@ -6308,6 +6452,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (DOM.mobileSobrepedidosSearch) DOM.mobileSobrepedidosSearch.addEventListener('input', () => {
         renderMobileSobrepedidosSummary(state.sobrepedidos || []);
     });
+    if (DOM.filterPorEntregarVendedor) DOM.filterPorEntregarVendedor.addEventListener('change', () => { state.peCurrentPage = 1; loadPorEntregarData(); });
+    if (DOM.filterPorEntregarEstado) DOM.filterPorEntregarEstado.addEventListener('change', () => { state.peCurrentPage = 1; loadPorEntregarData(); });
+    if (DOM.filterPorEntregarSearch) DOM.filterPorEntregarSearch.addEventListener('input', () => {
+        clearTimeout(window.peSearchTimeout);
+        window.peSearchTimeout = setTimeout(() => { state.peCurrentPage = 1; loadPorEntregarData(); }, 300);
+    });
+    if (DOM.btnClearPorEntregarFilters) {
+        DOM.btnClearPorEntregarFilters.addEventListener('click', () => {
+            if (DOM.filterPorEntregarVendedor) DOM.filterPorEntregarVendedor.value = 'todos';
+            if (DOM.filterPorEntregarEstado) DOM.filterPorEntregarEstado.value = 'todos';
+            if (DOM.filterPorEntregarSearch) DOM.filterPorEntregarSearch.value = '';
+            state.peCurrentPage = 1;
+            loadPorEntregarData();
+        });
+    }
     if (DOM.btnClearSobrepedidosFilters) {
         DOM.btnClearSobrepedidosFilters.addEventListener('click', () => {
             if (DOM.filterSobrepedidosProveedor) DOM.filterSobrepedidosProveedor.value = 'todos';

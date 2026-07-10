@@ -12,8 +12,9 @@ from sqlalchemy.future import select
 from app.core.database import get_db
 from app.core.security import RoleChecker, get_current_user
 from app.models.sobrepedido import Sobrepedido
+from app.models.por_entregar import PorEntregar
 from app.models.usuario import Usuario
-from app.services.sobrepedidos_classifier import classify_sobrepedido, clean_text
+from app.services.sobrepedidos_classifier import classify_por_entregar, classify_sobrepedido, clean_text
 
 router = APIRouter()
 
@@ -119,13 +120,13 @@ async def upload_sobrepedidos(
             if clean_text(user.codigo_vendedor)
         }
 
-        vl06o_matches = _parse_vl06o(wb["VL06O"])
-        rows_added = await _replace_sobrepedidos_from_va05(db, wb["VA05"], vl06o_matches, users_by_code)
+        rows_added = await _replace_sobrepedidos_from_va05(db, wb["VA05"], users_by_code)
+        delivery_rows_added = await _replace_por_entregar_from_vl06o(db, wb["VL06O"], users_by_code)
 
         await db.commit()
         return {
             "status": "success",
-            "message": f"Se cargaron {rows_added} lineas de sobrepedidos desde VA05/VL06O.",
+            "message": f"Se cargaron {rows_added} lineas de sobrepedidos y {delivery_rows_added} lineas por entregar.",
         }
     except HTTPException:
         await db.rollback()
@@ -166,7 +167,7 @@ def _parse_vl06o(ws):
     return {"by_factura": by_factura, "by_factura_codigo": by_factura_codigo}
 
 
-async def _replace_sobrepedidos_from_va05(db, ws, vl06o_matches, users_by_code):
+async def _replace_sobrepedidos_from_va05(db, ws, users_by_code):
     headers = [cell.value for cell in ws[1]]
     idx_fecha_venta = find_col_index(headers, [r"fecha.*venta"])
     idx_factura = find_col_index(headers, [r"^factura$"])
@@ -192,19 +193,9 @@ async def _replace_sobrepedidos_from_va05(db, ws, vl06o_matches, users_by_code):
         if not factura or not codigo or cantidad_pendiente <= 0:
             continue
 
-        exact_matches = vl06o_matches["by_factura_codigo"].get((factura, codigo), [])
-        factura_matches = vl06o_matches["by_factura"].get(factura, [])
-        cantidad_disponible = sum(item["cantidad"] for item in exact_matches)
-        disponibilidad = _availability_label(exact_matches, factura_matches)
-        fecha_disponibilidad = _first_non_empty(item["fecha_disponibilidad"] for item in exact_matches)
-        dias_disponible = _first_non_empty(item["dias_disponible"] for item in exact_matches)
-
         status_result = classify_sobrepedido(
             estatus_compras=get_cell(row, idx_estatus),
             cantidad_pendiente=cantidad_pendiente,
-            cantidad_disponible_exacta=cantidad_disponible,
-            tiene_coincidencia_factura=bool(factura_matches),
-            tiene_coincidencia_exacta=bool(exact_matches),
         )
 
         vendedor_codigo = normalize_key(get_cell(row, idx_vendedor))
@@ -227,9 +218,57 @@ async def _replace_sobrepedidos_from_va05(db, ws, vl06o_matches, users_by_code):
             grupo=clean_text(get_cell(row, idx_grupo)),
             cantidad_pendiente=cantidad_pendiente,
             estatus_compras=clean_text(get_cell(row, idx_estatus)),
-            disponibilidad_vl06o=disponibilidad,
-            cantidad_disponible=cantidad_disponible,
-            fecha_disponibilidad=fecha_disponibilidad,
+            disponibilidad_vl06o=None,
+            cantidad_disponible=0.0,
+            fecha_disponibilidad=None,
+            dias_disponible=None,
+            estado_crm=status_result.estado_crm,
+            motivo_estado=status_result.motivo_estado,
+        )
+        db.add(record)
+        rows_added += 1
+
+    return rows_added
+
+
+async def _replace_por_entregar_from_vl06o(db, ws, users_by_code):
+    headers = [cell.value for cell in ws[1]]
+    idx_factura = find_col_index(headers, [r"^factura$"])
+    idx_codigo = find_col_index(headers, [r"^codigo$", r"c[oÃ³]digo"])
+    idx_producto = find_col_index(headers, [r"producto"])
+    idx_cantidad = find_col_index(headers, [r"cantidad.*entregar"])
+    idx_vendedor = find_col_index(headers, [r"clave.*vendedor", r"vendedor"])
+    idx_num_cliente = find_col_index(headers, [r"num.*cliente"])
+    idx_cliente = find_col_index(headers, [r"nombre.*cliente"])
+    idx_fecha = find_col_index(headers, [r"fecha.*disponibilidad"])
+    idx_dias = find_col_index(headers, [r"dias.*disponible", r"d[iÃ­]as.*disponible"])
+
+    await db.execute(delete(PorEntregar))
+
+    rows_added = 0
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        factura = normalize_key(get_cell(row, idx_factura))
+        codigo = normalize_key(get_cell(row, idx_codigo))
+        cantidad_entregar = safe_float(get_cell(row, idx_cantidad))
+        if not factura or not codigo or cantidad_entregar <= 0:
+            continue
+
+        vendedor_codigo = normalize_key(get_cell(row, idx_vendedor))
+        vendedor = users_by_code.get(vendedor_codigo)
+        vendedor_nombre = vendedor.nombre_completo if vendedor else vendedor_codigo
+        dias_disponible = safe_int(get_cell(row, idx_dias))
+        status_result = classify_por_entregar(dias_disponible)
+
+        record = PorEntregar(
+            factura=factura,
+            producto_sku=codigo,
+            producto_desc=clean_text(get_cell(row, idx_producto)),
+            cantidad_entregar=cantidad_entregar,
+            vendedor_codigo=vendedor_codigo,
+            vendedor_nombre=vendedor_nombre,
+            numero_cliente=normalize_key(get_cell(row, idx_num_cliente)),
+            cliente_nombre=clean_text(get_cell(row, idx_cliente)),
+            fecha_disponibilidad=parse_date(get_cell(row, idx_fecha)),
             dias_disponible=dias_disponible,
             estado_crm=status_result.estado_crm,
             motivo_estado=status_result.motivo_estado,

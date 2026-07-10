@@ -4,6 +4,7 @@ from app.services.sobrepedidos_classifier import (
     STATUS_GREEN,
     STATUS_RED,
     STATUS_YELLOW,
+    classify_por_entregar,
     classify_sobrepedido,
 )
 
@@ -53,6 +54,21 @@ class SobrepedidosClassifierTest(unittest.TestCase):
             estatus_compras="Sin Informacion de Compras",
             cantidad_pendiente=1,
         )
+
+        self.assertEqual(result.estado_crm, STATUS_RED)
+
+    def test_por_entregar_recent_availability_is_green(self):
+        result = classify_por_entregar(3)
+
+        self.assertEqual(result.estado_crm, STATUS_GREEN)
+
+    def test_por_entregar_mid_age_availability_is_yellow(self):
+        result = classify_por_entregar(7)
+
+        self.assertEqual(result.estado_crm, STATUS_YELLOW)
+
+    def test_por_entregar_old_availability_is_red(self):
+        result = classify_por_entregar(8)
 
         self.assertEqual(result.estado_crm, STATUS_RED)
 

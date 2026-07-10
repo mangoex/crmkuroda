@@ -19,6 +19,7 @@ from app.api.v1.asignaciones import router as asignaciones_router
 from app.api.v1.promociones import router as promociones_router
 from app.api.v1.inventario_abcf import router as inventario_abcf_router
 from app.api.v1.sobrepedidos import router as sobrepedidos_router
+from app.api.v1.por_entregar import router as por_entregar_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -193,6 +194,7 @@ app.include_router(asignaciones_router, prefix="/api/v1/asignaciones", tags=["As
 app.include_router(promociones_router, prefix="/api/v1/promociones", tags=["Promociones"])
 app.include_router(inventario_abcf_router, prefix="/api/v1/inventario-abcf", tags=["Inventario ABC+F"])
 app.include_router(sobrepedidos_router, prefix="/api/v1/sobrepedidos", tags=["Sobrepedidos"])
+app.include_router(por_entregar_router, prefix="/api/v1/por-entregar", tags=["Por Entregar"])
 
 # Mount Static Files (CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")

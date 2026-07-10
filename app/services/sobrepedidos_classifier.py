@@ -91,3 +91,26 @@ def classify_sobrepedido(
         STATUS_RED,
         "Sin regla de avance identificada y sin evidencia logistica para la linea.",
     )
+
+
+def classify_por_entregar(dias_disponible: object) -> SobrepedidoStatus:
+    """Classify a VL06O delivery-ready line by age in availability."""
+    try:
+        dias = int(float(dias_disponible or 0))
+    except (TypeError, ValueError):
+        dias = 0
+
+    if dias <= 3:
+        return SobrepedidoStatus(
+            STATUS_GREEN,
+            "Disponible recientemente para entrega.",
+        )
+    if dias <= 7:
+        return SobrepedidoStatus(
+            STATUS_YELLOW,
+            "Disponible desde hace varios dias; requiere seguimiento.",
+        )
+    return SobrepedidoStatus(
+        STATUS_RED,
+        "Disponible por mas de 7 dias; requiere accion inmediata.",
+    )

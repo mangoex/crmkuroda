@@ -92,6 +92,9 @@
                 <a href="#" class="menu-item" data-section="sobrepedidos">
                     <i class="fa-solid fa-truck-ramp-box"></i> <span>Sobrepedidos</span>
                 </a>
+                <a href="#" class="menu-item" data-section="por-entregar">
+                    <i class="fa-solid fa-box-open"></i> <span>Por entregar</span>
+                </a>
                 <a href="#" class="menu-item" data-section="cotizaciones">
                     <i class="fa-solid fa-file-invoice-dollar"></i> <span>Cotizaciones</span>
                 </a>
@@ -814,6 +817,64 @@
                         <div class="table-pagination" id="pag-sobrepedidos">
                             <!-- Loaded dynamically -->
                         </div>
+                    </div>
+                </section>
+
+                <!-- Section Por Entregar -->
+                <section id="section-por-entregar" class="dashboard-section hidden animate-fade-in">
+                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <h2>Por entregar</h2>
+                    </div>
+
+                    <div class="glass-card filters-card margin-bottom" style="padding: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; align-items: end;">
+                            <div id="filter-por-entregar-vendedor-wrapper" class="input-group">
+                                <label for="filter-por-entregar-vendedor" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Clave vendedor</label>
+                                <select id="filter-por-entregar-vendedor" class="form-control" style="width: 100%;">
+                                    <option value="todos">Todos</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="filter-por-entregar-estado" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Estatus CRM</label>
+                                <select id="filter-por-entregar-estado" class="form-control" style="width: 100%;">
+                                    <option value="todos">Todos</option>
+                                    <option value="verde">Verde</option>
+                                    <option value="amarillo">Amarillo</option>
+                                    <option value="rojo">Rojo</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1;">
+                                <label for="filter-por-entregar-search" style="font-size: 0.85rem; color: hsl(var(--text-secondary));"><i class="fa-solid fa-magnifying-glass"></i> Buscar factura, cliente, código o producto...</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="text" id="filter-por-entregar-search" class="form-control" placeholder="Factura, cliente, código o producto..." style="flex-grow: 1;">
+                                    <button type="button" id="btn-clear-por-entregar-filters" class="btn btn-secondary" title="Limpiar Filtros" style="display: flex; align-items: center; gap: 8px;">
+                                        <i class="fa-solid fa-filter-circle-xmark"></i> Limpiar Filtros
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card table-container" style="overflow-x: auto;">
+                        <table class="data-table" id="table-por-entregar" style="min-width: 1300px;">
+                            <thead>
+                                <tr>
+                                    <th>Factura</th>
+                                    <th>Código</th>
+                                    <th>Producto</th>
+                                    <th>Cant. entregar</th>
+                                    <th>Clave vendedor</th>
+                                    <th>Num cliente</th>
+                                    <th>Cliente</th>
+                                    <th>Fecha disponibilidad</th>
+                                    <th>Días disponible</th>
+                                    <th>Motivo</th>
+                                    <th>Estatus CRM</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                        <div class="table-pagination" id="pag-por-entregar"></div>
                     </div>
                 </section>
 
@@ -1983,9 +2044,13 @@
             <i class="fa-solid fa-truck-ramp-box"></i>
             <span>Sobrepedidos</span>
         </a>
+        <a href="#" class="mobile-nav-item" data-mobile-section="por-entregar" onclick="switchSection('por-entregar'); return false;">
+            <i class="fa-solid fa-box-open"></i>
+            <span>Entregar</span>
+        </a>
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.32"></script>
+    <script src="/static/app.js?v=1.0.33"></script>
 </body>
 </html>
