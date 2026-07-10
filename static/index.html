@@ -715,8 +715,7 @@
 
                     <div class="mobile-sobrepedidos-panel">
                         <div class="mobile-sobrepedidos-search">
-                            <label for="mobile-sobrepedidos-search" style="font-size: 0.85rem; color: hsl(var(--text-secondary));"><i class="fa-solid fa-magnifying-glass"></i> Buscar cliente o codigo</label>
-                            <input type="text" id="mobile-sobrepedidos-search" class="form-control" placeholder="Num. cliente o codigo...">
+                            <input type="text" id="mobile-sobrepedidos-search" class="form-control" placeholder="Buscar cliente o producto...">
                         </div>
                         <div class="mobile-sobrepedidos-cards" id="mobile-sobrepedidos-cards">
                             <div class="mobile-sobrepedido-card mobile-sp-green" data-sp-color="verde">
@@ -724,36 +723,23 @@
                                     <span>Verde</span>
                                     <strong id="mobile-sp-verde-ordenes">0</strong>
                                 </div>
-                                <div class="mobile-sp-card-grid">
-                                    <div><span>Ordenes</span><strong id="mobile-sp-verde-orders">0</strong></div>
-                                    <div><span>Productos</span><strong id="mobile-sp-verde-products">0</strong></div>
-                                    <div><span>Dinero</span><strong id="mobile-sp-verde-money">$0</strong></div>
-                                </div>
+                                <div class="mobile-sp-summary"><span>Ordenes</span><span><strong id="mobile-sp-verde-products">0</strong> productos</span><span id="mobile-sp-verde-money">$0</span></div>
                             </div>
                             <div class="mobile-sobrepedido-card mobile-sp-yellow" data-sp-color="amarillo">
                                 <div class="mobile-sp-card-header">
                                     <span>Amarillo</span>
                                     <strong id="mobile-sp-amarillo-ordenes">0</strong>
                                 </div>
-                                <div class="mobile-sp-card-grid">
-                                    <div><span>Ordenes</span><strong id="mobile-sp-amarillo-orders">0</strong></div>
-                                    <div><span>Productos</span><strong id="mobile-sp-amarillo-products">0</strong></div>
-                                    <div><span>Dinero</span><strong id="mobile-sp-amarillo-money">$0</strong></div>
-                                </div>
+                                <div class="mobile-sp-summary"><span>Ordenes</span><span><strong id="mobile-sp-amarillo-products">0</strong> productos</span><span id="mobile-sp-amarillo-money">$0</span></div>
                             </div>
                             <div class="mobile-sobrepedido-card mobile-sp-red" data-sp-color="rojo">
                                 <div class="mobile-sp-card-header">
                                     <span>Rojo</span>
                                     <strong id="mobile-sp-rojo-ordenes">0</strong>
                                 </div>
-                                <div class="mobile-sp-card-grid">
-                                    <div><span>Ordenes</span><strong id="mobile-sp-rojo-orders">0</strong></div>
-                                    <div><span>Productos</span><strong id="mobile-sp-rojo-products">0</strong></div>
-                                    <div><span>Dinero</span><strong id="mobile-sp-rojo-money">$0</strong></div>
-                                </div>
+                                <div class="mobile-sp-summary"><span>Ordenes</span><span><strong id="mobile-sp-rojo-products">0</strong> productos</span><span id="mobile-sp-rojo-money">$0</span></div>
                             </div>
                         </div>
-                        <p class="mobile-sobrepedidos-note">El archivo actual no incluye importe; dinero se mostrara cuando SAP agregue valor del sobrepedido.</p>
                     </div>
 
                     <!-- Filters panel -->
@@ -2000,6 +1986,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.31"></script>
+    <script src="/static/app.js?v=1.0.32"></script>
 </body>
 </html>

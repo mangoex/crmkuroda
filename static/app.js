@@ -1775,7 +1775,6 @@ function renderMobileSobrepedidosSummary(records) {
 
     Object.entries(buckets).forEach(([color, data]) => {
         setText(`mobile-sp-${color}-ordenes`, data.orders.size);
-        setText(`mobile-sp-${color}-orders`, data.orders.size);
         setText(`mobile-sp-${color}-products`, formatNumber(data.products));
         setText(`mobile-sp-${color}-money`, formatCurrency(data.money));
 
