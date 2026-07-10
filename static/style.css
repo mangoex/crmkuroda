@@ -366,6 +366,20 @@ h1, h2, h3, h4, h5, h6 {
     color: #fff;
 }
 
+.logo-brand {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.sidebar-brand-logo {
+    display: block;
+    width: 160px;
+    max-width: 100%;
+    height: 42px;
+    object-fit: contain;
+    object-position: left center;
+}
+
 .sidebar-glow-icon {
     font-size: 20px;
     color: hsl(var(--accent));
@@ -1205,6 +1219,12 @@ h1, h2, h3, h4, h5, h6 {
     padding: 12px;
 }
 
+.sidebar-container.collapsed .sidebar-brand-logo {
+    width: 34px;
+    height: 34px;
+    object-position: left center;
+}
+
 .sidebar-container.collapsed .sidebar-header {
     justify-content: center !important;
 }
@@ -1692,6 +1712,11 @@ body.light-mode ::-webkit-scrollbar-thumb:hover {
     
     .sidebar-container .logo span {
         display: none !important;
+    }
+
+    .sidebar-container .sidebar-brand-logo {
+        width: 118px;
+        height: 36px;
     }
     
     .sidebar-container #btn-toggle-sidebar {
