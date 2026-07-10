@@ -1860,6 +1860,10 @@ input:checked + .slider:before {
     display: none;
 }
 
+.mobile-sobrepedidos-panel {
+    display: none;
+}
+
 @media (max-width: 768px) {
     .mobile-bottom-nav {
         display: flex;
@@ -1920,6 +1924,113 @@ input:checked + .slider:before {
     
     #section-promociones .promociones-kpis-wrapper {
         margin-top: 10px;
+    }
+
+    #section-sobrepedidos .panel-header,
+    #section-sobrepedidos .filters-card,
+    #section-sobrepedidos .table-container {
+        display: none !important;
+    }
+
+    .mobile-sobrepedidos-panel {
+        display: block;
+        padding: 8px 0 14px;
+    }
+
+    .mobile-sobrepedidos-search {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 14px;
+    }
+
+    .mobile-sobrepedidos-cards {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .mobile-sobrepedido-card {
+        border-radius: 8px;
+        padding: 16px;
+        background: rgba(255, 255, 255, 0.035);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .mobile-sp-green {
+        border-left: 5px solid #10b981;
+    }
+
+    .mobile-sp-yellow {
+        border-left: 5px solid #f59e0b;
+    }
+
+    .mobile-sp-red {
+        border-left: 5px solid #ef4444;
+    }
+
+    .mobile-sobrepedido-card.mobile-sp-highlight {
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.35);
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.16), 0 10px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    .mobile-sp-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+    }
+
+    .mobile-sp-card-header span {
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: hsl(var(--text-secondary));
+    }
+
+    .mobile-sp-card-header strong {
+        font-size: 28px;
+        color: hsl(var(--text-primary));
+        line-height: 1;
+    }
+
+    .mobile-sp-card-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .mobile-sp-card-grid div {
+        min-width: 0;
+        padding: 10px 8px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.18);
+    }
+
+    .mobile-sp-card-grid span {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 10px;
+        color: hsl(var(--text-secondary));
+        text-transform: uppercase;
+    }
+
+    .mobile-sp-card-grid strong {
+        display: block;
+        font-size: 14px;
+        color: hsl(var(--text-primary));
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mobile-sobrepedidos-note {
+        margin: 12px 0 0;
+        color: hsl(var(--text-muted));
+        font-size: 11px;
+        line-height: 1.4;
     }
 }
 

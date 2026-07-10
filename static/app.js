@@ -312,6 +312,8 @@ const DOM = {
     filterSobrepedidosGrupo: document.getElementById("filter-sobrepedidos-grupo"),
     filterSobrepedidosEstado: document.getElementById("filter-sobrepedidos-estado"),
     filterSobrepedidosSearch: document.getElementById("filter-sobrepedidos-search"),
+    mobileSobrepedidosSearch: document.getElementById("mobile-sobrepedidos-search"),
+    mobileSobrepedidosCards: document.getElementById("mobile-sobrepedidos-cards"),
     btnClearSobrepedidosFilters: document.getElementById("btn-clear-sobrepedidos-filters"),
     pagSobrepedidos: document.getElementById("pag-sobrepedidos"),
     fileSobrepedidos: document.getElementById("file-sobrepedidos"),
@@ -1552,6 +1554,7 @@ async function loadSobrepedidosData(forceRefresh = false) {
         }
 
         let records = [...state.sobrepedidos];
+        renderMobileSobrepedidosSummary(records);
         populateSobrepedidosSelect(DOM.filterSobrepedidosProveedor, records.map(r => r.proveedor));
         populateSobrepedidosSelect(DOM.filterSobrepedidosVendedor, records.map(r => r.vendedor_codigo || r.vendedor_nombre));
         populateSobrepedidosSelect(DOM.filterSobrepedidosGrupo, records.map(r => r.grupo));
@@ -1732,6 +1735,63 @@ async function loadSobrepedidosData(forceRefresh = false) {
         console.error("Error loading sobrepedidos:", e);
         DOM.tableSobrepedidos.innerHTML = `<tr><td colspan="16" style="text-align: center; color: #ef4444;">Error al cargar datos</td></tr>`;
     }
+}
+
+function getSobrepedidoColor(record) {
+    const estado = record?.estado_crm || "";
+    if (estado.includes("Verde")) return "verde";
+    if (estado.includes("Amarillo")) return "amarillo";
+    return "rojo";
+}
+
+function getSobrepedidoMoney(record) {
+    return Number(record?.importe || record?.monto || record?.total || record?.valor || 0);
+}
+
+function renderMobileSobrepedidosSummary(records) {
+    if (!DOM.mobileSobrepedidosCards) return;
+    const search = DOM.mobileSobrepedidosSearch ? DOM.mobileSobrepedidosSearch.value.trim().toLowerCase() : "";
+    const buckets = {
+        verde: { orders: new Set(), products: 0, money: 0, matches: 0 },
+        amarillo: { orders: new Set(), products: 0, money: 0, matches: 0 },
+        rojo: { orders: new Set(), products: 0, money: 0, matches: 0 }
+    };
+
+    records.forEach(record => {
+        const color = getSobrepedidoColor(record);
+        const bucket = buckets[color];
+        bucket.orders.add(record.factura || record.id_pedido_erp || record.id);
+        bucket.products += Number(record.cantidad_pendiente || 0);
+        bucket.money += getSobrepedidoMoney(record);
+
+        if (search) {
+            const numCliente = String(record.numero_cliente || "").toLowerCase();
+            const codigo = String(record.producto_sku || "").toLowerCase();
+            if (numCliente.includes(search) || codigo.includes(search)) {
+                bucket.matches += 1;
+            }
+        }
+    });
+
+    Object.entries(buckets).forEach(([color, data]) => {
+        setText(`mobile-sp-${color}-ordenes`, data.orders.size);
+        setText(`mobile-sp-${color}-orders`, data.orders.size);
+        setText(`mobile-sp-${color}-products`, formatNumber(data.products));
+        setText(`mobile-sp-${color}-money`, formatCurrency(data.money));
+
+        const card = DOM.mobileSobrepedidosCards.querySelector(`[data-sp-color="${color}"]`);
+        if (card) card.classList.toggle("mobile-sp-highlight", Boolean(search && data.matches > 0));
+    });
+}
+
+function setText(id, value) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+}
+
+function formatCurrency(value) {
+    const numericValue = Number(value || 0);
+    return numericValue.toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 });
 }
 
 async function loadPromocionesData(forceRefresh = false) {
@@ -6245,6 +6305,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (DOM.filterSobrepedidosSearch) DOM.filterSobrepedidosSearch.addEventListener('input', () => {
         clearTimeout(window.spSearchTimeout);
         window.spSearchTimeout = setTimeout(() => { state.spCurrentPage = 1; loadSobrepedidosData(); }, 300);
+    });
+    if (DOM.mobileSobrepedidosSearch) DOM.mobileSobrepedidosSearch.addEventListener('input', () => {
+        renderMobileSobrepedidosSummary(state.sobrepedidos || []);
     });
     if (DOM.btnClearSobrepedidosFilters) {
         DOM.btnClearSobrepedidosFilters.addEventListener('click', () => {
