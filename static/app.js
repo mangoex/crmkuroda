@@ -14,6 +14,11 @@ function escapeHTML(str) {
         .replace(/'/g, '&#39;');
 }
 
+function formatNumber(value) {
+    const numericValue = Number(value || 0);
+    return numericValue.toLocaleString("es-MX", { maximumFractionDigits: 2 });
+}
+
 const state = {
     token: localStorage.getItem("crm_token") || null,
     user: JSON.parse(localStorage.getItem("crm_user")) || null,
@@ -302,6 +307,8 @@ const DOM = {
     uploadSobrepedidosForm: document.getElementById("upload-sobrepedidos-form"),
     uploadSobrepedidosWrapper: document.getElementById("upload-sobrepedidos-wrapper"),
     filterSobrepedidosProveedor: document.getElementById("filter-sobrepedidos-proveedor"),
+    filterSobrepedidosVendedor: document.getElementById("filter-sobrepedidos-vendedor"),
+    filterSobrepedidosGrupo: document.getElementById("filter-sobrepedidos-grupo"),
     filterSobrepedidosEstado: document.getElementById("filter-sobrepedidos-estado"),
     filterSobrepedidosSearch: document.getElementById("filter-sobrepedidos-search"),
     btnClearSobrepedidosFilters: document.getElementById("btn-clear-sobrepedidos-filters"),
@@ -1288,6 +1295,8 @@ async function loadInventarioAbcfData(forceRefresh = false) {
 async function loadSobrepedidosData(forceRefresh = false) {
     const searchTerm = DOM.filterSobrepedidosSearch ? DOM.filterSobrepedidosSearch.value.toLowerCase() : "";
     const proveedorFilter = DOM.filterSobrepedidosProveedor ? DOM.filterSobrepedidosProveedor.value : "todos";
+    const vendedorFilter = DOM.filterSobrepedidosVendedor ? DOM.filterSobrepedidosVendedor.value : "todos";
+    const grupoFilter = DOM.filterSobrepedidosGrupo ? DOM.filterSobrepedidosGrupo.value : "todos";
     const estadoFilter = DOM.filterSobrepedidosEstado ? DOM.filterSobrepedidosEstado.value : "todos";
     
     try {
@@ -1298,23 +1307,19 @@ async function loadSobrepedidosData(forceRefresh = false) {
         
         let records = [...state.sobrepedidos];
         
-        // Populate Proveedor Select dynamically if empty
-        if (DOM.filterSobrepedidosProveedor && DOM.filterSobrepedidosProveedor.options.length <= 1) {
-            const currentProv = DOM.filterSobrepedidosProveedor.value;
-            DOM.filterSobrepedidosProveedor.innerHTML = '<option value="todos">Todos</option>';
-            const proveedores = [...new Set(records.map(r => r.proveedor).filter(Boolean))].sort();
-            proveedores.forEach(p => {
-                const opt = document.createElement("option");
-                opt.value = p;
-                opt.textContent = p;
-                DOM.filterSobrepedidosProveedor.appendChild(opt);
-            });
-            DOM.filterSobrepedidosProveedor.value = currentProv;
-        }
+        populateSobrepedidosSelect(DOM.filterSobrepedidosProveedor, records.map(r => r.proveedor));
+        populateSobrepedidosSelect(DOM.filterSobrepedidosVendedor, records.map(r => r.vendedor_codigo || r.vendedor_nombre));
+        populateSobrepedidosSelect(DOM.filterSobrepedidosGrupo, records.map(r => r.grupo));
         
         // Apply filters
         if (proveedorFilter !== "todos") {
             records = records.filter(r => r.proveedor === proveedorFilter);
+        }
+        if (vendedorFilter !== "todos") {
+            records = records.filter(r => (r.vendedor_codigo || r.vendedor_nombre) === vendedorFilter);
+        }
+        if (grupoFilter !== "todos") {
+            records = records.filter(r => r.grupo === grupoFilter);
         }
         if (estadoFilter !== "todos") {
             records = records.filter(r => {
@@ -1327,13 +1332,19 @@ async function loadSobrepedidosData(forceRefresh = false) {
         if (searchTerm) {
             records = records.filter(r => {
                 const searchableFields = [
-                    String(r.id_pedido_erp),
+                    r.factura || String(r.id_pedido_erp),
+                    r.fecha_venta,
+                    r.numero_cliente,
                     r.cliente_nombre,
+                    r.vendedor_codigo,
                     r.producto_sku,
                     r.producto_desc,
+                    r.grupo,
                     r.proveedor,
                     r.vendedor_nombre,
-                    r.estatus_compras
+                    r.estatus_compras,
+                    r.disponibilidad_vl06o,
+                    r.motivo_estado
                 ];
                 return searchableFields.some(value =>
                     value && String(value).toLowerCase().includes(searchTerm)
@@ -1343,7 +1354,7 @@ async function loadSobrepedidosData(forceRefresh = false) {
         
         DOM.tableSobrepedidos.innerHTML = "";
         if (records.length === 0) {
-            DOM.tableSobrepedidos.innerHTML = `<tr><td colspan="10" style="text-align: center;">No se encontraron registros de sobrepedidos.</td></tr>`;
+            DOM.tableSobrepedidos.innerHTML = `<tr><td colspan="16" style="text-align: center;">No se encontraron registros de sobrepedidos.</td></tr>`;
             if (DOM.pagSobrepedidos) DOM.pagSobrepedidos.innerHTML = "";
             return;
         }
@@ -1355,7 +1366,7 @@ async function loadSobrepedidosData(forceRefresh = false) {
 
         if (state.spSortField === 'pedido') {
             records.sort((a, b) => {
-                return state.spSortDir === 'asc' ? a.id_pedido_erp - b.id_pedido_erp : b.id_pedido_erp - a.id_pedido_erp;
+                return state.spSortDir === 'asc' ? Number(a.id_pedido_erp || 0) - Number(b.id_pedido_erp || 0) : Number(b.id_pedido_erp || 0) - Number(a.id_pedido_erp || 0);
             });
         } else if (state.spSortField === 'sku') {
             records.sort((a, b) => {
@@ -1392,8 +1403,8 @@ async function loadSobrepedidosData(forceRefresh = false) {
             let isDelayed = false;
             let daysDelay = 0;
             
-            if (item.fecha_pedido) {
-                const orderDate = new Date(item.fecha_pedido);
+            if (item.fecha_venta || item.fecha_pedido) {
+                const orderDate = new Date(item.fecha_venta || item.fecha_pedido);
                 const diffTime = today - orderDate;
                 daysDelay = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                 if (item.estado_crm.includes("Rojo") && daysDelay > 15) {
@@ -1415,12 +1426,19 @@ async function loadSobrepedidosData(forceRefresh = false) {
             const tr = document.createElement("tr");
             if (rowClass) tr.className = rowClass;
             
-            const cellPedido = `<td>${item.id_pedido_erp}</td>`;
-            const cellCliente = `<td>${item.cliente_nombre}</td>`;
-            const cellVendedor = `<td>${item.vendedor_nombre || ""}</td>`;
-            const cellSku = `<td><code>${item.producto_sku}</code></td>`;
-            const cellDesc = `<td>${item.producto_desc}</td>`;
-            const cellCant = `<td style="text-align: right; font-weight: 600;">${item.cantidad_pendiente}</td>`;
+            const facturaText = item.factura || item.id_pedido_erp || "";
+            const vendedorText = item.vendedor_nombre && item.vendedor_nombre !== item.vendedor_codigo ? `${item.vendedor_nombre} (${item.vendedor_codigo || ""})` : item.vendedor_codigo || item.vendedor_nombre || "";
+            const cellPedido = `<td>${escapeHTML(facturaText)}</td>`;
+            const cellCliente = `<td>${escapeHTML(item.cliente_nombre)}</td>`;
+            const cellVendedor = `<td>${escapeHTML(vendedorText)}</td>`;
+            const cellSku = `<td><code>${escapeHTML(item.producto_sku)}</code></td>`;
+            const cellDesc = `<td>${escapeHTML(item.producto_desc)}</td>`;
+            const cellGrupo = `<td>${escapeHTML(item.grupo)}</td>`;
+            const cellCant = `<td style="text-align: right; font-weight: 600;">${formatNumber(item.cantidad_pendiente || 0)}</td>`;
+            const cellDisp = `<td>${escapeHTML(item.disponibilidad_vl06o)}</td>`;
+            const cellCantDisp = `<td style="text-align: right;">${formatNumber(item.cantidad_disponible || 0)}</td>`;
+            const cellFechaDisp = `<td>${escapeHTML(item.fecha_disponibilidad || "-")}</td>`;
+            const cellDiasDisp = `<td style="text-align: right;">${item.dias_disponible ?? "-"}</td>`;
             
             // Highlight date cell if delayed
             const dateText = item.fecha_pedido || "Sin fecha";
@@ -1495,7 +1513,216 @@ async function loadSobrepedidosData(forceRefresh = false) {
         
     } catch (e) {
         console.error("Error loading sobrepedidos:", e);
-        DOM.tableSobrepedidos.innerHTML = `<tr><td colspan="10" style="text-align: center; color: #ef4444;">Error al cargar datos</td></tr>`;
+        DOM.tableSobrepedidos.innerHTML = `<tr><td colspan="16" style="text-align: center; color: #ef4444;">Error al cargar datos</td></tr>`;
+    }
+}
+
+function populateSobrepedidosSelect(select, values) {
+    if (!select || select.options.length > 1) return;
+    const currentValue = select.value;
+    select.innerHTML = '<option value="todos">Todos</option>';
+    [...new Set(values.filter(Boolean))].sort().forEach(value => {
+        const opt = document.createElement("option");
+        opt.value = value;
+        opt.textContent = value;
+        select.appendChild(opt);
+    });
+    select.value = currentValue;
+}
+
+async function loadSobrepedidosData(forceRefresh = false) {
+    const searchTerm = DOM.filterSobrepedidosSearch ? DOM.filterSobrepedidosSearch.value.toLowerCase() : "";
+    const proveedorFilter = DOM.filterSobrepedidosProveedor ? DOM.filterSobrepedidosProveedor.value : "todos";
+    const vendedorFilter = DOM.filterSobrepedidosVendedor ? DOM.filterSobrepedidosVendedor.value : "todos";
+    const grupoFilter = DOM.filterSobrepedidosGrupo ? DOM.filterSobrepedidosGrupo.value : "todos";
+    const estadoFilter = DOM.filterSobrepedidosEstado ? DOM.filterSobrepedidosEstado.value : "todos";
+
+    try {
+        if (forceRefresh || !state.sobrepedidos || state.sobrepedidos.length === 0) {
+            const res = await apiRequest("/api/v1/sobrepedidos/");
+            state.sobrepedidos = res.data || [];
+        }
+
+        let records = [...state.sobrepedidos];
+        populateSobrepedidosSelect(DOM.filterSobrepedidosProveedor, records.map(r => r.proveedor));
+        populateSobrepedidosSelect(DOM.filterSobrepedidosVendedor, records.map(r => r.vendedor_codigo || r.vendedor_nombre));
+        populateSobrepedidosSelect(DOM.filterSobrepedidosGrupo, records.map(r => r.grupo));
+
+        if (proveedorFilter !== "todos") records = records.filter(r => r.proveedor === proveedorFilter);
+        if (vendedorFilter !== "todos") records = records.filter(r => (r.vendedor_codigo || r.vendedor_nombre) === vendedorFilter);
+        if (grupoFilter !== "todos") records = records.filter(r => r.grupo === grupoFilter);
+        if (estadoFilter !== "todos") {
+            records = records.filter(r => {
+                if (estadoFilter === "verde") return r.estado_crm.includes("Verde");
+                if (estadoFilter === "amarillo") return r.estado_crm.includes("Amarillo");
+                if (estadoFilter === "rojo") return r.estado_crm.includes("Rojo");
+                return true;
+            });
+        }
+        if (searchTerm) {
+            records = records.filter(r => {
+                const searchableFields = [
+                    r.factura || String(r.id_pedido_erp || ""),
+                    r.fecha_venta,
+                    r.numero_cliente,
+                    r.cliente_nombre,
+                    r.vendedor_codigo,
+                    r.vendedor_nombre,
+                    r.producto_sku,
+                    r.producto_desc,
+                    r.grupo,
+                    r.proveedor,
+                    r.estatus_compras,
+                    r.disponibilidad_vl06o,
+                    r.motivo_estado
+                ];
+                return searchableFields.some(value => value && String(value).toLowerCase().includes(searchTerm));
+            });
+        }
+
+        DOM.tableSobrepedidos.innerHTML = "";
+        if (records.length === 0) {
+            DOM.tableSobrepedidos.innerHTML = `<tr><td colspan="16" style="text-align: center;">No se encontraron registros de sobrepedidos.</td></tr>`;
+            if (DOM.pagSobrepedidos) DOM.pagSobrepedidos.innerHTML = "";
+            return;
+        }
+
+        if (state.spSortField === undefined) state.spSortField = null;
+        if (state.spSortDir === undefined) state.spSortDir = "desc";
+        if (state.spCurrentPage === undefined) state.spCurrentPage = 1;
+
+        if (state.spSortField === "pedido") {
+            records.sort((a, b) => state.spSortDir === "asc" ? Number(a.id_pedido_erp || 0) - Number(b.id_pedido_erp || 0) : Number(b.id_pedido_erp || 0) - Number(a.id_pedido_erp || 0));
+        } else if (state.spSortField === "sku") {
+            records.sort((a, b) => {
+                const va = String(a.producto_sku || "");
+                const vb = String(b.producto_sku || "");
+                return state.spSortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+            });
+        } else if (state.spSortField === "cant") {
+            records.sort((a, b) => state.spSortDir === "asc" ? Number(a.cantidad_pendiente || 0) - Number(b.cantidad_pendiente || 0) : Number(b.cantidad_pendiente || 0) - Number(a.cantidad_pendiente || 0));
+        } else if (state.spSortField === "fecha") {
+            records.sort((a, b) => {
+                const da = a.fecha_venta ? new Date(a.fecha_venta) : new Date(0);
+                const db = b.fecha_venta ? new Date(b.fecha_venta) : new Date(0);
+                return state.spSortDir === "asc" ? da - db : db - da;
+            });
+        }
+
+        const totalItems = records.length;
+        const itemsPerPage = 50;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        if (state.spCurrentPage > totalPages && totalPages > 0) state.spCurrentPage = totalPages;
+        if (state.spCurrentPage < 1) state.spCurrentPage = 1;
+
+        const startIdx = (state.spCurrentPage - 1) * itemsPerPage;
+        const pageItems = records.slice(startIdx, startIdx + itemsPerPage);
+        const today = new Date();
+
+        pageItems.forEach(item => {
+            let rowClass = "";
+            let isDelayed = false;
+            let daysDelay = 0;
+            const orderDateText = item.fecha_venta || item.fecha_pedido;
+            if (orderDateText) {
+                const orderDate = new Date(orderDateText);
+                daysDelay = Math.floor((today - orderDate) / (1000 * 60 * 60 * 24));
+                if (item.estado_crm.includes("Rojo") && daysDelay > 15) {
+                    rowClass = "row-delayed-alert";
+                    isDelayed = true;
+                }
+            }
+
+            let statusPill = "";
+            if (item.estado_crm.includes("Verde")) {
+                statusPill = `<span class="status-pill status-completada">Listo / Disponible</span>`;
+            } else if (item.estado_crm.includes("Amarillo")) {
+                statusPill = `<span class="status-pill status-pendiente">En Proceso</span>`;
+            } else {
+                statusPill = `<span class="status-pill status-alerta">Requiere Accion</span>`;
+            }
+
+            const facturaText = item.factura || item.id_pedido_erp || "";
+            const vendedorText = item.vendedor_nombre && item.vendedor_nombre !== item.vendedor_codigo ? `${item.vendedor_nombre} (${item.vendedor_codigo || ""})` : item.vendedor_codigo || item.vendedor_nombre || "";
+            const safeDateText = escapeHTML(orderDateText || "Sin fecha");
+            const dateDisplay = isDelayed ? `<span class="cell-delayed-text" title="Retraso critico: ${daysDelay} dias">${safeDateText} (${daysDelay}d)</span>` : safeDateText;
+            const safeComment = escapeHTML(item.estatus_compras);
+            const commentDisplay = isDelayed ? `<span class="cell-delayed-text">${safeComment}</span>` : safeComment;
+
+            const tr = document.createElement("tr");
+            if (rowClass) tr.className = rowClass;
+            tr.innerHTML = [
+                `<td>${escapeHTML(facturaText)}</td>`,
+                `<td>${dateDisplay}</td>`,
+                `<td>${escapeHTML(item.cliente_nombre)}</td>`,
+                `<td>${escapeHTML(vendedorText)}</td>`,
+                `<td><code>${escapeHTML(item.producto_sku)}</code></td>`,
+                `<td>${escapeHTML(item.producto_desc)}</td>`,
+                `<td>${escapeHTML(item.grupo)}</td>`,
+                `<td style="text-align: right; font-weight: 600;">${formatNumber(item.cantidad_pendiente || 0)}</td>`,
+                `<td>${escapeHTML(item.disponibilidad_vl06o)}</td>`,
+                `<td style="text-align: right;">${formatNumber(item.cantidad_disponible || 0)}</td>`,
+                `<td>${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
+                `<td style="text-align: right;">${item.dias_disponible ?? "-"}</td>`,
+                `<td>${escapeHTML(item.proveedor)}</td>`,
+                `<td>${commentDisplay}</td>`,
+                `<td>${escapeHTML(item.motivo_estado)}</td>`,
+                `<td>${statusPill}</td>`
+            ].join("");
+            DOM.tableSobrepedidos.appendChild(tr);
+        });
+
+        if (DOM.pagSobrepedidos) {
+            DOM.pagSobrepedidos.innerHTML = "";
+            if (totalPages > 1) {
+                const btnPrev = document.createElement("button");
+                btnPrev.className = "btn btn-secondary btn-sm";
+                btnPrev.disabled = state.spCurrentPage === 1;
+                btnPrev.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+                btnPrev.addEventListener("click", () => {
+                    state.spCurrentPage--;
+                    loadSobrepedidosData();
+                });
+
+                const spanInfo = document.createElement("span");
+                spanInfo.textContent = ` Pagina ${state.spCurrentPage} de ${totalPages} (Total: ${totalItems}) `;
+                spanInfo.style.margin = "0 10px";
+                spanInfo.style.fontSize = "13px";
+
+                const btnNext = document.createElement("button");
+                btnNext.className = "btn btn-secondary btn-sm";
+                btnNext.disabled = state.spCurrentPage === totalPages;
+                btnNext.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+                btnNext.addEventListener("click", () => {
+                    state.spCurrentPage++;
+                    loadSobrepedidosData();
+                });
+
+                DOM.pagSobrepedidos.appendChild(btnPrev);
+                DOM.pagSobrepedidos.appendChild(spanInfo);
+                DOM.pagSobrepedidos.appendChild(btnNext);
+            } else {
+                DOM.pagSobrepedidos.innerHTML = `<span style="font-size: 13px; color: hsl(var(--text-muted));">Mostrando todos los ${totalItems} registros</span>`;
+            }
+        }
+
+        [
+            { th: document.getElementById("th-sobrepedidos-pedido"), field: "pedido" },
+            { th: document.getElementById("th-sobrepedidos-sku"), field: "sku" },
+            { th: document.getElementById("th-sobrepedidos-cant"), field: "cant" },
+            { th: document.getElementById("th-sobrepedidos-fecha"), field: "fecha" }
+        ].forEach(item => {
+            if (item.th) {
+                const icon = item.th.querySelector("i");
+                if (icon) {
+                    icon.className = "fa-solid " + (state.spSortField === item.field ? (state.spSortDir === "asc" ? "fa-sort-up" : "fa-sort-down") : "fa-sort");
+                    icon.style.color = state.spSortField === item.field ? "#10b981" : "#6b7280";
+                }
+            }
+        });
+    } catch (e) {
+        console.error("Error loading sobrepedidos:", e);
+        DOM.tableSobrepedidos.innerHTML = `<tr><td colspan="16" style="text-align: center; color: #ef4444;">Error al cargar datos</td></tr>`;
     }
 }
 
@@ -6004,6 +6231,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (DOM.filterSobrepedidosProveedor) DOM.filterSobrepedidosProveedor.addEventListener('change', () => { state.spCurrentPage = 1; loadSobrepedidosData(); });
+    if (DOM.filterSobrepedidosVendedor) DOM.filterSobrepedidosVendedor.addEventListener('change', () => { state.spCurrentPage = 1; loadSobrepedidosData(); });
+    if (DOM.filterSobrepedidosGrupo) DOM.filterSobrepedidosGrupo.addEventListener('change', () => { state.spCurrentPage = 1; loadSobrepedidosData(); });
     if (DOM.filterSobrepedidosEstado) DOM.filterSobrepedidosEstado.addEventListener('change', () => { state.spCurrentPage = 1; loadSobrepedidosData(); });
     if (DOM.filterSobrepedidosSearch) DOM.filterSobrepedidosSearch.addEventListener('input', () => {
         clearTimeout(window.spSearchTimeout);
@@ -6012,6 +6241,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (DOM.btnClearSobrepedidosFilters) {
         DOM.btnClearSobrepedidosFilters.addEventListener('click', () => {
             if (DOM.filterSobrepedidosProveedor) DOM.filterSobrepedidosProveedor.value = 'todos';
+            if (DOM.filterSobrepedidosVendedor) DOM.filterSobrepedidosVendedor.value = 'todos';
+            if (DOM.filterSobrepedidosGrupo) DOM.filterSobrepedidosGrupo.value = 'todos';
             if (DOM.filterSobrepedidosEstado) DOM.filterSobrepedidosEstado.value = 'todos';
             if (DOM.filterSobrepedidosSearch) DOM.filterSobrepedidosSearch.value = '';
             state.spCurrentPage = 1;

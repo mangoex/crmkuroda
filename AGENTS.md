@@ -64,3 +64,19 @@ La aplicacion usa:
   - La copia local de `static/app.js` está limpia y sin modificaciones pendientes frente al repositorio remoto.
   - El archivo `update_inv.py` permanece en el directorio como archivo sin seguimiento (untracked). Contiene la lógica preliminar para ordenar y paginar el inventario, cuyos cambios ya están aplicados y confirmados en el repositorio oficial (`static/index.html` y `static/app.js`).
 - **Estado de la carpeta raíz del proyecto (`C:\Users\Miguel Gonzalez\Downloads\CRMK`):** Además del repositorio `crmkuroda`, contiene los archivos Excel de entrada (`Cotizaciones`, `Inventario`, `Promociones`) y la documentación del PRD y Plan de Arquitectura.
+
+## Estado observado el 2026-07-10
+
+- **Sincronizacion con GitHub:** `main` esta sincronizada con `origin/main` en el commit `d425b55` (`fix: declare missing DOM selectors for Sobrepedidos section`). Despues de `git fetch origin --prune`, no hay commits pendientes por bajar ni por subir.
+- **Cambios locales:** Solo aparece `update_inv.py` como archivo sin seguimiento. No modificarlo, borrarlo ni incluirlo en commits salvo instruccion explicita.
+- **Framework de trabajo validado:**
+  - **SDD:** Si existe como marco rector documental. El PRD declara `Spec-Driven Development (SDD)` y el Plan de Arquitectura funciona como constitucion tecnica. Antes de cambiar funcionalidad, contrastar contra esos documentos y, si la especificacion no cubre el cambio, proponer primero el ajuste de especificacion.
+  - **TDD:** No hay suite formal de pruebas Python (`tests/`, `pytest`, fixtures) en el repo. Existe validacion ligera de frontend con `test_jsdom.js` y scripts auxiliares de revision, pero no debe asumirse cobertura automatizada. Para cambios de backend o reglas de negocio, crear pruebas antes o junto con la implementacion cuando el alcance lo justifique.
+  - **BDD:** No hay estructura formal de escenarios (`features/`, Gherkin, behave/cucumber). Para flujos comerciales criticos, documentar criterios de aceptacion en formato Dado/Cuando/Entonces antes de implementar o validar manualmente.
+  - **SDK/API:** La app expone API REST con FastAPI, Pydantic v2 y SQLAlchemy async. La integracion LLM usa llamadas HTTP directas a OpenRouter desde `app/agents/llm.py`; no hay SDK oficial encapsulado como paquete interno. Cualquier nuevo cliente externo debe aislarse en una capa pequena y testeable antes de usarlo en rutas o agentes.
+- **Estructura real actual:** `app/core` centraliza configuracion, seguridad, scheduler y base de datos; `app/models` contiene ORM; `app/schemas` contiene contratos Pydantic; `app/api` y `app/api/v1` contienen rutas; `app/agents` contiene servicios agenticos; `static/` contiene HTML, JS y CSS del frontend; `alembic/` contiene migraciones.
+- **Desalineaciones a tener presentes:**
+  - El changelog dice que se elimino `Base.metadata.create_all()` del arranque, pero `app/main.py` todavia lo ejecuta despues de `python -m alembic upgrade head`.
+  - `app/core/config.py` conserva fallbacks sensibles de desarrollo (`SECRET_KEY`, `DATABASE_URL`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`). Produccion debe depender de variables de entorno.
+  - `CHANGELOG.md` indica limite de paginacion de 100 en cotizaciones, pero `app/api/v1/cotizaciones.py` permite `limit` hasta 50000.
+  - La validacion de firma de WhatsApp depende de `settings.META_APP_SECRET`, pero ese campo no existe actualmente en `Settings`; por tanto no debe asumirse proteccion activa de firma en produccion hasta corregir configuracion y entorno.

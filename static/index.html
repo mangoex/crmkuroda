@@ -723,18 +723,30 @@
                                 </select>
                             </div>
                             <div class="input-group">
+                                <label for="filter-sobrepedidos-vendedor" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Vendedor</label>
+                                <select id="filter-sobrepedidos-vendedor" class="form-control" style="width: 100%;">
+                                    <option value="todos">Todos</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="filter-sobrepedidos-grupo" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Grupo</label>
+                                <select id="filter-sobrepedidos-grupo" class="form-control" style="width: 100%;">
+                                    <option value="todos">Todos</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
                                 <label for="filter-sobrepedidos-estado" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Estatus CRM</label>
                                 <select id="filter-sobrepedidos-estado" class="form-control" style="width: 100%;">
                                     <option value="todos">Todos</option>
-                                    <option value="verde">Listo en Almacén (Verde)</option>
+                                    <option value="verde">Listo / Disponible (Verde)</option>
                                     <option value="amarillo">En Proceso (Amarillo)</option>
-                                    <option value="rojo">Alerta (Rojo)</option>
+                                    <option value="rojo">Requiere Acción (Rojo)</option>
                                 </select>
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1;">
-                                <label for="filter-sobrepedidos-search" style="font-size: 0.85rem; color: hsl(var(--text-secondary));"><i class="fa-solid fa-magnifying-glass"></i> Buscar pedido, cliente, SKU o descripción...</label>
+                                <label for="filter-sobrepedidos-search" style="font-size: 0.85rem; color: hsl(var(--text-secondary));"><i class="fa-solid fa-magnifying-glass"></i> Buscar factura, cliente, SKU o descripción...</label>
                                 <div style="display: flex; gap: 10px;">
-                                    <input type="text" id="filter-sobrepedidos-search" class="form-control" placeholder="Pedido, cliente, SKU o descripción..." style="flex-grow: 1;">
+                                    <input type="text" id="filter-sobrepedidos-search" class="form-control" placeholder="Factura, cliente, vendedor, SKU, proveedor o descripción..." style="flex-grow: 1;">
                                     <button type="button" id="btn-clear-sobrepedidos-filters" class="btn btn-secondary" title="Limpiar Filtros" style="display: flex; align-items: center; gap: 8px;">
                                         <i class="fa-solid fa-filter-circle-xmark"></i> Limpiar Filtros
                                     </button>
@@ -745,18 +757,24 @@
 
                     <!-- Sobrepedidos Table -->
                     <div class="glass-card table-container" style="overflow-x: auto;">
-                        <table class="data-table" id="table-sobrepedidos" style="min-width: 1200px;">
+                        <table class="data-table" id="table-sobrepedidos" style="min-width: 1700px;">
                             <thead>
                                 <tr>
-                                    <th id="th-sobrepedidos-pedido" style="cursor: pointer; user-select: none;">Pedido ERP <i class="fa-solid fa-sort" style="color: hsl(var(--text-secondary)); font-size: 11px; margin-left: 4px;"></i></th>
+                                    <th id="th-sobrepedidos-pedido" style="cursor: pointer; user-select: none;">Factura <i class="fa-solid fa-sort" style="color: hsl(var(--text-secondary)); font-size: 11px; margin-left: 4px;"></i></th>
+                                    <th id="th-sobrepedidos-fecha" style="cursor: pointer; user-select: none;">Fecha Venta <i class="fa-solid fa-sort" style="color: hsl(var(--text-secondary)); font-size: 11px; margin-left: 4px;"></i></th>
                                     <th>Cliente</th>
                                     <th>Vendedor</th>
                                     <th id="th-sobrepedidos-sku" style="cursor: pointer; user-select: none;">SKU <i class="fa-solid fa-sort" style="color: hsl(var(--text-secondary)); font-size: 11px; margin-left: 4px;"></i></th>
-                                    <th>Descripción</th>
+                                    <th>Producto</th>
+                                    <th>Grupo</th>
                                     <th id="th-sobrepedidos-cant" style="cursor: pointer; user-select: none;">Cant. Pendiente <i class="fa-solid fa-sort" style="color: hsl(var(--text-secondary)); font-size: 11px; margin-left: 4px;"></i></th>
-                                    <th id="th-sobrepedidos-fecha" style="cursor: pointer; user-select: none;">Fecha Pedido <i class="fa-solid fa-sort" style="color: hsl(var(--text-secondary)); font-size: 11px; margin-left: 4px;"></i></th>
+                                    <th>Disp. VL06O</th>
+                                    <th>Cant. Disp.</th>
+                                    <th>Fecha Disp.</th>
+                                    <th>Días Disp.</th>
                                     <th>Proveedor</th>
                                     <th>Comentarios SAP</th>
+                                    <th>Motivo</th>
                                     <th>Estatus CRM</th>
                                 </tr>
                             </thead>
