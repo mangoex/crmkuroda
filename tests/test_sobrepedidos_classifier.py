@@ -40,13 +40,13 @@ class SobrepedidosClassifierTest(unittest.TestCase):
 
         self.assertEqual(result.estado_crm, STATUS_RED)
 
-    def test_supplier_invoice_without_logistics_is_yellow(self):
+    def test_supplier_invoice_without_logistics_is_green(self):
         result = classify_sobrepedido(
             estatus_compras="Fac 2759894 07.07.2026",
             cantidad_pendiente=1,
         )
 
-        self.assertEqual(result.estado_crm, STATUS_YELLOW)
+        self.assertEqual(result.estado_crm, STATUS_GREEN)
 
     def test_no_purchase_info_without_logistics_is_red(self):
         result = classify_sobrepedido(

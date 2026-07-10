@@ -123,10 +123,11 @@ Los colores deben tener significado controlado y auditable:
 
 ### Verde - Listo / disponible
 
-Usar verde solo cuando exista evidencia directa de disponibilidad para la misma linea:
+Usar verde cuando exista evidencia directa de disponibilidad o compras ya reporte factura de proveedor:
 
 - Coincidencia por `Factura + Codigo` entre `VA05` y `VL06O`, y
 - `Cantidad a Entregar` en VL06O mayor o igual a `Cantidad Pendiente` en VA05.
+- `Estatus Compras` contiene `Fac ...`.
 
 Si hay coincidencia por `Factura + Codigo`, pero la cantidad disponible es menor que la pendiente, usar amarillo y mostrar disponible parcial.
 
@@ -135,7 +136,6 @@ Si hay coincidencia por `Factura + Codigo`, pero la cantidad disponible es menor
 Usar amarillo cuando hay avance documentado, pero todavia no hay evidencia completa de disponibilidad:
 
 - `Estatus Compras` contiene `Confirmacion`.
-- `Estatus Compras` contiene `Fac`.
 - `Estatus Compras` contiene `Back order` con fecha aproximada o comentario de seguimiento.
 - Existe coincidencia parcial en `VL06O`, pero no a nivel `Factura + Codigo` o no cubre la cantidad completa.
 

@@ -1427,7 +1427,7 @@ async function loadSobrepedidosData(forceRefresh = false) {
             if (rowClass) tr.className = rowClass;
             
             const facturaText = item.factura || item.id_pedido_erp || "";
-            const vendedorText = item.vendedor_nombre && item.vendedor_nombre !== item.vendedor_codigo ? `${item.vendedor_nombre} (${item.vendedor_codigo || ""})` : item.vendedor_codigo || item.vendedor_nombre || "";
+            const vendedorText = item.vendedor_codigo || item.vendedor_nombre || "";
             const cellPedido = `<td>${escapeHTML(facturaText)}</td>`;
             const cellCliente = `<td>${escapeHTML(item.cliente_nombre)}</td>`;
             const cellVendedor = `<td>${escapeHTML(vendedorText)}</td>`;
@@ -1643,7 +1643,7 @@ async function loadSobrepedidosData(forceRefresh = false) {
             }
 
             const facturaText = item.factura || item.id_pedido_erp || "";
-            const vendedorText = item.vendedor_nombre && item.vendedor_nombre !== item.vendedor_codigo ? `${item.vendedor_nombre} (${item.vendedor_codigo || ""})` : item.vendedor_codigo || item.vendedor_nombre || "";
+            const vendedorText = item.vendedor_codigo || item.vendedor_nombre || "";
             const safeDateText = escapeHTML(orderDateText || "Sin fecha");
             const dateDisplay = isDelayed ? `<span class="cell-delayed-text" title="Retraso critico: ${daysDelay} dias">${safeDateText} (${daysDelay}d)</span>` : safeDateText;
             const safeComment = escapeHTML(item.estatus_compras);

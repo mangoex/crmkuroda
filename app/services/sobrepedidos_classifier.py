@@ -46,6 +46,12 @@ def classify_sobrepedido(
             "Coincidencia exacta Factura + Codigo en VL06O con disponibilidad parcial.",
         )
 
+    if comentario_lower.startswith("fac") or " factura" in comentario_lower:
+        return SobrepedidoStatus(
+            STATUS_GREEN,
+            "Compras reporta factura de proveedor; se considera listo para seguimiento de entrega.",
+        )
+
     if "sin fecha" in comentario_lower:
         return SobrepedidoStatus(
             STATUS_RED,
@@ -67,12 +73,6 @@ def classify_sobrepedido(
         return SobrepedidoStatus(
             STATUS_YELLOW,
             "La factura aparece en VL06O, pero no coincide el Codigo de esta linea.",
-        )
-
-    if comentario_lower.startswith("fac") or " factura" in comentario_lower:
-        return SobrepedidoStatus(
-            STATUS_YELLOW,
-            "Compras reporta factura de proveedor, pendiente de validar disponibilidad en VL06O.",
         )
 
     if "back order" in comentario_lower:
