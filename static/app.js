@@ -1,3 +1,48 @@
+
+// --- UNIFIED PAGINATION CONTROLS ---
+function createPaginationControls(stateKey, totalItems, onPageChange, pageSize = 25) {
+    const totalPages = Math.ceil(totalItems / pageSize) || 1;
+    if (window.state[stateKey] === undefined) window.state[stateKey] = 1;
+    if (window.state[stateKey] > totalPages && totalPages > 0) window.state[stateKey] = totalPages;
+    if (window.state[stateKey] < 1) window.state[stateKey] = 1;
+    
+    const current = window.state[stateKey];
+    const startIndex = (current - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    
+    let html = '';
+    if (totalItems > pageSize) {
+        html = `
+            <div style="display: flex; gap: 10px; align-items: center; justify-content: center; margin-top: 15px; width: 100%; padding: 10px 0;">
+                <button class="btn btn-secondary btn-sm" id="btn-pag-first-${stateKey}" ${current === 1 ? 'disabled' : ''}><i class="fa-solid fa-angles-left"></i> Inicio</button>
+                <button class="btn btn-secondary btn-sm" id="btn-pag-prev-${stateKey}" ${current === 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i> Anterior</button>
+                <span style="font-size: 13px; font-weight: bold; padding: 0 10px;">Pág ${current} de ${totalPages}</span>
+                <button class="btn btn-secondary btn-sm" id="btn-pag-next-${stateKey}" ${current >= totalPages ? 'disabled' : ''}>Siguiente <i class="fa-solid fa-chevron-right"></i></button>
+                <button class="btn btn-secondary btn-sm" id="btn-pag-last-${stateKey}" ${current >= totalPages ? 'disabled' : ''}>Final <i class="fa-solid fa-angles-right"></i></button>
+            </div>
+        `;
+    }
+    
+    const bindEvents = () => {
+        const btnFirst = document.getElementById(`btn-pag-first-${stateKey}`);
+        const btnPrev = document.getElementById(`btn-pag-prev-${stateKey}`);
+        const btnNext = document.getElementById(`btn-pag-next-${stateKey}`);
+        const btnLast = document.getElementById(`btn-pag-last-${stateKey}`);
+        
+        if (btnFirst) btnFirst.addEventListener("click", () => { window.state[stateKey] = 1; onPageChange(); });
+        if (btnPrev) btnPrev.addEventListener("click", () => { window.state[stateKey]--; onPageChange(); });
+        if (btnNext) btnNext.addEventListener("click", () => { window.state[stateKey]++; onPageChange(); });
+        if (btnLast) btnLast.addEventListener("click", () => { window.state[stateKey] = totalPages; onPageChange(); });
+    };
+    
+    return {
+        startIndex,
+        endIndex,
+        html,
+        bindEvents
+    };
+}
+
 /* ==========================================================================
    APPLICATION LOGIC - CRM KURODA SPA
    ========================================================================== */
@@ -1241,12 +1286,8 @@ async function loadInventarioAbcfData(forceRefresh = false) {
 
         // --- PAGINATION LOGIC ---
         const totalItems = inventario.length;
-        const totalPages = Math.ceil(totalItems / 50);
-        if (state.invCurrentPage > totalPages && totalPages > 0) state.invCurrentPage = totalPages;
-        if (state.invCurrentPage < 1) state.invCurrentPage = 1;
-
-        const startIdx = (state.invCurrentPage - 1) * 50;
-        const pageItems = inventario.slice(startIdx, startIdx + 50);
+        const pag = createPaginationControls('invCurrentPage', totalItems, loadInventarioAbcfData, 25);
+        const pageItems = inventario.slice(pag.startIndex, pag.endIndex);
         
         pageItems.forEach(i => {
             const tr = document.createElement("tr");
@@ -1278,25 +1319,9 @@ async function loadInventarioAbcfData(forceRefresh = false) {
 
         // Basic pagination info
         if(DOM.pagInventarioAbcf) {
-            let pagHtml = `<span>Mostrando ${startIdx + 1} - ${Math.min(startIdx + 50, totalItems)} de ${totalItems} registros</span>`;
-            if (totalItems > 50) {
-                pagHtml += `
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <button class="btn btn-secondary btn-sm" id="btn-inv-prev" ${state.invCurrentPage === 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i> Ant. 50</button>
-                        <span style="font-size: 12px; font-weight: bold; padding: 0 10px;">Pág ${state.invCurrentPage} de ${totalPages || 1}</span>
-                        <button class="btn btn-secondary btn-sm" id="btn-inv-next" ${state.invCurrentPage >= totalPages ? 'disabled' : ''}>Sig. 50 <i class="fa-solid fa-chevron-right"></i></button>
-                    </div>
-                `;
-            }
-            DOM.pagInventarioAbcf.innerHTML = pagHtml;
-            DOM.pagInventarioAbcf.style.display = 'flex';
-            DOM.pagInventarioAbcf.style.justifyContent = 'space-between';
-            DOM.pagInventarioAbcf.style.alignItems = 'center';
-
-            const btnPrev = document.getElementById("btn-inv-prev");
-            const btnNext = document.getElementById("btn-inv-next");
-            if (btnPrev) btnPrev.addEventListener("click", () => { state.invCurrentPage--; loadInventarioAbcfData(); });
-            if (btnNext) btnNext.addEventListener("click", () => { state.invCurrentPage++; loadInventarioAbcfData(); });
+            DOM.pagInventarioAbcf.innerHTML = `<span style="display:block;margin-bottom:10px;">Mostrando ${pag.startIndex + 1} - ${Math.min(pag.endIndex, totalItems)} de ${totalItems} registros</span>` + pag.html;
+            DOM.pagInventarioAbcf.style.display = 'block';
+            pag.bindEvents();
         }
         
         // UPDATE HEADERS UI
@@ -1415,13 +1440,8 @@ async function loadSobrepedidosData(forceRefresh = false) {
 
         // --- PAGINATION ---
         const totalItems = records.length;
-        const itemsPerPage = 50;
-        const totalPages = Math.ceil(totalItems / itemsPerPage);
-        if (state.spCurrentPage > totalPages && totalPages > 0) state.spCurrentPage = totalPages;
-        if (state.spCurrentPage < 1) state.spCurrentPage = 1;
-
-        const startIdx = (state.spCurrentPage - 1) * itemsPerPage;
-        const pageItems = records.slice(startIdx, startIdx + itemsPerPage);
+        const pag = createPaginationControls('spCurrentPage', totalItems, loadSobrepedidosData, 25);
+        const pageItems = records.slice(pag.startIndex, pag.endIndex);
         
         // Render rows
         const today = new Date();
@@ -1484,37 +1504,9 @@ async function loadSobrepedidosData(forceRefresh = false) {
 
         // Render Pagination UI
         if (DOM.pagSobrepedidos) {
-            DOM.pagSobrepedidos.innerHTML = "";
-            if (totalPages > 1) {
-                const btnPrev = document.createElement("button");
-                btnPrev.className = "btn btn-secondary btn-sm";
-                btnPrev.disabled = state.spCurrentPage === 1;
-                btnPrev.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
-                btnPrev.addEventListener("click", () => {
-                    state.spCurrentPage--;
-                    loadSobrepedidosData();
-                });
-                
-                const spanInfo = document.createElement("span");
-                spanInfo.textContent = ` Página ${state.spCurrentPage} de ${totalPages} (Total: ${totalItems}) `;
-                spanInfo.style.margin = "0 10px";
-                spanInfo.style.fontSize = "13px";
-                
-                const btnNext = document.createElement("button");
-                btnNext.className = "btn btn-secondary btn-sm";
-                btnNext.disabled = state.spCurrentPage === totalPages;
-                btnNext.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
-                btnNext.addEventListener("click", () => {
-                    state.spCurrentPage++;
-                    loadSobrepedidosData();
-                });
-                
-                DOM.pagSobrepedidos.appendChild(btnPrev);
-                DOM.pagSobrepedidos.appendChild(spanInfo);
-                DOM.pagSobrepedidos.appendChild(btnNext);
-            } else {
-                DOM.pagSobrepedidos.innerHTML = `<span style="font-size: 13px; color: hsl(var(--text-muted));">Mostrando todos los ${totalItems} registros</span>`;
-            }
+            DOM.pagSobrepedidos.innerHTML = `<span style="display:block;margin-bottom:10px;">Mostrando ${pag.startIndex + 1} - ${Math.min(pag.endIndex, totalItems)} de ${totalItems} registros</span>` + pag.html;
+            DOM.pagSobrepedidos.style.display = 'block';
+            pag.bindEvents();
         }
         
         // Update header sorting icons
@@ -1861,13 +1853,8 @@ async function loadPorEntregarData(forceRefresh = false) {
         records.sort((a, b) => Number(b.dias_disponible || 0) - Number(a.dias_disponible || 0));
 
         const totalItems = records.length;
-        const itemsPerPage = 50;
-        const totalPages = Math.ceil(totalItems / itemsPerPage);
-        if (state.peCurrentPage > totalPages && totalPages > 0) state.peCurrentPage = totalPages;
-        if (state.peCurrentPage < 1) state.peCurrentPage = 1;
-
-        const startIdx = (state.peCurrentPage - 1) * itemsPerPage;
-        const pageItems = records.slice(startIdx, startIdx + itemsPerPage);
+        const pag = createPaginationControls('peCurrentPage', totalItems, loadPorEntregarData, 25);
+        const pageItems = records.slice(pag.startIndex, pag.endIndex);
 
         pageItems.forEach(item => {
             let statusPill = "";
@@ -2105,10 +2092,15 @@ async function loadPromocionesData(forceRefresh = false) {
         DOM.tablePromociones.innerHTML = "";
         if (promociones.length === 0) {
             DOM.tablePromociones.innerHTML = `<tr><td colspan="10" style="text-align: center;">No se encontraron promociones cargadas.</td></tr>`;
+            if (DOM.pagPromociones) DOM.pagPromociones.innerHTML = "";
             return;
         }
         
-        promociones.forEach(p => {
+        const totalItems = promociones.length;
+        const pag = createPaginationControls('promoCurrentPage', totalItems, loadPromocionesData, 25);
+        const pageItems = promociones.slice(pag.startIndex, pag.endIndex);
+        
+        pageItems.forEach(p => {
             const tr = document.createElement("tr");
             const imageSearchUrl = buildProductImageSearchUrl(p);
             let isActive = true;
@@ -2138,6 +2130,12 @@ async function loadPromocionesData(forceRefresh = false) {
             `;
             DOM.tablePromociones.appendChild(tr);
         });
+        
+        if (DOM.pagPromociones) {
+            DOM.pagPromociones.innerHTML = `<span style="display:block;margin-bottom:10px;">Mostrando ${pag.startIndex + 1} - ${Math.min(pag.endIndex, totalItems)} de ${totalItems} registros</span>` + pag.html;
+            DOM.pagPromociones.style.display = 'block';
+            pag.bindEvents();
+        }
     } catch (e) {
         showToast("Error cargando promociones: " + e.message, "error");
     }
@@ -2854,26 +2852,15 @@ function renderQuotesTableFiltered() {
     
     // Set up pagination
     const totalItems = filteredQuotes.length;
-    const pageSize = state.quotesPageSize || 15;
-    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-    
-    // Correct current page if out of bounds
-    if (state.quotesCurrentPage > totalPages) {
-        state.quotesCurrentPage = totalPages;
-    }
-    if (state.quotesCurrentPage < 1) {
-        state.quotesCurrentPage = 1;
-    }
-    
-    const startIndex = (state.quotesCurrentPage - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    const pageQuotes = filteredQuotes.slice(startIndex, endIndex);
+    const pag = createPaginationControls('quotesCurrentPage', totalItems, renderQuotesTableFiltered, 25);
+    const pageQuotes = filteredQuotes.slice(pag.startIndex, pag.endIndex);
+    const totalPages = Math.max(1, Math.ceil(totalItems / 25)); // keeping this variable for heatmap compatibility if needed
     
     if (DOM.tableCotizaciones) {
         DOM.tableCotizaciones.innerHTML = "";
         if (pageQuotes.length === 0) {
             DOM.tableCotizaciones.innerHTML = `<tr><td colspan="10" style="text-align: center;">No hay cotizaciones registradas con los filtros seleccionados.</td></tr>`;
-            renderPagination(totalPages);
+            if (DOM.pagCotizaciones) { DOM.pagCotizaciones.innerHTML = pag.html; pag.bindEvents(); }
             return;
         }
         
@@ -2922,7 +2909,7 @@ function renderQuotesTableFiltered() {
         });
     }
     
-    renderPagination(totalPages);
+    if (DOM.pagCotizaciones) { DOM.pagCotizaciones.innerHTML = pag.html; pag.bindEvents(); }
 }
 
 
