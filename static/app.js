@@ -1922,7 +1922,14 @@ async function loadPorEntregarData(forceRefresh = false) {
         }
 
         if (state.peCurrentPage === undefined) state.peCurrentPage = 1;
-        records.sort((a, b) => Number(b.dias_disponible || 0) - Number(a.dias_disponible || 0));
+        if (state.peDiasSort === undefined) state.peDiasSort = 'desc';
+
+        // Sort by dias_disponible based on current state
+        records.sort((a, b) => {
+            const va = Number(a.dias_disponible || 0);
+            const vb = Number(b.dias_disponible || 0);
+            return state.peDiasSort === 'asc' ? va - vb : vb - va;
+        });
 
         const totalItems = records.length;
         const pag = createPaginationControls('peCurrentPage', totalItems, loadPorEntregarData, 25);
@@ -1948,12 +1955,19 @@ async function loadPorEntregarData(forceRefresh = false) {
                 `<td>${escapeHTML(item.numero_cliente)}</td>`,
                 `<td>${escapeHTML(item.cliente_nombre)}</td>`,
                 `<td>${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
-                `<td style="text-align: right;">${item.dias_disponible ?? "-"}</td>`,
+                `<td style="text-align: right; font-weight: 600;">${item.dias_disponible ?? "-"}</td>`,
                 `<td>${escapeHTML(item.motivo_estado)}</td>`,
                 `<td>${statusPill}</td>`
             ].join("");
             DOM.tablePorEntregar.appendChild(tr);
         });
+
+        // Update sort icon on Días disponible header
+        const iconDias = document.getElementById('icon-pe-dias');
+        if (iconDias) {
+            iconDias.className = 'fa-solid ' + (state.peDiasSort === 'asc' ? 'fa-sort-up' : 'fa-sort-down');
+            iconDias.style.color = '#10b981';
+        }
 
         if (DOM.pagPorEntregar) {
             DOM.pagPorEntregar.innerHTML = `<span style="display:block;margin-bottom:10px;">Mostrando ${pag.startIndex + 1} - ${Math.min(pag.endIndex, totalItems)} de ${totalItems} registros</span>` + pag.html;
@@ -6485,6 +6499,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if (DOM.filterPorEntregarVendedor) DOM.filterPorEntregarVendedor.addEventListener('change', () => { state.peCurrentPage = 1; loadPorEntregarData(); });
     if (DOM.filterPorEntregarEstado) DOM.filterPorEntregarEstado.addEventListener('change', () => { state.peCurrentPage = 1; loadPorEntregarData(); });
+    // Sort by Días disponible
+    const thPeDias = document.getElementById('th-pe-dias');
+    if (thPeDias) {
+        thPeDias.addEventListener('click', () => {
+            state.peDiasSort = (state.peDiasSort === 'desc') ? 'asc' : 'desc';
+            state.peCurrentPage = 1;
+            loadPorEntregarData();
+        });
+    }
     if (DOM.filterPorEntregarSearch) DOM.filterPorEntregarSearch.addEventListener('input', () => {
         clearTimeout(window.peSearchTimeout);
         window.peSearchTimeout = setTimeout(() => { state.peCurrentPage = 1; loadPorEntregarData(); }, 300);
