@@ -1884,37 +1884,9 @@ async function loadPorEntregarData(forceRefresh = false) {
         });
 
         if (DOM.pagPorEntregar) {
-            DOM.pagPorEntregar.innerHTML = "";
-            if (totalPages > 1) {
-                const btnPrev = document.createElement("button");
-                btnPrev.className = "btn btn-secondary btn-sm";
-                btnPrev.disabled = state.peCurrentPage === 1;
-                btnPrev.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
-                btnPrev.addEventListener("click", () => {
-                    state.peCurrentPage--;
-                    loadPorEntregarData();
-                });
-
-                const spanInfo = document.createElement("span");
-                spanInfo.textContent = ` Pagina ${state.peCurrentPage} de ${totalPages} (Total: ${totalItems}) `;
-                spanInfo.style.margin = "0 10px";
-                spanInfo.style.fontSize = "13px";
-
-                const btnNext = document.createElement("button");
-                btnNext.className = "btn btn-secondary btn-sm";
-                btnNext.disabled = state.peCurrentPage === totalPages;
-                btnNext.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
-                btnNext.addEventListener("click", () => {
-                    state.peCurrentPage++;
-                    loadPorEntregarData();
-                });
-
-                DOM.pagPorEntregar.appendChild(btnPrev);
-                DOM.pagPorEntregar.appendChild(spanInfo);
-                DOM.pagPorEntregar.appendChild(btnNext);
-            } else {
-                DOM.pagPorEntregar.innerHTML = `<span style="font-size: 13px; color: hsl(var(--text-muted));">Mostrando todos los ${totalItems} registros</span>`;
-            }
+            DOM.pagPorEntregar.innerHTML = `<span style="display:block;margin-bottom:10px;">Mostrando ${pag.startIndex + 1} - ${Math.min(pag.endIndex, totalItems)} de ${totalItems} registros</span>` + pag.html;
+            DOM.pagPorEntregar.style.display = 'block';
+            pag.bindEvents();
         }
     } catch (e) {
         console.error("Error loading por entregar:", e);
