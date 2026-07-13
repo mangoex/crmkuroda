@@ -490,6 +490,26 @@
                         </div>
                     </div>
 
+                    <!-- Inventario D KPI Boxes -->
+                    <div style="margin-bottom: 24px;">
+                        <!-- Por Categoría -->
+                        <div style="margin-bottom: 14px;">
+                            <h4 style="font-size: 0.9rem; color: hsl(var(--text-secondary)); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-layer-group" style="color: #a78bfa;"></i> Inventario por Categoría
+                                <span style="font-size: 0.75rem; font-weight: 400; color: hsl(var(--text-muted));">Top 3 por cantidad en stock. Clic para filtrar.</span>
+                            </h4>
+                            <div id="inv-kpi-categorias" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; max-width: 900px;"></div>
+                        </div>
+                        <!-- Por Proveedor -->
+                        <div>
+                            <h4 style="font-size: 0.9rem; color: hsl(var(--text-secondary)); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-truck" style="color: #38bdf8;"></i> Inventario por Proveedor
+                                <span style="font-size: 0.75rem; font-weight: 400; color: hsl(var(--text-muted));">Top 3 proveedores. Clic para filtrar.</span>
+                            </h4>
+                            <div id="inv-kpi-proveedores" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; max-width: 900px;"></div>
+                        </div>
+                    </div>
+
                     <!-- Upload and Filter panel -->
                     <div class="glass-card filters-card margin-bottom" style="padding: 20px;">
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; align-items: end;">
@@ -2048,6 +2068,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.36"></script>
+    <script src="/static/app.js?v=1.0.37"></script>
 </body>
 </html>

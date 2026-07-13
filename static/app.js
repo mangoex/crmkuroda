@@ -188,6 +188,8 @@ const DOM = {
     pagInventarioAbcf: document.getElementById("pag-inventario-abcf"),
     fileInventarioAbcf: document.getElementById("file-inventario-abcf"),
     lastUploadInventarioAbcf: document.getElementById("last-upload-inventario-abcf"),
+    invKpiCategorias: document.getElementById("inv-kpi-categorias"),
+    invKpiProveedores: document.getElementById("inv-kpi-proveedores"),
 
     // Cotizaciones Section
     btnGenerateQuoteModal: document.getElementById("btn-generate-quote-modal"),
@@ -1185,7 +1187,77 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         }
         
         let inventario = [...state.inventario_abcf];
-        
+
+        // --- KPI CARDS: Top 3 Categories & Top 3 Providers (based on full dataset, before filters) ---
+        // Only rebuild KPI cards once (when no filter is active or on force refresh)
+        if (DOM.invKpiCategorias && DOM.invKpiProveedores) {
+            const allItems = state.inventario_abcf;
+
+            // Build category map
+            const catMap = {};
+            allItems.forEach(i => {
+                const cat = i.descrip_gpo_materiales || "Sin Categoría";
+                if (!catMap[cat]) catMap[cat] = { count: 0, stock: 0 };
+                catMap[cat].count++;
+                catMap[cat].stock += (i.cantidad_propia || 0);
+            });
+            const topCats = Object.entries(catMap)
+                .sort((a, b) => b[1].stock - a[1].stock)
+                .slice(0, 3);
+
+            // Build provider map
+            const provMap = {};
+            allItems.forEach(i => {
+                const prov = i.nombre_proveedor || "Sin Proveedor";
+                if (!provMap[prov]) provMap[prov] = { count: 0, stock: 0 };
+                provMap[prov].count++;
+                provMap[prov].stock += (i.cantidad_propia || 0);
+            });
+            const topProvs = Object.entries(provMap)
+                .sort((a, b) => b[1].stock - a[1].stock)
+                .slice(0, 3);
+
+            const catColors = ['#a78bfa', '#818cf8', '#c084fc'];
+            const provColors = ['#38bdf8', '#22d3ee', '#34d399'];
+
+            DOM.invKpiCategorias.innerHTML = topCats.map(([name, data], i) => `
+                <div class="glass-card kpi-card animate-fade-in" style="animation-delay: ${i * 0.1}s; border-radius: 12px; border-left: 4px solid ${catColors[i]}; cursor: pointer; transition: all 0.2s ease;"
+                    onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 6px 20px rgba(167,139,250,0.2)';"
+                    onmouseout="this.style.transform='none'; this.style.boxShadow='none';"
+                    onclick="(function(){
+                        const sel = document.getElementById('filter-inv-search');
+                        if(sel){ sel.value = '${escapeHTML(name).replace(/'/g, "\\'").replace(/"/g, '&quot;')}'; sel.dispatchEvent(new Event('input')); }
+                    })()" title="Filtrar por ${escapeHTML(name)}">
+                    <div class="kpi-icon" style="background: rgba(167,139,250,0.15); color: ${catColors[i]}; font-size: 1.2rem;">
+                        <i class="fa-solid fa-layer-group"></i>
+                    </div>
+                    <div class="kpi-data" style="width: calc(100% - 60px);">
+                        <h3 style="font-size: 12px; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;" title="${escapeHTML(name)}">${escapeHTML(name)}</h3>
+                        <p style="font-size: 20px; font-weight: 700; color: ${catColors[i]}; margin-bottom: 2px;">${data.stock.toLocaleString('es-MX')} <span style="font-size: 11px; color: hsl(var(--text-secondary)); font-weight: normal;">piezas</span></p>
+                        <span style="font-size: 11px; color: hsl(var(--text-muted));"><i class="fa-solid fa-box"></i> ${data.count} productos</span>
+                    </div>
+                </div>`).join('');
+
+            DOM.invKpiProveedores.innerHTML = topProvs.map(([name, data], i) => `
+                <div class="glass-card kpi-card animate-fade-in" style="animation-delay: ${(i + 3) * 0.1}s; border-radius: 12px; border-left: 4px solid ${provColors[i]}; cursor: pointer; transition: all 0.2s ease;"
+                    onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 6px 20px rgba(56,189,248,0.2)';"
+                    onmouseout="this.style.transform='none'; this.style.boxShadow='none';"
+                    onclick="(function(){
+                        const sel = document.getElementById('filter-inv-proveedor');
+                        if(sel){ sel.value = '${escapeHTML(name).replace(/'/g, "\\'").replace(/"/g, '&quot;')}'; sel.dispatchEvent(new Event('change')); }
+                    })()" title="Filtrar por ${escapeHTML(name)}">
+                    <div class="kpi-icon" style="background: rgba(56,189,248,0.15); color: ${provColors[i]}; font-size: 1.2rem;">
+                        <i class="fa-solid fa-truck"></i>
+                    </div>
+                    <div class="kpi-data" style="width: calc(100% - 60px);">
+                        <h3 style="font-size: 12px; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;" title="${escapeHTML(name)}">${escapeHTML(name)}</h3>
+                        <p style="font-size: 20px; font-weight: 700; color: ${provColors[i]}; margin-bottom: 2px;">${data.stock.toLocaleString('es-MX')} <span style="font-size: 11px; color: hsl(var(--text-secondary)); font-weight: normal;">piezas</span></p>
+                        <span style="font-size: 11px; color: hsl(var(--text-muted));"><i class="fa-solid fa-cubes"></i> ${data.count} productos</span>
+                    </div>
+                </div>`).join('');
+        }
+        // ----------------------------------------------------------
+
         // Populate Selects if empty
         if (DOM.filterInvSucursal && DOM.filterInvSucursal.options.length <= 1) {
             const currentSuc = DOM.filterInvSucursal.value;
