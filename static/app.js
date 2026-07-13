@@ -2,11 +2,11 @@
 // --- UNIFIED PAGINATION CONTROLS ---
 function createPaginationControls(stateKey, totalItems, onPageChange, pageSize = 25) {
     const totalPages = Math.ceil(totalItems / pageSize) || 1;
-    if (window.state[stateKey] === undefined) window.state[stateKey] = 1;
-    if (window.state[stateKey] > totalPages && totalPages > 0) window.state[stateKey] = totalPages;
-    if (window.state[stateKey] < 1) window.state[stateKey] = 1;
+    if (state[stateKey] === undefined) state[stateKey] = 1;
+    if (state[stateKey] > totalPages && totalPages > 0) state[stateKey] = totalPages;
+    if (state[stateKey] < 1) state[stateKey] = 1;
     
-    const current = window.state[stateKey];
+    const current = state[stateKey];
     const startIndex = (current - 1) * pageSize;
     const endIndex = startIndex + pageSize;
     
@@ -16,7 +16,7 @@ function createPaginationControls(stateKey, totalItems, onPageChange, pageSize =
             <div style="display: flex; gap: 10px; align-items: center; justify-content: center; margin-top: 15px; width: 100%; padding: 10px 0;">
                 <button class="btn btn-secondary btn-sm" id="btn-pag-first-${stateKey}" ${current === 1 ? 'disabled' : ''}><i class="fa-solid fa-angles-left"></i> Inicio</button>
                 <button class="btn btn-secondary btn-sm" id="btn-pag-prev-${stateKey}" ${current === 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i> Anterior</button>
-                <span style="font-size: 13px; font-weight: bold; padding: 0 10px;">Pág ${current} de ${totalPages}</span>
+                <span style="font-size: 13px; font-weight: bold; padding: 0 10px;">Página ${current} de ${totalPages}</span>
                 <button class="btn btn-secondary btn-sm" id="btn-pag-next-${stateKey}" ${current >= totalPages ? 'disabled' : ''}>Siguiente <i class="fa-solid fa-chevron-right"></i></button>
                 <button class="btn btn-secondary btn-sm" id="btn-pag-last-${stateKey}" ${current >= totalPages ? 'disabled' : ''}>Final <i class="fa-solid fa-angles-right"></i></button>
             </div>
@@ -29,10 +29,10 @@ function createPaginationControls(stateKey, totalItems, onPageChange, pageSize =
         const btnNext = document.getElementById(`btn-pag-next-${stateKey}`);
         const btnLast = document.getElementById(`btn-pag-last-${stateKey}`);
         
-        if (btnFirst) btnFirst.addEventListener("click", () => { window.state[stateKey] = 1; onPageChange(); });
-        if (btnPrev) btnPrev.addEventListener("click", () => { window.state[stateKey]--; onPageChange(); });
-        if (btnNext) btnNext.addEventListener("click", () => { window.state[stateKey]++; onPageChange(); });
-        if (btnLast) btnLast.addEventListener("click", () => { window.state[stateKey] = totalPages; onPageChange(); });
+        if (btnFirst) btnFirst.addEventListener("click", () => { state[stateKey] = 1; onPageChange(); });
+        if (btnPrev) btnPrev.addEventListener("click", () => { state[stateKey]--; onPageChange(); });
+        if (btnNext) btnNext.addEventListener("click", () => { state[stateKey]++; onPageChange(); });
+        if (btnLast) btnLast.addEventListener("click", () => { state[stateKey] = totalPages; onPageChange(); });
     };
     
     return {
