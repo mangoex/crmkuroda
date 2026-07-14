@@ -177,11 +177,11 @@ async def create_vendedor(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(require_admin_or_gerente)
 ):
-    """Allows administrators or managers to register new user accounts (vendedor, gerente, admin)."""
-    if seller_in.rol not in ["vendedor", "gerente", "admin"]:
+    """Allows administrators or managers to register new user accounts (vendedor, gerente, admin, soporte)."""
+    if seller_in.rol not in ["vendedor", "gerente", "admin", "soporte"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Rol de usuario no válido. Debe ser admin, gerente o vendedor."
+            detail="Rol de usuario no válido. Debe ser admin, gerente, vendedor o soporte."
         )
 
     # Check for email duplicate

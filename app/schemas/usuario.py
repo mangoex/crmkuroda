@@ -4,7 +4,7 @@ from uuid import UUID
 
 class UsuarioBase(BaseModel):
     email: EmailStr
-    rol: str = Field(description="Rol del usuario: admin, gerente, vendedor")
+    rol: str = Field(description="Rol del usuario: admin, gerente, vendedor, soporte")
     telefono_whatsapp: Optional[str] = Field(default=None, description="Número de teléfono de WhatsApp (ej. +521234567890)")
     codigo_vendedor: Optional[str] = Field(default=None, description="Código de vendedor (ej. C01)")
     nombre_completo: Optional[str] = Field(default=None, description="Nombre completo del vendedor")

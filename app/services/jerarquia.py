@@ -5,7 +5,7 @@ cada modulo (cotizaciones, sobrepedidos, por_entregar, asignaciones) aplique
 el filtro de forma consistente.
 
 Convención:
-  - admin/gerente ven a TODOS los vendedores.
+  - admin/gerente/soporte ven a TODOS los vendedores (sin restricción).
   - Un vendedor sin padre ni hijos se ve solo a sí mismo.
   - Un vendedor-padre se ve a sí mismo + sus hijos directos.
 
@@ -31,11 +31,13 @@ async def get_vendedores_visibles(
 ) -> Tuple[List[UUID], List[str]]:
     """Devuelve (ids, codigos) de los vendedores que current_user puede ver.
 
-    - admin/gerente: None, None  (señal de "sin restricción": el caller no filtra).
+    - admin/gerente/soporte: None, None  (señal de "sin restricción": el caller no filtra).
     - vendedor: [propio_id, *hijos_ids], [propio_codigo, *hijos_codigos].
     """
-    # Admin/gerente no tienen restricción por vendedor
-    if current_user.rol in ("admin", "gerente"):
+    # Admin/gerente/soporte no tienen restricción por vendedor.
+    # Soporte ve todos los registros de sobrepedidos/por-entregar (acceso de
+    # solo lectura a esas secciones, sin codigo_vendedor propio).
+    if current_user.rol in ("admin", "gerente", "soporte"):
         return None, None
 
     # Vendedor: propio + hijos directos

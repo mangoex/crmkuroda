@@ -91,6 +91,13 @@ const state = {
     }
 };
 
+// Mapa rol -> secciones permitidas en el menú lateral y la navegación móvil.
+// null/undefined = sin restricción (rol ve todas las secciones).
+// Se usa tanto en initSession() (visibilidad) como en switchSection() (guard).
+const ALLOWED_SECTIONS_BY_ROLE = {
+    soporte: ["summary", "promociones", "inventario-abcf", "sobrepedidos", "por-entregar"],
+};
+
 // UI Selectors
 const DOM = {
     authContainer: document.getElementById("auth-container"),
@@ -472,15 +479,36 @@ async function initSession() {
             if (DOM.userAvatarPlaceholder) DOM.userAvatarPlaceholder.classList.remove("hidden");
         }
         
-        // Manage visible menu entries based on role (vendedores is admin/gerente only)
-        if (state.user.rol === "vendedor") {
-            DOM.menuVendedores?.classList.add("hidden");
+        // Manage visible menu entries based on role.
+        // Roles con un set restringido de secciones visibles (lista blanca).
+        // null/undefined = sin restricción (todos los items visibles).
+        const allowedSections = ALLOWED_SECTIONS_BY_ROLE[state.user.rol];
+        if (allowedSections) {
+            // Rol con acceso restringido (lista blanca por data-section)
+            DOM.menuItems.forEach(item => {
+                const sec = item.getAttribute("data-section");
+                item.classList.toggle("hidden", !allowedSections.includes(sec));
+            });
+            document.querySelectorAll(".mobile-nav-item").forEach(item => {
+                const sec = item.getAttribute("data-mobile-section");
+                item.classList.toggle("hidden", !allowedSections.includes(sec));
+            });
+            // Ocultar widgets administrativos que no aplican a soporte
             DOM.btnGenerateGoalsModal?.classList.add("hidden");
             if (DOM.menuApi) DOM.menuApi.classList.add("hidden");
         } else {
-            DOM.menuVendedores?.classList.remove("hidden");
-            DOM.btnGenerateGoalsModal?.classList.remove("hidden");
-            if (DOM.menuApi) DOM.menuApi.classList.remove("hidden");
+            // Patrón existente: vendedor oculta Vendedores y API; admin/gerente ven todo
+            DOM.menuItems.forEach(item => item.classList.remove("hidden"));
+            document.querySelectorAll(".mobile-nav-item").forEach(item => item.classList.remove("hidden"));
+            if (state.user.rol === "vendedor") {
+                DOM.menuVendedores?.classList.add("hidden");
+                DOM.btnGenerateGoalsModal?.classList.add("hidden");
+                if (DOM.menuApi) DOM.menuApi.classList.add("hidden");
+            } else {
+                DOM.menuVendedores?.classList.remove("hidden");
+                DOM.btnGenerateGoalsModal?.classList.remove("hidden");
+                if (DOM.menuApi) DOM.menuApi.classList.remove("hidden");
+            }
         }
         updateUploadControlsVisibility();
         renderLastUploadLabels();
@@ -561,6 +589,14 @@ function logout() {
    ========================================================================== */
 
 async function switchSection(sectionId) {
+    // Guard defensivo: si el rol tiene un set restringido de secciones y la
+    // solicitada no está permitida, redirigir a 'summary' (definido aquí para
+    // que también aplique si ALLOWED_SECTIONS_BY_ROLE cambia en el futuro).
+    const _allowedForRole = ALLOWED_SECTIONS_BY_ROLE && ALLOWED_SECTIONS_BY_ROLE[state.user && state.user.rol];
+    if (_allowedForRole && !_allowedForRole.includes(sectionId)) {
+        sectionId = "summary";
+    }
+
     state.currentSection = sectionId;
     
     // Toggle active sidebar items
@@ -629,9 +665,12 @@ async function loadSectionData(sectionId) {
    ========================================================================== */
 
 async function loadSummaryData() {
-    // In summary, we load sellers, metas, and quotes to compute metrics and draw charts
+    // In summary, we load sellers, metas, and quotes to compute metrics and draw charts.
+    // Soporte no tiene permiso sobre /vendedores/ (403): se omite la carga y los
+    // KPIs que dependen de ella quedan vacíos, que es el comportamiento esperado
+    // para un rol de solo visualización operativa.
     let sellers = [];
-    if (state.user.rol !== "vendedor") {
+    if (state.user.rol !== "vendedor" && state.user.rol !== "soporte") {
         const sellersRes = await apiRequest("/api/v1/vendedores/?limit=100");
         sellers = sellersRes.data || [];
     }
