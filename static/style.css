@@ -414,6 +414,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Drag handle para reordenar el menú lateral */
+.menu-item {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
 .menu-item .drag-handle {
     margin-left: auto;
     opacity: 0;

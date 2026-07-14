@@ -4348,8 +4348,12 @@ function initSidebarDrag() {
     });
 }
 
-// Inicializa el drag una sola vez al cargar la página
-initSidebarDrag();
+// Inicializa el drag una sola vez al cargar la página (seguro ante cualquier orden de carga)
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initSidebarDrag);
+} else {
+    initSidebarDrag();
+}
 
 // Theme Toggle Handler
 if (DOM.themeToggleBtn) {
