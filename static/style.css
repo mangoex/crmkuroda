@@ -771,7 +771,13 @@ h1, h2, h3, h4, h5, h6 {
 
 .data-table td {
     color: #fff;
-    border-bottom: 1px solid rgba(var(--glass-border));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+/* Lineas divisorias entre filas mas visibles (override del glass-border tenue) */
+.data-table tbody td,
+.data-table tbody tr td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .data-table tbody tr:last-child td {
@@ -1578,6 +1584,11 @@ body.light-mode .logo,
 body.light-mode .kanban-card-client,
 body.light-mode .data-table td {
     color: hsl(var(--text-primary)) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.14) !important;
+}
+
+body.light-mode .data-table th {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.14) !important;
 }
 
 body.light-mode .sidebar-container {

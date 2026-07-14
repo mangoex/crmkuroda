@@ -822,16 +822,21 @@ function updateUploadControlsVisibility() {
         if (wrapper) wrapper.classList.toggle("hidden", !canUpload);
     });
     const canFilterBySeller = state.user && ["admin", "gerente"].includes(state.user.rol);
+    // Vendedores-padre (con hijos) también pueden filtrar por vendedor
+    const vendedorTieneHijos = state.user && state.user.rol === "vendedor"
+        && Array.isArray(state.user.vendedores_hijos) && state.user.vendedores_hijos.length > 0;
+    const showVendedorFilter = canFilterBySeller || vendedorTieneHijos;
+
     if (DOM.filterSobrepedidosVendedorWrapper) {
-        DOM.filterSobrepedidosVendedorWrapper.classList.toggle("hidden", !canFilterBySeller);
+        DOM.filterSobrepedidosVendedorWrapper.classList.toggle("hidden", !showVendedorFilter);
     }
-    if (!canFilterBySeller && DOM.filterSobrepedidosVendedor) {
+    if (!showVendedorFilter && DOM.filterSobrepedidosVendedor) {
         DOM.filterSobrepedidosVendedor.value = "todos";
     }
     if (DOM.filterPorEntregarVendedorWrapper) {
-        DOM.filterPorEntregarVendedorWrapper.classList.toggle("hidden", !canFilterBySeller);
+        DOM.filterPorEntregarVendedorWrapper.classList.toggle("hidden", !showVendedorFilter);
     }
-    if (!canFilterBySeller && DOM.filterPorEntregarVendedor) {
+    if (!showVendedorFilter && DOM.filterPorEntregarVendedor) {
         DOM.filterPorEntregarVendedor.value = "todos";
     }
 }
