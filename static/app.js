@@ -437,6 +437,8 @@ async function initSession() {
                     state.cotizaciones = [];
                     state.activeHeatmapFilter = null;
                 }
+                // Aplicar orden personalizado del menú lateral para este usuario
+                applyStoredMenuOrder();
             }
         } catch (e) {
             console.error("Fallo al validar sesión:", e);
@@ -4246,6 +4248,108 @@ if (DOM.btnToggleSidebar) {
         }
     });
 }
+
+/* ==========================================================================
+   SIDEBAR MENU REORDER (drag-and-drop con persistencia por usuario)
+   ========================================================================== */
+
+function sidebarMenuStorageKey() {
+    // Orden guardado por usuario para no mezclar cuentas
+    return state.user && state.user.id
+        ? `sidebar_menu_order_${state.user.id}`
+        : null;
+}
+
+function getMenuOrder() {
+    return Array.from(document.querySelectorAll(".sidebar-menu .menu-item"))
+        .map(item => item.getAttribute("data-section"));
+}
+
+function saveMenuOrder(order) {
+    const key = sidebarMenuStorageKey();
+    if (key && Array.isArray(order)) {
+        localStorage.setItem(key, JSON.stringify(order));
+    }
+}
+
+// Reordena los nodos DOM del menú según el orden guardado en localStorage.
+// Los items no contemplados en el guardado (nuevos tras una actualización)
+// permanecen al final en su orden DOM original.
+function applyStoredMenuOrder() {
+    const key = sidebarMenuStorageKey();
+    if (!key) return;
+    let saved;
+    try {
+        saved = JSON.parse(localStorage.getItem(key) || "[]");
+    } catch (e) {
+        saved = [];
+    }
+    if (!Array.isArray(saved) || saved.length === 0) return;
+
+    const menu = document.querySelector(".sidebar-menu");
+    if (!menu) return;
+
+    const itemsBySection = {};
+    menu.querySelectorAll(".menu-item").forEach(item => {
+        const section = item.getAttribute("data-section");
+        if (section) itemsBySection[section] = item;
+    });
+
+    // Reinsertar en el orden guardado; los no guardados quedan tras los guardados
+    saved.forEach(section => {
+        const item = itemsBySection[section];
+        if (item) {
+            menu.appendChild(item);   // mover al final (luego los siguientes empujan)
+            delete itemsBySection[section];
+        }
+    });
+}
+
+function initSidebarDrag() {
+    const menu = document.querySelector(".sidebar-menu");
+    if (!menu || menu.dataset.dragReady === "true") return;
+    menu.dataset.dragReady = "true";
+
+    let draggedItem = null;
+
+    menu.querySelectorAll(".menu-item").forEach(item => {
+        item.draggable = true;
+
+        item.addEventListener("dragstart", (e) => {
+            draggedItem = item;
+            item.classList.add("dragging");
+            e.dataTransfer.effectAllowed = "move";
+            // Necesario para que Firefox inicie el drag
+            if (e.dataTransfer.setData) e.dataTransfer.setData("text/plain", item.dataset.section || "");
+        });
+
+        item.addEventListener("dragend", () => {
+            item.classList.remove("dragging");
+            document.querySelectorAll(".menu-item").forEach(el => el.style.borderTop = "");
+            draggedItem = null;
+            // Persistir el nuevo orden
+            saveMenuOrder(getMenuOrder());
+        });
+    });
+
+    menu.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        if (!draggedItem) return;
+        const target = e.target.closest(".menu-item");
+        if (!target || target === draggedItem) return;
+
+        const rect = target.getBoundingClientRect();
+        const after = (e.clientY - rect.top) > rect.height / 2;
+        if (after) {
+            target.parentNode.insertBefore(draggedItem, target.nextSibling);
+        } else {
+            target.parentNode.insertBefore(draggedItem, target);
+        }
+    });
+}
+
+// Inicializa el drag una sola vez al cargar la página
+initSidebarDrag();
 
 // Theme Toggle Handler
 if (DOM.themeToggleBtn) {

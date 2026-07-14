@@ -413,6 +413,33 @@ h1, h2, h3, h4, h5, h6 {
     border-left: 3px solid hsl(var(--primary));
 }
 
+/* Drag handle para reordenar el menú lateral */
+.menu-item .drag-handle {
+    margin-left: auto;
+    opacity: 0;
+    cursor: grab;
+    color: hsl(var(--text-secondary));
+    font-size: 12px;
+    transition: opacity var(--transition-fast);
+}
+
+.menu-item:hover .drag-handle {
+    opacity: 0.6;
+}
+
+.menu-item .drag-handle:hover {
+    opacity: 1;
+}
+
+.menu-item .drag-handle:active {
+    cursor: grabbing;
+}
+
+.menu-item.dragging {
+    opacity: 0.4;
+    cursor: grabbing;
+}
+
 .sidebar-footer {
     padding: 24px 16px;
     border-top: 1px solid rgba(var(--glass-border));
@@ -1210,6 +1237,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .sidebar-container.collapsed .logo span,
 .sidebar-container.collapsed .menu-item span,
+.sidebar-container.collapsed .menu-item .drag-handle,
 .sidebar-container.collapsed .sidebar-footer button span {
     display: none !important;
 }
@@ -1711,6 +1739,10 @@ body.light-mode ::-webkit-scrollbar-thumb:hover {
     }
     
     .sidebar-container .logo span {
+        display: none !important;
+    }
+
+    .sidebar-container .menu-item .drag-handle {
         display: none !important;
     }
 
