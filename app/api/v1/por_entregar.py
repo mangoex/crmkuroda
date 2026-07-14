@@ -6,6 +6,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.por_entregar import PorEntregar
 from app.models.usuario import Usuario
+from app.services.jerarquia import get_codigos_vendedores_visibles
 
 router = APIRouter()
 
@@ -17,7 +18,11 @@ async def list_por_entregar(
 ):
     query = select(PorEntregar)
     if current_user.rol == "vendedor":
-        query = query.filter(PorEntregar.vendedor_codigo == current_user.codigo_vendedor)
+        codigos_visibles = await get_codigos_vendedores_visibles(db, current_user)
+        if codigos_visibles:
+            query = query.filter(PorEntregar.vendedor_codigo.in_(codigos_visibles))
+        else:
+            query = query.filter(PorEntregar.vendedor_codigo == "__NO_MATCH__")
 
     result = await db.execute(query)
     records = result.scalars().all()

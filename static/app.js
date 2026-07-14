@@ -143,6 +143,8 @@ const DOM = {
     sellerRole: document.getElementById("seller-role"),
     sellerCode: document.getElementById("seller-code"),
     sellerCodeGroup: document.getElementById("seller-code-group"),
+    sellerParent: document.getElementById("seller-parent"),
+    sellerParentGroup: document.getElementById("seller-parent-group"),
     sellerEmail: document.getElementById("seller-email"),
     sellerPhone: document.getElementById("seller-phone"),
     sellerPassword: document.getElementById("seller-password"),
@@ -1137,7 +1139,7 @@ async function loadVendedoresData() {
             <td>${conversionHtml}</td>
             <td>
                 <div style="display: flex; gap: 8px;">
-                    <button class="btn btn-secondary btn-sm edit-seller-btn" data-id="${v.id}" data-email="${escapeHTML(v.email)}" data-fullname="${escapeHTML(v.nombre_completo) || ''}" data-role="${v.rol}" data-phone="${v.telefono_whatsapp || ''}" data-code="${v.codigo_vendedor || ''}">
+                    <button class="btn btn-secondary btn-sm edit-seller-btn" data-id="${v.id}" data-email="${escapeHTML(v.email)}" data-fullname="${escapeHTML(v.nombre_completo) || ''}" data-role="${v.rol}" data-phone="${v.telefono_whatsapp || ''}" data-code="${v.codigo_vendedor || ''}" data-parent="${v.vendedor_padre_id || ''}">
                         <i class="fa-solid fa-pen-to-square"></i> Editar
                     </button>
                     <button class="btn btn-danger btn-sm delete-seller-btn" data-id="${v.id}" data-email="${escapeHTML(v.email)}" ${v.id === state.user.id ? 'disabled' : ''} title="Eliminar" style="padding: 6px 10px;">
@@ -1160,8 +1162,9 @@ async function loadVendedoresData() {
             const role = targetBtn.getAttribute("data-role");
             const phone = targetBtn.getAttribute("data-phone");
             const code = targetBtn.getAttribute("data-code");
-            console.log("Edit attributes found:", { id, email, fullname, role, phone, code });
-            openEditUserForm(id, email, fullname, role, phone, code);
+            const parent = targetBtn.getAttribute("data-parent");
+            console.log("Edit attributes found:", { id, email, fullname, role, phone, code, parent });
+            openEditUserForm(id, email, fullname, role, phone, code, parent);
         });
     });
 
@@ -2248,7 +2251,9 @@ async function loadCotizacionesData(forceRefresh = true) {
     
     // Dynamically populate the sellers select and toggle visibility based on role
     if (DOM.filterQuoteSeller) {
-        if (state.user.rol === "vendedor") {
+        const hijos = (state.user && state.user.vendedores_hijos) || [];
+        if (state.user.rol === "vendedor" && hijos.length === 0) {
+            // Vendedor sin hijos: dropdown fijo a sí mismo (comportamiento histórico)
             DOM.filterQuoteSeller.innerHTML = "";
             const opt = document.createElement("option");
             opt.value = state.user.id;
@@ -2256,25 +2261,46 @@ async function loadCotizacionesData(forceRefresh = true) {
             DOM.filterQuoteSeller.appendChild(opt);
             DOM.filterQuoteSeller.value = state.user.id;
             DOM.filterQuoteSeller.disabled = true;
-            
+
             const parent = DOM.filterQuoteSeller.closest(".input-group-inline");
             if (parent) {
                 parent.style.display = "none";
             }
+        } else if (state.user.rol === "vendedor" && hijos.length > 0) {
+            // Vendedor-padre: puede filtrar entre propios, hijos, o todos
+            const parent = DOM.filterQuoteSeller.closest(".input-group-inline");
+            if (parent) parent.style.display = "";
+            DOM.filterQuoteSeller.disabled = false;
+            DOM.filterQuoteSeller.innerHTML = "";
+            const optAll = document.createElement("option");
+            optAll.value = "";
+            optAll.textContent = "Todos (míos + hijos)";
+            DOM.filterQuoteSeller.appendChild(optAll);
+            const optMine = document.createElement("option");
+            optMine.value = state.user.id;
+            optMine.textContent = "Solo los míos";
+            DOM.filterQuoteSeller.appendChild(optMine);
+            hijos.forEach(h => {
+                const opt = document.createElement("option");
+                opt.value = h.id;
+                opt.textContent = `${h.codigo_vendedor || ""} ${h.nombre_completo || h.email}`.trim();
+                DOM.filterQuoteSeller.appendChild(opt);
+            });
+            DOM.filterQuoteSeller.value = "";
         } else {
             const parent = DOM.filterQuoteSeller.closest(".input-group-inline");
             if (parent) {
                 parent.style.display = "";
             }
             DOM.filterQuoteSeller.disabled = false;
-            
+
             // Rebuild dropdown list to avoid duplications or missing entries
             const currentSelected = DOM.filterQuoteSeller.value;
             DOM.filterQuoteSeller.innerHTML = '<option value="">Todos los vendedores</option>';
             state.vendedores.forEach(v => {
                 const opt = document.createElement("option");
                 opt.value = v.id;
-                
+
                 let displayName = v.email;
                 if (v.codigo_vendedor && v.nombre_completo) {
                     displayName = `${v.codigo_vendedor} ${v.nombre_completo}`;
@@ -2283,7 +2309,7 @@ async function loadCotizacionesData(forceRefresh = true) {
                 } else if (v.nombre_completo) {
                     displayName = v.nombre_completo;
                 }
-                
+
                 opt.textContent = displayName;
                 DOM.filterQuoteSeller.appendChild(opt);
             });
@@ -3719,14 +3745,49 @@ DOM.logoutBtn?.addEventListener("click", logout);
 /* --- Vendedores/Usuarios Handlers --- */
 let editingUserId = null;
 
+// Llena el <select> de vendedor padre con los vendedores que pueden ser padre.
+// Excluye al usuario que se está editando (no puede ser su propio padre).
+async function populateSellerParentOptions(excludeId = null, selectedParentId = null) {
+    if (!DOM.sellerParent) return;
+    try {
+        const url = excludeId
+            ? `/api/v1/vendedores/posibles-padres?excluir=${excludeId}`
+            : `/api/v1/vendedores/posibles-padres`;
+        const res = await apiRequest(url);
+        const options = ['<option value="">Sin padre (solo sus propios datos)</option>'];
+        const padres = (res && res.data) || [];
+        // Si el usuario editado ya tiene padre, ese padre aparece igualmente (aunque ya tenga este hijo)
+        for (const p of padres) {
+            const label = `${p.codigo_vendedor || ""} ${p.nombre_completo || p.email}`.trim();
+            const sel = (selectedParentId && p.id === selectedParentId) ? " selected" : "";
+            options.push(`<option value="${p.id}"${sel}>${escapeHTML(label)}</option>`);
+        }
+        // Si hay un padre seleccionado pero no apareció en la lista (porque ya tiene este hijo como
+        // su propio padre), lo añadimos manualmente para mostrarlo.
+        if (selectedParentId && !padres.some(p => p.id === selectedParentId)) {
+            const hijo = state.vendedores.find(v => v.id === selectedParentId);
+            if (hijo) {
+                const label = `${hijo.codigo_vendedor || ""} ${hijo.nombre_completo || hijo.email}`.trim();
+                options.push(`<option value="${selectedParentId}" selected>${escapeHTML(label)}</option>`);
+            }
+        }
+        DOM.sellerParent.innerHTML = options.join("");
+    } catch (e) {
+        console.error("Error cargando posibles padres:", e);
+    }
+}
+
 // Dynamically show/hide seller code input depending on selected role
 if (DOM.sellerRole) {
     DOM.sellerRole?.addEventListener("change", (e) => {
         if (e.target.value === "vendedor") {
-            DOM.sellerCodeGroup.classList.remove("hidden");
+            DOM.sellerCodeGroup?.classList.remove("hidden");
+            DOM.sellerParentGroup?.classList.remove("hidden");
         } else {
-            DOM.sellerCodeGroup.classList.add("hidden");
-            DOM.sellerCode.value = "";
+            DOM.sellerCodeGroup?.classList.add("hidden");
+            DOM.sellerParentGroup?.classList.add("hidden");
+            if (DOM.sellerCode) DOM.sellerCode.value = "";
+            if (DOM.sellerParent) DOM.sellerParent.value = "";
         }
     });
 }
@@ -3739,6 +3800,8 @@ DOM.btnAddSeller?.addEventListener("click", () => {
     DOM.sellerPassword.required = true;
     DOM.sellerPasswordLabel.innerHTML = 'Contraseña Temporal';
     DOM.sellerCodeGroup.classList.remove("hidden");
+    DOM.sellerParentGroup?.classList.remove("hidden");
+    populateSellerParentOptions(null, null);
     DOM.sellerFormWrapper.classList.remove("hidden");
     DOM.sellerFormWrapper.scrollIntoView({ behavior: "smooth" });
 });
@@ -3753,8 +3816,8 @@ DOM.btnCloseSellerForm?.addEventListener("click", () => {
     editingUserId = null;
 });
 
-function openEditUserForm(id, email, fullname, role, phone, code) {
-    console.log("openEditUserForm called with parameters:", { id, email, fullname, role, phone, code });
+function openEditUserForm(id, email, fullname, role, phone, code, parent) {
+    console.log("openEditUserForm called with parameters:", { id, email, fullname, role, phone, code, parent });
     try {
         editingUserId = id;
         if (DOM.sellerFullname) DOM.sellerFullname.value = fullname || "";
@@ -3771,17 +3834,19 @@ function openEditUserForm(id, email, fullname, role, phone, code) {
         }
 
         // Trigger role visibility logic
-        if (DOM.sellerCodeGroup) {
-            if (role === "vendedor") {
-                DOM.sellerCodeGroup.classList.remove("hidden");
-            } else {
-                DOM.sellerCodeGroup.classList.add("hidden");
-            }
+        if (role === "vendedor") {
+            DOM.sellerCodeGroup?.classList.remove("hidden");
+            DOM.sellerParentGroup?.classList.remove("hidden");
+            // Poblar select de padre y preseleccionar el actual
+            populateSellerParentOptions(id, parent || null);
+        } else {
+            DOM.sellerCodeGroup?.classList.add("hidden");
+            DOM.sellerParentGroup?.classList.add("hidden");
         }
 
         if (DOM.sellerFormTitle) DOM.sellerFormTitle.textContent = "Editar Usuario";
         if (DOM.btnSubmitSeller) DOM.btnSubmitSeller.textContent = "Guardar Cambios";
-        
+
         if (DOM.sellerFormWrapper) {
             DOM.sellerFormWrapper.classList.remove("hidden");
             DOM.sellerFormWrapper.scrollIntoView({ behavior: "smooth" });
@@ -3816,15 +3881,17 @@ DOM.sellerForm?.addEventListener("submit", async (e) => {
     const phone = DOM.sellerPhone.value || null;
     const code = role === "vendedor" ? (DOM.sellerCode.value || null) : null;
     const password = DOM.sellerPassword.value || null;
-    
+    const parentId = role === "vendedor" ? (DOM.sellerParent?.value || "") : "";
+
     const payload = {
         email,
         nombre_completo: fullname,
         rol: role,
         telefono_whatsapp: phone,
-        codigo_vendedor: code
+        codigo_vendedor: code,
+        vendedor_padre_id: parentId
     };
-    
+
     if (password) {
         payload.password = password;
     }

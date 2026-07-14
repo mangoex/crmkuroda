@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 class UsuarioBase(BaseModel):
@@ -12,6 +12,7 @@ class UsuarioBase(BaseModel):
 
 class UsuarioCreate(UsuarioBase):
     password: str = Field(min_length=6, description="Contraseña del usuario (mínimo 6 caracteres)")
+    vendedor_padre_id: Optional[str] = Field(default=None, description="UUID del vendedor padre (jerarquia 1 nivel, solo vendedor->vendedor)")
 
 class UsuarioUpdate(BaseModel):
     email: Optional[EmailStr] = None
@@ -21,6 +22,7 @@ class UsuarioUpdate(BaseModel):
     nombre_completo: Optional[str] = None
     avatar: Optional[str] = None
     password: Optional[str] = Field(default=None, min_length=6)
+    vendedor_padre_id: Optional[str] = Field(default=None, description="UUID del vendedor padre (string vacio = quitar padre)")
 
 class UsuarioResponse(BaseModel):
     id: UUID
@@ -30,6 +32,8 @@ class UsuarioResponse(BaseModel):
     codigo_vendedor: Optional[str] = None
     nombre_completo: Optional[str] = None
     avatar: Optional[str] = None
+    vendedor_padre_id: Optional[UUID] = None
+    vendedores_hijos: List[UUID] = Field(default_factory=list)
 
     class Config:
         from_attributes = True

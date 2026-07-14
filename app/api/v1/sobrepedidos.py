@@ -15,6 +15,7 @@ from app.models.sobrepedido import Sobrepedido
 from app.models.por_entregar import PorEntregar
 from app.models.usuario import Usuario
 from app.services.sobrepedidos_classifier import classify_por_entregar, classify_sobrepedido, clean_text
+from app.services.jerarquia import get_codigos_vendedores_visibles
 
 router = APIRouter()
 
@@ -84,7 +85,12 @@ async def list_sobrepedidos(
 ):
     query = select(Sobrepedido)
     if current_user.rol == "vendedor":
-        query = query.filter(Sobrepedido.vendedor_codigo == current_user.codigo_vendedor)
+        codigos_visibles = await get_codigos_vendedores_visibles(db, current_user)
+        if codigos_visibles:
+            query = query.filter(Sobrepedido.vendedor_codigo.in_(codigos_visibles))
+        else:
+            # Vendedor sin codigo: no ve nada (no hay forma de matchear)
+            query = query.filter(Sobrepedido.vendedor_codigo == "__NO_MATCH__")
 
     result = await db.execute(query)
     records = result.scalars().all()

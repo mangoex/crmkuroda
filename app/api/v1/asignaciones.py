@@ -17,6 +17,7 @@ from app.schemas.asignacion import (
     ClienteDisponibleResponse,
     PujaResponse
 )
+from app.services.jerarquia import get_ids_vendedores_visibles
 
 router = APIRouter()
 
@@ -40,7 +41,8 @@ async def list_clientes(
     else:
         # Vendedores can see:
         # 1. Clients currently in auction where they are allowed to bid
-        # 2. Clients directly assigned to them
+        # 2. Clients directly assigned to them OR to their hijos (jerarquia 1 nivel)
+        ids_visibles = await get_ids_vendedores_visibles(db, current_user) or [current_user.id]
         result = await db.execute(
             select(ClienteDisponible)
             .options(
@@ -48,20 +50,22 @@ async def list_clientes(
                 selectinload(ClienteDisponible.pujas).selectinload(PujaCliente.vendedor)
             )
             .filter(
-                (ClienteDisponible.estado == "en_subasta") | 
-                ((ClienteDisponible.estado == "asignado") & (ClienteDisponible.asignado_a == current_user.id))
+                (ClienteDisponible.estado == "en_subasta") |
+                ((ClienteDisponible.estado == "asignado") & ClienteDisponible.asignado_a.in_(ids_visibles))
             )
             .order_by(ClienteDisponible.creado_en.desc())
         )
         all_candidates = result.scalars().all()
-        
+
         # Filter on code-level for JSON sellers_permitidos lists
+        ids_visibles_str = {str(i) for i in ids_visibles}
         filtered = []
         for c in all_candidates:
-            if c.estado == "asignado" and c.asignado_a == current_user.id:
+            if c.estado == "asignado" and c.asignado_a in ids_visibles:
                 filtered.append(c)
             elif c.estado == "en_subasta" and c.vendedores_permitidos:
-                # vendedores_permitidos is a list of stringified UUIDs
+                # vendedores_permitidos is a list of stringified UUIDs.
+                # El vendedor-padre puja solo por sí mismo, no por sus hijos.
                 if str(current_user.id) in c.vendedores_permitidos:
                     filtered.append(c)
         return filtered

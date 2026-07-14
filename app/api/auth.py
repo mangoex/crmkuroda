@@ -90,8 +90,28 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
     }
 
 @router.get("/me", status_code=status.HTTP_200_OK)
-async def get_me(current_user: Usuario = Depends(get_current_user)):
+async def get_me(
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
     """Retrieves the currently logged-in user's profile details."""
+    # Resolver hijos directos para que el frontend arme el dropdown de filtro
+    hijos = []
+    if current_user.rol == "vendedor":
+        res = await db.execute(
+            select(Usuario).where(
+                Usuario.vendedor_padre_id == current_user.id,
+                Usuario.rol == "vendedor",
+            )
+        )
+        for h in res.scalars().all():
+            hijos.append({
+                "id": str(h.id),
+                "codigo_vendedor": h.codigo_vendedor,
+                "nombre_completo": h.nombre_completo,
+                "email": h.email,
+            })
+
     return {
         "status": "success",
         "data": {
@@ -101,6 +121,8 @@ async def get_me(current_user: Usuario = Depends(get_current_user)):
             "telefono_whatsapp": current_user.telefono_whatsapp,
             "codigo_vendedor": current_user.codigo_vendedor,
             "nombre_completo": current_user.nombre_completo,
-            "avatar": current_user.avatar
+            "avatar": current_user.avatar,
+            "vendedor_padre_id": str(current_user.vendedor_padre_id) if current_user.vendedor_padre_id else None,
+            "vendedores_hijos": hijos,
         }
     }

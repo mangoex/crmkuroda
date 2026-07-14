@@ -11,6 +11,7 @@ from app.models.usuario import Usuario
 from app.models.cotizacion import Cotizacion
 from app.schemas.cotizacion import CotizacionCreate, CotizacionCreateManual, CotizacionUpdate
 from app.agents.cotizaciones_agent import generate_proposal
+from app.services.jerarquia import get_ids_vendedores_visibles
 
 import httpx
 import csv
@@ -55,16 +56,19 @@ async def list_cotizaciones(
     """
     # Filter by vendedor_id based on role
     if current_user.rol == "vendedor":
-        vendedor_filter_id = current_user.id
+        # Vendedor: propio + hijos (jerarquia 1 nivel)
+        ids_visibles = await get_ids_vendedores_visibles(db, current_user)
+        query = select(Cotizacion)
+        count_query = select(func.count()).select_from(Cotizacion)
+        if ids_visibles is not None:
+            query = query.filter(Cotizacion.vendedor_id.in_(ids_visibles))
+            count_query = count_query.filter(Cotizacion.vendedor_id.in_(ids_visibles))
     else:
-        vendedor_filter_id = vendedor_id
-
-    query = select(Cotizacion)
-    count_query = select(func.count()).select_from(Cotizacion)
-
-    if vendedor_filter_id is not None:
-        query = query.filter(Cotizacion.vendedor_id == vendedor_filter_id)
-        count_query = count_query.filter(Cotizacion.vendedor_id == vendedor_filter_id)
+        query = select(Cotizacion)
+        count_query = select(func.count()).select_from(Cotizacion)
+        if vendedor_id is not None:
+            query = query.filter(Cotizacion.vendedor_id == vendedor_id)
+            count_query = count_query.filter(Cotizacion.vendedor_id == vendedor_id)
 
     # Count total quotes
     count_res = await db.execute(count_query)
@@ -102,12 +106,14 @@ async def get_cotizacion(
             detail="La cotización solicitada no existe."
         )
 
-    # Ownership check
-    if current_user.rol == "vendedor" and cotizacion.vendedor_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso denegado. No tienes permisos para visualizar esta cotización."
-        )
+    # Ownership check (incluye hijos si el vendedor es padre)
+    if current_user.rol == "vendedor":
+        ids_visibles = await get_ids_vendedores_visibles(db, current_user)
+        if cotizacion.vendedor_id not in (ids_visibles or [current_user.id]):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tienes permiso para ver esta cotización."
+            )
 
     return {
         "status": "success",
@@ -199,12 +205,14 @@ async def update_cotizacion(
             detail="La cotización solicitada no existe."
         )
 
-    # Ownership check
-    if current_user.rol == "vendedor" and cotizacion.vendedor_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Acceso denegado. No tienes permisos para actualizar esta cotización."
-        )
+    # Ownership check (incluye hijos si el vendedor es padre)
+    if current_user.rol == "vendedor":
+        ids_visibles = await get_ids_vendedores_visibles(db, current_user)
+        if cotizacion.vendedor_id not in (ids_visibles or [current_user.id]):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Acceso denegado. No tienes permisos para actualizar esta cotización."
+            )
 
     # Update fields
     update_data = quote_in.model_dump(exclude_unset=True)
