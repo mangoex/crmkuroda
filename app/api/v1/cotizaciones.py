@@ -18,7 +18,7 @@ import csv
 import io
 from app.models.company import Company
 from app.core.security import RoleChecker
-from datetime import datetime
+from datetime import date, datetime
 
 require_admin_or_gerente = RoleChecker(["admin", "gerente"])
 
@@ -46,6 +46,8 @@ def serialize_cotizacion(c: Cotizacion) -> dict:
 @router.get("/", status_code=status.HTTP_200_OK)
 async def list_cotizaciones(
     vendedor_id: Optional[UUID] = None,
+    fecha_inicio: Optional[date] = Query(default=None),
+    fecha_fin: Optional[date] = Query(default=None),
     limit: int = Query(default=10, ge=1, le=50000),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -70,6 +72,15 @@ async def list_cotizaciones(
         if vendedor_id is not None:
             query = query.filter(Cotizacion.vendedor_id == vendedor_id)
             count_query = count_query.filter(Cotizacion.vendedor_id == vendedor_id)
+
+    # El filtro se resuelve en PostgreSQL para evitar ambigüedades de formato
+    # o zona horaria en el navegador.
+    if fecha_inicio is not None:
+        query = query.filter(Cotizacion.fecha_registro >= fecha_inicio)
+        count_query = count_query.filter(Cotizacion.fecha_registro >= fecha_inicio)
+    if fecha_fin is not None:
+        query = query.filter(Cotizacion.fecha_registro <= fecha_fin)
+        count_query = count_query.filter(Cotizacion.fecha_registro <= fecha_fin)
 
     # Count total quotes
     count_res = await db.execute(count_query)

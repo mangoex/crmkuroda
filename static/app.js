@@ -906,7 +906,7 @@ function parseLocalDate(dateValue) {
 
     const value = String(dateValue).trim();
     const dateOnly = value.split("T")[0].split(" ")[0];
-    const isoMatch = dateOnly.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const isoMatch = dateOnly.match(/^(\d{4})[-\/](\d{2})[-\/](\d{2})$/);
     const localMatch = dateOnly.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
 
     if (isoMatch) {
@@ -2505,7 +2505,12 @@ async function loadCotizacionesData(forceRefresh = true) {
     }
 
     if (forceRefresh || state.cotizaciones.length === 0) {
-        let endpoint = "/api/v1/cotizaciones/?limit=20000";
+        const params = new URLSearchParams({ limit: "20000" });
+        const startDate = DOM.filterQuoteStartDate?.value;
+        const endDate = DOM.filterQuoteEndDate?.value;
+        if (startDate) params.set("fecha_inicio", startDate);
+        if (endDate) params.set("fecha_fin", endDate);
+        const endpoint = `/api/v1/cotizaciones/?${params.toString()}`;
         const res = await apiRequest(endpoint);
         state.cotizaciones = res.data || [];
     }
@@ -4323,7 +4328,7 @@ if (DOM.filterQuoteStartDate) {
     DOM.filterQuoteStartDate?.addEventListener("change", () => {
         state.activeHeatmapFilter = null;
         state.quotesCurrentPage = 1;
-        renderQuotesDashboard();
+        loadCotizacionesData();
     });
 }
 
@@ -4331,7 +4336,7 @@ if (DOM.filterQuoteEndDate) {
     DOM.filterQuoteEndDate?.addEventListener("change", () => {
         state.activeHeatmapFilter = null;
         state.quotesCurrentPage = 1;
-        renderQuotesDashboard();
+        loadCotizacionesData();
     });
 }
 
