@@ -152,10 +152,18 @@
                                 <i class="fa-solid fa-magnifying-glass"></i>
                                 <input type="search" id="seller-dashboard-search" placeholder="Buscar cliente, producto o cotización...">
                             </div>
-                            <button class="seller-avatar-chip" id="seller-dashboard-profile" title="Perfil">
-                                <span id="seller-dashboard-initials">JP</span>
-                                <i class="fa-solid fa-user"></i>
-                            </button>
+                            <div class="seller-command-actions">
+                                <button type="button" class="seller-today-chip" id="seller-dashboard-today" title="Ver avance de hoy">
+                                    <i class="fa-regular fa-calendar-days"></i><span>Hoy</span>
+                                </button>
+                                <button type="button" class="seller-command-icon" data-seller-jump="cotizaciones" title="Abrir filtros de cotizaciones" aria-label="Abrir filtros de cotizaciones">
+                                    <i class="fa-solid fa-filter"></i>
+                                </button>
+                                <button class="seller-avatar-chip" id="seller-dashboard-profile" title="Perfil">
+                                    <span id="seller-dashboard-initials">JP</span>
+                                    <i class="fa-solid fa-user"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="seller-hero-card">
@@ -175,6 +183,7 @@
                                 </div>
                             </div>
                             <div class="seller-hero-days">
+                                <i class="fa-regular fa-calendar-days" aria-hidden="true"></i>
                                 <span>Días restantes</span>
                                 <strong id="seller-monthly-days-left">0 días restantes</strong>
                             </div>
@@ -218,6 +227,42 @@
                                     <button class="seller-link-button" style="margin-top: 0;" data-seller-jump="inventario-abcf"><i class="fa-solid fa-boxes-stacked"></i> Inventario D</button>
                                 </div>
                             </article>
+                        </div>
+
+                        <div class="seller-insight-grid">
+                            <section class="seller-insight-card seller-performance-card">
+                                <div class="seller-insight-heading">
+                                    <div>
+                                        <h2>Resumen de desempeño</h2>
+                                        <span id="seller-performance-caption">Avance de ventas facturadas</span>
+                                    </div>
+                                    <span class="seller-period-label" id="seller-performance-period">Mensual</span>
+                                </div>
+                                <div class="seller-performance-body">
+                                    <div class="seller-mini-chart"><canvas id="seller-performance-chart"></canvas></div>
+                                    <div class="seller-performance-total">
+                                        <div class="seller-mini-progress" id="seller-mini-progress" style="--progress: 0;"><strong id="seller-mini-progress-percent">0%</strong></div>
+                                        <strong id="seller-performance-amount">$0</strong>
+                                        <span id="seller-performance-goal">de $0</span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section class="seller-insight-card seller-activity-card">
+                                <div class="seller-insight-heading">
+                                    <div><h2>Actividad reciente</h2><span>Tu movimiento comercial</span></div>
+                                    <button type="button" class="seller-text-action" data-seller-jump="slight-edge">Ver todas</button>
+                                </div>
+                                <div id="seller-recent-activity" class="seller-activity-list"></div>
+                            </section>
+                        </div>
+
+                        <div class="seller-quick-actions" aria-label="Acciones rápidas">
+                            <span>Acciones rápidas</span>
+                            <button type="button" data-seller-jump="cotizaciones"><i class="fa-regular fa-file-lines"></i> Ver cotizaciones</button>
+                            <button type="button" data-seller-jump="slight-edge"><i class="fa-solid fa-pen-to-square"></i> Registrar actividad</button>
+                            <button type="button" id="seller-quick-search"><i class="fa-solid fa-magnifying-glass"></i> Buscar cliente</button>
+                            <button type="button" data-seller-jump="seguimiento"><i class="fa-regular fa-calendar-days"></i> Ver seguimiento</button>
                         </div>
                     </div>
 
@@ -2086,6 +2131,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.46"></script>
+    <script src="/static/app.js?v=1.0.47"></script>
 </body>
 </html>

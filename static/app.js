@@ -75,6 +75,7 @@ const state = {
     cotizaciones: [],
     salesChart: null,
     goalsChart: null,
+    sellerPerformanceChart: null,
     chartQuoteStatus: null,
     chartQuoteSeller: null,
     chartQuoteTrend: null,
@@ -120,6 +121,8 @@ const DOM = {
     kpiTotalSellers: document.getElementById("kpi-total-sellers"),
     sellerHomeDashboard: document.getElementById("seller-home-dashboard"),
     sellerDashboardSearch: document.getElementById("seller-dashboard-search"),
+    sellerDashboardToday: document.getElementById("seller-dashboard-today"),
+    sellerQuickSearch: document.getElementById("seller-quick-search"),
     sellerDashboardProfile: document.getElementById("seller-dashboard-profile"),
     sellerDashboardInitials: document.getElementById("seller-dashboard-initials"),
     sellerMonthlyProgressRing: document.getElementById("seller-monthly-progress-ring"),
@@ -134,6 +137,13 @@ const DOM = {
     sellerFollowupAlert: document.getElementById("seller-followup-alert"),
     sellerFollowupList: document.getElementById("seller-followup-list"),
     sellerPromoList: document.getElementById("seller-promo-list"),
+    sellerPerformanceChart: document.getElementById("seller-performance-chart"),
+    sellerPerformancePeriod: document.getElementById("seller-performance-period"),
+    sellerPerformanceAmount: document.getElementById("seller-performance-amount"),
+    sellerPerformanceGoal: document.getElementById("seller-performance-goal"),
+    sellerMiniProgress: document.getElementById("seller-mini-progress"),
+    sellerMiniProgressPercent: document.getElementById("seller-mini-progress-percent"),
+    sellerRecentActivity: document.getElementById("seller-recent-activity"),
     summaryAdminKpis: document.getElementById("summary-admin-kpis"),
     summaryAdminCharts: document.getElementById("summary-admin-charts"),
     summaryAdminHeatmap: document.getElementById("summary-admin-heatmap"),
@@ -1150,6 +1160,79 @@ function renderSellerPromos(promociones, search) {
     });
 }
 
+function renderSellerDashboardInsights(quotes, period, periodGoal, invoicedTotal, percent, logToday) {
+    if (DOM.sellerPerformancePeriod) {
+        DOM.sellerPerformancePeriod.textContent = state.sellerGoalPeriod === "week" ? "Semanal" : state.sellerGoalPeriod === "day" ? "Diario" : "Mensual";
+    }
+    if (DOM.sellerPerformanceAmount) DOM.sellerPerformanceAmount.textContent = formatSellerMoney(invoicedTotal);
+    if (DOM.sellerPerformanceGoal) DOM.sellerPerformanceGoal.textContent = `de ${formatSellerMoney(periodGoal)}`;
+    if (DOM.sellerMiniProgress) DOM.sellerMiniProgress.style.setProperty("--progress", percent);
+    if (DOM.sellerMiniProgressPercent) DOM.sellerMiniProgressPercent.textContent = `${percent}%`;
+
+    if (DOM.sellerPerformanceChart && typeof Chart !== "undefined") {
+        if (state.sellerPerformanceChart) state.sellerPerformanceChart.destroy();
+        const labels = state.sellerGoalPeriod === "day" ? ["Hoy"] : state.sellerGoalPeriod === "week" ? ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"] : ["Sem 1", "Sem 2", "Sem 3", "Sem 4"];
+        const progress = Array(labels.length).fill(0);
+        const span = Math.max(1, period.end.getTime() - period.start.getTime());
+
+        quotes.filter(q => q.numero_factura).forEach(quote => {
+            const quoteDate = parseLocalDate(quote.fecha_registro || quote.fecha_factura);
+            if (!quoteDate || quoteDate < period.start || quoteDate > period.end) return;
+            const ratio = Math.max(0, Math.min(0.999, (quoteDate.getTime() - period.start.getTime()) / span));
+            const index = Math.min(labels.length - 1, Math.floor(ratio * labels.length));
+            progress[index] += getInvoiceAmount(quote);
+        });
+
+        let running = 0;
+        const cumulative = progress.map(amount => (running += amount));
+        const target = labels.map((_, index) => periodGoal * ((index + 1) / labels.length));
+        const isLightMode = document.body.classList.contains("light-mode");
+        const tickColor = isLightMode ? "#64748b" : "#a6b0c4";
+        const gridColor = isLightMode ? "rgba(15, 23, 42, 0.08)" : "rgba(148, 163, 184, 0.12)";
+        state.sellerPerformanceChart = new Chart(DOM.sellerPerformanceChart.getContext("2d"), {
+            type: "line",
+            data: {
+                labels,
+                datasets: [
+                    { label: "Meta", data: target, borderColor: "#8b5cf6", borderDash: [5, 5], borderWidth: 1.5, pointRadius: 0, tension: 0.35 },
+                    { label: "Avance", data: cumulative, borderColor: "#22c55e", backgroundColor: "rgba(34, 197, 94, 0.08)", fill: true, borderWidth: 2, pointRadius: 2, pointBackgroundColor: "#4ade80", tension: 0.35 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: tickColor, boxWidth: 12, usePointStyle: true, font: { size: 11 } } } },
+                scales: {
+                    x: { ticks: { color: tickColor, font: { size: 10 } }, grid: { display: false } },
+                    y: { display: false, beginAtZero: true, grid: { color: gridColor } }
+                }
+            }
+        });
+    }
+
+    if (!DOM.sellerRecentActivity) return;
+    const activities = [];
+    Object.entries(logToday?.completed_activities || {}).forEach(([name, count]) => {
+        if (Number(count) > 0) activities.push({ icon: "fa-check", tone: "green", title: `${count} ${escapeHTML(name)}`, detail: "Registrado hoy" });
+    });
+    const latestInvoice = quotes.filter(q => q.numero_factura).sort((a, b) => (parseLocalDate(b.fecha_factura || b.fecha_registro) || 0) - (parseLocalDate(a.fecha_factura || a.fecha_registro) || 0))[0];
+    if (latestInvoice) activities.push({ icon: "fa-file-invoice-dollar", tone: "violet", title: "Cotización facturada", detail: `${escapeHTML(latestInvoice.cliente_nombre || "Cliente")} · ${formatSellerMoney(getInvoiceAmount(latestInvoice))}` });
+    const nextFollowup = quotes.filter(isPendingQuote).sort((a, b) => quoteAgeDays(b) - quoteAgeDays(a))[0];
+    if (nextFollowup) activities.push({ icon: "fa-phone", tone: "blue", title: "Seguimiento pendiente", detail: escapeHTML(nextFollowup.cliente_nombre || "Cliente") });
+
+    if (activities.length === 0) {
+        DOM.sellerRecentActivity.innerHTML = '<div class="seller-activity-empty">Aún no hay actividad registrada en este periodo.</div>';
+        return;
+    }
+    DOM.sellerRecentActivity.innerHTML = activities.slice(0, 3).map(activity => `
+        <div class="seller-activity-item">
+            <span class="seller-activity-icon ${activity.tone}"><i class="fa-solid ${activity.icon}"></i></span>
+            <div><strong>${activity.title}</strong><span>${activity.detail}</span></div>
+            <i class="fa-solid fa-chevron-right"></i>
+        </div>
+    `).join("");
+}
+
 async function renderSellerHomeDashboard({ metas, quotes, promociones }) {
     const search = DOM.sellerDashboardSearch ? DOM.sellerDashboardSearch.value.trim() : "";
     const sellerName = state.user.nombre_completo || state.user.email || "Vendedor";
@@ -1194,6 +1277,7 @@ async function renderSellerHomeDashboard({ metas, quotes, promociones }) {
     renderSellerPendingQuotes(quotes, search);
     renderSellerFollowups(quotes, plan, logToday, search);
     renderSellerPromos(promociones, search);
+    renderSellerDashboardInsights(quotes, period, periodGoal, invoicedTotal, percent, logToday);
 }
 
 async function loadVendedoresData() {
@@ -4954,6 +5038,19 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     }
+
+    DOM.sellerDashboardToday?.addEventListener("click", () => {
+        state.sellerGoalPeriod = "day";
+        renderSellerHomeDashboard({
+            metas: state.metas || [],
+            quotes: state.cotizaciones || [],
+            promociones: state.promociones || []
+        });
+    });
+
+    DOM.sellerQuickSearch?.addEventListener("click", () => {
+        DOM.sellerDashboardSearch?.focus();
+    });
 
     DOM.sellerPeriodButtons.forEach(button => {
         button.addEventListener("click", () => {
