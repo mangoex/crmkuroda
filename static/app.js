@@ -1131,8 +1131,10 @@ async function renderSellerHomeDashboard({ metas, quotes, promociones }) {
     const invoicedTotal = quotes
         .filter(q => q.numero_factura)
         .filter(q => {
-            const invoiceDate = parseLocalDate(q.fecha_factura || q.fecha_registro);
-            return invoiceDate && invoiceDate >= period.start && invoiceDate <= period.end;
+            // El periodo comercial se determina por la fecha de la cotización;
+            // la factura solamente confirma que su importe sí cuenta como venta.
+            const quoteDate = parseLocalDate(q.fecha_registro || q.fecha_factura);
+            return quoteDate && quoteDate >= period.start && quoteDate <= period.end;
         })
         .reduce((sum, q) => sum + getInvoiceAmount(q), 0);
     const percent = periodGoal > 0 ? Math.min(100, Math.round((invoicedTotal / periodGoal) * 100)) : 0;
