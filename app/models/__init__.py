@@ -11,6 +11,7 @@ from app.models.cliente_asignacion import ClienteDisponible, PujaCliente
 from app.models.promocion import Promocion
 from app.models.sobrepedido import Sobrepedido
 from app.models.por_entregar import PorEntregar
+from app.models.registro_acceso import RegistroAcceso
 
 __all__ = [
     "Base", 
@@ -26,5 +27,6 @@ __all__ = [
     "PujaCliente",
     "Promocion",
     "Sobrepedido",
-    "PorEntregar"
+    "PorEntregar",
+    "RegistroAcceso"
 ]

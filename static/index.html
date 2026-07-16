@@ -177,9 +177,9 @@
                                 <strong id="seller-monthly-current">$0 (0%)</strong>
                                 <small id="seller-monthly-remaining">Faltan $0</small>
                                 <div class="seller-period-selector" role="group" aria-label="Periodo de avance">
-                                    <button type="button" class="seller-period-btn active" data-seller-period="month">Mes</button>
+                                    <button type="button" class="seller-period-btn" data-seller-period="month">Mes</button>
                                     <button type="button" class="seller-period-btn" data-seller-period="week">Semana</button>
-                                    <button type="button" class="seller-period-btn" data-seller-period="day">Día</button>
+                                    <button type="button" class="seller-period-btn active" data-seller-period="day">Día</button>
                                 </div>
                             </div>
                             <div class="seller-hero-days">
@@ -347,6 +347,29 @@
                                 <span>Muy activa</span>
                             </div>
                         </div>
+                    </div>
+
+                    <div id="summary-admin-operational" class="admin-operational-grid">
+                        <section class="glass-card admin-operational-card">
+                            <div class="admin-operational-heading">
+                                <div>
+                                    <h2><i class="fa-regular fa-file-lines"></i> Últimas cotizaciones de hoy</h2>
+                                    <p>Registradas durante el día en curso</p>
+                                </div>
+                                <span class="admin-live-badge">Hoy</span>
+                            </div>
+                            <div id="admin-today-quotes" class="admin-operational-list"></div>
+                        </section>
+                        <section class="glass-card admin-operational-card">
+                            <div class="admin-operational-heading">
+                                <div>
+                                    <h2><i class="fa-solid fa-right-to-bracket"></i> Actividad de ingreso</h2>
+                                    <p>Entradas y salidas registradas hoy</p>
+                                </div>
+                                <span class="admin-live-badge">En vivo</span>
+                            </div>
+                            <div id="admin-today-access-log" class="admin-operational-list"></div>
+                        </section>
                     </div>
 
                     <!-- Slight Edge Summary Card (Vendedor Only) -->
@@ -2131,6 +2154,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.47"></script>
+    <script src="/static/app.js?v=1.0.48"></script>
 </body>
 </html>

@@ -1,11 +1,13 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 from app.core.database import get_db
 from app.core.security import verify_password, create_access_token, get_password_hash, get_current_user
 from app.models.usuario import Usuario
+from app.models.registro_acceso import RegistroAcceso
 from app.schemas.usuario import UsuarioCreate, Token
 from app.core.config import settings
 
@@ -82,11 +84,68 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
         data={"sub": user.email, "rol": user.rol},
         expires_delta=access_token_expires
     )
+
+    db.add(RegistroAcceso(usuario_id=user.id))
+    await db.commit()
     
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "rol": user.rol
+    }
+
+
+@router.post("/logout", status_code=status.HTTP_200_OK)
+async def close_session(
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Cierra el ultimo acceso abierto del usuario actual."""
+    result = await db.execute(
+        select(RegistroAcceso)
+        .where(RegistroAcceso.usuario_id == current_user.id, RegistroAcceso.salida.is_(None))
+        .order_by(RegistroAcceso.entrada.desc())
+        .limit(1)
+    )
+    registro = result.scalars().first()
+    if registro:
+        registro.salida = datetime.now(timezone.utc)
+        await db.commit()
+    return {"status": "success"}
+
+
+@router.get("/access-log/today", status_code=status.HTTP_200_OK)
+async def get_today_access_log(
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Devuelve entradas y salidas de hoy para el tablero de coordinacion."""
+    if current_user.rol not in {"admin", "gerente"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado.")
+
+    local_tz = ZoneInfo("America/Mazatlan")
+    today = datetime.now(local_tz).date()
+    day_start = datetime.combine(today, time.min, tzinfo=local_tz).astimezone(timezone.utc)
+    next_day = day_start + timedelta(days=1)
+    result = await db.execute(
+        select(RegistroAcceso, Usuario)
+        .join(Usuario, Usuario.id == RegistroAcceso.usuario_id)
+        .where(RegistroAcceso.entrada >= day_start, RegistroAcceso.entrada < next_day)
+        .order_by(RegistroAcceso.entrada.desc())
+        .limit(30)
+    )
+    return {
+        "status": "success",
+        "data": [
+            {
+                "id": str(registro.id),
+                "usuario": usuario.nombre_completo or usuario.email,
+                "rol": usuario.rol,
+                "entrada": registro.entrada.isoformat() if registro.entrada else None,
+                "salida": registro.salida.isoformat() if registro.salida else None,
+            }
+            for registro, usuario in result.all()
+        ],
     }
 
 @router.get("/me", status_code=status.HTTP_200_OK)

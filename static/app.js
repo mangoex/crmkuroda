@@ -84,7 +84,7 @@ const state = {
     quotesPageSize: 15,
     quotesSortOrder: "desc", // date sort: 'asc' or 'desc'
     activeHeatmapFilter: null,
-    sellerGoalPeriod: "month",
+    sellerGoalPeriod: "day",
     kanbanSortOrders: {
         cotizado: null,
         promociones: null,
@@ -147,6 +147,9 @@ const DOM = {
     summaryAdminKpis: document.getElementById("summary-admin-kpis"),
     summaryAdminCharts: document.getElementById("summary-admin-charts"),
     summaryAdminHeatmap: document.getElementById("summary-admin-heatmap"),
+    summaryAdminOperational: document.getElementById("summary-admin-operational"),
+    adminTodayQuotes: document.getElementById("admin-today-quotes"),
+    adminTodayAccessLog: document.getElementById("admin-today-access-log"),
     
     // Vendedores Section
     menuVendedores: document.getElementById("menu-vendedores"),
@@ -584,6 +587,13 @@ function loggerError(msg) {
 }
 
 function logout() {
+    if (state.token) {
+        fetch("/api/auth/logout", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${state.token}` },
+            keepalive: true
+        }).catch(() => {});
+    }
     state.token = null;
     state.user = null;
     state.currentSection = "summary";
@@ -704,6 +714,7 @@ async function loadSummaryData() {
         if (DOM.summaryAdminKpis) DOM.summaryAdminKpis.classList.add("hidden");
         if (DOM.summaryAdminCharts) DOM.summaryAdminCharts.classList.add("hidden");
         if (DOM.summaryAdminHeatmap) DOM.summaryAdminHeatmap.classList.add("hidden");
+        if (DOM.summaryAdminOperational) DOM.summaryAdminOperational.classList.add("hidden");
         if (DOM.slightEdgeSummaryCard) DOM.slightEdgeSummaryCard.classList.add("hidden");
 
         let promociones = state.promociones || [];
@@ -723,6 +734,7 @@ async function loadSummaryData() {
     if (DOM.summaryAdminKpis) DOM.summaryAdminKpis.classList.remove("hidden");
     if (DOM.summaryAdminCharts) DOM.summaryAdminCharts.classList.remove("hidden");
     if (DOM.summaryAdminHeatmap) DOM.summaryAdminHeatmap.classList.remove("hidden");
+    if (DOM.summaryAdminOperational) DOM.summaryAdminOperational.classList.remove("hidden");
     
     // Calculate totals
     const totalCotizado = quotes.reduce((acc, q) => acc + q.total, 0);
@@ -750,6 +762,15 @@ async function loadSummaryData() {
     } catch (heatmapErr) {
         console.error("Error renderizando mapa de calor:", heatmapErr);
     }
+
+    let accessLog = [];
+    try {
+        const accessLogRes = await apiRequest("/api/auth/access-log/today");
+        accessLog = accessLogRes.data || [];
+    } catch (accessLogErr) {
+        console.warn("No se pudo cargar la actividad de ingresos:", accessLogErr);
+    }
+    renderAdminOperationalPanels(quotes, accessLog);
     
     // Load Slight Edge summary tracking card
     await loadSlightEdgeSummaryWidget();
@@ -771,6 +792,53 @@ function getQuoteDate(quote) {
     if (!quote.fecha_registro) return null;
     const date = new Date(`${quote.fecha_registro}T12:00:00`);
     return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isSameCalendarDay(date, reference = new Date()) {
+    return date
+        && date.getFullYear() === reference.getFullYear()
+        && date.getMonth() === reference.getMonth()
+        && date.getDate() === reference.getDate();
+}
+
+function formatAccessTime(value) {
+    if (!value) return "En sesión";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Sin registro";
+    return date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+}
+
+function renderAdminOperationalPanels(quotes, accessLog) {
+    const todayQuotes = quotes
+        .filter(quote => isSameCalendarDay(parseLocalDate(quote.fecha_registro)))
+        .sort((a, b) => String(b.numero_cotizacion || b.id || "").localeCompare(String(a.numero_cotizacion || a.id || "")))
+        .slice(0, 6);
+
+    if (DOM.adminTodayQuotes) {
+        DOM.adminTodayQuotes.innerHTML = todayQuotes.length ? todayQuotes.map(quote => `
+            <div class="admin-operational-row">
+                <span class="admin-operational-icon quote"><i class="fa-regular fa-file-lines"></i></span>
+                <div>
+                    <strong>${escapeHTML(quote.cliente_nombre || "Cliente sin nombre")}</strong>
+                    <span>${escapeHTML(quote.numero_cotizacion || "Sin folio")} · ${escapeHTML(quote.vendedor_nombre || "Sin vendedor")}</span>
+                </div>
+                <b>${formatSellerMoney(quote.total)}</b>
+            </div>
+        `).join("") : '<div class="admin-operational-empty">No hay cotizaciones registradas hoy.</div>';
+    }
+
+    if (DOM.adminTodayAccessLog) {
+        DOM.adminTodayAccessLog.innerHTML = accessLog.length ? accessLog.map(record => `
+            <div class="admin-operational-row">
+                <span class="admin-operational-icon access"><i class="fa-solid fa-user-clock"></i></span>
+                <div>
+                    <strong>${escapeHTML(record.usuario || "Usuario")}</strong>
+                    <span>Entrada ${formatAccessTime(record.entrada)} · Salida ${formatAccessTime(record.salida)}</span>
+                </div>
+                <b class="admin-access-status ${record.salida ? "closed" : "open"}">${record.salida ? "Finalizó" : "Activo"}</b>
+            </div>
+        `).join("") : '<div class="admin-operational-empty">Aún no hay ingresos registrados hoy.</div>';
+    }
 }
 
 function isQuoteAutoLostByAge(quote, refDate = new Date()) {
