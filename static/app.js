@@ -902,8 +902,36 @@ function getDaysLeftInMonth() {
 
 function parseLocalDate(dateValue) {
     if (!dateValue) return null;
-    const parsed = new Date(`${dateValue}T12:00:00`);
+    if (dateValue instanceof Date) return new Date(dateValue);
+
+    const value = String(dateValue).trim();
+    const dateOnly = value.split("T")[0].split(" ")[0];
+    const isoMatch = dateOnly.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const localMatch = dateOnly.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+    if (isoMatch) {
+        return new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]), 12);
+    }
+    if (localMatch) {
+        return new Date(Number(localMatch[3]), Number(localMatch[2]) - 1, Number(localMatch[1]), 12);
+    }
+
+    const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isQuoteDateInRange(quote, startDate, endDate) {
+    const quoteDate = parseLocalDate(quote.fecha_registro);
+    const start = parseLocalDate(startDate);
+    const end = parseLocalDate(endDate);
+    if (!quoteDate) return !start && !end;
+
+    if (start && quoteDate < start) return false;
+    if (end) {
+        end.setHours(23, 59, 59, 999);
+        if (quoteDate > end) return false;
+    }
+    return true;
 }
 
 function getSellerGoalPeriodConfig(period) {
@@ -2539,13 +2567,9 @@ function renderQuotesDashboard() {
         // 1. Seller Filter
         if (sellerVal && q.vendedor_id !== sellerVal) return false;
         
-        // 2. Date Range Filter (alphabetical comparison)
-        if (q.fecha_registro) {
-            if (startDate && q.fecha_registro < startDate) return false;
-            if (endDate && q.fecha_registro > endDate) return false;
-        } else {
-            if (startDate || endDate) return false;
-        }
+        // 2. Date Range Filter. Normalize dates before comparing so imported
+        // values with a time component or dd/mm/yyyy format remain visible.
+        if (!isQuoteDateInRange(q, startDate, endDate)) return false;
         
         if (state.activeHeatmapFilter) {
             const heatmapFilter = state.activeHeatmapFilter;
