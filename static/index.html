@@ -168,6 +168,11 @@
                                 <span id="seller-monthly-goal-label">Meta mensual: $0</span>
                                 <strong id="seller-monthly-current">$0 (0%)</strong>
                                 <small id="seller-monthly-remaining">Faltan $0</small>
+                                <div class="seller-period-selector" role="group" aria-label="Periodo de avance">
+                                    <button type="button" class="seller-period-btn active" data-seller-period="month">Mes</button>
+                                    <button type="button" class="seller-period-btn" data-seller-period="week">Semana</button>
+                                    <button type="button" class="seller-period-btn" data-seller-period="day">Día</button>
+                                </div>
                             </div>
                             <div class="seller-hero-days">
                                 <span>Días restantes</span>
@@ -437,6 +442,11 @@
                                         <option value="">Sin padre (solo sus propios datos)</option>
                                     </select>
                                     <small style="opacity: 0.7; font-size: 11px;">Si seleccionas otro vendedor, este vendedor verá además los datos del seleccionado (cotizaciones, sobrepedidos, por entregar y clientes).</small>
+                                </div>
+                                <div class="input-group hidden" id="seller-monthly-goal-group">
+                                    <label for="seller-monthly-goal">Meta mensual de ventas ($)</label>
+                                    <input type="number" id="seller-monthly-goal" min="0.01" step="0.01" placeholder="Ej. 300000">
+                                    <small style="opacity: 0.7; font-size: 11px;">Solo gerente y administrador pueden definirla. Se aplica al mes calendario actual.</small>
                                 </div>
                                 <div class="input-group">
                                     <label for="seller-email">Correo Electrónico</label>
@@ -2076,6 +2086,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.42"></script>
+    <script src="/static/app.js?v=1.0.43"></script>
 </body>
 </html>

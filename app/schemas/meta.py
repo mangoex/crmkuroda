@@ -25,6 +25,11 @@ class MetaUpdate(BaseModel):
     fecha_limite: Optional[date] = None
     estado: Optional[str] = None
 
+
+class MetaMensualUpdate(BaseModel):
+    """Monto de la meta comercial que se mide durante el mes calendario actual."""
+    monto_objetivo: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+
 class MetaResponse(MetaBase):
     id: UUID
     vendedor_id: UUID

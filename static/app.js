@@ -83,6 +83,7 @@ const state = {
     quotesPageSize: 15,
     quotesSortOrder: "desc", // date sort: 'asc' or 'desc'
     activeHeatmapFilter: null,
+    sellerGoalPeriod: "month",
     kanbanSortOrders: {
         cotizado: null,
         promociones: null,
@@ -127,6 +128,7 @@ const DOM = {
     sellerMonthlyCurrent: document.getElementById("seller-monthly-current"),
     sellerMonthlyRemaining: document.getElementById("seller-monthly-remaining"),
     sellerMonthlyDaysLeft: document.getElementById("seller-monthly-days-left"),
+    sellerPeriodButtons: document.querySelectorAll("[data-seller-period]"),
     sellerPendingCount: document.getElementById("seller-pending-count"),
     sellerPendingList: document.getElementById("seller-pending-list"),
     sellerFollowupAlert: document.getElementById("seller-followup-alert"),
@@ -152,6 +154,8 @@ const DOM = {
     sellerCodeGroup: document.getElementById("seller-code-group"),
     sellerParent: document.getElementById("seller-parent"),
     sellerParentGroup: document.getElementById("seller-parent-group"),
+    sellerMonthlyGoalGroup: document.getElementById("seller-monthly-goal-group"),
+    sellerMonthlyGoal: document.getElementById("seller-monthly-goal"),
     sellerEmail: document.getElementById("seller-email"),
     sellerPhone: document.getElementById("seller-phone"),
     sellerPassword: document.getElementById("seller-password"),
@@ -896,6 +900,75 @@ function getDaysLeftInMonth() {
     return Math.max(0, lastDay - today.getDate());
 }
 
+function parseLocalDate(dateValue) {
+    if (!dateValue) return null;
+    const parsed = new Date(`${dateValue}T12:00:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getSellerGoalPeriodConfig(period) {
+    const today = new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    if (period === "day") {
+        return {
+            label: "diaria",
+            start: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+            end: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999),
+            targetFactor: 1 / endOfMonth.getDate(),
+            remainingLabel: "Hoy",
+        };
+    }
+
+    if (period === "week") {
+        const dayOfWeek = today.getDay() || 7;
+        const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - dayOfWeek + 1);
+        const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (7 - dayOfWeek), 23, 59, 59, 999);
+        return {
+            label: "semanal",
+            start,
+            end,
+            targetFactor: 7 / endOfMonth.getDate(),
+            remainingLabel: `${Math.max(0, 7 - dayOfWeek)} dias restantes`,
+        };
+    }
+
+    return {
+        label: "mensual",
+        start: startOfMonth,
+        end: new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999),
+        targetFactor: 1,
+        remainingLabel: `${getDaysLeftInMonth()} dias restantes`,
+    };
+}
+
+function getCurrentMonthlyGoal(metas) {
+    const today = new Date();
+    const monthlyMeta = metas
+        .filter(meta => meta.descripcion === "Meta mensual comercial")
+        .find(meta => {
+            const start = parseLocalDate(meta.fecha_inicio);
+            const end = parseLocalDate(meta.fecha_limite);
+            return start && end && start <= today && end >= today;
+        });
+
+    // Conserva las metas activas creadas antes de esta mejora, sin fabricar un monto de respaldo.
+    const activeMeta = monthlyMeta || metas
+        .filter(meta => meta.estado !== "completada")
+        .find(meta => {
+            const start = parseLocalDate(meta.fecha_inicio);
+            const end = parseLocalDate(meta.fecha_limite);
+            return start && end && start <= today && end >= today;
+        });
+    return Number(activeMeta?.monto_objetivo || 0);
+}
+
+function getInvoiceAmount(quote) {
+    const invoiceAmount = Number(quote.importe_facturado);
+    return Number.isFinite(invoiceAmount) && invoiceAmount > 0 ? invoiceAmount : Number(quote.total || 0);
+}
+
 function getQuoteAgeDays(quote) {
     if (!quote.fecha_registro) return 999;
     const quoteDate = new Date(`${quote.fecha_registro}T12:00:00Z`);
@@ -1052,32 +1125,29 @@ function renderSellerPromos(promociones, search) {
 async function renderSellerHomeDashboard({ metas, quotes, promociones }) {
     const search = DOM.sellerDashboardSearch ? DOM.sellerDashboardSearch.value.trim() : "";
     const sellerName = state.user.nombre_completo || state.user.email || "Vendedor";
-    const activeMeta = metas
-        .filter(meta => meta.estado !== "completada")
-        .sort((a, b) => Number(b.monto_objetivo || 0) - Number(a.monto_objetivo || 0))[0];
-    const monthlyGoal = Number(activeMeta?.monto_objetivo || 300000);
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    const currentMonthQuotes = quotes.filter(q => {
-        if (!q.fecha_registro) return false;
-        const qDate = new Date(`${q.fecha_registro}T12:00:00`);
-        return qDate.getMonth() === currentMonth && qDate.getFullYear() === currentYear;
-    });
-    const wonTotal = currentMonthQuotes
-        .filter(q => q.numero_factura && !isQuoteLost(q))
-        .reduce((sum, q) => sum + Number(q.total || 0), 0);
-    const quotedTotal = currentMonthQuotes.reduce((sum, q) => sum + Number(q.total || 0), 0);
-    const progressBase = wonTotal > 0 ? wonTotal : quotedTotal;
-    const percent = monthlyGoal > 0 ? Math.min(100, Math.round((progressBase / monthlyGoal) * 100)) : 0;
-    const remaining = Math.max(0, monthlyGoal - progressBase);
+    const period = getSellerGoalPeriodConfig(state.sellerGoalPeriod);
+    const monthlyGoal = getCurrentMonthlyGoal(metas);
+    const periodGoal = monthlyGoal * period.targetFactor;
+    const invoicedTotal = quotes
+        .filter(q => q.numero_factura)
+        .filter(q => {
+            const invoiceDate = parseLocalDate(q.fecha_factura || q.fecha_registro);
+            return invoiceDate && invoiceDate >= period.start && invoiceDate <= period.end;
+        })
+        .reduce((sum, q) => sum + getInvoiceAmount(q), 0);
+    const percent = periodGoal > 0 ? Math.min(100, Math.round((invoicedTotal / periodGoal) * 100)) : 0;
+    const remaining = Math.max(0, periodGoal - invoicedTotal);
 
     if (DOM.sellerDashboardInitials) DOM.sellerDashboardInitials.textContent = getInitials(sellerName);
     if (DOM.sellerMonthlyProgressRing) DOM.sellerMonthlyProgressRing.style.setProperty("--progress", percent);
     if (DOM.sellerMonthlyProgressPercent) DOM.sellerMonthlyProgressPercent.textContent = `${percent}%`;
-    if (DOM.sellerMonthlyGoalLabel) DOM.sellerMonthlyGoalLabel.textContent = `Meta mensual: ${formatSellerMoney(monthlyGoal)}`;
-    if (DOM.sellerMonthlyCurrent) DOM.sellerMonthlyCurrent.textContent = `${formatSellerMoney(progressBase)} (${percent}%)`;
+    if (DOM.sellerMonthlyGoalLabel) DOM.sellerMonthlyGoalLabel.textContent = `Meta ${period.label}: ${formatSellerMoney(periodGoal)}`;
+    if (DOM.sellerMonthlyCurrent) DOM.sellerMonthlyCurrent.textContent = `${formatSellerMoney(invoicedTotal)} (${percent}%)`;
     if (DOM.sellerMonthlyRemaining) DOM.sellerMonthlyRemaining.textContent = `Faltan: ${formatSellerMoney(remaining)}`;
-    if (DOM.sellerMonthlyDaysLeft) DOM.sellerMonthlyDaysLeft.textContent = `${getDaysLeftInMonth()} dias restantes`;
+    if (DOM.sellerMonthlyDaysLeft) DOM.sellerMonthlyDaysLeft.textContent = period.remainingLabel;
+    DOM.sellerPeriodButtons.forEach(button => {
+        button.classList.toggle("active", button.dataset.sellerPeriod === state.sellerGoalPeriod);
+    });
 
     let plan = null;
     let logToday = null;
@@ -1099,10 +1169,14 @@ async function renderSellerHomeDashboard({ metas, quotes, promociones }) {
 async function loadVendedoresData() {
     if (state.user.rol === "vendedor") return;
     
-    // Fetch sellers
-    const res = await apiRequest("/api/v1/vendedores/?limit=100");
+    // Fetch sellers and their current goals so the manager can edit the commercial quota.
+    const [res, metasRes] = await Promise.all([
+        apiRequest("/api/v1/vendedores/?limit=100"),
+        apiRequest("/api/v1/metas/?limit=100"),
+    ]);
     const sellers = res.data || [];
     state.vendedores = sellers;
+    state.metas = metasRes.data || [];
     
     // Fetch dashboard metrics
     let metricsMap = {};
@@ -1120,6 +1194,7 @@ async function loadVendedoresData() {
     // Enrich sellers
     sellers.forEach(v => {
         v.metrics = metricsMap[v.id] || { sales: 0, target: 0, conversion_rate: 0, roi: 0 };
+        v.monthlyGoal = getCurrentMonthlyGoal(state.metas.filter(meta => meta.vendedor_id === v.id));
     });
     
     // Sort sellers
@@ -1183,7 +1258,7 @@ async function loadVendedoresData() {
             <td>${conversionHtml}</td>
             <td>
                 <div style="display: flex; gap: 8px;">
-                    <button class="btn btn-secondary btn-sm edit-seller-btn" data-id="${v.id}" data-email="${escapeHTML(v.email)}" data-fullname="${escapeHTML(v.nombre_completo) || ''}" data-role="${v.rol}" data-phone="${v.telefono_whatsapp || ''}" data-code="${v.codigo_vendedor || ''}" data-parent="${v.vendedor_padre_id || ''}">
+                    <button class="btn btn-secondary btn-sm edit-seller-btn" data-id="${v.id}" data-email="${escapeHTML(v.email)}" data-fullname="${escapeHTML(v.nombre_completo) || ''}" data-role="${v.rol}" data-phone="${v.telefono_whatsapp || ''}" data-code="${v.codigo_vendedor || ''}" data-parent="${v.vendedor_padre_id || ''}" data-monthly-goal="${v.monthlyGoal || ''}">
                         <i class="fa-solid fa-pen-to-square"></i> Editar
                     </button>
                     <button class="btn btn-danger btn-sm delete-seller-btn" data-id="${v.id}" data-email="${escapeHTML(v.email)}" ${v.id === state.user.id ? 'disabled' : ''} title="Eliminar" style="padding: 6px 10px;">
@@ -1207,8 +1282,9 @@ async function loadVendedoresData() {
             const phone = targetBtn.getAttribute("data-phone");
             const code = targetBtn.getAttribute("data-code");
             const parent = targetBtn.getAttribute("data-parent");
-            console.log("Edit attributes found:", { id, email, fullname, role, phone, code, parent });
-            openEditUserForm(id, email, fullname, role, phone, code, parent);
+            const monthlyGoal = targetBtn.getAttribute("data-monthly-goal");
+            console.log("Edit attributes found:", { id, email, fullname, role, phone, code, parent, monthlyGoal });
+            openEditUserForm(id, email, fullname, role, phone, code, parent, monthlyGoal);
         });
     });
 
@@ -3822,6 +3898,11 @@ async function populateSellerParentOptions(excludeId = null, selectedParentId = 
 }
 
 // Dynamically show/hide seller code input depending on selected role
+function syncSellerGoalFieldVisibility() {
+    const shouldShow = editingUserId && DOM.sellerRole?.value === "vendedor";
+    DOM.sellerMonthlyGoalGroup?.classList.toggle("hidden", !shouldShow);
+}
+
 if (DOM.sellerRole) {
     DOM.sellerRole?.addEventListener("change", (e) => {
         if (e.target.value === "vendedor") {
@@ -3833,6 +3914,7 @@ if (DOM.sellerRole) {
             if (DOM.sellerCode) DOM.sellerCode.value = "";
             if (DOM.sellerParent) DOM.sellerParent.value = "";
         }
+        syncSellerGoalFieldVisibility();
     });
 }
 
@@ -3845,6 +3927,8 @@ DOM.btnAddSeller?.addEventListener("click", () => {
     DOM.sellerPasswordLabel.innerHTML = 'Contraseña Temporal';
     DOM.sellerCodeGroup.classList.remove("hidden");
     DOM.sellerParentGroup?.classList.remove("hidden");
+    if (DOM.sellerMonthlyGoal) DOM.sellerMonthlyGoal.value = "";
+    syncSellerGoalFieldVisibility();
     populateSellerParentOptions(null, null);
     DOM.sellerFormWrapper.classList.remove("hidden");
     DOM.sellerFormWrapper.scrollIntoView({ behavior: "smooth" });
@@ -3860,8 +3944,8 @@ DOM.btnCloseSellerForm?.addEventListener("click", () => {
     editingUserId = null;
 });
 
-function openEditUserForm(id, email, fullname, role, phone, code, parent) {
-    console.log("openEditUserForm called with parameters:", { id, email, fullname, role, phone, code, parent });
+function openEditUserForm(id, email, fullname, role, phone, code, parent, monthlyGoal) {
+    console.log("openEditUserForm called with parameters:", { id, email, fullname, role, phone, code, parent, monthlyGoal });
     try {
         editingUserId = id;
         if (DOM.sellerFullname) DOM.sellerFullname.value = fullname || "";
@@ -3869,6 +3953,7 @@ function openEditUserForm(id, email, fullname, role, phone, code, parent) {
         if (DOM.sellerEmail) DOM.sellerEmail.value = email || "";
         if (DOM.sellerPhone) DOM.sellerPhone.value = phone || "";
         if (DOM.sellerCode) DOM.sellerCode.value = code || "";
+        if (DOM.sellerMonthlyGoal) DOM.sellerMonthlyGoal.value = monthlyGoal || "";
         if (DOM.sellerPassword) {
             DOM.sellerPassword.value = "";
             DOM.sellerPassword.required = false; // not required when editing
@@ -3890,6 +3975,7 @@ function openEditUserForm(id, email, fullname, role, phone, code, parent) {
 
         if (DOM.sellerFormTitle) DOM.sellerFormTitle.textContent = "Editar Usuario";
         if (DOM.btnSubmitSeller) DOM.btnSubmitSeller.textContent = "Guardar Cambios";
+        syncSellerGoalFieldVisibility();
 
         if (DOM.sellerFormWrapper) {
             DOM.sellerFormWrapper.classList.remove("hidden");
@@ -3926,6 +4012,7 @@ DOM.sellerForm?.addEventListener("submit", async (e) => {
     const code = role === "vendedor" ? (DOM.sellerCode.value || null) : null;
     const password = DOM.sellerPassword.value || null;
     const parentId = role === "vendedor" ? (DOM.sellerParent?.value || "") : "";
+    const monthlyGoal = DOM.sellerMonthlyGoal?.value;
 
     const payload = {
         email,
@@ -3947,6 +4034,12 @@ DOM.sellerForm?.addEventListener("submit", async (e) => {
                 method: "PUT",
                 body: JSON.stringify(payload)
             });
+            if (role === "vendedor" && monthlyGoal) {
+                await apiRequest(`/api/v1/metas/mensual/${editingUserId}`, {
+                    method: "PUT",
+                    body: JSON.stringify({ monto_objetivo: Number(monthlyGoal) })
+                });
+            }
             showToast("Usuario actualizado con éxito.");
         } else {
             // Create User (requires password)
@@ -4830,6 +4923,18 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     }
+
+    DOM.sellerPeriodButtons.forEach(button => {
+        button.addEventListener("click", () => {
+            if (state.user?.rol !== "vendedor") return;
+            state.sellerGoalPeriod = button.dataset.sellerPeriod || "month";
+            renderSellerHomeDashboard({
+                metas: state.metas || [],
+                quotes: state.cotizaciones || [],
+                promociones: state.promociones || []
+            });
+        });
+    });
 
     if (DOM.sellerHomeDashboard) {
         DOM.sellerHomeDashboard.addEventListener("click", (event) => {

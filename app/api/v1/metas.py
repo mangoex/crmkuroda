@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from calendar import monthrange
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -11,7 +12,7 @@ from app.core.security import RoleChecker, get_current_user
 from app.models.usuario import Usuario
 from app.models.meta import Meta
 from app.models.cotizacion import Cotizacion
-from app.schemas.meta import MetaCreate, MetaUpdate
+from app.schemas.meta import MetaCreate, MetaUpdate, MetaMensualUpdate
 from app.models.promocion import Promocion
 from app.agents.metas_agent import generate_seller_goals
 from app.agents.seguimiento_agent import generate_followup_message, send_whatsapp_message
@@ -20,6 +21,7 @@ router = APIRouter()
 
 # Instantiate RBAC dependencies
 require_admin_or_gerente = RoleChecker(["admin", "gerente"])
+META_MENSUAL_COMERCIAL = "Meta mensual comercial"
 
 @router.get("/", status_code=status.HTTP_200_OK)
 async def list_metas(
@@ -119,6 +121,67 @@ async def create_meta_manual(
             "fecha_limite": new_meta.fecha_limite.isoformat(),
             "estado": new_meta.estado
         }
+    }
+
+
+@router.put("/mensual/{vendedor_id}", status_code=status.HTTP_200_OK)
+async def upsert_meta_mensual(
+    vendedor_id: UUID,
+    payload: MetaMensualUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(require_admin_or_gerente),
+):
+    """Crea o actualiza la cuota mensual comercial del vendedor para el mes actual."""
+    vendedor_res = await db.execute(
+        select(Usuario).filter(Usuario.id == vendedor_id, Usuario.rol == "vendedor")
+    )
+    if not vendedor_res.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El vendedor especificado no existe o no tiene el rol correspondiente.",
+        )
+
+    today = date.today()
+    fecha_inicio = today.replace(day=1)
+    fecha_limite = today.replace(day=monthrange(today.year, today.month)[1])
+    meta_res = await db.execute(
+        select(Meta).filter(
+            Meta.vendedor_id == vendedor_id,
+            Meta.descripcion == META_MENSUAL_COMERCIAL,
+            Meta.fecha_inicio == fecha_inicio,
+            Meta.fecha_limite == fecha_limite,
+        )
+    )
+    meta = meta_res.scalars().first()
+
+    if meta:
+        meta.monto_objetivo = payload.monto_objetivo
+        meta.estado = "en_progreso"
+    else:
+        meta = Meta(
+            vendedor_id=vendedor_id,
+            descripcion=META_MENSUAL_COMERCIAL,
+            monto_objetivo=payload.monto_objetivo,
+            fecha_inicio=fecha_inicio,
+            fecha_limite=fecha_limite,
+            estado="en_progreso",
+        )
+        db.add(meta)
+
+    await db.commit()
+    await db.refresh(meta)
+    return {
+        "status": "success",
+        "message": "Meta mensual comercial actualizada.",
+        "data": {
+            "id": str(meta.id),
+            "vendedor_id": str(meta.vendedor_id),
+            "descripcion": meta.descripcion,
+            "monto_objetivo": float(meta.monto_objetivo),
+            "fecha_inicio": meta.fecha_inicio.isoformat(),
+            "fecha_limite": meta.fecha_limite.isoformat(),
+            "estado": meta.estado,
+        },
     }
 
 @router.post("/generate/{vendedor_id}", status_code=status.HTTP_201_CREATED)

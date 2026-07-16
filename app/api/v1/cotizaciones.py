@@ -38,6 +38,7 @@ def serialize_cotizacion(c: Cotizacion) -> dict:
         "canal": c.canal,
         "numero_factura": c.numero_factura,
         "fecha_factura": c.fecha_factura.isoformat() if c.fecha_factura else None,
+        "importe_facturado": float(c.importe_facturado) if c.importe_facturado is not None else None,
         "venta_perdida": c.venta_perdida,
         "comentarios": c.comentarios
     }
