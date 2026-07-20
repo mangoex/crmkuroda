@@ -972,6 +972,37 @@ function buildProductImageSearchUrl(product) {
     return `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(query)}`;
 }
 
+function getInventoryProductKey(item) {
+    const candidates = [item?.codigo_material, item?.almacen];
+    const key = candidates.find(value => {
+        const normalized = String(value ?? "").trim();
+        return normalized && normalized !== "0" && normalized !== "0.0";
+    });
+    return key ? String(key).trim() : "";
+}
+
+function isLegacyMisalignedInventory(item) {
+    return getInventoryProductKey(item) === String(item?.almacen || "").trim()
+        && ["0", "0.0", ""].includes(String(item?.codigo_material ?? "").trim())
+        && ["0", "0.0", ""].includes(String(item?.descripcion_material ?? "").trim());
+}
+
+function getInventoryProviderName(item) {
+    return isLegacyMisalignedInventory(item)
+        ? (item.numero_proveedor || "")
+        : (item.nombre_proveedor || "");
+}
+
+function getInventoryDescription(item) {
+    return isLegacyMisalignedInventory(item)
+        ? (item.nombre_proveedor || "")
+        : (item.descripcion_material || "");
+}
+
+function getInventoryWarehouse(item) {
+    return isLegacyMisalignedInventory(item) ? "" : (item.almacen || "");
+}
+
 function getDaysLeftInMonth() {
     const today = new Date();
     const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -1515,7 +1546,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             // Build provider map
             const provMap = {};
             allItems.forEach(i => {
-                const prov = i.nombre_proveedor || "Sin Proveedor";
+                const prov = getInventoryProviderName(i) || "Sin Proveedor";
                 if (!provMap[prov]) provMap[prov] = { count: 0, stock: 0 };
                 provMap[prov].count++;
                 provMap[prov].stock += (i.cantidad_propia || 0);
@@ -1582,7 +1613,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         if (DOM.filterInvAbcf && DOM.filterInvAbcf.options.length <= 1) {
             const currentAbcf = DOM.filterInvAbcf.value;
             DOM.filterInvAbcf.innerHTML = '<option value="todos">Todos</option>';
-            const abcfs = [...new Set(inventario.map(i => i.abc_f).filter(Boolean))].sort();
+            const abcfs = [...new Set(inventario.map(getInventoryProductKey).filter(Boolean))].sort();
             abcfs.forEach(a => {
                 const opt = document.createElement("option");
                 opt.value = a;
@@ -1595,7 +1626,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         if (DOM.filterInvProveedor && DOM.filterInvProveedor.options.length <= 1) {
             const currentProv = DOM.filterInvProveedor.value;
             DOM.filterInvProveedor.innerHTML = '<option value="todos">Todos</option>';
-            const proveedores = [...new Set(inventario.map(i => i.nombre_proveedor).filter(Boolean))].sort();
+            const proveedores = [...new Set(inventario.map(getInventoryProviderName).filter(Boolean))].sort();
             proveedores.forEach(p => {
                 const opt = document.createElement("option");
                 opt.value = p;
@@ -1610,17 +1641,17 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             inventario = inventario.filter(i => i.nombre_centro === sucursalFilter);
         }
         if (abcfFilter !== "todos") {
-            inventario = inventario.filter(i => i.abc_f === abcfFilter);
+            inventario = inventario.filter(i => getInventoryProductKey(i) === abcfFilter);
         }
         if (proveedorFilter !== "todos") {
-            inventario = inventario.filter(i => i.nombre_proveedor === proveedorFilter);
+            inventario = inventario.filter(i => getInventoryProviderName(i) === proveedorFilter);
         }
         if (searchTerm) {
             inventario = inventario.filter(i => {
                 const searchableFields = [
-                    i.codigo_material,
-                    i.descripcion_material,
-                    i.nombre_proveedor,
+                    getInventoryProductKey(i),
+                    getInventoryDescription(i),
+                    getInventoryProviderName(i),
                     i.numero_proveedor,
                     i.codigo_anterior_material,
                     i.grupo_materiales,
@@ -1635,7 +1666,8 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         
         DOM.tableInventarioAbcf.innerHTML = "";
         if (inventario.length === 0) {
-            DOM.tableInventarioAbcf.innerHTML = `<tr><td colspan="12" style="text-align: center;">No se encontraron registros de inventario.</td></tr>`;
+            const inventoryColumns = state.user?.rol === "vendedor" ? 10 : 11;
+            DOM.tableInventarioAbcf.innerHTML = `<tr><td colspan="${inventoryColumns}" style="text-align: center;">No se encontraron registros de inventario.</td></tr>`;
             return;
         }
         
@@ -1671,9 +1703,9 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         pageItems.forEach(i => {
             const tr = document.createElement("tr");
             const imageSearchUrl = buildProductImageSearchUrl({
-                codigo_material: i.codigo_material,
-                descripcion_material: i.descripcion_material,
-                proveedor: i.nombre_proveedor
+                codigo_material: getInventoryProductKey(i),
+                descripcion_material: getInventoryDescription(i),
+                proveedor: getInventoryProviderName(i)
             });
             tr.innerHTML = `
                 <td>
@@ -1682,11 +1714,10 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                     </a>
                 </td>
                 <td><span class="badge badge-secondary">${escapeHTML(i.nombre_centro || "-")}</span></td>
-                <td>${escapeHTML(i.almacen || "-")}</td>
-                <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(i.nombre_proveedor || "")}">${escapeHTML(i.nombre_proveedor || "-")}</td>
-                <td><strong>${escapeHTML(i.abc_f || "-")}</strong></td>
-                <td><code>${escapeHTML(i.codigo_material || "-")}</code></td>
-                <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(i.descripcion_material || "")}">${escapeHTML(i.descripcion_material || "-")}</td>
+                <td>${escapeHTML(getInventoryWarehouse(i) || "-")}</td>
+                <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(getInventoryProviderName(i))}">${escapeHTML(getInventoryProviderName(i) || "-")}</td>
+                <td><strong>${escapeHTML(getInventoryProductKey(i) || "-")}</strong></td>
+                <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(getInventoryDescription(i))}">${escapeHTML(getInventoryDescription(i) || "-")}</td>
                 <td>${i.cantidad_propia !== null ? i.cantidad_propia.toLocaleString() : "-"}</td>
                 <td>${i.existencia_consignacion !== null ? i.existencia_consignacion.toLocaleString() : "-"}</td>
                 <td>$${i.costo_promedio_unitario !== null ? i.costo_promedio_unitario.toLocaleString(undefined, {minimumFractionDigits: 2}) : "0.00"}</td>
@@ -1719,7 +1750,8 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         
     } catch (e) {
         console.error("Error loading inventario:", e);
-        DOM.tableInventarioAbcf.innerHTML = `<tr><td colspan="10" style="text-align: center; color: #ef4444;">Error al cargar datos</td></tr>`;
+        const inventoryColumns = state.user?.rol === "vendedor" ? 10 : 11;
+        DOM.tableInventarioAbcf.innerHTML = `<tr><td colspan="${inventoryColumns}" style="text-align: center; color: #ef4444;">Error al cargar datos</td></tr>`;
     }
 }
 
