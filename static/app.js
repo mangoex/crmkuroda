@@ -281,6 +281,8 @@ const DOM = {
     lostReasonQuoteId: document.getElementById("lost-reason-quote-id"),
     lostReasonPrice: document.getElementById("lost-reason-price"),
     lostReasonStock: document.getElementById("lost-reason-stock"),
+    lostReasonOptions: document.getElementById("lost-reason-options"),
+    lostReasonJustificationLabel: document.getElementById("lost-reason-justification-label"),
     lostReasonJustification: document.getElementById("lost-reason-justification"),
     btnCloseLostReasonModal: document.getElementById("btn-close-lost-reason-modal"),
     btnCancelLostReason: document.getElementById("btn-cancel-lost-reason"),
@@ -877,16 +879,22 @@ function parseLostReason(quote) {
 function buildLostReasonComments(reason) {
     return JSON.stringify({
         lost_reason: {
-            reason: reason.reason,
+            reasons: reason.reasons,
             justification: reason.justification,
             updated_at: new Date().toISOString()
         }
     });
 }
 
+function getLostReasons(reason) {
+    if (!reason) return [];
+    if (Array.isArray(reason.reasons)) return reason.reasons;
+    return reason.reason ? [reason.reason] : [];
+}
+
 function hasLostReason(quote) {
     const reason = parseLostReason(quote);
-    return !!(reason?.reason && reason?.justification);
+    return getLostReasons(reason).length > 0 && !!reason?.justification;
 }
 
 const uploadMeta = {
@@ -3294,9 +3302,11 @@ function renderQuotesTableFiltered() {
             const quoteNum = c.numero_cotizacion || '-';
             const canal = c.canal || '-';
             const lost = isQuoteLost(c);
-            const noteSaved = hasLostReason(c);
-            const noteColor = !lost ? "hsl(var(--text-muted))" : noteSaved ? "#22c55e" : "#ffffff";
-            const noteTitle = !lost ? "Disponible solo para ventas perdidas" : noteSaved ? "Editar motivo de perdida" : "Registrar motivo de perdida";
+            const noteSaved = lost ? hasLostReason(c) : Boolean(c.comentarios);
+            const noteColor = noteSaved ? "#22c55e" : "#ffffff";
+            const noteTitle = lost
+                ? (noteSaved ? "Editar motivo de perdida" : "Registrar motivo de perdida")
+                : (noteSaved ? "Editar comentario" : "Agregar comentario");
             const lossPill = lost ?
                 `<span class="status-pill status-pendiente">Si</span>` :
                 `<span class="status-pill status-completada">No</span>`;
@@ -3313,7 +3323,7 @@ function renderQuotesTableFiltered() {
                 <td>${lossPill}</td>
                 <td>${invoiceNumber ? `<code title="Factura">${escapeHTML(invoiceNumber)}</code>` : `<span class="text-muted">-</span>`}</td>
                 <td>
-                    <button class="btn btn-secondary btn-sm lost-reason-btn" data-id="${c.id}" title="${noteTitle}" ${lost ? "" : "disabled"} style="min-width: 38px; padding: 8px 10px; color: ${noteColor}; opacity: ${lost ? "1" : "0.45"};">
+                    <button class="btn btn-secondary btn-sm lost-reason-btn" data-id="${c.id}" title="${noteTitle}" style="min-width: 38px; padding: 8px 10px; color: ${noteColor};">
                         <i class="fa-regular fa-note-sticky"></i>
                     </button>
                 </td>
@@ -3325,7 +3335,7 @@ function renderQuotesTableFiltered() {
             btn.addEventListener("click", () => {
                 const id = btn.getAttribute("data-id");
                 const quote = state.cotizaciones.find(q => q.id === id);
-                if (quote && isQuoteLost(quote)) openLostReasonModal(quote);
+                if (quote) openLostReasonModal(quote);
             });
         });
     }
@@ -3379,12 +3389,21 @@ function closeLostReasonModal() {
 
 function openLostReasonModal(quote) {
     if (!DOM.lostReasonModal || !DOM.lostReasonForm) return;
+    const lost = isQuoteLost(quote);
     const reason = parseLostReason(quote);
+    const reasons = getLostReasons(reason);
     if (DOM.lostReasonQuoteId) DOM.lostReasonQuoteId.value = quote.id;
-    if (DOM.lostReasonTitle) DOM.lostReasonTitle.textContent = `Motivo de Venta Perdida - ${quote.cliente_nombre || "Cliente"}`;
-    if (DOM.lostReasonPrice) DOM.lostReasonPrice.checked = reason?.reason === "precio";
-    if (DOM.lostReasonStock) DOM.lostReasonStock.checked = reason?.reason === "existencia";
-    if (DOM.lostReasonJustification) DOM.lostReasonJustification.value = reason?.justification || "";
+    if (DOM.lostReasonTitle) DOM.lostReasonTitle.textContent = `${lost ? "Motivo de Venta Perdida" : "Observaciones"} - ${quote.cliente_nombre || "Cliente"}`;
+    if (DOM.lostReasonOptions) DOM.lostReasonOptions.classList.toggle("hidden", !lost);
+    if (DOM.lostReasonPrice) DOM.lostReasonPrice.checked = reasons.includes("precio");
+    if (DOM.lostReasonStock) DOM.lostReasonStock.checked = reasons.includes("existencia");
+    if (DOM.lostReasonJustificationLabel) DOM.lostReasonJustificationLabel.textContent = lost ? "Justificación" : "Comentarios";
+    if (DOM.lostReasonJustification) {
+        DOM.lostReasonJustification.placeholder = lost
+            ? "Describe brevemente qué pasó con esta cotización..."
+            : "Agrega un comentario sobre esta cotización...";
+        DOM.lostReasonJustification.value = lost ? (reason?.justification || "") : (quote.comentarios || "");
+    }
     DOM.lostReasonModal.classList.remove("hidden");
 }
 
@@ -3392,20 +3411,24 @@ async function saveLostReason(event) {
     event.preventDefault();
     const quoteId = DOM.lostReasonQuoteId?.value;
     const quote = state.cotizaciones.find(q => q.id === quoteId);
-    if (!quote || !isQuoteLost(quote)) {
-        showToast("Solo puedes registrar motivo en ventas perdidas.", "error");
+    if (!quote) {
+        showToast("No se encontró la cotización.", "error");
         return;
     }
 
-    const reason = DOM.lostReasonPrice?.checked ? "precio" : DOM.lostReasonStock?.checked ? "existencia" : "";
+    const lost = isQuoteLost(quote);
+    const reasons = [
+        DOM.lostReasonPrice?.checked ? "precio" : null,
+        DOM.lostReasonStock?.checked ? "existencia" : null
+    ].filter(Boolean);
     const justification = DOM.lostReasonJustification?.value.trim() || "";
 
-    if (!reason) {
-        showToast("Selecciona Precio o Existencia.", "error");
+    if (lost && reasons.length === 0) {
+        showToast("Selecciona Precio, Existencia o ambas opciones.", "error");
         return;
     }
     if (!justification) {
-        showToast("Agrega una justificación breve.", "error");
+        showToast(lost ? "Agrega una justificación breve." : "Agrega un comentario.", "error");
         return;
     }
 
@@ -3413,7 +3436,9 @@ async function saveLostReason(event) {
         const res = await apiRequest(`/api/v1/cotizaciones/${quoteId}`, {
             method: "PUT",
             body: JSON.stringify({
-                comentarios: buildLostReasonComments({ reason, justification })
+                comentarios: lost
+                    ? buildLostReasonComments({ reasons, justification })
+                    : justification
             })
         });
 
@@ -3424,7 +3449,7 @@ async function saveLostReason(event) {
 
         closeLostReasonModal();
         renderQuotesDashboard();
-        showToast("Motivo de venta perdida guardado.");
+        showToast(lost ? "Motivo de venta perdida guardado." : "Comentario guardado.");
     } catch (e) {
         showToast(e.message, "error");
     }

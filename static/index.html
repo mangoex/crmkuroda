@@ -1939,7 +1939,7 @@
             </div>
             <form id="lost-reason-form" class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
                 <input type="hidden" id="lost-reason-quote-id">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div id="lost-reason-options" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <label style="display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); cursor: pointer;">
                         <input type="checkbox" id="lost-reason-price" value="precio" style="width: 16px; height: 16px; accent-color: #22c55e;">
                         <span><i class="fa-solid fa-tag"></i> Precio</span>
@@ -1950,7 +1950,7 @@
                     </label>
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
-                    <label for="lost-reason-justification">Justificación</label>
+                    <label id="lost-reason-justification-label" for="lost-reason-justification">Justificación</label>
                     <textarea id="lost-reason-justification" rows="4" placeholder="Describe brevemente qué pasó con esta cotización..." style="resize: vertical;"></textarea>
                 </div>
                 <div class="modal-footer" style="padding: 0; border-top: 0;">
@@ -2153,6 +2153,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.49"></script>
+    <script src="/static/app.js?v=1.0.50"></script>
 </body>
 </html>
