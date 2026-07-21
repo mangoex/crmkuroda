@@ -3,13 +3,18 @@
    ========================================================================== */
 
 :root {
+    /* Marca Casa Kuroda: Pantone 485 C / RGB 230, 0, 0, blanco y negro. */
+    --brand-red: 0, 100%, 45%;          /* #e60000 */
+    --brand-white: 0, 0%, 100%;         /* #ffffff */
+    --brand-black: 0, 0%, 0%;           /* #000000 */
+
     /* Color Palette - HSL values for seamless opacity binding */
     --bg-primary: 222, 20%, 6%;        /* #0c0e12 */
     --bg-secondary: 220, 20%, 10%;      /* #131720 */
     --card-bg: 220, 22%, 13%;           /* #1a1e28 */
     
-    --primary: 242, 85%, 65%;           /* #5d5fef - Indigo */
-    --primary-glow: 242, 85%, 65%, 0.35;
+    --primary: var(--brand-red);
+    --primary-glow: 0, 100%, 45%, 0.30;
     
     --accent: 184, 100%, 50%;           /* #00f2fe - Cyan */
     --accent-glow: 184, 100%, 50%, 0.35;
@@ -1603,7 +1608,7 @@ body.light-mode .menu-item {
 body.light-mode .menu-item:hover, 
 body.light-mode .menu-item.active {
     color: hsl(var(--primary));
-    background: rgba(93, 95, 239, 0.08);
+    background: rgba(230, 0, 0, 0.08);
 }
 
 body.light-mode .top-navbar {
@@ -2621,8 +2626,8 @@ input:checked + .slider:before {
 .seller-command-icon {
     width: 56px;
     color: #fff;
-    background: linear-gradient(135deg, #5b35c5, #3b2a84);
-    box-shadow: 0 10px 22px rgba(74, 45, 180, 0.24);
+    background: linear-gradient(135deg, #e60000, #9f0000);
+    box-shadow: 0 10px 22px rgba(230, 0, 0, 0.22);
 }
 
 .seller-avatar-chip {
@@ -2640,8 +2645,8 @@ input:checked + .slider:before {
     gap: 30px;
     padding: 24px 36px;
     overflow: hidden;
-    border-color: rgba(129, 112, 255, 0.26);
-    background: linear-gradient(105deg, rgba(11, 24, 45, 0.98) 0%, rgba(14, 29, 54, 0.96) 55%, rgba(47, 26, 117, 0.94) 100%);
+    border-color: rgba(230, 0, 0, 0.30);
+    background: linear-gradient(105deg, rgba(11, 24, 45, 0.98) 0%, rgba(18, 25, 38, 0.96) 55%, rgba(121, 0, 0, 0.94) 100%);
     box-shadow: 0 22px 48px rgba(0, 0, 0, 0.3);
 }
 
@@ -2651,7 +2656,7 @@ input:checked + .slider:before {
     z-index: -1;
     inset: 0;
     opacity: 0.36;
-    background: repeating-linear-gradient(145deg, transparent 0 10px, rgba(161, 130, 255, 0.17) 11px 12px, transparent 13px 22px);
+    background: repeating-linear-gradient(145deg, transparent 0 10px, rgba(255, 132, 132, 0.20) 11px 12px, transparent 13px 22px);
     transform: translateX(70%);
     transform-origin: right;
 }
@@ -2683,7 +2688,7 @@ input:checked + .slider:before {
 }
 
 .seller-period-btn { min-width: 58px; min-height: 30px; }
-.seller-period-btn.active { background: #5833bd; box-shadow: inset 0 0 0 1px rgba(195, 178, 255, 0.5); }
+.seller-period-btn.active { background: #d10000; box-shadow: inset 0 0 0 1px rgba(255, 196, 196, 0.52); }
 
 .seller-hero-days {
     min-width: 240px;
@@ -2715,8 +2720,8 @@ input:checked + .slider:before {
     height: 38px;
     place-items: center;
     border-radius: 8px;
-    color: #ded8ff;
-    background: linear-gradient(135deg, #7047e8, #3d2f9a);
+    color: #fff;
+    background: linear-gradient(135deg, #e60000, #a70000);
 }
 .seller-panel-card:nth-child(2) .seller-panel-head h2 i { color: #dce9ff; background: rgba(56, 103, 178, 0.34); }
 .seller-panel-card:nth-child(3) .seller-panel-head h2 i { color: #f1dcbe; background: rgba(148, 94, 32, 0.28); }
@@ -2773,13 +2778,13 @@ input:checked + .slider:before {
 .seller-performance-total > strong { margin-top: 8px; font-size: 15px; }
 .seller-performance-total > span { color: hsl(var(--text-secondary)); font-size: 12px; }
 
-.seller-text-action { border: 0; background: transparent; color: #a78bfa; font-size: 12px; font-weight: 700; cursor: pointer; }
+.seller-text-action { border: 0; background: transparent; color: #c40000; font-size: 12px; font-weight: 700; cursor: pointer; }
 .seller-activity-list { display: flex; flex-direction: column; margin-top: 10px; }
 .seller-activity-item { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 48px; padding: 6px 0; border-bottom: 1px solid rgba(145, 160, 193, 0.1); }
 .seller-activity-item:last-child { border-bottom: 0; }
 .seller-activity-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; color: #fff; }
 .seller-activity-icon.green { background: #159447; }
-.seller-activity-icon.violet { background: #6241d4; }
+.seller-activity-icon.violet { background: #c40000; }
 .seller-activity-icon.blue { background: #2368ba; }
 .seller-activity-item strong, .seller-activity-item span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .seller-activity-item strong { font-size: 13px; }
@@ -2790,7 +2795,7 @@ input:checked + .slider:before {
 .seller-quick-actions { display: grid; grid-template-columns: 160px repeat(4, minmax(0, 1fr)); gap: 12px; align-items: center; margin-top: 18px; padding: 14px 16px; border: 1px solid rgba(135, 151, 185, 0.18); border-radius: 8px; background: rgba(11, 24, 43, 0.78); }
 .seller-quick-actions > span { color: hsl(var(--text-primary)); font-size: 15px; font-weight: 800; }
 .seller-quick-actions button { min-height: 40px; padding: 0 12px; border: 1px solid rgba(145, 160, 193, 0.2); border-radius: 7px; background: rgba(255, 255, 255, 0.045); color: hsl(var(--text-primary)); font-size: 12px; font-weight: 700; cursor: pointer; }
-.seller-quick-actions button i { margin-right: 7px; color: #c4b5fd; }
+.seller-quick-actions button i { margin-right: 7px; color: #c40000; }
 
 .seller-quick-action {
     min-height: 44px;
@@ -2801,6 +2806,108 @@ input:checked + .slider:before {
     font-weight: 700;
     cursor: pointer;
 }
+
+/* Light dashboard: every seller surface swaps to the light palette together. */
+body.light-mode .sidebar-brand-logo {
+    padding: 4px 7px;
+    border-radius: 5px;
+    background: #000;
+}
+
+body.light-mode .seller-search-box,
+body.light-mode .seller-today-chip,
+body.light-mode .seller-avatar-chip {
+    background: #fff;
+    border-color: #d7dce5;
+    box-shadow: 0 5px 16px rgba(15, 23, 42, 0.06);
+    color: #16181d;
+}
+
+body.light-mode .seller-search-box input { color: #16181d; }
+body.light-mode .seller-search-box input::placeholder { color: #6b7280; }
+body.light-mode .seller-search-box i,
+body.light-mode .seller-today-chip i { color: #a40000; }
+body.light-mode .seller-command-icon { color: #fff; }
+
+body.light-mode .seller-hero-card {
+    border-color: #edc7c7;
+    background: linear-gradient(110deg, #fff 0%, #fff8f8 58%, #f5dddd 100%);
+    box-shadow: 0 16px 34px rgba(74, 15, 15, 0.11);
+}
+
+body.light-mode .seller-hero-card::after {
+    opacity: 0.20;
+    background: repeating-linear-gradient(145deg, transparent 0 10px, rgba(230, 0, 0, 0.18) 11px 12px, transparent 13px 22px);
+}
+
+body.light-mode .seller-hero-main span,
+body.light-mode .seller-hero-days span { color: #5d6673; }
+body.light-mode .seller-hero-main strong,
+body.light-mode .seller-hero-days strong { color: #111318; }
+body.light-mode .seller-hero-main small { color: #b00000; }
+body.light-mode .seller-hero-days { border-left-color: #e8bebe; }
+body.light-mode .seller-hero-days > i { color: #c40000; }
+body.light-mode .seller-period-selector { border-color: #e1c9c9; background: #fff; }
+body.light-mode .seller-period-btn { color: #5d6673; }
+body.light-mode .seller-period-btn.active { background: #e60000; color: #fff; box-shadow: none; }
+
+body.light-mode .seller-progress-ring {
+    box-shadow: 0 0 0 11px #f7eded, 0 0 0 1px #e3caca;
+    background: radial-gradient(circle at center, #fff 0 55%, transparent 56%), conic-gradient(#e60000 calc(var(--progress) * 1%), #d9dee6 0);
+}
+
+body.light-mode .seller-progress-ring div { background: #fff; }
+body.light-mode .seller-progress-ring strong { color: #c40000; }
+
+body.light-mode .seller-panel-card,
+body.light-mode .seller-insight-card,
+body.light-mode .seller-quick-actions {
+    background: #fff;
+    border-color: #d9dee7;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+body.light-mode .seller-home-dashboard h2,
+body.light-mode .seller-home-dashboard h3,
+body.light-mode .seller-home-dashboard strong {
+    color: #16181d !important;
+    border-bottom: 0 !important;
+}
+
+body.light-mode .seller-home-dashboard .seller-progress-ring strong { color: #c40000 !important; }
+body.light-mode .seller-quote-card:not(.warning) span,
+body.light-mode .seller-quote-card:not(.warning) small,
+body.light-mode .seller-quote-card:not(.warning) strong { color: #fff !important; }
+body.light-mode .seller-quote-card.warning span,
+body.light-mode .seller-quote-card.warning small,
+body.light-mode .seller-quote-card.warning strong { color: #16181d !important; }
+
+body.light-mode .seller-panel-head h2 i { color: #fff; background: linear-gradient(135deg, #e60000, #a70000); }
+body.light-mode .seller-panel-card:nth-child(2) .seller-panel-head h2 i { color: #155e75; background: #d9f3f7; }
+body.light-mode .seller-panel-card:nth-child(3) .seller-panel-head h2 i { color: #8a4a00; background: #fff0d7; }
+body.light-mode .seller-panel-count span,
+body.light-mode .seller-insight-heading span,
+body.light-mode .seller-performance-total > span,
+body.light-mode .seller-activity-item span,
+body.light-mode .seller-activity-empty { color: #647080; }
+
+body.light-mode .seller-follow-card,
+body.light-mode .seller-promo-card,
+body.light-mode .seller-link-button,
+body.light-mode .seller-quick-actions button {
+    background: #f8f9fb;
+    border-color: #d9dee7;
+    color: #20242b;
+}
+
+body.light-mode .seller-link-button:hover,
+body.light-mode .seller-quick-actions button:hover { border-color: rgba(230, 0, 0, 0.42); background: #fff4f4; }
+body.light-mode .seller-empty-state { border-color: #d5dbe4; color: #647080; }
+body.light-mode .seller-period-label { background: #fff4f4; border-color: #edc7c7; color: #9f0000 !important; }
+body.light-mode .seller-mini-progress { background: radial-gradient(circle at center, #fff 0 58%, transparent 59%), conic-gradient(#e60000 calc(var(--progress) * 1%), #d9dee6 0); }
+body.light-mode .seller-mini-progress strong { color: #c40000 !important; }
+body.light-mode .seller-activity-item { border-bottom-color: #e4e7ec; }
+body.light-mode .seller-activity-icon.violet { background: #c40000; }
 
 @media (max-width: 1100px) {
     .admin-operational-grid { grid-template-columns: 1fr; }
