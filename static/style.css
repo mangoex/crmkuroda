@@ -2809,9 +2809,10 @@ input:checked + .slider:before {
 
 /* Light dashboard: every seller surface swaps to the light palette together. */
 body.light-mode .sidebar-brand-logo {
-    padding: 4px 7px;
-    border-radius: 5px;
-    background: #000;
+    content: url("/static/casa-kuroda-logo-black.png");
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
 }
 
 body.light-mode .seller-search-box,
