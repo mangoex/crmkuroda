@@ -75,8 +75,17 @@ async def upload_inventario(
                 "almacen": _header_index(headers, "almacen", "almacen origen"),
                 "numero_proveedor": _header_index(headers, "numero proveedor", "codigo proveedor", "proveedor codigo"),
                 "nombre_proveedor": _header_index(headers, "nombre proveedor", "proveedor", "razon social proveedor"),
-                # D representa el código de clasificación ABC+F; es distinto de la clave de material.
-                "abc_f": _header_index(headers, "abc+f", "abcf", "codigo abcf", "clasificacion abcf", "d"),
+                # D representa el indicador ABC+Frecuencia de Venta, no la clave de material.
+                "abc_f": _header_index(
+                    headers,
+                    "abc+f",
+                    "abcf",
+                    "codigo abcf",
+                    "clasificacion abcf",
+                    "indicador abc+frecuencia de venta",
+                    "indicador abcf frecuencia de venta",
+                    "d",
+                ),
                 "codigo_material": _header_index(headers, "codigo material", "clave material", "codigo producto", "clave producto", "sku"),
                 "descripcion_material": _header_index(headers, "descripcion material", "descripcion producto", "descripcion", "producto"),
                 "cantidad_propia": _header_index(headers, "cantidad propia", "cant propia", "inventario disponible", "existencia propia", "disponible"),
