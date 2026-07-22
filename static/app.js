@@ -989,6 +989,11 @@ function getInventoryProductKey(item) {
     return key ? String(key).trim() : "";
 }
 
+function getInventoryDCode(item) {
+    const value = item?.abc_f || item?.abc;
+    return value === null || value === undefined ? "" : String(value).trim();
+}
+
 function isLegacyMisalignedInventory(item) {
     return getInventoryProductKey(item) === String(item?.almacen || "").trim()
         && ["0", "0.0", ""].includes(String(item?.codigo_material ?? "").trim())
@@ -1621,7 +1626,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         if (DOM.filterInvAbcf && DOM.filterInvAbcf.options.length <= 1) {
             const currentAbcf = DOM.filterInvAbcf.value;
             DOM.filterInvAbcf.innerHTML = '<option value="todos">Todos</option>';
-            const abcfs = [...new Set(inventario.map(getInventoryProductKey).filter(Boolean))].sort();
+            const abcfs = [...new Set(inventario.map(getInventoryDCode).filter(Boolean))].sort();
             abcfs.forEach(a => {
                 const opt = document.createElement("option");
                 opt.value = a;
@@ -1649,7 +1654,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             inventario = inventario.filter(i => i.nombre_centro === sucursalFilter);
         }
         if (abcfFilter !== "todos") {
-            inventario = inventario.filter(i => getInventoryProductKey(i) === abcfFilter);
+            inventario = inventario.filter(i => getInventoryDCode(i) === abcfFilter);
         }
         if (proveedorFilter !== "todos") {
             inventario = inventario.filter(i => getInventoryProviderName(i) === proveedorFilter);
@@ -1724,7 +1729,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                 <td><span class="badge badge-secondary">${escapeHTML(i.nombre_centro || "-")}</span></td>
                 <td>${escapeHTML(getInventoryWarehouse(i) || "-")}</td>
                 <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(getInventoryProviderName(i))}">${escapeHTML(getInventoryProviderName(i) || "-")}</td>
-                <td><strong>${escapeHTML(getInventoryProductKey(i) || "-")}</strong></td>
+                <td><strong>${escapeHTML(getInventoryDCode(i) || "-")}</strong></td>
                 <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(getInventoryDescription(i))}">${escapeHTML(getInventoryDescription(i) || "-")}</td>
                 <td>${i.cantidad_propia !== null ? i.cantidad_propia.toLocaleString() : "-"}</td>
                 <td>${i.existencia_consignacion !== null ? i.existencia_consignacion.toLocaleString() : "-"}</td>

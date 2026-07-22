@@ -75,8 +75,9 @@ async def upload_inventario(
                 "almacen": _header_index(headers, "almacen", "almacen origen"),
                 "numero_proveedor": _header_index(headers, "numero proveedor", "codigo proveedor", "proveedor codigo"),
                 "nombre_proveedor": _header_index(headers, "nombre proveedor", "proveedor", "razon social proveedor"),
-                # El archivo operativo usa D como clave del producto; no es una clasificacion ABC+F.
-                "codigo_material": _header_index(headers, "codigo material", "clave material", "codigo producto", "clave producto", "sku", "d"),
+                # D representa el código de clasificación ABC+F; es distinto de la clave de material.
+                "abc_f": _header_index(headers, "abc+f", "abcf", "codigo abcf", "clasificacion abcf", "d"),
+                "codigo_material": _header_index(headers, "codigo material", "clave material", "codigo producto", "clave producto", "sku"),
                 "descripcion_material": _header_index(headers, "descripcion material", "descripcion producto", "descripcion", "producto"),
                 "cantidad_propia": _header_index(headers, "cantidad propia", "cant propia", "inventario disponible", "existencia propia", "disponible"),
                 "existencia_consignacion": _header_index(headers, "existencia consignacion", "inv consig", "inventario consignacion"),
@@ -113,7 +114,7 @@ async def upload_inventario(
                         almacen=str(_row_value(row, indices["almacen"])) if _row_value(row, indices["almacen"]) is not None else None,
                         numero_proveedor=str(_row_value(row, indices["numero_proveedor"])) if _row_value(row, indices["numero_proveedor"]) is not None else None,
                         nombre_proveedor=str(_row_value(row, indices["nombre_proveedor"], 2)) if _row_value(row, indices["nombre_proveedor"], 2) is not None else None,
-                        abc_f=None,
+                        abc_f=str(_row_value(row, indices["abc_f"])) if _row_value(row, indices["abc_f"]) is not None else None,
                         codigo_material=str(_row_value(row, indices["codigo_material"], 1)) if _row_value(row, indices["codigo_material"], 1) is not None else None,
                         descripcion_material=str(_row_value(row, indices["descripcion_material"], 3)) if _row_value(row, indices["descripcion_material"], 3) is not None else None,
                         cantidad_propia=c_propia,
