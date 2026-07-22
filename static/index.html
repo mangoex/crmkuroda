@@ -364,9 +364,16 @@
                             <div class="admin-operational-heading">
                                 <div>
                                     <h2><i class="fa-solid fa-right-to-bracket"></i> Actividad de ingreso</h2>
-                                    <p>Entradas y salidas registradas hoy</p>
+                                    <p>Entradas y salidas del mes seleccionado</p>
                                 </div>
-                                <span class="admin-live-badge">En vivo</span>
+                                <div class="admin-operational-filters">
+                                    <label for="admin-access-month">Mes</label>
+                                    <input type="month" id="admin-access-month" aria-label="Mes de actividad">
+                                    <label for="admin-access-seller">Vendedor</label>
+                                    <select id="admin-access-seller" aria-label="Filtrar actividad por vendedor">
+                                        <option value="">Todos los vendedores</option>
+                                    </select>
+                                </div>
                             </div>
                             <div id="admin-today-access-log" class="admin-operational-list"></div>
                         </section>
@@ -2153,6 +2160,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.52"></script>
+    <script src="/static/app.js?v=1.0.53"></script>
 </body>
 </html>

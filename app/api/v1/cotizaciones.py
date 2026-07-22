@@ -27,8 +27,10 @@ router = APIRouter()
 def serialize_cotizacion(c: Cotizacion) -> dict:
     return {
         "id": str(c.id),
-        "vendedor_id": str(c.vendedor_id),
+        "vendedor_id": str(c.vendedor_id) if c.vendedor_id else None,
+        "vendedor_nombre": c.vendedor_nombre,
         "cliente_nombre": c.cliente_nombre,
+        "numero_cliente": c.numero_cliente,
         "datos_contacto": c.datos_contacto,
         "items": c.items,
         "total": float(c.total),

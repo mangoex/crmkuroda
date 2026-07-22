@@ -1,9 +1,11 @@
 from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
+from uuid import UUID
 from app.core.database import get_db
 from app.core.security import verify_password, create_access_token, get_password_hash, get_current_user
 from app.models.usuario import Usuario
@@ -12,6 +14,34 @@ from app.schemas.usuario import UsuarioCreate, Token
 from app.core.config import settings
 
 router = APIRouter()
+
+
+def _calendar_month_bounds(month_value: Optional[str], local_tz: ZoneInfo):
+    """Devuelve el periodo UTC de un mes calendario en la zona operativa."""
+    if month_value:
+        try:
+            selected = datetime.strptime(month_value, "%Y-%m")
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="El mes debe tener el formato YYYY-MM.",
+            ) from exc
+        year, month = selected.year, selected.month
+    else:
+        today = datetime.now(local_tz).date()
+        year, month = today.year, today.month
+
+    month_start_local = datetime(year, month, 1, tzinfo=local_tz)
+    if month == 12:
+        next_month_local = datetime(year + 1, 1, 1, tzinfo=local_tz)
+    else:
+        next_month_local = datetime(year, month + 1, 1, tzinfo=local_tz)
+
+    return (
+        month_start_local.astimezone(timezone.utc),
+        next_month_local.astimezone(timezone.utc),
+        f"{year:04d}-{month:02d}",
+    )
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(user_in: UsuarioCreate, db: AsyncSession = Depends(get_db)):
@@ -147,6 +177,53 @@ async def get_today_access_log(
             for registro, usuario in result.all()
         ],
     }
+
+
+@router.get("/access-log", status_code=status.HTTP_200_OK)
+async def get_access_log_by_month(
+    month: Optional[str] = Query(default=None, description="Mes calendario YYYY-MM"),
+    vendedor_id: Optional[UUID] = Query(default=None, description="UUID del vendedor"),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Devuelve la actividad de acceso del mes y vendedor seleccionados."""
+    if current_user.rol not in {"admin", "gerente"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado.")
+
+    local_tz = ZoneInfo("America/Mazatlan")
+    month_start, next_month, calendar_month = _calendar_month_bounds(month, local_tz)
+
+    if vendedor_id is not None:
+        seller_result = await db.execute(select(Usuario).where(Usuario.id == vendedor_id))
+        seller = seller_result.scalars().first()
+        if not seller or seller.rol != "vendedor":
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="El vendedor seleccionado no es válido.")
+
+    query = (
+        select(RegistroAcceso, Usuario)
+        .join(Usuario, Usuario.id == RegistroAcceso.usuario_id)
+        .where(RegistroAcceso.entrada >= month_start, RegistroAcceso.entrada < next_month)
+        .order_by(RegistroAcceso.entrada.desc())
+        .limit(250)
+    )
+    if vendedor_id is not None:
+        query = query.where(RegistroAcceso.usuario_id == vendedor_id)
+
+    records = []
+    for registro, usuario in (await db.execute(query)).all():
+        entrada_local = registro.entrada.astimezone(local_tz) if registro.entrada else None
+        records.append({
+            "id": str(registro.id),
+            "usuario_id": str(usuario.id),
+            "usuario": usuario.nombre_completo or usuario.email,
+            "rol": usuario.rol,
+            "entrada": registro.entrada.isoformat() if registro.entrada else None,
+            "salida": registro.salida.isoformat() if registro.salida else None,
+            "fecha_actividad": entrada_local.date().isoformat() if entrada_local else None,
+            "mes_calendario": entrada_local.strftime("%Y-%m") if entrada_local else calendar_month,
+        })
+
+    return {"status": "success", "month": calendar_month, "data": records}
 
 @router.get("/me", status_code=status.HTTP_200_OK)
 async def get_me(

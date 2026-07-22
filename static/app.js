@@ -158,6 +158,8 @@ const DOM = {
     summaryAdminOperational: document.getElementById("summary-admin-operational"),
     adminTodayQuotes: document.getElementById("admin-today-quotes"),
     adminTodayAccessLog: document.getElementById("admin-today-access-log"),
+    adminAccessMonth: document.getElementById("admin-access-month"),
+    adminAccessSeller: document.getElementById("admin-access-seller"),
     
     // Vendedores Section
     menuVendedores: document.getElementById("menu-vendedores"),
@@ -773,14 +775,7 @@ async function loadSummaryData() {
         console.error("Error renderizando mapa de calor:", heatmapErr);
     }
 
-    let accessLog = [];
-    try {
-        const accessLogRes = await apiRequest("/api/auth/access-log/today");
-        accessLog = accessLogRes.data || [];
-    } catch (accessLogErr) {
-        console.warn("No se pudo cargar la actividad de ingresos:", accessLogErr);
-    }
-    renderAdminOperationalPanels(quotes, accessLog);
+    await loadAdminAccessLog();
     
     // Load Slight Edge summary tracking card
     await loadSlightEdgeSummaryWidget();
@@ -818,6 +813,65 @@ function formatAccessTime(value) {
     return date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatAccessDate(value) {
+    if (!value) return "Sin fecha";
+    const date = parseLocalDate(value);
+    if (!date) return "Sin fecha";
+    return date.toLocaleDateString("es-MX", { day: "2-digit", month: "short" });
+}
+
+function getCurrentCalendarMonth() {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getQuoteSellerName(quote) {
+    const storedName = String(quote?.vendedor_nombre || "").trim();
+    if (storedName) return storedName;
+
+    const seller = state.vendedores.find(item => String(item.id) === String(quote?.vendedor_id || ""));
+    return seller?.nombre_completo || seller?.email || "No asignado";
+}
+
+function populateAdminAccessSellerFilter() {
+    if (!DOM.adminAccessSeller) return;
+
+    const selectedValue = DOM.adminAccessSeller.value;
+    const sellers = state.vendedores
+        .filter(seller => seller.rol === "vendedor")
+        .sort((a, b) => String(a.nombre_completo || a.email).localeCompare(String(b.nombre_completo || b.email), "es"));
+
+    DOM.adminAccessSeller.innerHTML = '<option value="">Todos los vendedores</option>';
+    sellers.forEach(seller => {
+        const option = document.createElement("option");
+        option.value = seller.id;
+        option.textContent = seller.nombre_completo || seller.email;
+        DOM.adminAccessSeller.appendChild(option);
+    });
+    DOM.adminAccessSeller.value = sellers.some(seller => seller.id === selectedValue) ? selectedValue : "";
+}
+
+async function loadAdminAccessLog() {
+    if (!DOM.adminTodayAccessLog || !state.user || !["admin", "gerente"].includes(state.user.rol)) return;
+
+    if (DOM.adminAccessMonth && !DOM.adminAccessMonth.value) {
+        DOM.adminAccessMonth.value = getCurrentCalendarMonth();
+    }
+    populateAdminAccessSellerFilter();
+
+    const params = new URLSearchParams();
+    if (DOM.adminAccessMonth?.value) params.set("month", DOM.adminAccessMonth.value);
+    if (DOM.adminAccessSeller?.value) params.set("vendedor_id", DOM.adminAccessSeller.value);
+
+    try {
+        const accessLogRes = await apiRequest(`/api/auth/access-log?${params.toString()}`);
+        renderAdminOperationalPanels(state.cotizaciones, accessLogRes.data || []);
+    } catch (accessLogErr) {
+        console.warn("No se pudo cargar la actividad de ingresos:", accessLogErr);
+        renderAdminOperationalPanels(state.cotizaciones, []);
+    }
+}
+
 function renderAdminOperationalPanels(quotes, accessLog) {
     const todayQuotes = quotes
         .filter(quote => isSameCalendarDay(parseLocalDate(quote.fecha_registro)))
@@ -830,7 +884,7 @@ function renderAdminOperationalPanels(quotes, accessLog) {
                 <span class="admin-operational-icon quote"><i class="fa-regular fa-file-lines"></i></span>
                 <div>
                     <strong>${escapeHTML(quote.cliente_nombre || "Cliente sin nombre")}</strong>
-                    <span>${escapeHTML(quote.numero_cotizacion || "Sin folio")} · ${escapeHTML(quote.vendedor_nombre || "Sin vendedor")}</span>
+                    <span>${escapeHTML(quote.numero_cotizacion || "Sin folio")} · Vendedor: ${escapeHTML(getQuoteSellerName(quote))}</span>
                 </div>
                 <b>${formatSellerMoney(quote.total)}</b>
             </div>
@@ -843,7 +897,7 @@ function renderAdminOperationalPanels(quotes, accessLog) {
                 <span class="admin-operational-icon access"><i class="fa-solid fa-user-clock"></i></span>
                 <div>
                     <strong>${escapeHTML(record.usuario || "Usuario")}</strong>
-                    <span>Entrada ${formatAccessTime(record.entrada)} · Salida ${formatAccessTime(record.salida)}</span>
+                    <span>${formatAccessDate(record.fecha_actividad || record.entrada)} · Entrada ${formatAccessTime(record.entrada)} · Salida ${formatAccessTime(record.salida)}</span>
                 </div>
                 <b class="admin-access-status ${record.salida ? "closed" : "open"}">${record.salida ? "Finalizó" : "Activo"}</b>
             </div>
@@ -7125,6 +7179,9 @@ document.addEventListener('DOMContentLoaded', () => {
             loadSobrepedidosData();
         });
     }
+
+    DOM.adminAccessMonth?.addEventListener("change", () => loadAdminAccessLog());
+    DOM.adminAccessSeller?.addEventListener("change", () => loadAdminAccessLog());
 
     // Sorting Headers
     const thSpPedido = document.getElementById("th-sobrepedidos-pedido");
