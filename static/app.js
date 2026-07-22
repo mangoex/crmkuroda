@@ -59,6 +59,14 @@ function escapeHTML(str) {
         .replace(/'/g, '&#39;');
 }
 
+function normalizeSearchText(value) {
+    return String(value ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
+}
+
 function formatNumber(value) {
     const numericValue = Number(value || 0);
     return numericValue.toLocaleString("es-MX", { maximumFractionDigits: 2 });
@@ -3270,12 +3278,15 @@ function renderDashboardCharts(filtered) {
 }
 
 function renderQuotesTableFiltered() {
-    const searchVal = DOM.searchQuoteClient ? DOM.searchQuoteClient.value.toLowerCase() : "";
+    const searchVal = normalizeSearchText(DOM.searchQuoteClient?.value);
     let filteredQuotes = state.filteredQuotesForTable || state.cotizaciones;
     
     // Apply client search filter
     if (searchVal) {
-        filteredQuotes = filteredQuotes.filter(q => q.cliente_nombre.toLowerCase().includes(searchVal));
+        filteredQuotes = filteredQuotes.filter(q => {
+            const searchableValues = [q.cliente_nombre, q.numero_cliente];
+            return searchableValues.some(value => normalizeSearchText(value).includes(searchVal));
+        });
     }
     
     filteredQuotes = [...filteredQuotes].sort((a, b) => {
