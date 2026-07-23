@@ -19,15 +19,37 @@ import io
 from app.models.company import Company
 from app.core.security import RoleChecker
 from datetime import date, datetime
+import unicodedata
 
 require_admin_or_gerente = RoleChecker(["admin", "gerente"])
 
 router = APIRouter()
 
-def serialize_cotizacion(c: Cotizacion) -> dict:
+def _normalize_seller_text(value) -> str:
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    return " ".join(text.upper().split())
+
+
+def _seller_ids_by_name(users: list[Usuario]) -> dict[str, UUID]:
+    """Crea un índice de nombres solo cuando la coincidencia es inequívoca."""
+    matches: dict[str, Optional[UUID]] = {}
+    for user in users:
+        normalized_name = _normalize_seller_text(user.nombre_completo)
+        if not normalized_name:
+            continue
+        if normalized_name in matches and matches[normalized_name] != user.id:
+            matches[normalized_name] = None
+        else:
+            matches[normalized_name] = user.id
+    return {name: seller_id for name, seller_id in matches.items() if seller_id is not None}
+
+
+def serialize_cotizacion(c: Cotizacion, resolved_vendedor_id: Optional[UUID] = None) -> dict:
+    vendedor_id = c.vendedor_id or resolved_vendedor_id
     return {
         "id": str(c.id),
-        "vendedor_id": str(c.vendedor_id) if c.vendedor_id else None,
+        "vendedor_id": str(vendedor_id) if vendedor_id else None,
         "vendedor_nombre": c.vendedor_nombre,
         "cliente_nombre": c.cliente_nombre,
         "numero_cliente": c.numero_cliente,
@@ -93,7 +115,15 @@ async def list_cotizaciones(
     res = await db.execute(query)
     cotizaciones = res.scalars().all()
 
-    data = [serialize_cotizacion(c) for c in cotizaciones]
+    # Las cotizaciones históricas pueden traer solo el nombre del vendedor desde
+    # Excel. Se resuelven al serializar, sin alterar la base, para que los filtros
+    # administrativos funcionen también con esos registros.
+    users = (await db.execute(select(Usuario))).scalars().all()
+    seller_ids_by_name = _seller_ids_by_name(users)
+    data = [
+        serialize_cotizacion(c, seller_ids_by_name.get(_normalize_seller_text(c.vendedor_nombre)))
+        for c in cotizaciones
+    ]
 
     return {
         "status": "success",
@@ -287,6 +317,12 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
             
             users_res = await db.execute(select(Usuario))
             users = users_res.scalars().all()
+            users_by_code = {
+                _normalize_seller_text(user.codigo_vendedor): user.id
+                for user in users
+                if _normalize_seller_text(user.codigo_vendedor)
+            }
+            users_by_name = _seller_ids_by_name(users)
             
             # ELIMINAR TODAS LAS COTIZACIONES ACTUALES (Sustituir base de datos)
             await db.execute(delete(Cotizacion))
@@ -340,11 +376,10 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                 if not num_cot_val:
                     continue
 
-                vendedor_id = None
-                for u in users:
-                    if u.codigo_vendedor == vend_codigo or u.nombre_completo == vend_nombre:
-                        vendedor_id = u.id
-                        break
+                vendedor_id = (
+                    users_by_code.get(_normalize_seller_text(vend_codigo))
+                    or users_by_name.get(_normalize_seller_text(vend_nombre))
+                )
 
                 datos_contacto = {
                     "email": email,
