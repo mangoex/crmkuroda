@@ -3600,6 +3600,9 @@ async function loadKanbanData(forceRefresh = false) {
     
     if (forceRefresh || state.cotizaciones.length === 0) {
         let endpoint = "/api/v1/cotizaciones/?limit=20000";
+        if (DOM.kanbanFilterSeller?.value) {
+            endpoint += `&vendedor_id=${encodeURIComponent(DOM.kanbanFilterSeller.value)}`;
+        }
         const res = await apiRequest(endpoint);
         state.cotizaciones = res.data || [];
     }
@@ -4685,7 +4688,7 @@ if (DOM.kanbanSearchClient) {
 }
 if (DOM.kanbanFilterSeller) {
     DOM.kanbanFilterSeller?.addEventListener("change", () => {
-        renderKanbanColumns();
+        loadKanbanData(true);
     });
 }
 if (DOM.kanbanFilterDays) {

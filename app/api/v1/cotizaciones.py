@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from uuid import UUID
 from typing import Optional
 
@@ -94,8 +94,18 @@ async def list_cotizaciones(
         query = select(Cotizacion)
         count_query = select(func.count()).select_from(Cotizacion)
         if vendedor_id is not None:
-            query = query.filter(Cotizacion.vendedor_id == vendedor_id)
-            count_query = count_query.filter(Cotizacion.vendedor_id == vendedor_id)
+            selected_seller = (await db.execute(select(Usuario).where(Usuario.id == vendedor_id))).scalars().first()
+            seller_filters = [Cotizacion.vendedor_id == vendedor_id]
+            if selected_seller and selected_seller.nombre_completo:
+                # Incluye registros históricos donde el Excel guardó el nombre,
+                # pero no logró vincular el UUID del usuario al importar.
+                seller_filters.append(
+                    func.upper(func.trim(Cotizacion.vendedor_nombre))
+                    == selected_seller.nombre_completo.strip().upper()
+                )
+            seller_condition = or_(*seller_filters)
+            query = query.filter(seller_condition)
+            count_query = count_query.filter(seller_condition)
 
     # El filtro se resuelve en PostgreSQL para evitar ambigüedades de formato
     # o zona horaria en el navegador.
