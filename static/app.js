@@ -836,6 +836,22 @@ function getQuoteSellerName(quote) {
     return seller?.nombre_completo || seller?.email || "No asignado";
 }
 
+function quoteMatchesSelectedSeller(quote, sellerId) {
+    if (!sellerId) return true;
+    if (String(quote?.vendedor_id || "") === String(sellerId)) return true;
+
+    // Las cotizaciones importadas antes de vincular el UUID conservan el nombre
+    // del vendedor del Excel. Se usa como respaldo para que sigan siendo filtrables.
+    const seller = state.vendedores.find(item => String(item.id) === String(sellerId));
+    const quoteSellerName = normalizeSearchText(quote?.vendedor_nombre).replace(/\s+/g, " ");
+    const sellerName = normalizeSearchText(seller?.nombre_completo).replace(/\s+/g, " ");
+    return Boolean(quoteSellerName && sellerName && (
+        quoteSellerName === sellerName
+        || quoteSellerName.includes(sellerName)
+        || sellerName.includes(quoteSellerName)
+    ));
+}
+
 function populateAdminAccessSellerFilter() {
     if (!DOM.adminAccessSeller) return;
 
@@ -3604,7 +3620,7 @@ function renderKanbanColumns() {
     }
     
     if (sellerVal) {
-        filteredQuotes = filteredQuotes.filter(q => q.vendedor_id === sellerVal);
+        filteredQuotes = filteredQuotes.filter(q => quoteMatchesSelectedSeller(q, sellerVal));
     }
     
     if (daysVal) {
