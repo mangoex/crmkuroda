@@ -12,6 +12,7 @@ from app.models.promocion import Promocion
 from app.models.sobrepedido import Sobrepedido
 from app.models.por_entregar import PorEntregar
 from app.models.registro_acceso import RegistroAcceso
+from app.models.actualizacion_datos import ActualizacionDatos
 
 __all__ = [
     "Base", 
@@ -28,5 +29,6 @@ __all__ = [
     "Promocion",
     "Sobrepedido",
     "PorEntregar",
-    "RegistroAcceso"
+    "RegistroAcceso",
+    "ActualizacionDatos"
 ]

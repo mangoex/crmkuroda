@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.security import RoleChecker, get_current_user
 from app.models.inventario_abcf import InventarioAbcf
 from app.models.usuario import Usuario
+from app.services.actualizaciones_datos import registrar_actualizacion_datos
 
 router = APIRouter()
 
@@ -149,6 +150,7 @@ async def upload_inventario(
                     print(f"Error parseando fila: {row_error}")
                     continue
             
+        await registrar_actualizacion_datos(db, "inventario-abcf", current_user.id)
         await db.commit()
         return {"status": "success", "message": f"Se han cargado {rows_added} registros de inventario exitosamente."}
         

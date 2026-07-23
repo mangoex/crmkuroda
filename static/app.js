@@ -81,6 +81,7 @@ const state = {
     promociones: [],
     inventario_abcf: [],
     cotizaciones: [],
+    lastDataUpdates: {},
     salesChart: null,
     goalsChart: null,
     sellerPerformanceChart: null,
@@ -160,6 +161,7 @@ const DOM = {
     adminTodayAccessLog: document.getElementById("admin-today-access-log"),
     adminAccessMonth: document.getElementById("admin-access-month"),
     adminAccessSeller: document.getElementById("admin-access-seller"),
+    kanbanDataUpdated: document.getElementById("kanban-data-updated"),
     
     // Vendedores Section
     menuVendedores: document.getElementById("menu-vendedores"),
@@ -541,6 +543,7 @@ async function initSession() {
         }
         updateUploadControlsVisibility();
         renderLastUploadLabels();
+        await loadLastUploadLabels();
 
         // Show/hide conexion menu based on role
         
@@ -983,20 +986,39 @@ const uploadMeta = {
 };
 
 function formatUploadTimestamp(value) {
-    if (!value) return "Última carga: sin registro";
+    if (!value) return "Última actualización: sin registro";
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "Última carga: sin registro";
-    return `Última carga: ${date.toLocaleString("es-MX", {
+    if (Number.isNaN(date.getTime())) return "Última actualización: sin registro";
+    return `Última actualización: ${date.toLocaleString("es-MX", {
         dateStyle: "short",
         timeStyle: "short"
     })}`;
 }
 
 function renderLastUploadLabels() {
-    Object.values(uploadMeta).forEach(meta => {
+    Object.entries(uploadMeta).forEach(([type, meta]) => {
         const label = meta.label();
-        if (label) label.textContent = formatUploadTimestamp(localStorage.getItem(meta.key));
+        const sharedTimestamp = state.lastDataUpdates?.[type]?.actualizado_en;
+        if (label) label.textContent = formatUploadTimestamp(sharedTimestamp || localStorage.getItem(meta.key));
     });
+
+    if (DOM.kanbanDataUpdated) {
+        const timestamp = state.lastDataUpdates?.cotizaciones?.actualizado_en || localStorage.getItem(uploadMeta.cotizaciones.key);
+        DOM.kanbanDataUpdated.textContent = timestamp
+            ? `Datos de cotizaciones actualizados: ${new Date(timestamp).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" })}`
+            : "Datos de cotizaciones: sin registro de actualización";
+    }
+}
+
+async function loadLastUploadLabels() {
+    if (!state.token) return;
+    try {
+        const result = await apiRequest("/api/v1/actualizaciones-datos/");
+        state.lastDataUpdates = result.data || {};
+    } catch (error) {
+        console.warn("No se pudieron cargar las fechas de actualización:", error);
+    }
+    renderLastUploadLabels();
 }
 
 function markLastUpload(type) {
@@ -6991,6 +7013,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (response.ok) {
                     showToast(result.message || "Cotizaciones cargadas exitosamente.", "success");
                     markLastUpload("cotizaciones");
+                    await loadLastUploadLabels();
                     await loadSummaryData(); // Reload table
                 } else {
                     showToast(result.detail || "Error al cargar cotizaciones.", "error");
@@ -7038,6 +7061,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (res.ok) {
                     showToast(data.message || 'Inventario subido correctamente', 'success');
                     markLastUpload("inventario-abcf");
+                    await loadLastUploadLabels();
                     DOM.fileInventarioAbcf.value = '';
                     const fileNameSpan = document.getElementById('file-inv-name');
                     if (fileNameSpan) fileNameSpan.textContent = 'Seleccionar Archivo';

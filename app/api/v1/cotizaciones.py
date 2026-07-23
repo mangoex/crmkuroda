@@ -263,16 +263,17 @@ async def upload_cotizaciones(
     contents = await file.read()
     
     # Process synchronously to catch any database errors immediately
-    error_msg = await process_excel_background(contents)
+    error_msg = await process_excel_background(contents, current_user.id)
     if error_msg:
         raise HTTPException(status_code=500, detail=error_msg)
         
     return {"message": "El archivo se ha procesado exitosamente."}
 
-async def process_excel_background(contents: bytes):
+async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
     from app.core.database import SessionLocal
     from app.models.cotizacion import Cotizacion
     from app.models.usuario import Usuario
+    from app.services.actualizaciones_datos import registrar_actualizacion_datos
     from sqlalchemy.future import select
     from sqlalchemy import delete
     import openpyxl
@@ -376,6 +377,7 @@ async def process_excel_background(contents: bytes):
                     
             # A single add_all and commit is much faster
             db.add_all(new_quotes)
+            await registrar_actualizacion_datos(db, "cotizaciones", uploaded_by_id)
             await db.commit()
             print(f"Background upload finished. Replaced database with {synced_count} nuevas cotizaciones.")
             return None
