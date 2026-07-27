@@ -75,40 +75,40 @@
             
             <nav class="sidebar-menu">
                 <a href="#" class="menu-item active" data-section="summary">
-                    <i class="fa-solid fa-table-cells-large"></i> <span>Mi Panel</span> <i class="fa-solid fa-grip-vertical drag-handle" aria-hidden="true"></i>
+                    <i class="fa-solid fa-table-cells-large"></i> <span>Mi Panel</span>
                 </a>
                 <a href="#" class="menu-item" data-section="vendedores" id="menu-vendedores">
-                    <i class="fa-solid fa-users"></i> <span>Vendedores</span> <i class="fa-solid fa-grip-vertical drag-handle" aria-hidden="true"></i>
+                    <i class="fa-solid fa-users"></i> <span>Vendedores</span>
                 </a>
                 <a href="#" class="menu-item" data-section="inventario-abcf">
-                    <i class="fa-solid fa-boxes-stacked"></i> <span>Inventario D</span> <i class="fa-solid fa-grip-vertical drag-handle" aria-hidden="true"></i>
+                    <i class="fa-solid fa-boxes-stacked"></i> <span>Inventario D</span>
                 </a>
                 <a href="#" class="menu-item" data-section="promociones">
-                    <i class="fa-solid fa-tags"></i> <span>Promociones</span> <i class="fa-solid fa-grip-vertical drag-handle" aria-hidden="true"></i>
+                    <i class="fa-solid fa-tags"></i> <span>Promociones</span>
                 </a>
                 <a href="#" class="menu-item" data-section="sobrepedidos">
-                    <i class="fa-solid fa-truck-ramp-box"></i> <span>Sobrepedidos</span> <i class="fa-solid fa-grip-vertical drag-handle" aria-hidden="true"></i>
+                    <i class="fa-solid fa-truck-ramp-box"></i> <span>Sobrepedidos</span>
                 </a>
                 <a href="#" class="menu-item" data-section="por-entregar">
-                    <i class="fa-solid fa-box-open"></i> <span>Por entregar</span> <i class="fa-solid fa-grip-vertical drag-handle" aria-hidden="true"></i>
+                    <i class="fa-solid fa-box-open"></i> <span>Por entregar</span>
                 </a>
                 <a href="#" class="menu-item" data-section="cotizaciones">
-                    <i class="fa-solid fa-file-invoice-dollar"></i> <span>Cotizaciones</span> <i class="fa-solid fa-grip-vertical drag-handle" aria-hidden="true"></i>
+                    <i class="fa-solid fa-file-invoice-dollar"></i> <span>Cotizaciones</span>
                 </a>
                 <a href="#" class="menu-item" data-section="seguimiento">
-                    <i class="fa-solid fa-table-columns"></i> <span>Seguimiento</span> <i class="fa-solid fa-grip-vertical drag-handle" aria-hidden="true"></i>
+                    <i class="fa-solid fa-table-columns"></i> <span>Seguimiento</span>
                 </a>
                 <a href="#" class="menu-item" data-section="agentes">
-                    <i class="fa-solid fa-user-gear"></i> <span>Centro de Agentes</span> <i class="fa-solid fa-grip-vertical drag-handle" aria-hidden="true"></i>
+                    <i class="fa-solid fa-user-gear"></i> <span>Centro de Agentes</span>
                 </a>
                 <a href="#" class="menu-item" data-section="slight-edge">
-                    <i class="fa-solid fa-chart-line"></i> <span>La Ventaja</span> <i class="fa-solid fa-grip-vertical drag-handle" aria-hidden="true"></i>
+                    <i class="fa-solid fa-chart-line"></i> <span>La Ventaja</span>
                 </a>
                 <a href="#" class="menu-item" data-section="asignacion" id="menu-asignacion">
-                    <i class="fa-solid fa-people-arrows"></i> <span>Asignación</span> <i class="fa-solid fa-grip-vertical drag-handle" aria-hidden="true"></i>
+                    <i class="fa-solid fa-people-arrows"></i> <span>Asignación</span>
                 </a>
                 <a href="#" class="menu-item" data-section="api" id="menu-api">
-                    <i class="fa-brands fa-whatsapp"></i> <span>API WhatsApp</span> <i class="fa-solid fa-grip-vertical drag-handle" aria-hidden="true"></i>
+                    <i class="fa-brands fa-whatsapp"></i> <span>API WhatsApp</span>
                 </a>
                 
             </nav>
@@ -994,7 +994,9 @@
                         <div style="display: flex; gap: 10px;">
                             <div id="upload-cotizaciones-wrapper" class="role-restricted role-admin role-gerente" style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
                                 <input type="file" id="file-upload-cotizaciones" accept=".xlsx" style="display: none;">
+                                <input type="file" id="file-upload-cotizacion-items" accept=".xlsx" style="display: none;">
                                 <button id="btn-upload-cotizaciones" class="btn btn-secondary" onclick="document.getElementById('file-upload-cotizaciones').click()"><i class="fa-solid fa-file-excel"></i> Cargar Excel</button>
+                                <button id="btn-upload-cotizacion-items" class="btn btn-secondary btn-sm" onclick="document.getElementById('file-upload-cotizacion-items').click()"><i class="fa-solid fa-list"></i> Cargar detalle SKU</button>
                                 <small id="last-upload-cotizaciones" style="color: hsl(var(--text-muted)); font-size: 11px;">Última carga: sin registro</small>
                             </div>
                         </div>
@@ -1071,6 +1073,16 @@
                             <div class="input-group-inline">
                                 <label for="filter-quote-end-date">Fecha Fin:</label>
                                 <input type="date" id="filter-quote-end-date" style="background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); padding: 8px 12px; color: hsl(var(--text-primary)); font-size: 14px;">
+                            </div>
+
+                            <div class="input-group-inline">
+                                <label>Periodo rápido:</label>
+                                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                    <button type="button" class="btn btn-secondary btn-sm quote-period-btn" id="filter-quote-today">Hoy</button>
+                                    <button type="button" class="btn btn-secondary btn-sm quote-period-btn" id="filter-quote-month">Este mes</button>
+                                    <button type="button" class="btn btn-secondary btn-sm quote-period-btn" id="filter-quote-all">Todas</button>
+                                </div>
+                                <small id="filter-quote-period-status" style="color:hsl(var(--text-secondary));">Todas las fechas</small>
                             </div>
                             
                             <div class="input-group-inline">
@@ -1239,6 +1251,37 @@
                             <div class="chart-wrapper" style="height: 220px;">
                                 <canvas id="chartQuoteChannel"></canvas>
                             </div>
+                            <div id="channel-analytics-summary" style="font-size:12px;color:hsl(var(--text-secondary));margin-top:8px;"></div>
+                            <details id="channel-config-panel" style="margin-top:12px;">
+                                <summary style="cursor:pointer;font-size:12px;font-weight:700;">Configurar códigos de canal</summary>
+                                <form id="channel-config-form" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:10px;">
+                                    <input id="channel-config-code" placeholder="Código origen" required>
+                                    <select id="channel-config-name" required>
+                                        <option>Apartados</option>
+                                        <option>Kuroda Turbo</option>
+                                        <option>Material D</option>
+                                        <option>Promociones</option>
+                                        <option>Marketplace</option>
+                                    </select>
+                                    <button class="btn btn-secondary btn-sm" type="submit">Guardar</button>
+                                </form>
+                                <div id="channel-config-list" style="font-size:11px;margin-top:8px;"></div>
+                            </details>
+                        </div>
+                    </div>
+
+                    <div class="glass-card margin-bottom" style="padding:20px;">
+                        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <h2>Ventas por familia y grupo de materiales</h2>
+                                <small id="material-analytics-status" class="text-muted">Esperando detalle por SKU.</small>
+                            </div>
+                        </div>
+                        <div class="table-container" style="max-height:360px;overflow:auto;">
+                            <table class="data-table" id="table-material-analytics">
+                                <thead><tr><th>Asesor</th><th>Familia</th><th>Grupo</th><th>SKU</th><th>Descripción</th><th>Unid. fact.</th><th>Importe fact.</th></tr></thead>
+                                <tbody><tr><td colspan="7" style="text-align:center;">Sin detalle de materiales cargado.</td></tr></tbody>
+                            </table>
                         </div>
                     </div>
 
@@ -1747,7 +1790,26 @@
                         
                         <!-- Team Checklist Performance Card -->
                         <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column; margin-top: 24px;">
-                            <h3 style="margin-top: 0; margin-bottom: 16px;"><i class="fa-solid fa-users-viewfinder" style="color: #a78bfa; margin-right: 8px;"></i>Rendimiento y Consistencia del Equipo</h3>
+                            <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:16px;">
+                                <div>
+                                    <h3 style="margin:0;"><i class="fa-solid fa-users-viewfinder" style="color: #a78bfa; margin-right: 8px;"></i>Rendimiento y Consistencia del Equipo</h3>
+                                    <small id="coordinator-performance-period-status" style="color:hsl(var(--text-secondary));">Mes actual</small>
+                                </div>
+                                <div style="display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap;">
+                                    <div class="input-group" style="margin:0;">
+                                        <label for="coordinator-performance-start">Desde</label>
+                                        <input type="date" id="coordinator-performance-start" style="height:38px;">
+                                    </div>
+                                    <div class="input-group" style="margin:0;">
+                                        <label for="coordinator-performance-end">Hasta</label>
+                                        <input type="date" id="coordinator-performance-end" style="height:38px;">
+                                    </div>
+                                    <button type="button" id="btn-coordinator-performance-filter" class="btn btn-secondary btn-sm" style="height:38px;">
+                                        <i class="fa-solid fa-filter"></i> Aplicar
+                                    </button>
+                                    <button type="button" id="btn-coordinator-performance-month" class="btn btn-secondary btn-sm" style="height:38px;">Mes actual</button>
+                                </div>
+                            </div>
                             
                             <div class="table-container" style="margin-top: 8px; flex: 1;">
                                 <table class="data-table" id="table-slight-edge-performance">
@@ -1756,7 +1818,11 @@
                                             <th>Vendedor</th>
                                             <th>Meta de Ingresos</th>
                                             <th>Venta Lograda</th>
+                                            <th>Cumplimiento</th>
+                                            <th>Cotizaciones</th>
                                             <th>Tasa Conv.</th>
+                                            <th>Ticket Prom.</th>
+                                            <th>Pendientes</th>
                                             <th>Consistencia Prom.</th>
                                             <th>Acciones</th>
                                         </tr>
@@ -1971,6 +2037,32 @@
         </div>
     </div>
 
+    <!-- Quote Follow-up Comments Modal -->
+    <div id="quote-comments-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 620px;">
+            <div class="modal-header">
+                <h3 id="quote-comments-title">Seguimiento de cotización</h3>
+                <button id="btn-close-quote-comments" class="btn-icon" type="button"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="display:flex; flex-direction:column; gap:16px;">
+                <input type="hidden" id="quote-comments-quote-id">
+                <div id="quote-comments-history" style="display:flex; flex-direction:column; gap:10px; max-height:320px; overflow-y:auto;">
+                    <p class="text-muted">Sin comentarios de seguimiento.</p>
+                </div>
+                <form id="quote-comments-form" style="display:flex; flex-direction:column; gap:10px;">
+                    <label for="quote-comments-text" id="quote-comments-form-label">Nuevo comentario</label>
+                    <input type="hidden" id="quote-comments-edit-id">
+                    <textarea id="quote-comments-text" rows="3" maxlength="4000" required placeholder="Registra llamada, acuerdo o siguiente paso..."></textarea>
+                    <div style="display:flex; justify-content:flex-end; gap:8px;">
+                        <button type="button" id="btn-cancel-quote-comment-edit" class="btn btn-secondary hidden">Cancelar edición</button>
+                        <button type="button" id="btn-cancel-quote-comments" class="btn btn-secondary">Cerrar</button>
+                        <button type="submit" id="btn-save-quote-comment" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> Agregar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- New Task Modal -->
     <div id="new-task-modal" class="modal-wrapper hidden">
         <div class="glass-card modal-card animate-scale-up" style="max-width: 400px;">
@@ -2163,6 +2255,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.56"></script>
+    <script src="/static/app.js?v=1.0.57"></script>
 </body>
 </html>

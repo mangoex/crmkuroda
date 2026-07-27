@@ -59,6 +59,26 @@ function escapeHTML(str) {
         .replace(/'/g, '&#39;');
 }
 
+function buildContactHtml(contact = {}) {
+    const phone = contact.contacto_preferente || contact.celular || contact.telefono || "";
+    const email = contact.email || "";
+    const digits = String(phone).replace(/\D/g, "");
+    if (!phone && !email) return '<span class="text-muted">Sin contacto</span>';
+    const parts = [];
+    if (email) parts.push(`<a href="mailto:${escapeHTML(email)}">${escapeHTML(email)}</a>`);
+    if (phone) {
+        parts.push(
+            `<a href="tel:${escapeHTML(phone)}" title="Llamar"><i class="fa-solid fa-phone"></i> ${escapeHTML(phone)}</a>`
+        );
+        if (digits) {
+            parts.push(
+                `<a href="https://wa.me/${digits}" target="_blank" rel="noopener" title="Abrir WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>`
+            );
+        }
+    }
+    return parts.join("<br>");
+}
+
 function normalizeSearchText(value) {
     return String(value ?? "")
         .normalize("NFD")
@@ -247,6 +267,10 @@ const DOM = {
     filterQuoteDays: document.getElementById("filter-quote-days"),
     filterQuoteStartDate: document.getElementById("filter-quote-start-date"),
     filterQuoteEndDate: document.getElementById("filter-quote-end-date"),
+    filterQuoteToday: document.getElementById("filter-quote-today"),
+    filterQuoteMonth: document.getElementById("filter-quote-month"),
+    filterQuoteAll: document.getElementById("filter-quote-all"),
+    filterQuotePeriodStatus: document.getElementById("filter-quote-period-status"),
     activeHeatmapFilter: document.getElementById("active-heatmap-filter"),
     activeHeatmapFilterText: document.getElementById("active-heatmap-filter-text"),
     btnClearHeatmapFilter: document.getElementById("btn-clear-heatmap-filter"),
@@ -296,6 +320,18 @@ const DOM = {
     lostReasonOptions: document.getElementById("lost-reason-options"),
     lostReasonJustificationLabel: document.getElementById("lost-reason-justification-label"),
     lostReasonJustification: document.getElementById("lost-reason-justification"),
+    quoteCommentsModal: document.getElementById("quote-comments-modal"),
+    quoteCommentsTitle: document.getElementById("quote-comments-title"),
+    quoteCommentsQuoteId: document.getElementById("quote-comments-quote-id"),
+    quoteCommentsHistory: document.getElementById("quote-comments-history"),
+    quoteCommentsForm: document.getElementById("quote-comments-form"),
+    quoteCommentsFormLabel: document.getElementById("quote-comments-form-label"),
+    quoteCommentsEditId: document.getElementById("quote-comments-edit-id"),
+    quoteCommentsText: document.getElementById("quote-comments-text"),
+    btnCancelQuoteCommentEdit: document.getElementById("btn-cancel-quote-comment-edit"),
+    btnSaveQuoteComment: document.getElementById("btn-save-quote-comment"),
+    btnCloseQuoteComments: document.getElementById("btn-close-quote-comments"),
+    btnCancelQuoteComments: document.getElementById("btn-cancel-quote-comments"),
     btnCloseLostReasonModal: document.getElementById("btn-close-lost-reason-modal"),
     btnCancelLostReason: document.getElementById("btn-cancel-lost-reason"),
     
@@ -384,6 +420,11 @@ const DOM = {
     companySettingsForm: document.getElementById("company-settings-form"),
     coordinatorGlobalTarget: document.getElementById("coordinator-global-target"),
     coordinatorGlobalGoals: document.getElementById("coordinator-global-goals"),
+    coordinatorPerformanceStart: document.getElementById("coordinator-performance-start"),
+    coordinatorPerformanceEnd: document.getElementById("coordinator-performance-end"),
+    coordinatorPerformancePeriodStatus: document.getElementById("coordinator-performance-period-status"),
+    btnCoordinatorPerformanceFilter: document.getElementById("btn-coordinator-performance-filter"),
+    btnCoordinatorPerformanceMonth: document.getElementById("btn-coordinator-performance-month"),
     tableSlightEdgePerformance: document.querySelector("#table-slight-edge-performance tbody"),
     slightEdgeAiRecommendationCard: document.getElementById("slight-edge-ai-recommendation-card"),
     btnCloseSlightEdgeAi: document.getElementById("btn-close-slight-edge-ai"),
@@ -478,7 +519,6 @@ async function initSession() {
                     state.activeHeatmapFilter = null;
                 }
                 // Aplicar orden personalizado del menú lateral para este usuario
-                applyStoredMenuOrder();
             }
         } catch (e) {
             console.error("Fallo al validar sesión:", e);
@@ -1321,7 +1361,7 @@ function renderSellerFollowups(quotes, plan, logToday, search) {
 
     followups.slice(0, 2).forEach(quote => {
         const age = quoteAgeDays(quote);
-        const phone = quote.datos_contacto?.telefono || quote.datos_contacto?.celular || "";
+        const phone = quote.datos_contacto?.contacto_preferente || quote.datos_contacto?.celular || quote.datos_contacto?.telefono || "";
         const item = document.createElement("div");
         item.className = "seller-follow-card";
         item.innerHTML = `
@@ -2744,6 +2784,10 @@ async function loadCotizacionesData(forceRefresh = true) {
             // Rebuild dropdown list to avoid duplications or missing entries
             const currentSelected = DOM.filterQuoteSeller.value;
             DOM.filterQuoteSeller.innerHTML = '<option value="">Todos los vendedores</option>';
+            const unlinkedOption = document.createElement("option");
+            unlinkedOption.value = "__unlinked__";
+            unlinkedOption.textContent = "Asesor sin vincular";
+            DOM.filterQuoteSeller.appendChild(unlinkedOption);
             state.vendedores.forEach(v => {
                 const opt = document.createElement("option");
                 opt.value = v.id;
@@ -2816,6 +2860,180 @@ async function loadCotizacionesData(forceRefresh = true) {
     state.quotesCurrentPage = 1;
     
     renderQuotesDashboard();
+    await loadCommercialAnalytics();
+}
+
+function currentCommercialAnalyticsParams() {
+    const params = new URLSearchParams();
+    const startDate = DOM.filterQuoteStartDate?.value;
+    const endDate = DOM.filterQuoteEndDate?.value;
+    const seller = state.user?.rol === "vendedor" ? "" : DOM.filterQuoteSeller?.value;
+    if (startDate) params.set("fecha_inicio", startDate);
+    if (endDate) params.set("fecha_fin", endDate);
+    if (seller === "__unlinked__") params.set("sin_vincular", "true");
+    if (seller && seller !== "__unlinked__") params.set("vendedor_id", seller);
+    return params;
+}
+
+function renderChannelAnalytics(payload) {
+    const data = payload.data || [];
+    const canvas = document.getElementById("chartQuoteChannel");
+    if (state.chartQuoteChannel) state.chartQuoteChannel.destroy();
+    if (canvas) {
+        state.chartQuoteChannel = new Chart(canvas.getContext("2d"), {
+            type: "doughnut",
+            data: {
+                labels: data.map(row => row.canal),
+                datasets: [{
+                    data: data.map(row => row.importe_facturado),
+                    backgroundColor: ["#38bdf8", "#a78bfa", "#22c55e", "#f59e0b", "#ec4899", "#64748b"]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: "bottom" },
+                    tooltip: {
+                        callbacks: {
+                            label: context => `${context.label}: $${Number(context.raw || 0).toLocaleString("es-MX")}`
+                        }
+                    }
+                }
+            }
+        });
+    }
+    const summary = document.getElementById("channel-analytics-summary");
+    if (summary) {
+        summary.innerHTML = data.length
+            ? data.map(row => `<span style="display:inline-block;margin:2px 8px 2px 0;"><strong>${escapeHTML(row.canal)}</strong>: $${Number(row.importe_facturado).toLocaleString("es-MX")} · ${row.conversion}% conv.</span>`).join("")
+            : "Sin ventas facturadas para el periodo.";
+    }
+}
+
+function renderMaterialAnalytics(payload) {
+    const tbody = document.querySelector("#table-material-analytics tbody");
+    const status = document.getElementById("material-analytics-status");
+    const data = payload.data || [];
+    if (!tbody) return;
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Sin detalle de materiales cargado para el periodo.</td></tr>';
+        if (status) status.textContent = "Carga el archivo de detalle SKU para habilitar este desglose.";
+        return;
+    }
+    const hierarchy = new Map();
+    data.forEach(row => {
+        const seller = row.vendedor || "Asesor sin vincular";
+        if (!hierarchy.has(seller)) hierarchy.set(seller, new Map());
+        const families = hierarchy.get(seller);
+        if (!families.has(row.familia)) families.set(row.familia, new Map());
+        const groups = families.get(row.familia);
+        if (!groups.has(row.grupo_materiales)) groups.set(row.grupo_materiales, []);
+        groups.get(row.grupo_materiales).push(row);
+    });
+    const totals = rows => rows.reduce((result, row) => ({
+        quantity: result.quantity + Number(row.cantidad_facturada || 0),
+        amount: result.amount + Number(row.importe_facturado || 0)
+    }), { quantity: 0, amount: 0 });
+    const formatAmount = amount => `$${amount.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+    const rendered = [];
+    let groupIndex = 0;
+    hierarchy.forEach((families, seller) => {
+        const sellerRows = [...families.values()].flatMap(groups => [...groups.values()].flat());
+        const sellerTotals = totals(sellerRows);
+        rendered.push(`
+            <tr style="background:rgba(56,189,248,.10);font-weight:800;">
+                <td colspan="5"><i class="fa-solid fa-user-tie"></i> ${escapeHTML(seller)}</td>
+                <td>${sellerTotals.quantity.toLocaleString("es-MX")}</td>
+                <td>${formatAmount(sellerTotals.amount)}</td>
+            </tr>
+        `);
+        families.forEach((groups, family) => {
+            const familyRows = [...groups.values()].flat();
+            const familyTotals = totals(familyRows);
+            rendered.push(`
+                <tr style="background:rgba(167,139,250,.08);font-weight:700;">
+                    <td></td><td colspan="4"><i class="fa-solid fa-layer-group"></i> ${escapeHTML(family)}</td>
+                    <td>${familyTotals.quantity.toLocaleString("es-MX")}</td>
+                    <td>${formatAmount(familyTotals.amount)}</td>
+                </tr>
+            `);
+            groups.forEach((rows, group) => {
+                const groupTotals = totals(rows);
+                const groupKey = `material-group-${groupIndex++}`;
+                rendered.push(`
+                    <tr style="background:rgba(255,255,255,.025);font-weight:700;">
+                        <td></td><td></td>
+                        <td colspan="3">
+                            <button type="button" class="btn-icon material-group-toggle" data-group="${groupKey}" aria-expanded="false" title="Mostrar SKU">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                            ${escapeHTML(group)}
+                        </td>
+                        <td>${groupTotals.quantity.toLocaleString("es-MX")}</td>
+                        <td>${formatAmount(groupTotals.amount)}</td>
+                    </tr>
+                `);
+                rows.forEach(row => rendered.push(`
+                    <tr class="hidden" data-material-group="${groupKey}">
+                        <td></td><td></td><td></td>
+                        <td><code>${escapeHTML(row.codigo_material)}</code></td>
+                        <td>${escapeHTML(row.descripcion || "-")}</td>
+                        <td>${Number(row.cantidad_facturada).toLocaleString("es-MX")}</td>
+                        <td><strong>${formatAmount(Number(row.importe_facturado))}</strong></td>
+                    </tr>
+                `));
+            });
+        });
+    });
+    tbody.innerHTML = rendered.join("");
+    if (status) status.textContent = `Importe facturado reconciliado en partidas: $${Number(payload.totals?.importe_facturado || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
+}
+
+document.addEventListener("click", event => {
+    const button = event.target.closest(".material-group-toggle");
+    if (!button) return;
+    const rows = document.querySelectorAll(`[data-material-group="${button.dataset.group}"]`);
+    const expanded = button.getAttribute("aria-expanded") === "true";
+    rows.forEach(row => row.classList.toggle("hidden", expanded));
+    button.setAttribute("aria-expanded", String(!expanded));
+    const icon = button.querySelector("i");
+    if (icon) icon.className = expanded ? "fa-solid fa-chevron-right" : "fa-solid fa-chevron-down";
+});
+
+async function loadChannelConfiguration() {
+    const panel = document.getElementById("channel-config-panel");
+    if (!panel) return;
+    const canConfigure = ["admin", "gerente"].includes(state.user?.rol);
+    panel.classList.toggle("hidden", !canConfigure);
+    if (!canConfigure) return;
+    try {
+        const response = await apiRequest("/api/v1/analitica/canales");
+        const list = document.getElementById("channel-config-list");
+        if (list) {
+            list.innerHTML = (response.data || []).map(item =>
+                `<span style="display:inline-block;margin:2px 8px 2px 0;"><code>${escapeHTML(item.codigo_origen)}</code> → ${escapeHTML(item.nombre_normalizado)}</span>`
+            ).join("") || "Sin códigos configurados.";
+        }
+    } catch (error) {
+        console.warn("No se pudo cargar el catálogo de canales:", error);
+    }
+}
+
+async function loadCommercialAnalytics() {
+    if (!state.token || !state.user) return;
+    const params = currentCommercialAnalyticsParams().toString();
+    try {
+        const [channels, materials] = await Promise.all([
+            apiRequest(`/api/v1/analitica/ventas-por-canal?${params}`),
+            apiRequest(`/api/v1/analitica/ventas-por-material?${params}`)
+        ]);
+        renderChannelAnalytics(channels);
+        renderMaterialAnalytics(materials);
+        await loadChannelConfiguration();
+    } catch (error) {
+        console.error("Error cargando analítica comercial:", error);
+    }
 }
 
 function updateActiveHeatmapFilterBadge() {
@@ -2867,7 +3085,8 @@ function renderQuotesDashboard() {
     // even after one status card is selected.
     const baseFiltered = state.cotizaciones.filter(q => {
         // 1. Seller Filter
-        if (sellerVal && q.vendedor_id !== sellerVal) return false;
+        if (sellerVal === "__unlinked__" && !q.vendedor_sin_vincular) return false;
+        if (sellerVal && sellerVal !== "__unlinked__" && q.vendedor_id !== sellerVal) return false;
         
         // 2. Date Range Filter. Normalize dates before comparing so imported
         // values with a time component or dd/mm/yyyy format remain visible.
@@ -3036,7 +3255,7 @@ function updateQuotesFunnelDisplay() {
         return hasInvoice && !isLost;
     });
 
-    realMoneyWon = wonQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0);
+    realMoneyWon = wonQuotes.reduce((sum, q) => sum + (Number(q.importe_facturado) || 0), 0);
     realTicketAvg = wonQuotes.length > 0 ? (realMoneyWon / wonQuotes.length) : 0;
     realConversionRate = currentMonthQuotes.length > 0 ? (wonQuotes.length / currentMonthQuotes.length * 100) : 0;
     realSales = wonQuotes.length;
@@ -3219,7 +3438,7 @@ function renderDashboardCharts(filtered) {
     // 2. Chart Seller (Bar)
     const groupedSeller = {};
     filtered.forEach(q => {
-        let sellerEmail = q.vendedor_id;
+        let sellerEmail = q.vendedor_nombre || "Asesor sin vincular";
         if (q.vendedor_id === state.user.id) {
             sellerEmail = state.user.email;
         } else {
@@ -3402,8 +3621,10 @@ function renderQuotesTableFiltered() {
         }
         
         pageQuotes.forEach(c => {
-            const sellerEmail = c.vendedor_id === state.user.id ? state.user.email : (state.vendedores.find(v => v.id === c.vendedor_id)?.email || c.vendedor_id);
-            const contactInfo = `Email: ${c.datos_contacto.email || '-'}<br>Tel: ${c.datos_contacto.telefono || '-'}`;
+            const sellerEmail = c.vendedor_id === state.user.id
+                ? state.user.email
+                : (state.vendedores.find(v => v.id === c.vendedor_id)?.email || c.vendedor_nombre || "Asesor sin vincular");
+            const contactInfo = buildContactHtml(c.datos_contacto || {});
             const invoiceNumber = c.numero_factura || "";
             
             const dateStr = c.fecha_registro || '-';
@@ -3431,9 +3652,15 @@ function renderQuotesTableFiltered() {
                 <td>${lossPill}</td>
                 <td>${invoiceNumber ? `<code title="Factura">${escapeHTML(invoiceNumber)}</code>` : `<span class="text-muted">-</span>`}</td>
                 <td>
-                    <button class="btn btn-secondary btn-sm lost-reason-btn" data-id="${c.id}" title="${noteTitle}" style="min-width: 38px; padding: 8px 10px; color: ${noteColor};">
-                        <i class="fa-regular fa-note-sticky"></i>
-                    </button>
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn btn-secondary btn-sm lost-reason-btn" data-id="${c.id}" title="${noteTitle}" style="min-width: 38px; padding: 8px 10px; color: ${noteColor};">
+                            <i class="fa-regular fa-note-sticky"></i>
+                        </button>
+                        <button class="btn btn-secondary btn-sm quote-comments-btn" data-id="${c.id}" title="Historial de seguimiento" style="min-width:38px; padding:8px 10px; position:relative;">
+                            <i class="fa-regular fa-comments"></i>
+                            ${c.comentarios_seguimiento_count ? `<span style="position:absolute;top:-6px;right:-5px;background:#38bdf8;color:#08111f;border-radius:999px;font-size:9px;font-weight:900;min-width:16px;height:16px;line-height:16px;">${c.comentarios_seguimiento_count}</span>` : ""}
+                        </button>
+                    </div>
                 </td>
             `;
             DOM.tableCotizaciones.appendChild(tr);
@@ -3563,6 +3790,102 @@ async function saveLostReason(event) {
     }
 }
 
+function closeQuoteCommentsModal() {
+    DOM.quoteCommentsModal?.classList.add("hidden");
+    resetQuoteCommentEditor();
+}
+
+function resetQuoteCommentEditor() {
+    if (DOM.quoteCommentsEditId) DOM.quoteCommentsEditId.value = "";
+    if (DOM.quoteCommentsText) DOM.quoteCommentsText.value = "";
+    if (DOM.quoteCommentsFormLabel) DOM.quoteCommentsFormLabel.textContent = "Nuevo comentario";
+    if (DOM.btnSaveQuoteComment) DOM.btnSaveQuoteComment.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Agregar';
+    DOM.btnCancelQuoteCommentEdit?.classList.add("hidden");
+}
+
+function renderQuoteComments(comments) {
+    if (!DOM.quoteCommentsHistory) return;
+    if (!comments.length) {
+        DOM.quoteCommentsHistory.innerHTML = '<p class="text-muted">Sin comentarios de seguimiento.</p>';
+        return;
+    }
+    DOM.quoteCommentsHistory.innerHTML = comments.map(comment => {
+        const timestamp = comment.creado_en
+            ? new Date(comment.creado_en).toLocaleString("es-MX", { dateStyle: "short", timeStyle: "short" })
+            : "";
+        const canEdit = ["admin", "gerente"].includes(state.user?.rol)
+            || String(comment.autor_id || "") === String(state.user?.id || "");
+        return `
+            <article style="padding:12px; border:1px solid rgba(255,255,255,.10); border-radius:8px; background:rgba(255,255,255,.035);">
+                <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:6px;">
+                    <strong style="font-size:12px; color:#38bdf8;">${escapeHTML(comment.autor_nombre || "Usuario")}</strong>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <small class="text-muted">${escapeHTML(timestamp)}${comment.editado_en ? " · editado" : ""}</small>
+                        ${canEdit ? `
+                            <button type="button" class="btn-icon quote-comment-edit-btn"
+                                data-id="${comment.id}" data-text="${escapeHTML(comment.comentario)}"
+                                title="Editar comentario" aria-label="Editar comentario">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                        ` : ""}
+                    </div>
+                </div>
+                <p style="margin:0; white-space:pre-wrap;">${escapeHTML(comment.comentario)}</p>
+            </article>
+        `;
+    }).join("");
+    DOM.quoteCommentsHistory.scrollTop = DOM.quoteCommentsHistory.scrollHeight;
+}
+
+async function openQuoteCommentsModal(quote) {
+    if (!quote || !DOM.quoteCommentsModal) return;
+    DOM.quoteCommentsQuoteId.value = quote.id;
+    DOM.quoteCommentsTitle.textContent = `Seguimiento - ${quote.cliente_nombre || "Cliente"}`;
+    DOM.quoteCommentsHistory.innerHTML = '<p class="text-muted">Cargando comentarios...</p>';
+    resetQuoteCommentEditor();
+    DOM.quoteCommentsModal.classList.remove("hidden");
+    try {
+        const result = await apiRequest(`/api/v1/cotizaciones/${quote.id}/comentarios`);
+        renderQuoteComments(result.data || []);
+    } catch (error) {
+        DOM.quoteCommentsHistory.innerHTML = `<p style="color:#ef4444;">${escapeHTML(error.message)}</p>`;
+    }
+}
+
+async function saveQuoteComment(event) {
+    event.preventDefault();
+    const quoteId = DOM.quoteCommentsQuoteId?.value;
+    const text = DOM.quoteCommentsText?.value.trim();
+    const commentId = DOM.quoteCommentsEditId?.value;
+    if (!quoteId || !text) {
+        showToast("Escribe un comentario.", "error");
+        return;
+    }
+    try {
+        await apiRequest(
+            commentId
+                ? `/api/v1/cotizaciones/${quoteId}/comentarios/${commentId}`
+                : `/api/v1/cotizaciones/${quoteId}/comentarios`,
+            {
+            method: commentId ? "PUT" : "POST",
+            body: JSON.stringify({ comentario: text })
+            }
+        );
+        const quote = state.cotizaciones.find(item => item.id === quoteId);
+        if (quote && !commentId) {
+            quote.comentarios_seguimiento_count = (quote.comentarios_seguimiento_count || 0) + 1;
+        }
+        resetQuoteCommentEditor();
+        const result = await apiRequest(`/api/v1/cotizaciones/${quoteId}/comentarios`);
+        renderQuoteComments(result.data || []);
+        renderQuotesTableFiltered();
+        if (state.currentSection === "seguimiento") renderKanbanColumns();
+        showToast(commentId ? "Comentario actualizado." : "Comentario de seguimiento agregado.");
+    } catch (error) {
+        showToast(error.message, "error");
+    }
+}
+
 function showProposalModal(quote) {
     DOM.modalProposalTitle.textContent = `Propuesta Comercial - ${quote.cliente_nombre}`;
     DOM.modalProposalBody.textContent = quote.texto_propuesta || "Esta cotización no contiene propuesta detallada.";
@@ -3665,23 +3988,9 @@ function renderKanbanColumns() {
         } else if (isLost || ageDays > 30) {
             stages.vencido.push(q);
         } else {
-            // Check if quote has any promotional items
-            let hasPromotion = false;
-            if (q.items && Array.isArray(q.items) && state.promociones.length > 0) {
-                for (const item of q.items) {
-                    const prodName = (item.producto || "").toLowerCase();
-                    const isPromo = state.promociones.some(p => 
-                        prodName.includes((p.codigo_material || "").toLowerCase()) || 
-                        prodName.includes((p.descripcion_material || "").toLowerCase())
-                    );
-                    if (isPromo) {
-                        hasPromotion = true;
-                        break;
-                    }
-                }
-            }
-
-            if (hasPromotion) {
+            // La prioridad promocional proviene exclusivamente del cruce exacto
+            // de SKU y vigencia calculado por el backend.
+            if (q.tiene_promocion === true) {
                 stages.promociones.push(q);
             } else {
                 stages.cotizado.push(q);
@@ -3699,6 +4008,15 @@ function renderKanbanColumns() {
             } else if (order === "desc") {
                 stages[col].sort((a, b) => Number(b.total) - Number(a.total));
             }
+        } else if (col === "promociones") {
+            const priorityWeight = { alta: 3, media: 2, normal: 1 };
+            stages[col].sort((a, b) => {
+                const priorityDiff = (priorityWeight[b.nivel_prioridad] || 0) - (priorityWeight[a.nivel_prioridad] || 0);
+                if (priorityDiff) return priorityDiff;
+                const aExpiry = a.promociones_coincidentes?.[0]?.dias_restantes ?? 9999;
+                const bExpiry = b.promociones_coincidentes?.[0]?.dias_restantes ?? 9999;
+                return aExpiry - bExpiry;
+            });
         }
     });
     
@@ -3728,7 +4046,9 @@ function renderKanbanColumns() {
             card.setAttribute("draggable", "true");
             card.setAttribute("data-id", q.id);
             
-            const sellerEmail = q.vendedor_id === state.user.id ? state.user.email : (state.vendedores.find(v => v.id === q.vendedor_id)?.email || q.vendedor_id);
+            const sellerEmail = q.vendedor_id === state.user.id
+                ? state.user.email
+                : (state.vendedores.find(v => v.id === q.vendedor_id)?.email || q.vendedor_nombre || "Asesor sin vincular");
             const dateStr = q.fecha_registro || '-';
             const quoteNum = q.numero_cotizacion || '-';
             const totalStr = q.total.toLocaleString('es-MX', { minimumFractionDigits: 2 });
@@ -3738,7 +4058,14 @@ function renderKanbanColumns() {
                 statusBadge = `<span class="kanban-card-badge kanban-card-badge-sold" title="Factura: ${q.numero_factura || ''}">Vendido</span>`;
             } else if (col === "vencido") {
                 statusBadge = `<span class="kanban-card-badge kanban-card-badge-lost">${isQuoteLost(q) ? 'Perdida' : 'Expirada'}</span>`;
+            } else if (col === "promociones") {
+                const promoClass = q.nivel_prioridad === "alta" ? "#ef4444" : (q.nivel_prioridad === "media" ? "#f59e0b" : "#22c55e");
+                const expiry = q.promociones_coincidentes?.[0]?.valido_hasta || "";
+                statusBadge = `<span class="kanban-card-badge" style="background:${promoClass}22;color:${promoClass};border:1px solid ${promoClass}66;" title="Promoción vigente hasta ${escapeHTML(expiry)}"><i class="fa-solid fa-tags"></i> Promoción</span>`;
             }
+            const promotionDetail = col === "promociones" && q.promociones_coincidentes?.length
+                ? `<div style="margin-top:8px;font-size:11px;color:#fbbf24;">${q.promociones_coincidentes.map(p => `${escapeHTML(p.codigo_material)} · vence ${escapeHTML(p.valido_hasta)}`).join("<br>")}</div>`
+                : "";
             
             card.innerHTML = `
                 <div class="kanban-card-header">
@@ -3752,7 +4079,11 @@ function renderKanbanColumns() {
                 <div class="kanban-card-footer">
                     <span class="kanban-card-total">$${totalStr}</span>
                     ${statusBadge}
+                    <button class="btn btn-secondary btn-sm quote-comments-btn kanban-card-actions" data-id="${q.id}" title="Comentarios de seguimiento" style="min-width:34px;padding:6px 8px;">
+                        <i class="fa-regular fa-comments"></i>${q.comentarios_seguimiento_count ? ` <small>${q.comentarios_seguimiento_count}</small>` : ""}
+                    </button>
                 </div>
+                ${promotionDetail}
             `;
             
             // Drag listeners on card
@@ -4608,6 +4939,7 @@ DOM.filterQuoteSeller?.addEventListener("change", () => {
     state.activeHeatmapFilter = null;
     state.quotesCurrentPage = 1;
     renderQuotesDashboard();
+    loadCommercialAnalytics();
 });
 
 DOM.filterQuoteDays?.addEventListener("change", () => {
@@ -4644,10 +4976,47 @@ DOM.quoteFilterCards?.forEach(card => {
     });
 });
 
+function getBusinessDateParts() {
+    const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Mazatlan",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return { year: values.year, month: values.month, day: values.day };
+}
+
+function applyQuoteQuickPeriod(period) {
+    const { year, month, day } = getBusinessDateParts();
+    if (period === "today") {
+        const today = `${year}-${month}-${day}`;
+        DOM.filterQuoteStartDate.value = today;
+        DOM.filterQuoteEndDate.value = today;
+        if (DOM.filterQuotePeriodStatus) DOM.filterQuotePeriodStatus.textContent = `Hoy: ${today}`;
+    } else if (period === "month") {
+        DOM.filterQuoteStartDate.value = `${year}-${month}-01`;
+        DOM.filterQuoteEndDate.value = `${year}-${month}-${day}`;
+        if (DOM.filterQuotePeriodStatus) DOM.filterQuotePeriodStatus.textContent = `Mes actual: ${year}-${month}`;
+    } else {
+        DOM.filterQuoteStartDate.value = "";
+        DOM.filterQuoteEndDate.value = "";
+        if (DOM.filterQuotePeriodStatus) DOM.filterQuotePeriodStatus.textContent = "Todas las fechas";
+    }
+    state.activeHeatmapFilter = null;
+    state.quotesCurrentPage = 1;
+    loadCotizacionesData(true);
+}
+
+DOM.filterQuoteToday?.addEventListener("click", () => applyQuoteQuickPeriod("today"));
+DOM.filterQuoteMonth?.addEventListener("click", () => applyQuoteQuickPeriod("month"));
+DOM.filterQuoteAll?.addEventListener("click", () => applyQuoteQuickPeriod("all"));
+
 if (DOM.filterQuoteStartDate) {
     DOM.filterQuoteStartDate?.addEventListener("change", () => {
         state.activeHeatmapFilter = null;
         state.quotesCurrentPage = 1;
+        if (DOM.filterQuotePeriodStatus) DOM.filterQuotePeriodStatus.textContent = "Periodo personalizado";
         loadCotizacionesData();
     });
 }
@@ -4656,6 +5025,7 @@ if (DOM.filterQuoteEndDate) {
     DOM.filterQuoteEndDate?.addEventListener("change", () => {
         state.activeHeatmapFilter = null;
         state.quotesCurrentPage = 1;
+        if (DOM.filterQuotePeriodStatus) DOM.filterQuotePeriodStatus.textContent = "Periodo personalizado";
         loadCotizacionesData();
     });
 }
@@ -4724,6 +5094,34 @@ DOM.lostReasonPrice?.addEventListener("change", () => {
 });
 DOM.lostReasonStock?.addEventListener("change", () => {
     if (DOM.lostReasonStock.checked && DOM.lostReasonPrice) DOM.lostReasonPrice.checked = false;
+});
+DOM.quoteCommentsForm?.addEventListener("submit", saveQuoteComment);
+DOM.btnCloseQuoteComments?.addEventListener("click", closeQuoteCommentsModal);
+DOM.btnCancelQuoteComments?.addEventListener("click", closeQuoteCommentsModal);
+DOM.btnCancelQuoteCommentEdit?.addEventListener("click", resetQuoteCommentEditor);
+DOM.quoteCommentsModal?.addEventListener("click", event => {
+    if (event.target === DOM.quoteCommentsModal) closeQuoteCommentsModal();
+});
+document.addEventListener("click", event => {
+    const editButton = event.target.closest(".quote-comment-edit-btn");
+    if (editButton) {
+        event.preventDefault();
+        if (DOM.quoteCommentsEditId) DOM.quoteCommentsEditId.value = editButton.dataset.id || "";
+        if (DOM.quoteCommentsText) {
+            DOM.quoteCommentsText.value = editButton.dataset.text || "";
+            DOM.quoteCommentsText.focus();
+        }
+        if (DOM.quoteCommentsFormLabel) DOM.quoteCommentsFormLabel.textContent = "Editar comentario";
+        if (DOM.btnSaveQuoteComment) DOM.btnSaveQuoteComment.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar cambios';
+        DOM.btnCancelQuoteCommentEdit?.classList.remove("hidden");
+        return;
+    }
+    const button = event.target.closest(".quote-comments-btn");
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const quote = state.cotizaciones.find(item => item.id === button.dataset.id);
+    if (quote) openQuoteCommentsModal(quote);
 });
 
 // Kanban Column Sorting listeners
@@ -4805,101 +5203,14 @@ if (DOM.btnToggleSidebar) {
 }
 
 /* ==========================================================================
-   SIDEBAR MENU REORDER (drag-and-drop con persistencia por usuario)
+   FIXED SIDEBAR MENU
    ========================================================================== */
 
-function sidebarMenuStorageKey() {
-    // Orden guardado por usuario para no mezclar cuentas
-    return state.user && state.user.id
-        ? `sidebar_menu_order_${state.user.id}`
-        : null;
-}
-
-function getMenuOrder() {
-    return Array.from(document.querySelectorAll(".sidebar-menu .menu-item"))
-        .map(item => item.getAttribute("data-section"));
-}
-
-function saveMenuOrder(order) {
-    const key = sidebarMenuStorageKey();
-    if (key && Array.isArray(order)) {
-        localStorage.setItem(key, JSON.stringify(order));
-    }
-}
-
-// Reordena los nodos DOM del menú según el orden guardado en localStorage.
-// Los items no contemplados en el guardado (nuevos tras una actualización)
-// permanecen al final en su orden DOM original.
-function applyStoredMenuOrder() {
-    const key = sidebarMenuStorageKey();
-    if (!key) return;
-    let saved;
-    try {
-        saved = JSON.parse(localStorage.getItem(key) || "[]");
-    } catch (e) {
-        saved = [];
-    }
-    if (!Array.isArray(saved) || saved.length === 0) return;
-
-    const menu = document.querySelector(".sidebar-menu");
-    if (!menu) return;
-
-    const itemsBySection = {};
-    menu.querySelectorAll(".menu-item").forEach(item => {
-        const section = item.getAttribute("data-section");
-        if (section) itemsBySection[section] = item;
-    });
-
-    // Reinsertar en el orden guardado; los no guardados quedan tras los guardados
-    saved.forEach(section => {
-        const item = itemsBySection[section];
-        if (item) {
-            menu.appendChild(item);   // mover al final (luego los siguientes empujan)
-            delete itemsBySection[section];
-        }
-    });
-}
-
 function initSidebarDrag() {
-    const menu = document.querySelector(".sidebar-menu");
-    if (!menu || menu.dataset.dragReady === "true") return;
-    menu.dataset.dragReady = "true";
-
-    let draggedItem = null;
-
-    menu.querySelectorAll(".menu-item").forEach(item => {
-        item.draggable = true;
-
-        item.addEventListener("dragstart", (e) => {
-            draggedItem = item;
-            item.classList.add("dragging");
-            e.dataTransfer.effectAllowed = "move";
-            // Necesario para que Firefox inicie el drag
-            if (e.dataTransfer.setData) e.dataTransfer.setData("text/plain", item.dataset.section || "");
-        });
-
-        item.addEventListener("dragend", () => {
-            item.classList.remove("dragging");
-            document.querySelectorAll(".menu-item").forEach(el => el.style.borderTop = "");
-            draggedItem = null;
-            // Persistir el nuevo orden
-            saveMenuOrder(getMenuOrder());
-        });
-    });
-
-    menu.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        if (!draggedItem) return;
-        const target = e.target.closest(".menu-item");
-        if (!target || target === draggedItem) return;
-
-        const rect = target.getBoundingClientRect();
-        const after = (e.clientY - rect.top) > rect.height / 2;
-        if (after) {
-            target.parentNode.insertBefore(draggedItem, target.nextSibling);
-        } else {
-            target.parentNode.insertBefore(draggedItem, target);
-        }
+    // El orden del menú es parte del contrato del producto y no es editable.
+    document.querySelectorAll(".sidebar-menu .menu-item").forEach(item => {
+        item.draggable = false;
+        item.removeAttribute("draggable");
     });
 }
 
@@ -5648,7 +5959,7 @@ async function loadSellerSlightEdgePlanAndLog() {
             return hasInvoice && !isLost;
         });
 
-        const realMoneyWon = wonQuotes.reduce((sum, q) => sum + (Number(q.total) || 0), 0);
+        const realMoneyWon = wonQuotes.reduce((sum, q) => sum + (Number(q.importe_facturado) || 0), 0);
         const realTicketAvg = wonQuotes.length > 0 ? (realMoneyWon / wonQuotes.length) : 0;
         const realConversionRate = currentMonthQuotes.length > 0 ? (wonQuotes.length / currentMonthQuotes.length * 100) : 0;
 
@@ -6254,7 +6565,26 @@ async function handleSlightEdgeChatSubmit(e) {
 
 async function loadCoordinatorSlightEdgeDashboard() {
     try {
-        const res = await apiRequest("/companies/kuroda/dashboard");
+        if (DOM.coordinatorPerformanceStart && !DOM.coordinatorPerformanceStart.value) {
+            const { year, month, day } = getBusinessDateParts();
+            DOM.coordinatorPerformanceStart.value = `${year}-${month}-01`;
+            DOM.coordinatorPerformanceEnd.value = `${year}-${month}-${day}`;
+        }
+        const performanceParams = new URLSearchParams();
+        if (DOM.coordinatorPerformanceStart?.value) {
+            performanceParams.set("fecha_inicio", DOM.coordinatorPerformanceStart.value);
+        }
+        if (DOM.coordinatorPerformanceEnd?.value) {
+            performanceParams.set("fecha_fin", DOM.coordinatorPerformanceEnd.value);
+        }
+        const [res, performance] = await Promise.all([
+            apiRequest("/companies/kuroda/dashboard"),
+            apiRequest(`/api/v1/analitica/rendimiento-asesores?${performanceParams.toString()}`)
+        ]);
+        if (DOM.coordinatorPerformancePeriodStatus) {
+            DOM.coordinatorPerformancePeriodStatus.textContent =
+                `${performance.filters?.fecha_inicio || "Inicio"} a ${performance.filters?.fecha_fin || "hoy"}`;
+        }
         
         // Populate inputs
         if (DOM.coordinatorGlobalTarget) DOM.coordinatorGlobalTarget.value = res.global_sales_target || "";
@@ -6296,10 +6626,10 @@ async function loadCoordinatorSlightEdgeDashboard() {
 
         // Render Performance Table
         DOM.tableSlightEdgePerformance.innerHTML = "";
-        const sellers = res.sellers || [];
+        const sellers = performance.data || [];
 
         if (sellers.length === 0) {
-            DOM.tableSlightEdgePerformance.innerHTML = '<tr><td colspan="6" style="text-align: center;">No hay vendedores registrados.</td></tr>';
+            DOM.tableSlightEdgePerformance.innerHTML = '<tr><td colspan="10" style="text-align: center;">No hay vendedores registrados.</td></tr>';
             return;
         }
 
@@ -6307,16 +6637,20 @@ async function loadCoordinatorSlightEdgeDashboard() {
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>
-                    <strong class="seller-burndown-trigger" data-id="${s.id}" data-name="${escapeHTML(s.name)}" style="cursor: pointer; color: #38bdf8;">
-                        ${escapeHTML(s.name)} <i class="fa-solid fa-chart-line" style="font-size: 11px; margin-left: 4px; color: #a78bfa;"></i>
+                    <strong class="seller-burndown-trigger" data-id="${s.vendedor_id}" data-name="${escapeHTML(s.vendedor)}" style="cursor: pointer; color: #38bdf8;">
+                        ${escapeHTML(s.vendedor)} <i class="fa-solid fa-chart-line" style="font-size: 11px; margin-left: 4px; color: #a78bfa;"></i>
                     </strong>
                 </td>
-                <td>$${s.metrics.target.toLocaleString()}</td>
-                <td>$${s.metrics.sales.toLocaleString()}</td>
-                <td><span class="status-pill" style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2);">${s.metrics.conversion_rate}%</span></td>
-                <td>${s.metrics.roi} pts / ${s.slight_edge.daily_points_goal}</td>
+                <td>$${Number(s.meta).toLocaleString("es-MX")}</td>
+                <td>$${Number(s.venta_facturada).toLocaleString("es-MX")}</td>
+                <td><span class="status-pill">${Number(s.cumplimiento).toFixed(1)}%</span></td>
+                <td>${s.cotizaciones}</td>
+                <td><span class="status-pill" style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2);">${s.conversion}%</span></td>
+                <td>$${Number(s.ticket_promedio).toLocaleString("es-MX")}</td>
+                <td>${s.pendientes}</td>
+                <td>${s.consistencia_promedio} pts</td>
                 <td>
-                    <button class="btn btn-secondary btn-sm btn-audit-slight-edge-ai" data-id="${s.id}" data-name="${escapeHTML(s.name)}">
+                    <button class="btn btn-secondary btn-sm btn-audit-slight-edge-ai" data-id="${s.vendedor_id}" data-name="${escapeHTML(s.vendedor)}">
                         <i class="fa-solid fa-wand-magic-sparkles"></i> Auditar IA
                     </button>
                 </td>
@@ -6640,6 +6974,23 @@ async function handleCompanySettingsSubmit(e) {
     }
 }
 
+DOM.btnCoordinatorPerformanceFilter?.addEventListener("click", () => {
+    const start = DOM.coordinatorPerformanceStart?.value;
+    const end = DOM.coordinatorPerformanceEnd?.value;
+    if (start && end && end < start) {
+        showToast("La fecha final no puede ser anterior a la inicial.", "error");
+        return;
+    }
+    loadCoordinatorSlightEdgeDashboard();
+});
+
+DOM.btnCoordinatorPerformanceMonth?.addEventListener("click", () => {
+    const { year, month, day } = getBusinessDateParts();
+    if (DOM.coordinatorPerformanceStart) DOM.coordinatorPerformanceStart.value = `${year}-${month}-01`;
+    if (DOM.coordinatorPerformanceEnd) DOM.coordinatorPerformanceEnd.value = `${year}-${month}-${day}`;
+    loadCoordinatorSlightEdgeDashboard();
+});
+
 /* ==========================================================================
    ASIGNACIÓN Y SUBASTA DE CLIENTES
    ========================================================================== */
@@ -6691,7 +7042,7 @@ async function loadManagerAsignacionView() {
                     <div style="flex: 1;">
                         <strong style="font-size: 14px; color: #fff;">${escapeHTML(c.nombre)}</strong>
                         <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
-                            ${c.email || ''} ${c.telefono ? ' | ' + c.telefono : ''}
+                            ${buildContactHtml({ email: c.email, telefono: c.telefono })}
                         </span>
                         ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: #38bdf8;">${c.comentarios}</p>` : ''}
                     </div>
@@ -6761,7 +7112,7 @@ async function loadManagerAsignacionView() {
                         <div>
                             <strong style="font-size: 15px; color: #fff;">${escapeHTML(c.nombre)}</strong>
                             <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
-                                ${c.email || ''} ${c.telefono ? ' | ' + c.telefono : ''}
+                                ${buildContactHtml({ email: c.email, telefono: c.telefono })}
                             </span>
                             ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: hsl(var(--text-secondary));">${c.comentarios}</p>` : ''}
                         </div>
@@ -6876,7 +7227,7 @@ async function loadSellerAsignacionView() {
                     <div>
                         <strong style="font-size: 15px; color: #fff;">${escapeHTML(c.nombre)}</strong>
                         <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
-                            ${c.email || ''} ${c.telefono ? ' | ' + c.telefono : ''}
+                            ${buildContactHtml({ email: c.email, telefono: c.telefono })}
                         </span>
                         ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: hsl(var(--text-secondary));">${c.comentarios}</p>` : ''}
                     </div>
@@ -7047,6 +7398,60 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    const detailInput = document.getElementById("file-upload-cotizacion-items");
+    const detailButton = document.getElementById("btn-upload-cotizacion-items");
+    detailInput?.addEventListener("change", async event => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append("file", file);
+        const original = detailButton.innerHTML;
+        detailButton.disabled = true;
+        detailButton.innerHTML = 'Cargando detalle... <i class="fa-solid fa-spinner animate-spin"></i>';
+        try {
+            const response = await fetch("/api/v1/cotizaciones/detalle-materiales/upload", {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${localStorage.getItem("crm_token")}` },
+                body: formData
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                const detail = typeof result.detail === "string"
+                    ? result.detail
+                    : (result.detail?.message || "El detalle no pudo procesarse.");
+                throw new Error(detail);
+            }
+            showToast(`${result.aceptadas} partidas cargadas; ${result.rechazadas} rechazadas.`, "success");
+            await loadCotizacionesData(true);
+        } catch (error) {
+            showToast(error.message, "error");
+        } finally {
+            detailButton.disabled = false;
+            detailButton.innerHTML = original;
+            event.target.value = "";
+        }
+    });
+
+    document.getElementById("channel-config-form")?.addEventListener("submit", async event => {
+        event.preventDefault();
+        const code = document.getElementById("channel-config-code").value.trim();
+        const name = document.getElementById("channel-config-name").value;
+        if (!code) return;
+        try {
+            await apiRequest("/api/v1/analitica/canales", {
+                method: "PUT",
+                body: JSON.stringify([{ codigo_origen: code, nombre_normalizado: name, activo: true }])
+            });
+            document.getElementById("channel-config-code").value = "";
+            showToast("Código de canal guardado.");
+            await loadCommercialAnalytics();
+        } catch (error) {
+            showToast(error.message, "error");
+        }
+    });
 });
 
 

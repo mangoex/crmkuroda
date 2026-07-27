@@ -13,6 +13,7 @@ from app.models.sobrepedido import Sobrepedido
 from app.models.por_entregar import PorEntregar
 from app.models.registro_acceso import RegistroAcceso
 from app.models.actualizacion_datos import ActualizacionDatos
+from app.models.cotizacion_detalle import CotizacionItem, CotizacionComentario, CanalVenta
 
 __all__ = [
     "Base", 
@@ -30,5 +31,8 @@ __all__ = [
     "Sobrepedido",
     "PorEntregar",
     "RegistroAcceso",
-    "ActualizacionDatos"
+    "ActualizacionDatos",
+    "CotizacionItem",
+    "CotizacionComentario",
+    "CanalVenta"
 ]

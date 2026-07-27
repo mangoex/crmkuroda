@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_MODEL: str = "openai/gpt-4o-mini" # Modelo rápido y confiable por defecto
     GEMINI_API_KEY: str = ""
+
+    # Commercial reporting
+    BUSINESS_TIMEZONE: str = "America/Mazatlan"
+    QUOTE_VALID_DAYS: int = 30
     
     # Allow loading from .env file
     model_config = SettingsConfigDict(

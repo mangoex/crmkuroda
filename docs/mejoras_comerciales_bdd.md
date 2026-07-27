@@ -1,0 +1,75 @@
+# BDD — Analítica y seguimiento comercial
+
+## HU-01
+
+**Dado** un detalle facturado con asesor, familia, grupo y SKU
+**Cuando** gerencia consulta ventas por material
+**Entonces** obtiene la jerarquía solicitada
+**Y** la suma de partidas coincide con el total del filtro.
+
+## HU-02
+
+**Dado** un código de canal configurado
+**Cuando** se consulta la analítica del periodo
+**Entonces** la operación aparece bajo el nombre configurado.
+
+**Dado** un código no configurado
+**Entonces** la operación aparece en `Sin clasificar`.
+
+## HU-03
+
+**Dado** cualquier rol autenticado
+**Cuando** intenta arrastrar una pestaña lateral
+**Entonces** el orden no cambia después de recargar.
+
+## HU-04
+
+**Dado** un asesor con facturas, meta y actividades
+**Cuando** gerencia consulta rendimiento
+**Entonces** la venta lograda proviene de `importe_facturado`
+**Y** se muestran cumplimiento, conversión, ticket y consistencia.
+
+## HU-05
+
+**Dado** cotizaciones de varios asesores y una sin vínculo
+**Cuando** gerencia abre Cotizaciones
+**Entonces** ve todos los registros
+**Y** el registro sin vínculo aparece como `Asesor sin vincular`.
+
+## HU-06
+
+**Dado** cotizaciones de hoy y ayer
+**Cuando** el usuario activa `Hoy`
+**Entonces** únicamente aparecen las de la fecha comercial actual.
+
+## HU-07
+
+**Dado** una cotización permitida
+**Cuando** el usuario agrega un comentario
+**Entonces** se conserva texto, autor y fecha
+**Y** el motivo de venta perdida no cambia.
+
+**Dado** un comentario propio, o un comentario visible para gerencia
+**Cuando** se edita el texto
+**Entonces** conserva su autor y fecha original
+**Y** registra la fecha de edición.
+
+**Dado** un historial existente
+**Cuando** se vuelve a cargar el Excel resumen con el mismo número de cotización
+**Entonces** se actualizan los datos comerciales sin reemplazar el UUID
+**Y** el historial permanece asociado.
+
+## HU-08
+
+**Dado** una cotización vigente con un SKU exacto en promoción vigente
+**Cuando** se carga Seguimiento
+**Entonces** aparece antes que las cotizaciones sin promoción.
+
+**Dado** una promoción vencida o una descripción parecida sin SKU exacto
+**Entonces** no se marca prioridad.
+
+## HU-09
+
+**Dado** un cliente con celular pero sin teléfono
+**Cuando** se muestra en Cotizaciones, Seguimiento o Asignaciones
+**Entonces** el celular aparece como contacto preferente.

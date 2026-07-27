@@ -21,6 +21,7 @@ from app.api.v1.inventario_abcf import router as inventario_abcf_router
 from app.api.v1.sobrepedidos import router as sobrepedidos_router
 from app.api.v1.por_entregar import router as por_entregar_router
 from app.api.v1.actualizaciones_datos import router as actualizaciones_datos_router
+from app.api.v1.commercial_analytics import router as commercial_analytics_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -197,6 +198,7 @@ app.include_router(inventario_abcf_router, prefix="/api/v1/inventario-abcf", tag
 app.include_router(sobrepedidos_router, prefix="/api/v1/sobrepedidos", tags=["Sobrepedidos"])
 app.include_router(por_entregar_router, prefix="/api/v1/por-entregar", tags=["Por Entregar"])
 app.include_router(actualizaciones_datos_router, prefix="/api/v1/actualizaciones-datos", tags=["Actualizaciones de datos"])
+app.include_router(commercial_analytics_router, prefix="/api/v1/analitica", tags=["Analítica comercial"])
 
 # Mount Static Files (CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")

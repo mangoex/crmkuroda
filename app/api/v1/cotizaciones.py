@@ -1,25 +1,29 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from collections import defaultdict
+from datetime import date, datetime
+import io
+import unicodedata
+from zoneinfo import ZoneInfo
+
+import openpyxl
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, or_
+from sqlalchemy import and_, delete, func, or_
 from uuid import UUID
 from typing import Optional
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, RoleChecker
 from app.models.usuario import Usuario
 from app.models.cotizacion import Cotizacion
+from app.models.cotizacion_detalle import CotizacionComentario, CotizacionItem
+from app.models.promocion import Promocion
 from app.schemas.cotizacion import CotizacionCreate, CotizacionCreateManual, CotizacionUpdate
+from app.schemas.commercial import ComentarioCreate, ComentarioUpdate
 from app.agents.cotizaciones_agent import generate_proposal
 from app.services.jerarquia import get_ids_vendedores_visibles
-
-import httpx
-import csv
-import io
-from app.models.company import Company
-from app.core.security import RoleChecker
-from datetime import date, datetime
-import unicodedata
+from app.services.commercial_analytics import normalize_contact, normalize_text, promotion_priority
+from app.core.config import settings
 
 require_admin_or_gerente = RoleChecker(["admin", "gerente"])
 
@@ -45,16 +49,23 @@ def _seller_ids_by_name(users: list[Usuario]) -> dict[str, UUID]:
     return {name: seller_id for name, seller_id in matches.items() if seller_id is not None}
 
 
-def serialize_cotizacion(c: Cotizacion, resolved_vendedor_id: Optional[UUID] = None) -> dict:
+def serialize_cotizacion(
+    c: Cotizacion,
+    resolved_vendedor_id: Optional[UUID] = None,
+    enrichment: Optional[dict] = None,
+) -> dict:
     vendedor_id = c.vendedor_id or resolved_vendedor_id
-    return {
+    enrichment = enrichment or {}
+    data = {
         "id": str(c.id),
         "vendedor_id": str(vendedor_id) if vendedor_id else None,
         "vendedor_nombre": c.vendedor_nombre,
+        "vendedor_sin_vincular": vendedor_id is None,
         "cliente_nombre": c.cliente_nombre,
         "numero_cliente": c.numero_cliente,
-        "datos_contacto": c.datos_contacto,
+        "datos_contacto": normalize_contact(c.datos_contacto),
         "items": c.items,
+        "items_detalle": enrichment.get("items_detalle", []),
         "total": float(c.total),
         "texto_propuesta": c.texto_propuesta,
         "numero_cotizacion": c.numero_cotizacion,
@@ -64,8 +75,122 @@ def serialize_cotizacion(c: Cotizacion, resolved_vendedor_id: Optional[UUID] = N
         "fecha_factura": c.fecha_factura.isoformat() if c.fecha_factura else None,
         "importe_facturado": float(c.importe_facturado) if c.importe_facturado is not None else None,
         "venta_perdida": c.venta_perdida,
-        "comentarios": c.comentarios
+        "comentarios": c.comentarios,
+        "comentarios_seguimiento_count": enrichment.get("comentarios_seguimiento_count", 0),
+        "tiene_promocion": enrichment.get("tiene_promocion", False),
+        "nivel_prioridad": enrichment.get("nivel_prioridad"),
+        "promociones_coincidentes": enrichment.get("promociones_coincidentes", []),
     }
+    return data
+
+
+async def _load_quote_enrichment(
+    db: AsyncSession,
+    quotes: list[Cotizacion],
+) -> dict[UUID, dict]:
+    if not quotes:
+        return {}
+    quote_ids = [quote.id for quote in quotes]
+    detail_rows = (
+        await db.execute(
+            select(CotizacionItem).where(CotizacionItem.cotizacion_id.in_(quote_ids))
+        )
+    ).scalars().all()
+    details_by_quote: dict[UUID, list[CotizacionItem]] = defaultdict(list)
+    for row in detail_rows:
+        details_by_quote[row.cotizacion_id].append(row)
+
+    item_codes = {
+        normalize_text(item.codigo_material)
+        for item in detail_rows
+        if normalize_text(item.codigo_material)
+    }
+    promotions = (
+        (await db.execute(select(Promocion))).scalars().all()
+        if item_codes
+        else []
+    )
+
+    comment_counts = dict(
+        (
+            await db.execute(
+                select(
+                    CotizacionComentario.cotizacion_id,
+                    func.count(CotizacionComentario.id),
+                )
+                .where(CotizacionComentario.cotizacion_id.in_(quote_ids))
+                .group_by(CotizacionComentario.cotizacion_id)
+            )
+        ).all()
+    )
+    try:
+        today = datetime.now(ZoneInfo(settings.BUSINESS_TIMEZONE)).date()
+    except Exception:
+        today = date.today()
+
+    result = {}
+    for quote in quotes:
+        items = details_by_quote.get(quote.id, [])
+        promo = promotion_priority(
+            quote,
+            items,
+            promotions,
+            today,
+            settings.QUOTE_VALID_DAYS,
+        )
+        result[quote.id] = {
+            **promo,
+            "comentarios_seguimiento_count": comment_counts.get(quote.id, 0),
+            "items_detalle": [
+                {
+                    "id": str(item.id),
+                    "codigo_material": item.codigo_material,
+                    "descripcion": item.descripcion,
+                    "familia": item.familia,
+                    "grupo_materiales": item.grupo_materiales,
+                    "cantidad_cotizada": float(item.cantidad_cotizada),
+                    "importe_cotizado": float(item.importe_cotizado),
+                    "cantidad_facturada": float(item.cantidad_facturada),
+                    "importe_facturado": float(item.importe_facturado),
+                }
+                for item in items
+            ],
+        }
+    return result
+
+
+async def _get_authorized_quote(
+    db: AsyncSession,
+    current_user: Usuario,
+    cotizacion_id: UUID,
+) -> Cotizacion:
+    cotizacion = (
+        await db.execute(select(Cotizacion).where(Cotizacion.id == cotizacion_id))
+    ).scalars().first()
+    if not cotizacion:
+        raise HTTPException(status_code=404, detail="La cotización solicitada no existe.")
+    if current_user.rol == "vendedor":
+        ids_visibles = await get_ids_vendedores_visibles(db, current_user) or [current_user.id]
+        if cotizacion.vendedor_id not in ids_visibles:
+            if cotizacion.vendedor_id is not None:
+                raise HTTPException(
+                    status_code=403,
+                    detail="No tienes permiso para consultar esta cotización.",
+                )
+            visible_users = (
+                await db.execute(select(Usuario).where(Usuario.id.in_(ids_visibles)))
+            ).scalars().all()
+            visible_names = {
+                _normalize_seller_text(user.nombre_completo)
+                for user in visible_users
+                if user.nombre_completo
+            }
+            if _normalize_seller_text(cotizacion.vendedor_nombre) not in visible_names:
+                raise HTTPException(
+                    status_code=403,
+                    detail="No tienes permiso para consultar esta cotización.",
+                )
+    return cotizacion
 
 @router.get("/", status_code=status.HTTP_200_OK)
 async def list_cotizaciones(
@@ -88,8 +213,25 @@ async def list_cotizaciones(
         query = select(Cotizacion)
         count_query = select(func.count()).select_from(Cotizacion)
         if ids_visibles is not None:
-            query = query.filter(Cotizacion.vendedor_id.in_(ids_visibles))
-            count_query = count_query.filter(Cotizacion.vendedor_id.in_(ids_visibles))
+            visible_users = (
+                await db.execute(select(Usuario).where(Usuario.id.in_(ids_visibles)))
+            ).scalars().all()
+            visible_names = [
+                user.nombre_completo.strip().upper()
+                for user in visible_users
+                if user.nombre_completo and user.nombre_completo.strip()
+            ]
+            seller_filters = [Cotizacion.vendedor_id.in_(ids_visibles)]
+            if visible_names:
+                seller_filters.append(
+                    and_(
+                        Cotizacion.vendedor_id.is_(None),
+                        func.upper(func.trim(Cotizacion.vendedor_nombre)).in_(visible_names),
+                    )
+                )
+            seller_condition = or_(*seller_filters)
+            query = query.filter(seller_condition)
+            count_query = count_query.filter(seller_condition)
     else:
         query = select(Cotizacion)
         count_query = select(func.count()).select_from(Cotizacion)
@@ -100,8 +242,11 @@ async def list_cotizaciones(
                 # Incluye registros históricos donde el Excel guardó el nombre,
                 # pero no logró vincular el UUID del usuario al importar.
                 seller_filters.append(
-                    func.upper(func.trim(Cotizacion.vendedor_nombre))
-                    == selected_seller.nombre_completo.strip().upper()
+                    and_(
+                        Cotizacion.vendedor_id.is_(None),
+                        func.upper(func.trim(Cotizacion.vendedor_nombre))
+                        == selected_seller.nombre_completo.strip().upper(),
+                    )
                 )
             seller_condition = or_(*seller_filters)
             query = query.filter(seller_condition)
@@ -121,7 +266,10 @@ async def list_cotizaciones(
     total = count_res.scalar_one()
 
     # List quotes
-    query = query.offset(offset).limit(limit)
+    query = query.order_by(
+        Cotizacion.fecha_registro.desc().nullslast(),
+        Cotizacion.numero_cotizacion.desc().nullslast(),
+    ).offset(offset).limit(limit)
     res = await db.execute(query)
     cotizaciones = res.scalars().all()
 
@@ -130,8 +278,13 @@ async def list_cotizaciones(
     # administrativos funcionen también con esos registros.
     users = (await db.execute(select(Usuario))).scalars().all()
     seller_ids_by_name = _seller_ids_by_name(users)
+    enrichment = await _load_quote_enrichment(db, list(cotizaciones))
     data = [
-        serialize_cotizacion(c, seller_ids_by_name.get(_normalize_seller_text(c.vendedor_nombre)))
+        serialize_cotizacion(
+            c,
+            seller_ids_by_name.get(_normalize_seller_text(c.vendedor_nombre)),
+            enrichment.get(c.id),
+        )
         for c in cotizaciones
     ]
 
@@ -145,6 +298,289 @@ async def list_cotizaciones(
         "data": data
     }
 
+
+def _serialize_comment(comment: CotizacionComentario, author: Optional[Usuario] = None) -> dict:
+    return {
+        "id": str(comment.id),
+        "cotizacion_id": str(comment.cotizacion_id),
+        "autor_id": str(comment.autor_id) if comment.autor_id else None,
+        "autor_nombre": (
+            (author.nombre_completo or author.email)
+            if author
+            else "Usuario eliminado"
+        ),
+        "comentario": comment.comentario,
+        "creado_en": comment.creado_en.isoformat(),
+        "editado_en": comment.editado_en.isoformat() if comment.editado_en else None,
+    }
+
+
+@router.get("/{cotizacion_id}/comentarios", status_code=status.HTTP_200_OK)
+async def list_quote_comments(
+    cotizacion_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    await _get_authorized_quote(db, current_user, cotizacion_id)
+    rows = (
+        await db.execute(
+            select(CotizacionComentario, Usuario)
+            .outerjoin(Usuario, Usuario.id == CotizacionComentario.autor_id)
+            .where(CotizacionComentario.cotizacion_id == cotizacion_id)
+            .order_by(CotizacionComentario.creado_en.asc())
+        )
+    ).all()
+    return {
+        "status": "success",
+        "data": [_serialize_comment(comment, author) for comment, author in rows],
+    }
+
+
+@router.post(
+    "/{cotizacion_id}/comentarios",
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_quote_comment(
+    cotizacion_id: UUID,
+    payload: ComentarioCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    if current_user.rol not in ("admin", "gerente", "vendedor"):
+        raise HTTPException(
+            status_code=403,
+            detail="Tu rol no puede agregar comentarios de seguimiento.",
+        )
+    await _get_authorized_quote(db, current_user, cotizacion_id)
+    text = payload.comentario.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="El comentario no puede estar vacío.")
+    comment = CotizacionComentario(
+        cotizacion_id=cotizacion_id,
+        autor_id=current_user.id,
+        comentario=text,
+    )
+    db.add(comment)
+    await db.commit()
+    await db.refresh(comment)
+    return {
+        "status": "success",
+        "message": "Comentario agregado.",
+        "data": _serialize_comment(comment, current_user),
+    }
+
+
+@router.put(
+    "/{cotizacion_id}/comentarios/{comentario_id}",
+    status_code=status.HTTP_200_OK,
+)
+async def update_quote_comment(
+    cotizacion_id: UUID,
+    comentario_id: UUID,
+    payload: ComentarioUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    if current_user.rol not in ("admin", "gerente", "vendedor"):
+        raise HTTPException(
+            status_code=403,
+            detail="Tu rol no puede editar comentarios de seguimiento.",
+        )
+    await _get_authorized_quote(db, current_user, cotizacion_id)
+    comment = (
+        await db.execute(
+            select(CotizacionComentario).where(
+                CotizacionComentario.id == comentario_id,
+                CotizacionComentario.cotizacion_id == cotizacion_id,
+            )
+        )
+    ).scalars().first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="El comentario no existe.")
+    if current_user.rol not in ("admin", "gerente") and comment.autor_id != current_user.id:
+        raise HTTPException(status_code=403, detail="No puedes editar comentarios de otro usuario.")
+    text = payload.comentario.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="El comentario no puede estar vacío.")
+    comment.comentario = text
+    comment.editado_en = datetime.utcnow()
+    await db.commit()
+    await db.refresh(comment)
+    author = (
+        await db.execute(select(Usuario).where(Usuario.id == comment.autor_id))
+    ).scalars().first()
+    return {
+        "status": "success",
+        "message": "Comentario actualizado.",
+        "data": _serialize_comment(comment, author),
+    }
+
+
+def _excel_identifier(value) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    text = str(value).strip()
+    return text or None
+
+
+def _excel_number(value) -> float:
+    if value in (None, ""):
+        return 0.0
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"valor numérico inválido: {value}")
+
+
+def _apply_imported_quote_values(cotizacion: Cotizacion, values: dict) -> Cotizacion:
+    """Actualiza únicamente campos provenientes del Excel y conserva seguimiento."""
+    for field, value in values.items():
+        setattr(cotizacion, field, value)
+    return cotizacion
+
+
+@router.post("/detalle-materiales/upload", status_code=status.HTTP_201_CREATED)
+async def upload_quote_material_detail(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(require_admin_or_gerente),
+):
+    if not file.filename or not file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="El detalle debe ser un archivo .xlsx.")
+    contents = await file.read()
+    try:
+        workbook = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
+        worksheet = workbook.active
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"No se pudo leer el Excel: {exc}")
+
+    headers = {
+        normalize_text(cell.value): index
+        for index, cell in enumerate(worksheet[1])
+        if cell.value is not None
+    }
+    required = {
+        "numero_cotizacion": "NUMERO DE COTIZACION",
+        "codigo_material": "CODIGO MATERIAL",
+        "descripcion": "DESCRIPCION",
+        "familia": "FAMILIA",
+        "grupo_materiales": "GRUPO DE MATERIALES",
+        "cantidad_cotizada": "CANTIDAD COTIZADA",
+        "importe_cotizado": "IMPORTE COTIZADO",
+        "cantidad_facturada": "CANTIDAD FACTURADA",
+        "importe_facturado": "IMPORTE FACTURADO",
+    }
+    missing = [label for label in required.values() if label not in headers]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail="Faltan columnas requeridas: " + ", ".join(missing),
+        )
+
+    quote_rows = (await db.execute(select(Cotizacion))).scalars().all()
+    quotes_by_number: dict[str, list[Cotizacion]] = defaultdict(list)
+    for quote in quote_rows:
+        number = _excel_identifier(quote.numero_cotizacion)
+        if number:
+            quotes_by_number[number].append(quote)
+
+    accepted: list[CotizacionItem] = []
+    rejected = []
+    for row_number, row in enumerate(
+        worksheet.iter_rows(min_row=2, values_only=True),
+        start=2,
+    ):
+        if not any(value not in (None, "") for value in row):
+            continue
+        try:
+            quote_number = _excel_identifier(row[headers[required["numero_cotizacion"]]])
+            matches = quotes_by_number.get(quote_number or "", [])
+            if len(matches) != 1:
+                reason = (
+                    "cotización inexistente"
+                    if not matches
+                    else "número de cotización ambiguo"
+                )
+                rejected.append({"fila": row_number, "cotizacion": quote_number, "motivo": reason})
+                continue
+            code = _excel_identifier(row[headers[required["codigo_material"]]])
+            if not code:
+                rejected.append(
+                    {"fila": row_number, "cotizacion": quote_number, "motivo": "SKU vacío"}
+                )
+                continue
+            accepted.append(
+                CotizacionItem(
+                    cotizacion_id=matches[0].id,
+                    codigo_material=code,
+                    descripcion=_excel_identifier(row[headers[required["descripcion"]]]),
+                    familia=_excel_identifier(row[headers[required["familia"]]]),
+                    grupo_materiales=_excel_identifier(
+                        row[headers[required["grupo_materiales"]]]
+                    ),
+                    cantidad_cotizada=_excel_number(
+                        row[headers[required["cantidad_cotizada"]]]
+                    ),
+                    importe_cotizado=_excel_number(
+                        row[headers[required["importe_cotizado"]]]
+                    ),
+                    cantidad_facturada=_excel_number(
+                        row[headers[required["cantidad_facturada"]]]
+                    ),
+                    importe_facturado=_excel_number(
+                        row[headers[required["importe_facturado"]]]
+                    ),
+                )
+            )
+        except Exception as exc:
+            rejected.append(
+                {"fila": row_number, "cotizacion": None, "motivo": str(exc)}
+            )
+
+    if not accepted:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "Ninguna partida válida; el detalle existente no fue modificado.",
+                "rechazadas": rejected[:100],
+            },
+        )
+    accepted_quote_ids = {item.cotizacion_id for item in accepted}
+    await db.execute(
+        delete(CotizacionItem).where(
+            CotizacionItem.cotizacion_id.in_(accepted_quote_ids)
+        )
+    )
+    db.add_all(accepted)
+    await db.commit()
+    return {
+        "status": "success",
+        "message": "Detalle de materiales reemplazado correctamente.",
+        "aceptadas": len(accepted),
+        "rechazadas": len(rejected),
+        "detalle_rechazos": rejected[:100],
+    }
+
+
+@router.post("/upload", status_code=status.HTTP_201_CREATED)
+async def upload_cotizaciones(
+    file: UploadFile = File(...),
+    current_user: Usuario = Depends(require_admin_or_gerente),
+):
+    if not file.filename or not file.filename.lower().endswith((".xls", ".xlsx")):
+        raise HTTPException(
+            status_code=400,
+            detail="Formato de archivo inválido. Sube un archivo de Excel.",
+        )
+    contents = await file.read()
+    error_msg = await process_excel_background(contents, current_user.id)
+    if error_msg:
+        raise HTTPException(status_code=500, detail=error_msg)
+    return {"message": "El archivo se ha procesado exitosamente."}
+
+
 @router.get("/{cotizacion_id}", status_code=status.HTTP_200_OK)
 async def get_cotizacion(
     cotizacion_id: UUID,
@@ -152,26 +588,12 @@ async def get_cotizacion(
     current_user: Usuario = Depends(get_current_user)
 ):
     """Retrieves detailed information of a single quote. Enforces ownership check for salespeople."""
-    result = await db.execute(select(Cotizacion).filter(Cotizacion.id == cotizacion_id))
-    cotizacion = result.scalars().first()
-    if not cotizacion:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="La cotización solicitada no existe."
-        )
-
-    # Ownership check (incluye hijos si el vendedor es padre)
-    if current_user.rol == "vendedor":
-        ids_visibles = await get_ids_vendedores_visibles(db, current_user)
-        if cotizacion.vendedor_id not in (ids_visibles or [current_user.id]):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tienes permiso para ver esta cotización."
-            )
+    cotizacion = await _get_authorized_quote(db, current_user, cotizacion_id)
+    enrichment = await _load_quote_enrichment(db, [cotizacion])
 
     return {
         "status": "success",
-        "data": serialize_cotizacion(cotizacion)
+        "data": serialize_cotizacion(cotizacion, enrichment=enrichment.get(cotizacion.id))
     }
 
 @router.post("/manual", status_code=status.HTTP_201_CREATED)
@@ -251,22 +673,7 @@ async def update_cotizacion(
     Updates a quote. Salespeople can only update their own quotes.
     Admins and Managers can update any quote.
     """
-    result = await db.execute(select(Cotizacion).filter(Cotizacion.id == cotizacion_id))
-    cotizacion = result.scalars().first()
-    if not cotizacion:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="La cotización solicitada no existe."
-        )
-
-    # Ownership check (incluye hijos si el vendedor es padre)
-    if current_user.rol == "vendedor":
-        ids_visibles = await get_ids_vendedores_visibles(db, current_user)
-        if cotizacion.vendedor_id not in (ids_visibles or [current_user.id]):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Acceso denegado. No tienes permisos para actualizar esta cotización."
-            )
+    cotizacion = await _get_authorized_quote(db, current_user, cotizacion_id)
 
     # Update fields
     update_data = quote_in.model_dump(exclude_unset=True)
@@ -281,33 +688,17 @@ async def update_cotizacion(
 
     await db.commit()
     await db.refresh(cotizacion)
+    enrichment = await _load_quote_enrichment(db, [cotizacion])
 
     return {
         "status": "success",
         "message": "Cotización actualizada con éxito.",
-        "data": serialize_cotizacion(cotizacion)
+        "data": serialize_cotizacion(
+            cotizacion,
+            enrichment=enrichment.get(cotizacion.id),
+        )
     }
 
-
-from fastapi import UploadFile, File, BackgroundTasks
-import openpyxl
-
-@router.post("/upload", status_code=status.HTTP_201_CREATED)
-async def upload_cotizaciones(
-    file: UploadFile = File(...),
-    current_user: Usuario = Depends(require_admin_or_gerente)
-):
-    if not file.filename.endswith(('.xls', '.xlsx')):
-        raise HTTPException(status_code=400, detail="Formato de archivo inválido. Sube un archivo de Excel.")
-        
-    contents = await file.read()
-    
-    # Process synchronously to catch any database errors immediately
-    error_msg = await process_excel_background(contents, current_user.id)
-    if error_msg:
-        raise HTTPException(status_code=500, detail=error_msg)
-        
-    return {"message": "El archivo se ha procesado exitosamente."}
 
 async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
     from app.core.database import SessionLocal
@@ -316,9 +707,6 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
     from app.services.actualizaciones_datos import registrar_actualizacion_datos
     from sqlalchemy.future import select
     from sqlalchemy import delete
-    import openpyxl
-    import io
-    from datetime import datetime
     
     async with SessionLocal() as db:
         try:
@@ -334,11 +722,22 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
             }
             users_by_name = _seller_ids_by_name(users)
             
-            # ELIMINAR TODAS LAS COTIZACIONES ACTUALES (Sustituir base de datos)
-            await db.execute(delete(Cotizacion))
+            existing_quotes = (await db.execute(select(Cotizacion))).scalars().all()
+            existing_by_number: dict[str, Cotizacion] = {}
+            for existing in existing_quotes:
+                number = _excel_identifier(existing.numero_cotizacion)
+                if not number:
+                    continue
+                if number in existing_by_number:
+                    raise ValueError(
+                        f"El número de cotización {number} está duplicado en la base actual."
+                    )
+                existing_by_number[number] = existing
             
             synced_count = 0
             new_quotes = []
+            seen_numbers: set[str] = set()
+            retained_ids: set[UUID] = set()
             
             def safe_float(v):
                 try:
@@ -385,6 +784,11 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                 
                 if not num_cot_val:
                     continue
+                if num_cot_val in seen_numbers:
+                    raise ValueError(
+                        f"El número de cotización {num_cot_val} está duplicado en el Excel."
+                    )
+                seen_numbers.add(num_cot_val)
 
                 vendedor_id = (
                     users_by_code.get(_normalize_seller_text(vend_codigo))
@@ -397,34 +801,48 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                     "celular": celular
                 }
 
-                new_quote = Cotizacion(
-                    numero_cotizacion=num_cot_val,
-                    fecha_registro=fecha_reg,
-                    organizacion_ventas=org_ventas,
-                    canal=canal_val,
-                    vendedor_id=vendedor_id,
-                    vendedor_nombre=vend_nombre,
-                    numero_cliente=num_cliente,
-                    cliente_nombre=cliente_nombre or "Cliente Desconocido",
-                    datos_contacto=datos_contacto,
-                    items=[],
-                    numero_factura=num_factura,
-                    fecha_factura=fecha_fac,
-                    total=importe_cot,
-                    importe_facturado=importe_fac,
-                    porcentaje_importe=pct_importe,
-                    materiales_cotizados=mat_cot,
-                    materiales_facturados=mat_fac,
-                    porcentaje_materiales=pct_mat
-                )
-                new_quotes.append(new_quote)
+                imported_values = {
+                    "numero_cotizacion": num_cot_val,
+                    "fecha_registro": fecha_reg,
+                    "organizacion_ventas": org_ventas,
+                    "canal": canal_val,
+                    "vendedor_id": vendedor_id,
+                    "vendedor_nombre": vend_nombre,
+                    "numero_cliente": num_cliente,
+                    "cliente_nombre": cliente_nombre or "Cliente Desconocido",
+                    "datos_contacto": datos_contacto,
+                    "items": [],
+                    "numero_factura": num_factura,
+                    "fecha_factura": fecha_fac,
+                    "total": importe_cot,
+                    "importe_facturado": importe_fac,
+                    "porcentaje_importe": pct_importe,
+                    "materiales_cotizados": mat_cot,
+                    "materiales_facturados": mat_fac,
+                    "porcentaje_materiales": pct_mat,
+                }
+                existing_quote = existing_by_number.get(num_cot_val)
+                if existing_quote is not None:
+                    _apply_imported_quote_values(existing_quote, imported_values)
+                    retained_ids.add(existing_quote.id)
+                else:
+                    new_quotes.append(Cotizacion(**imported_values))
                 synced_count += 1
                     
-            # A single add_all and commit is much faster
+            stale_ids = {
+                quote.id
+                for quote in existing_quotes
+                if quote.id not in retained_ids
+            }
+            if stale_ids:
+                await db.execute(delete(Cotizacion).where(Cotizacion.id.in_(stale_ids)))
             db.add_all(new_quotes)
             await registrar_actualizacion_datos(db, "cotizaciones", uploaded_by_id)
             await db.commit()
-            print(f"Background upload finished. Replaced database with {synced_count} nuevas cotizaciones.")
+            print(
+                "Background upload finished. "
+                f"Reconciled {synced_count} cotizaciones and preserved existing follow-up history."
+            )
             return None
             
         except Exception as e:

@@ -34,3 +34,13 @@ class Cotizacion(Base):
 
     # Relationships
     vendedor = relationship("Usuario", back_populates="cotizaciones")
+    items_detalle = relationship(
+        "CotizacionItem",
+        back_populates="cotizacion",
+        cascade="all, delete-orphan",
+    )
+    comentarios_seguimiento = relationship(
+        "CotizacionComentario",
+        back_populates="cotizacion",
+        cascade="all, delete-orphan",
+    )
