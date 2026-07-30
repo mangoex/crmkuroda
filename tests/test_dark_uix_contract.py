@@ -47,7 +47,7 @@ class DarkUixContractTest(unittest.TestCase):
         self.assertIn("prefers-reduced-motion: reduce", self.dark_section)
 
     def test_stylesheet_cache_version_was_bumped(self):
-        self.assertIn("/static/style.css?v=1.0.14", self.html)
+        self.assertIn("/static/style.css?v=1.0.15", self.html)
 
 
 if __name__ == "__main__":

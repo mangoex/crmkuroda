@@ -5245,71 +5245,76 @@ function saveCurrentMenuOrder() {
     localStorage.setItem(storageKey, JSON.stringify(currentOrder));
 }
 
+function getDragAfterElement(container, y) {
+    const draggableElements = Array.from(
+        container.querySelectorAll(".menu-item:not(.dragging):not(.hidden)")
+    );
+
+    return draggableElements.reduce(
+        (closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        },
+        { offset: Number.NEGATIVE_INFINITY }
+    ).element;
+}
+
 function initSidebarMenuDragAndDrop() {
     const menuContainer = document.getElementById("sidebar-menu");
     if (!menuContainer) return;
 
     let draggedItem = null;
 
+    const updateMenuItemsDraggable = () => {
+        menuContainer.querySelectorAll(".menu-item").forEach(item => {
+            item.setAttribute("draggable", "true");
+        });
+    };
+    updateMenuItemsDraggable();
+
     menuContainer.addEventListener("dragstart", (e) => {
         const targetItem = e.target.closest(".menu-item");
         if (!targetItem) return;
         draggedItem = targetItem;
-        targetItem.classList.add("dragging");
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", targetItem.getAttribute("data-section") || "");
+        draggedItem.classList.add("dragging");
+
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", targetItem.getAttribute("data-section") || "");
+        }
     });
 
     menuContainer.addEventListener("dragover", (e) => {
         e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-
-        const targetItem = e.target.closest(".menu-item");
-        if (!targetItem || targetItem === draggedItem) return;
-
-        menuContainer.querySelectorAll(".menu-item").forEach(item => {
-            if (item !== targetItem) {
-                item.classList.remove("drag-over-above", "drag-over-below");
-            }
-        });
-
-        const rect = targetItem.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
-        if (e.clientY < midY) {
-            targetItem.classList.add("drag-over-above");
-            targetItem.classList.remove("drag-over-below");
-        } else {
-            targetItem.classList.add("drag-over-below");
-            targetItem.classList.remove("drag-over-above");
+        if (e.dataTransfer) {
+            e.dataTransfer.dropEffect = "move";
         }
-    });
 
-    menuContainer.addEventListener("dragleave", (e) => {
-        const targetItem = e.target.closest(".menu-item");
-        if (targetItem) {
-            targetItem.classList.remove("drag-over-above", "drag-over-below");
+        if (!draggedItem) return;
+
+        const afterElement = getDragAfterElement(menuContainer, e.clientY);
+        if (afterElement == null) {
+            menuContainer.appendChild(draggedItem);
+        } else {
+            menuContainer.insertBefore(draggedItem, afterElement);
         }
     });
 
     menuContainer.addEventListener("drop", (e) => {
         e.preventDefault();
-        const targetItem = e.target.closest(".menu-item");
-        if (!targetItem || !draggedItem || targetItem === draggedItem) return;
-
-        const rect = targetItem.getBoundingClientRect();
-        const midY = rect.top + rect.height / 2;
-
-        if (e.clientY < midY) {
-            menuContainer.insertBefore(draggedItem, targetItem);
-        } else {
-            menuContainer.insertBefore(draggedItem, targetItem.nextSibling);
+        if (draggedItem) {
+            draggedItem.classList.remove("dragging");
         }
-
         menuContainer.querySelectorAll(".menu-item").forEach(item => {
-            item.classList.remove("drag-over-above", "drag-over-below");
+            item.classList.remove("dragging", "drag-over-above", "drag-over-below");
         });
-
         saveCurrentMenuOrder();
+        DOM.menuItems = document.querySelectorAll(".menu-item");
     });
 
     menuContainer.addEventListener("dragend", () => {
@@ -5318,9 +5323,10 @@ function initSidebarMenuDragAndDrop() {
             draggedItem = null;
         }
         menuContainer.querySelectorAll(".menu-item").forEach(item => {
-            item.classList.remove("drag-over-above", "drag-over-below", "dragging");
+            item.classList.remove("dragging", "drag-over-above", "drag-over-below");
         });
         saveCurrentMenuOrder();
+        DOM.menuItems = document.querySelectorAll(".menu-item");
     });
 }
 
