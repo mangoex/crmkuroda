@@ -183,8 +183,9 @@ const DOM = {
     adminAccessSeller: document.getElementById("admin-access-seller"),
     kanbanDataUpdated: document.getElementById("kanban-data-updated"),
     
-    // Vendedores Section
+    sidebarMenu: document.getElementById("sidebar-menu"),
     menuVendedores: document.getElementById("menu-vendedores"),
+    menuAsignacion: document.getElementById("menu-asignacion"),
     menuApi: document.getElementById("menu-api"),
     btnAddSeller: document.getElementById("btn-add-seller"),
     sellerFormWrapper: document.getElementById("seller-form-wrapper"),
@@ -550,6 +551,9 @@ async function initSession() {
             if (DOM.userAvatarPlaceholder) DOM.userAvatarPlaceholder.classList.remove("hidden");
         }
         
+        // Restore saved menu order for current user
+        restoreSavedMenuOrder();
+        
         // Manage visible menu entries based on role.
         // Roles con un set restringido de secciones visibles (lista blanca).
         // null/undefined = sin restricción (todos los items visibles).
@@ -573,10 +577,12 @@ async function initSession() {
             document.querySelectorAll(".mobile-nav-item").forEach(item => item.classList.remove("hidden"));
             if (state.user.rol === "vendedor") {
                 DOM.menuVendedores?.classList.add("hidden");
+                if (DOM.menuAsignacion) DOM.menuAsignacion.classList.add("hidden");
                 DOM.btnGenerateGoalsModal?.classList.add("hidden");
                 if (DOM.menuApi) DOM.menuApi.classList.add("hidden");
             } else {
                 DOM.menuVendedores?.classList.remove("hidden");
+                if (DOM.menuAsignacion) DOM.menuAsignacion.classList.remove("hidden");
                 DOM.btnGenerateGoalsModal?.classList.remove("hidden");
                 if (DOM.menuApi) DOM.menuApi.classList.remove("hidden");
             }
@@ -5184,8 +5190,142 @@ DOM.btnCopyProposal?.addEventListener("click", () => {
 });
 
 /* ==========================================================================
-   SIDEBAR COLLAPSE & PROFILE MANAGEMENT
+   SIDEBAR MENU REORDERING (DRAG & DROP)
    ========================================================================== */
+
+function getMenuOrderStorageKey() {
+    if (!state.user) return "crm_menu_order_default";
+    const identifier = state.user.id || state.user.email || state.user.rol || "user";
+    return `crm_menu_order_${identifier}`;
+}
+
+function restoreSavedMenuOrder() {
+    const menuContainer = document.getElementById("sidebar-menu");
+    if (!menuContainer) return;
+
+    const storageKey = getMenuOrderStorageKey();
+    const savedOrderJson = localStorage.getItem(storageKey);
+    if (!savedOrderJson) return;
+
+    try {
+        const savedOrder = JSON.parse(savedOrderJson);
+        if (!Array.isArray(savedOrder) || savedOrder.length === 0) return;
+
+        const currentItemsMap = new Map();
+        const items = Array.from(menuContainer.querySelectorAll(".menu-item"));
+        items.forEach(item => {
+            const sec = item.getAttribute("data-section");
+            if (sec) currentItemsMap.set(sec, item);
+        });
+
+        savedOrder.forEach(secId => {
+            if (currentItemsMap.has(secId)) {
+                menuContainer.appendChild(currentItemsMap.get(secId));
+                currentItemsMap.delete(secId);
+            }
+        });
+
+        currentItemsMap.forEach(item => {
+            menuContainer.appendChild(item);
+        });
+
+        DOM.menuItems = document.querySelectorAll(".menu-item");
+    } catch (e) {
+        console.warn("Could not restore saved menu order:", e);
+    }
+}
+
+function saveCurrentMenuOrder() {
+    const menuContainer = document.getElementById("sidebar-menu");
+    if (!menuContainer) return;
+
+    const items = Array.from(menuContainer.querySelectorAll(".menu-item"));
+    const currentOrder = items.map(item => item.getAttribute("data-section")).filter(Boolean);
+    const storageKey = getMenuOrderStorageKey();
+    localStorage.setItem(storageKey, JSON.stringify(currentOrder));
+}
+
+function initSidebarMenuDragAndDrop() {
+    const menuContainer = document.getElementById("sidebar-menu");
+    if (!menuContainer) return;
+
+    let draggedItem = null;
+
+    menuContainer.addEventListener("dragstart", (e) => {
+        const targetItem = e.target.closest(".menu-item");
+        if (!targetItem) return;
+        draggedItem = targetItem;
+        targetItem.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", targetItem.getAttribute("data-section") || "");
+    });
+
+    menuContainer.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+
+        const targetItem = e.target.closest(".menu-item");
+        if (!targetItem || targetItem === draggedItem) return;
+
+        menuContainer.querySelectorAll(".menu-item").forEach(item => {
+            if (item !== targetItem) {
+                item.classList.remove("drag-over-above", "drag-over-below");
+            }
+        });
+
+        const rect = targetItem.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        if (e.clientY < midY) {
+            targetItem.classList.add("drag-over-above");
+            targetItem.classList.remove("drag-over-below");
+        } else {
+            targetItem.classList.add("drag-over-below");
+            targetItem.classList.remove("drag-over-above");
+        }
+    });
+
+    menuContainer.addEventListener("dragleave", (e) => {
+        const targetItem = e.target.closest(".menu-item");
+        if (targetItem) {
+            targetItem.classList.remove("drag-over-above", "drag-over-below");
+        }
+    });
+
+    menuContainer.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const targetItem = e.target.closest(".menu-item");
+        if (!targetItem || !draggedItem || targetItem === draggedItem) return;
+
+        const rect = targetItem.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+
+        if (e.clientY < midY) {
+            menuContainer.insertBefore(draggedItem, targetItem);
+        } else {
+            menuContainer.insertBefore(draggedItem, targetItem.nextSibling);
+        }
+
+        menuContainer.querySelectorAll(".menu-item").forEach(item => {
+            item.classList.remove("drag-over-above", "drag-over-below");
+        });
+
+        saveCurrentMenuOrder();
+    });
+
+    menuContainer.addEventListener("dragend", () => {
+        if (draggedItem) {
+            draggedItem.classList.remove("dragging");
+            draggedItem = null;
+        }
+        menuContainer.querySelectorAll(".menu-item").forEach(item => {
+            item.classList.remove("drag-over-above", "drag-over-below", "dragging");
+        });
+        saveCurrentMenuOrder();
+    });
+}
+
+// Initialize Drag and Drop on startup
+initSidebarMenuDragAndDrop();
 
 // Sidebar collapse persistence on load
 if (localStorage.getItem("sidebar_collapsed") === "true" && DOM.sidebar) {

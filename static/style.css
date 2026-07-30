@@ -402,14 +402,31 @@ h1, h2, h3, h4, h5, h6 {
 .menu-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
+    gap: 10px;
+    padding: 12px 14px;
     border-radius: var(--border-radius-sm);
     color: hsl(var(--text-secondary));
     text-decoration: none;
     font-size: 14px;
     font-weight: 500;
-    transition: var(--transition-fast);
+    transition: background var(--transition-fast), color var(--transition-fast), transform 0.15s ease, border 0.15s ease;
+    cursor: grab;
+    user-select: none;
+    position: relative;
+}
+
+.menu-item .drag-handle {
+    font-size: 11px;
+    color: hsl(var(--text-muted));
+    opacity: 0.35;
+    transition: opacity var(--transition-fast);
+    cursor: grab;
+    margin-right: -2px;
+}
+
+.menu-item:hover .drag-handle {
+    opacity: 0.9;
+    color: hsl(var(--primary));
 }
 
 .menu-item:hover, .menu-item.active {
@@ -426,7 +443,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .menu-item .drag-handle {
     margin-left: auto;
-    opacity: 0;
+    opacity: 0.35;
     cursor: grab;
     color: hsl(var(--text-secondary));
     font-size: 12px;
@@ -434,11 +451,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .menu-item:hover .drag-handle {
-    opacity: 0.6;
-}
-
-.menu-item .drag-handle:hover {
-    opacity: 1;
+    opacity: 0.9;
+    color: hsl(var(--primary));
 }
 
 .menu-item .drag-handle:active {
@@ -446,8 +460,22 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .menu-item.dragging {
-    opacity: 0.4;
-    cursor: grabbing;
+    opacity: 0.35;
+    cursor: grabbing !important;
+    background: rgba(93, 95, 239, 0.3) !important;
+    border: 1px dashed hsl(var(--primary)) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.menu-item.drag-over-above {
+    border-top: 2px solid hsl(var(--primary)) !important;
+    transform: translateY(2px);
+}
+
+.menu-item.drag-over-below {
+    border-bottom: 2px solid hsl(var(--primary)) !important;
+    transform: translateY(-2px);
+}
 }
 
 .sidebar-footer {
