@@ -5193,56 +5193,59 @@ DOM.btnCopyProposal?.addEventListener("click", () => {
    SIDEBAR MENU REORDERING (DRAG & DROP)
    ========================================================================== */
 
-function getMenuOrderStorageKey() {
-    if (!state.user) return "crm_menu_order_default";
-    const identifier = state.user.id || state.user.email || state.user.rol || "user";
-    return `crm_menu_order_${identifier}`;
-}
+const FIXED_SYSTEM_MENU_ORDER = [
+    "summary",
+    "seguimiento",
+    "cotizaciones",
+    "promociones",
+    "inventario-abcf",
+    "sobrepedidos",
+    "por-entregar",
+    "vendedores",
+    "agentes",
+    "slight-edge",
+    "asignacion",
+    "api"
+];
 
 function restoreSavedMenuOrder() {
     const menuContainer = document.getElementById("sidebar-menu");
     if (!menuContainer) return;
 
-    const storageKey = getMenuOrderStorageKey();
-    const savedOrderJson = localStorage.getItem(storageKey);
-    if (!savedOrderJson) return;
-
+    // Clear legacy custom orders from localStorage to prevent stale ordering
     try {
-        const savedOrder = JSON.parse(savedOrderJson);
-        if (!Array.isArray(savedOrder) || savedOrder.length === 0) return;
-
-        const currentItemsMap = new Map();
-        const items = Array.from(menuContainer.querySelectorAll(".menu-item"));
-        items.forEach(item => {
-            const sec = item.getAttribute("data-section");
-            if (sec) currentItemsMap.set(sec, item);
-        });
-
-        savedOrder.forEach(secId => {
-            if (currentItemsMap.has(secId)) {
-                menuContainer.appendChild(currentItemsMap.get(secId));
-                currentItemsMap.delete(secId);
-            }
-        });
-
-        currentItemsMap.forEach(item => {
-            menuContainer.appendChild(item);
-        });
-
-        DOM.menuItems = document.querySelectorAll(".menu-item");
+        const storageKey = getMenuOrderStorageKey();
+        localStorage.removeItem(storageKey);
+        localStorage.removeItem("crm_menu_order_default");
     } catch (e) {
-        console.warn("Could not restore saved menu order:", e);
+        // Ignore storage errors
     }
+
+    // Force strict DOM reordering according to FIXED_SYSTEM_MENU_ORDER
+    const currentItemsMap = new Map();
+    const items = Array.from(menuContainer.querySelectorAll(".menu-item"));
+    items.forEach(item => {
+        const sec = item.getAttribute("data-section");
+        if (sec) currentItemsMap.set(sec, item);
+    });
+
+    FIXED_SYSTEM_MENU_ORDER.forEach(secId => {
+        if (currentItemsMap.has(secId)) {
+            menuContainer.appendChild(currentItemsMap.get(secId));
+            currentItemsMap.delete(secId);
+        }
+    });
+
+    // Append any remaining items if added in future
+    currentItemsMap.forEach(item => {
+        menuContainer.appendChild(item);
+    });
+
+    DOM.menuItems = document.querySelectorAll(".menu-item");
 }
 
 function saveCurrentMenuOrder() {
-    const menuContainer = document.getElementById("sidebar-menu");
-    if (!menuContainer) return;
-
-    const items = Array.from(menuContainer.querySelectorAll(".menu-item"));
-    const currentOrder = items.map(item => item.getAttribute("data-section")).filter(Boolean);
-    const storageKey = getMenuOrderStorageKey();
-    localStorage.setItem(storageKey, JSON.stringify(currentOrder));
+    // Menu order is fixed by specification; custom reordering is disabled.
 }
 
 function initSidebarMenuDragAndDrop() {
