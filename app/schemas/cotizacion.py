@@ -67,3 +67,15 @@ class CotizacionResponse(CotizacionBase):
 class CotizacionesAgentResponse(BaseModel):
     total: Decimal
     texto_propuesta: str
+
+
+class RecordatorioCreate(BaseModel):
+    fecha_programada: date
+    nota: Optional[str] = None
+
+
+class RecordatorioUpdate(BaseModel):
+    fecha_programada: Optional[date] = None
+    nota: Optional[str] = None
+    completado: Optional[bool] = None
+

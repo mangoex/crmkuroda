@@ -14,6 +14,7 @@ from app.models.por_entregar import PorEntregar
 from app.models.registro_acceso import RegistroAcceso
 from app.models.actualizacion_datos import ActualizacionDatos
 from app.models.cotizacion_detalle import CotizacionItem, CotizacionComentario, CanalVenta
+from app.models.recordatorio_seguimiento import RecordatorioSeguimiento
 
 __all__ = [
     "Base", 
@@ -34,5 +35,7 @@ __all__ = [
     "ActualizacionDatos",
     "CotizacionItem",
     "CotizacionComentario",
-    "CanalVenta"
+    "CanalVenta",
+    "RecordatorioSeguimiento",
 ]
+

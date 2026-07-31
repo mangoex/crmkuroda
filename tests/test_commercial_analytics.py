@@ -8,6 +8,7 @@ from app.services.commercial_analytics import (
     aggregate_channels,
     aggregate_material_items,
     build_seller_performance,
+    find_clients_for_promotion,
     normalize_channel,
     normalize_contact,
     promotion_priority,
@@ -264,6 +265,63 @@ class CommercialAnalyticsTest(unittest.TestCase):
                 date(2026, 7, 26),
             )["tiene_promocion"]
         )
+
+    # ---- find_clients_for_promotion tests ----
+
+    def test_find_clients_basic_match(self):
+        promo = SimpleNamespace(codigo_material="SKU-A", descripcion_material="Tubo", precio_promocion=99.0, valido_hasta=datetime(2026, 12, 31))
+        item = SimpleNamespace(codigo_material="SKU-A", cantidad_facturada=10, importe_facturado=500, cantidad_cotizada=10, importe_cotizado=500)
+        quote = SimpleNamespace(
+            numero_cliente="1001", cliente_nombre="Cliente A", vendedor_nombre="V1",
+            vendedor_id=None, datos_contacto={"celular": "667111"}, numero_factura="F-1",
+            importe_facturado=500, fecha_factura=date(2026, 6, 1), fecha_registro=date(2026, 5, 1),
+            venta_perdida=None,
+        )
+        result = find_clients_for_promotion(promo, [(item, quote)])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["numero_cliente"], "1001")
+        self.assertEqual(result[0]["tipo_operacion"], "Facturado")
+
+    def test_find_clients_only_invoiced_excludes_quoted(self):
+        promo = SimpleNamespace(codigo_material="SKU-B", descripcion_material="Valvula", precio_promocion=50.0, valido_hasta=datetime(2026, 12, 31))
+        item = SimpleNamespace(codigo_material="SKU-B", cantidad_facturada=0, importe_facturado=0, cantidad_cotizada=5, importe_cotizado=250)
+        quote = SimpleNamespace(
+            numero_cliente="2002", cliente_nombre="Cliente B", vendedor_nombre="V1",
+            vendedor_id=None, datos_contacto={}, numero_factura=None,
+            importe_facturado=0, fecha_factura=None, fecha_registro=date(2026, 5, 1),
+            venta_perdida=None,
+        )
+        result_strict = find_clients_for_promotion(promo, [(item, quote)], only_invoiced=True)
+        self.assertEqual(len(result_strict), 0)
+        result_all = find_clients_for_promotion(promo, [(item, quote)], only_invoiced=False)
+        self.assertEqual(len(result_all), 1)
+        self.assertEqual(result_all[0]["tipo_operacion"], "Cotizado")
+
+    def test_find_clients_deduplicates_by_client(self):
+        promo = SimpleNamespace(codigo_material="SKU-C", descripcion_material="Conector", precio_promocion=30.0, valido_hasta=datetime(2026, 12, 31))
+        item1 = SimpleNamespace(codigo_material="SKU-C", cantidad_facturada=3, importe_facturado=90, cantidad_cotizada=3, importe_cotizado=90)
+        item2 = SimpleNamespace(codigo_material="SKU-C", cantidad_facturada=7, importe_facturado=210, cantidad_cotizada=7, importe_cotizado=210)
+        quote1 = SimpleNamespace(
+            numero_cliente="3003", cliente_nombre="Cliente C", vendedor_nombre="V1",
+            vendedor_id=None, datos_contacto={}, numero_factura="F-1",
+            importe_facturado=90, fecha_factura=date(2026, 3, 1), fecha_registro=date(2026, 2, 1),
+            venta_perdida=None,
+        )
+        quote2 = SimpleNamespace(
+            numero_cliente="3003", cliente_nombre="Cliente C", vendedor_nombre="V1",
+            vendedor_id=None, datos_contacto={}, numero_factura="F-2",
+            importe_facturado=210, fecha_factura=date(2026, 6, 1), fecha_registro=date(2026, 5, 1),
+            venta_perdida=None,
+        )
+        result = find_clients_for_promotion(promo, [(item1, quote1), (item2, quote2)])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["operaciones"], 2)
+        self.assertEqual(result[0]["cantidad_total"], 10)
+
+    def test_find_clients_empty_promo_code_returns_empty(self):
+        promo = SimpleNamespace(codigo_material=None, descripcion_material="X", precio_promocion=10.0, valido_hasta=datetime(2026, 12, 31))
+        result = find_clients_for_promotion(promo, [])
+        self.assertEqual(result, [])
 
 
 if __name__ == "__main__":

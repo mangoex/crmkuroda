@@ -3022,3 +3022,106 @@ body.light-mode .seller-activity-icon.violet { background: #c40000; }
     color: hsl(var(--danger)) !important;
     font-weight: 700 !important;
 }
+
+/* ==========================================================================
+   HU-1, HU-2, HU-3 CUSTOM STYLES
+   ========================================================================== */
+
+/* Client History Metrics (HU-2) */
+.client-history-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.client-history-metrics-grid .metric-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: center;
+}
+
+.client-history-metrics-grid .metric-card span {
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: hsl(var(--text-secondary));
+    letter-spacing: 0.5px;
+}
+
+.client-history-metrics-grid .metric-card strong {
+    font-size: 20px;
+    font-weight: 700;
+    color: hsl(var(--text-primary));
+}
+
+/* Action buttons (WhatsApp green, Email blue) (HU-3) */
+.btn-action-wa {
+    background: #25D366 !important;
+    color: #ffffff !important;
+    border: none !important;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-action-wa:hover {
+    background: #16a34a !important;
+    color: #ffffff !important;
+}
+
+.btn-action-email {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+    border: none !important;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-action-email:hover {
+    background: #0369a1 !important;
+    color: #ffffff !important;
+}
+
+/* Daily Reminders Card & Kanban Indicator (HU-1) */
+.reminder-item-card {
+    transition: transform var(--transition-fast) ease, border-color var(--transition-fast) ease;
+}
+
+.reminder-item-card:hover {
+    border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+.kanban-card-reminder-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    font-size: 11px;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+/* Light mode overrides for HU-1, HU-2, HU-3 components */
+body.light-mode .client-history-metrics-grid .metric-card {
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+body.light-mode .reminder-item-card {
+    background: rgba(255, 255, 255, 0.8) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+

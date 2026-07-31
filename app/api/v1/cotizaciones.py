@@ -17,12 +17,20 @@ from app.core.security import get_current_user, RoleChecker
 from app.models.usuario import Usuario
 from app.models.cotizacion import Cotizacion
 from app.models.cotizacion_detalle import CotizacionComentario, CotizacionItem
+from app.models.recordatorio_seguimiento import RecordatorioSeguimiento
 from app.models.promocion import Promocion
-from app.schemas.cotizacion import CotizacionCreate, CotizacionCreateManual, CotizacionUpdate
+from app.schemas.cotizacion import (
+    CotizacionCreate,
+    CotizacionCreateManual,
+    CotizacionUpdate,
+    RecordatorioCreate,
+    RecordatorioUpdate,
+)
 from app.schemas.commercial import ComentarioCreate, ComentarioUpdate
 from app.agents.cotizaciones_agent import generate_proposal
 from app.services.jerarquia import get_ids_vendedores_visibles
 from app.services.commercial_analytics import normalize_contact, normalize_text, promotion_priority
+from app.services.client_history_service import build_client_history
 from app.core.config import settings
 
 require_admin_or_gerente = RoleChecker(["admin", "gerente"])
@@ -296,6 +304,206 @@ async def list_cotizaciones(
             "total": total
         },
         "data": data
+    }
+
+
+@router.get("/historial-cliente", status_code=status.HTTP_200_OK)
+async def get_client_history(
+    numero_cliente: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """
+    Return aggregate purchase history for a client identified by ``numero_cliente``.
+
+    Salespeople only see operations linked to themselves (or their hierarchy).
+    Admins/Managers see all operations for the client.
+    """
+    if current_user.rol == "soporte":
+        raise HTTPException(
+            status_code=403,
+            detail="El rol de soporte no tiene acceso a la analítica comercial.",
+        )
+
+    query = select(Cotizacion).where(
+        func.upper(func.trim(Cotizacion.numero_cliente)) == numero_cliente.strip().upper()
+    )
+
+    if current_user.rol == "vendedor":
+        ids_visibles = await get_ids_vendedores_visibles(db, current_user)
+        if ids_visibles is not None:
+            visible_users = (
+                await db.execute(select(Usuario).where(Usuario.id.in_(ids_visibles)))
+            ).scalars().all()
+            visible_names = [
+                user.nombre_completo.strip().upper()
+                for user in visible_users
+                if user.nombre_completo and user.nombre_completo.strip()
+            ]
+            seller_filters = [Cotizacion.vendedor_id.in_(ids_visibles)]
+            if visible_names:
+                seller_filters.append(
+                    and_(
+                        Cotizacion.vendedor_id.is_(None),
+                        func.upper(func.trim(Cotizacion.vendedor_nombre)).in_(visible_names),
+                    )
+                )
+            query = query.filter(or_(*seller_filters))
+
+    result = await db.execute(query)
+    quotes = result.scalars().all()
+
+    try:
+        today = datetime.now(ZoneInfo(settings.BUSINESS_TIMEZONE)).date()
+    except Exception:
+        today = date.today()
+
+    history = build_client_history(
+        numero_cliente,
+        quotes,
+        quote_valid_days=settings.QUOTE_VALID_DAYS,
+        today=today,
+    )
+
+    return {"status": "success", "data": history}
+
+
+@router.get("/recordatorios/pendientes", status_code=status.HTTP_200_OK)
+async def list_pending_reminders(
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """
+    Returns pending follow-up reminders (completado = False).
+    Vendedores see their own + hierarchy.
+    Admins / Gerentes see all.
+    """
+    if current_user.rol == "soporte":
+        raise HTTPException(
+            status_code=403,
+            detail="El rol de soporte no tiene acceso a esta funcionalidad.",
+        )
+
+    query = select(RecordatorioSeguimiento).where(
+        RecordatorioSeguimiento.completado == False
+    )
+
+    if current_user.rol == "vendedor":
+        ids_visibles = await get_ids_vendedores_visibles(db, current_user) or [current_user.id]
+        query = query.where(RecordatorioSeguimiento.vendedor_id.in_(ids_visibles))
+
+    result = await db.execute(query.order_by(RecordatorioSeguimiento.fecha_programada.asc()))
+    reminders = result.scalars().all()
+
+    # Enrich with quote details
+    quote_ids = [r.cotizacion_id for r in reminders]
+    quotes_map = {}
+    if quote_ids:
+        quotes_res = await db.execute(select(Cotizacion).where(Cotizacion.id.in_(quote_ids)))
+        quotes_map = {q.id: q for q in quotes_res.scalars().all()}
+
+    data = []
+    for r in reminders:
+        q = quotes_map.get(r.cotizacion_id)
+        data.append({
+            "id": str(r.id),
+            "cotizacion_id": str(r.cotizacion_id),
+            "vendedor_id": str(r.vendedor_id),
+            "fecha_programada": r.fecha_programada.isoformat(),
+            "nota": r.nota,
+            "completado": r.completado,
+            "creado_en": r.creado_en.isoformat(),
+            "cliente_nombre": q.cliente_nombre if q else "Cliente",
+            "numero_cliente": q.numero_cliente if q else None,
+            "numero_cotizacion": q.numero_cotizacion if q else None,
+            "total": float(q.total) if q else 0,
+        })
+
+    return {"status": "success", "data": data}
+
+
+@router.post("/{cotizacion_id}/recordatorio", status_code=status.HTTP_201_CREATED)
+async def create_quote_reminder(
+    cotizacion_id: UUID,
+    payload: RecordatorioCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """
+    Creates a new follow-up reminder for a specific quote.
+    """
+    cotizacion = await _get_authorized_quote(db, current_user, cotizacion_id)
+
+    reminder = RecordatorioSeguimiento(
+        cotizacion_id=cotizacion.id,
+        vendedor_id=current_user.id,
+        fecha_programada=payload.fecha_programada,
+        nota=payload.nota.strip() if payload.nota else None,
+    )
+    db.add(reminder)
+    await db.commit()
+    await db.refresh(reminder)
+
+    return {
+        "status": "success",
+        "message": "Recordatorio de seguimiento agendado exitosamente.",
+        "data": {
+            "id": str(reminder.id),
+            "cotizacion_id": str(reminder.cotizacion_id),
+            "vendedor_id": str(reminder.vendedor_id),
+            "fecha_programada": reminder.fecha_programada.isoformat(),
+            "nota": reminder.nota,
+            "completado": reminder.completado,
+            "creado_en": reminder.creado_en.isoformat(),
+        },
+    }
+
+
+@router.patch("/recordatorios/{recordatorio_id}", status_code=status.HTTP_200_OK)
+async def update_reminder(
+    recordatorio_id: UUID,
+    payload: RecordatorioUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """
+    Updates or marks a follow-up reminder as completed.
+    """
+    res = await db.execute(
+        select(RecordatorioSeguimiento).where(RecordatorioSeguimiento.id == recordatorio_id)
+    )
+    reminder = res.scalars().first()
+    if not reminder:
+        raise HTTPException(status_code=404, detail="El recordatorio solicitado no existe.")
+
+    if current_user.rol == "vendedor" and reminder.vendedor_id != current_user.id:
+        ids_visibles = await get_ids_vendedores_visibles(db, current_user) or [current_user.id]
+        if reminder.vendedor_id not in ids_visibles:
+            raise HTTPException(status_code=403, detail="No tienes permiso para modificar este recordatorio.")
+
+    if payload.fecha_programada is not None:
+        reminder.fecha_programada = payload.fecha_programada
+    if payload.nota is not None:
+        reminder.nota = payload.nota.strip() if payload.nota else None
+    if payload.completado is not None:
+        reminder.completado = payload.completado
+        reminder.completado_en = datetime.utcnow() if payload.completado else None
+
+    await db.commit()
+    await db.refresh(reminder)
+
+    return {
+        "status": "success",
+        "message": "Recordatorio actualizado exitosamente.",
+        "data": {
+            "id": str(reminder.id),
+            "cotizacion_id": str(reminder.cotizacion_id),
+            "vendedor_id": str(reminder.vendedor_id),
+            "fecha_programada": reminder.fecha_programada.isoformat(),
+            "nota": reminder.nota,
+            "completado": reminder.completado,
+            "completado_en": reminder.completado_en.isoformat() if reminder.completado_en else None,
+        },
     }
 
 

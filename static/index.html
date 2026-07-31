@@ -17,7 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="/static/style.css?v=1.0.18">
+    <link rel="stylesheet" href="/static/style.css?v=1.0.19">
 </head>
 <body class="light-mode">
     
@@ -129,6 +129,10 @@
                 </div>
                 
                 <div class="user-badge">
+                    <button id="reminders-nav-btn" class="btn btn-secondary btn-icon" title="Recordatorios de seguimiento" style="position: relative;">
+                        <i class="fa-solid fa-bell"></i>
+                        <span id="reminders-nav-badge" class="badge badge-danger hidden" style="position: absolute; top: -5px; right: -5px; padding: 2px 6px; font-size: 10px; border-radius: 10px;">0</span>
+                    </button>
                     <button id="theme-toggle-btn" class="btn btn-secondary btn-icon" title="Cambiar tema">
                         <i class="fa-solid fa-sun" id="theme-toggle-icon"></i>
                     </button>
@@ -262,6 +266,20 @@
                             <button type="button" data-seller-jump="slight-edge"><i class="fa-solid fa-pen-to-square"></i> Registrar actividad</button>
                             <button type="button" id="seller-quick-search"><i class="fa-solid fa-magnifying-glass"></i> Buscar cliente</button>
                             <button type="button" data-seller-jump="seguimiento"><i class="fa-regular fa-calendar-days"></i> Ver seguimiento</button>
+                        </div>
+                    </div>
+
+                    <!-- Daily Follow-up Reminders Card -->
+                    <div id="daily-reminders-card" class="glass-card border-glow" style="margin-top: 24px; margin-bottom: 24px; padding: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <i class="fa-solid fa-calendar-check text-glow" style="color: #f59e0b; font-size: 20px;"></i>
+                                <h2 style="margin: 0; font-size: 18px;">Seguimientos Agendados del Día</h2>
+                            </div>
+                            <span id="daily-reminders-badge-count" class="badge badge-primary">0 pendientes</span>
+                        </div>
+                        <div id="daily-reminders-list" class="reminders-list-grid" style="display: flex; flex-direction: column; gap: 12px;">
+                            <p class="text-muted" style="margin: 0; padding: 8px 0;">Cargando recordatorios...</p>
                         </div>
                     </div>
 
@@ -796,6 +814,7 @@
                                     <th>Margen</th>
                                     <th style="cursor: pointer; user-select: none;" id="th-inv-disp">Inv. Disp. <i class="fa-solid fa-sort" style="color: hsl(var(--text-secondary)); font-size: 12px; margin-left: 4px;"></i></th>
                                     <th>Válido Hasta</th>
+                                    <th>Clientes Potenciales</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1290,10 +1309,20 @@
                             <h2 style="font-size: 16px; font-weight: 600; margin: 0;"><i class="fa-solid fa-list-check" style="margin-right: 8px; color: hsl(var(--primary));"></i> Listado Detallado de Cotizaciones</h2>
                             <span id="quotes-details-toggle-icon" style="transition: transform var(--transition-fast);"><i class="fa-solid fa-chevron-down"></i></span>
                         </div>
-                        <div id="quotes-details-content" class="hidden" style="padding: 20px 24px;">
-                            <div class="input-group margin-bottom" style="max-width: 400px; margin-top: 10px;">
-                                <label for="search-quote-client">Buscar Cliente:</label>
-                                <input type="text" id="search-quote-client" placeholder="Buscar por empresa, nombre o No. de cliente...">
+                            <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-top: 10px; margin-bottom: 16px;">
+                                <div class="input-group" style="max-width: 380px; margin: 0; flex: 1;">
+                                    <label for="search-quote-client">Buscar Cliente:</label>
+                                    <input type="text" id="search-quote-client" placeholder="Buscar por empresa, nombre o No. de cliente...">
+                                </div>
+                                <div class="input-group" style="max-width: 320px; margin: 0; flex: 1;">
+                                    <label for="search-client-history-input">Consultar Historial de Cliente:</label>
+                                    <div style="display: flex; gap: 8px;">
+                                        <input type="text" id="search-client-history-input" placeholder="No. de Cliente SAP...">
+                                        <button type="button" id="btn-search-client-history" class="btn btn-secondary" title="Ver Historial del Cliente" style="white-space: nowrap; padding: 0 14px;">
+                                            <i class="fa-solid fa-clock-rotate-left"></i> Historial
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                             <div class="table-container" style="margin-top: 10px;">
                                 <table class="data-table" id="table-cotizaciones">
@@ -2229,6 +2258,128 @@
         </div>
     </div>
 
+    <!-- Client History Modal (HU-2) -->
+    <div id="client-history-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 900px; width: 95%;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="margin: 0; font-size: 18px;"><i class="fa-solid fa-clock-rotate-left" style="color: #38bdf8; margin-right: 8px;"></i>Historial del Cliente</h3>
+                    <p id="client-history-subtitle" style="font-size: 13px; color: hsl(var(--text-secondary)); margin: 4px 0 0 0;">Cargando datos del cliente...</p>
+                </div>
+                <button id="btn-close-client-history" class="btn-icon" type="button"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 20px; padding: 20px;">
+                <!-- Metrics Summary Cards -->
+                <div class="client-history-metrics-grid">
+                    <div class="metric-card">
+                        <span>Total Cotizaciones</span>
+                        <strong id="client-history-total-quotes">0</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Total Facturadas</span>
+                        <strong id="client-history-invoiced-count" style="color: #10b981;">0</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Total Cotizado</span>
+                        <strong id="client-history-total-quoted">$0.00</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Total Facturado</span>
+                        <strong id="client-history-total-invoiced" style="color: #10b981;">$0.00</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Tasa Conversión</span>
+                        <strong id="client-history-conversion-rate" style="color: #38bdf8;">0%</strong>
+                    </div>
+                </div>
+
+                <!-- Operations Table -->
+                <div class="table-container" style="max-height: 380px; overflow-y: auto;">
+                    <table class="data-table" id="client-history-table">
+                        <thead>
+                            <tr>
+                                <th>No. Cotización</th>
+                                <th>Fecha</th>
+                                <th>Canal</th>
+                                <th>Total Cotizado</th>
+                                <th>Importe Facturado</th>
+                                <th>Estado</th>
+                                <th>Vendedor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-cancel-client-history" class="btn btn-secondary">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Potential Clients for Promotion Modal (HU-3) -->
+    <div id="promo-clients-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 950px; width: 95%;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="margin: 0; font-size: 18px;"><i class="fa-solid fa-users" style="color: #a78bfa; margin-right: 8px;"></i>Clientes Potenciales para Promoción</h3>
+                    <div id="promo-clients-info" style="font-size: 13px; color: hsl(var(--text-secondary)); margin-top: 4px;">Cargando información de la promoción...</div>
+                </div>
+                <button id="btn-close-promo-clients" class="btn-icon" type="button"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div class="table-container" style="max-height: 420px; overflow-y: auto;">
+                    <table class="data-table" id="promo-clients-table">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Vendedor</th>
+                                <th>Ús. Compra</th>
+                                <th>Cant. Comprada</th>
+                                <th>Acciones de Contacto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-cancel-promo-clients" class="btn btn-secondary">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Follow-up Reminder Modal (HU-1) -->
+    <div id="add-reminder-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 480px; width: 90%;">
+            <div class="modal-header">
+                <h3 style="margin: 0; font-size: 18px;"><i class="fa-solid fa-calendar-plus" style="color: #f59e0b; margin-right: 8px;"></i>Agendar Recordatorio de Seguimiento</h3>
+                <button id="btn-close-add-reminder" class="btn-icon" type="button"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="add-reminder-form">
+                <input type="hidden" id="reminder-quote-id">
+                <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px; padding: 20px;">
+                    <div class="input-group">
+                        <label for="reminder-date-input"><i class="fa-regular fa-calendar"></i> Fecha Programada</label>
+                        <input type="date" id="reminder-date-input" required>
+                    </div>
+                    <div class="input-group" style="margin-bottom: 0;">
+                        <label for="reminder-note-input"><i class="fa-regular fa-note-sticky"></i> Nota / Motivo del Seguimiento</label>
+                        <textarea id="reminder-note-input" rows="4" placeholder="Ej: Llamar al cliente para confirmar presupuesto de materiales..." style="resize: vertical;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="btn-cancel-add-reminder" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" id="btn-save-reminder" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Guardar Recordatorio</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Mobile Bottom Navigation -->
     <nav class="mobile-bottom-nav">
         <a href="#" class="mobile-nav-item active" data-mobile-section="summary" onclick="switchSection('summary'); return false;">
@@ -2254,6 +2405,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.59"></script>
+    <script src="/static/app.js?v=1.0.60"></script>
 </body>
 </html>

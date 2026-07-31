@@ -9,6 +9,10 @@ from app.core.database import get_db
 from app.core.security import RoleChecker, get_current_user
 from app.models.promocion import Promocion
 from app.models.usuario import Usuario
+from app.models.cotizacion import Cotizacion
+from app.models.cotizacion_detalle import CotizacionItem
+from app.services.commercial_analytics import find_clients_for_promotion, safe_phone_href
+from app.services.jerarquia import get_ids_vendedores_visibles
 
 router = APIRouter()
 
@@ -73,3 +77,119 @@ async def upload_promociones(
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Error procesando el archivo: {str(e)}")
+
+
+@router.get("/{promocion_id}/clientes-potenciales", status_code=status.HTTP_200_OK)
+async def get_promotion_potential_clients(
+    promocion_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """
+    Find clients who previously purchased the material that is now on promotion.
+
+    Returns a list of clients with their contact info and purchase history.
+    Salespeople only see clients linked to their quotes.
+    """
+    if current_user.rol == "soporte":
+        raise HTTPException(
+            status_code=403,
+            detail="El rol de soporte no tiene acceso a esta funcionalidad.",
+        )
+
+    # Fetch the promotion.
+    promotion = (
+        await db.execute(select(Promocion).where(Promocion.id == promocion_id))
+    ).scalars().first()
+    if not promotion:
+        raise HTTPException(status_code=404, detail="La promoción no existe.")
+
+    # Fetch items + their parent quotes via join.
+    from sqlalchemy import and_
+    query = (
+        select(CotizacionItem, Cotizacion)
+        .join(Cotizacion, CotizacionItem.cotizacion_id == Cotizacion.id)
+    )
+
+    # Apply seller visibility filter for vendedor role.
+    if current_user.rol == "vendedor":
+        from sqlalchemy import or_, func
+        ids_visibles = await get_ids_vendedores_visibles(db, current_user)
+        if ids_visibles is not None:
+            visible_users = (
+                await db.execute(select(Usuario).where(Usuario.id.in_(ids_visibles)))
+            ).scalars().all()
+            visible_names = [
+                user.nombre_completo.strip().upper()
+                for user in visible_users
+                if user.nombre_completo and user.nombre_completo.strip()
+            ]
+            seller_filters = [Cotizacion.vendedor_id.in_(ids_visibles)]
+            if visible_names:
+                seller_filters.append(
+                    and_(
+                        Cotizacion.vendedor_id.is_(None),
+                        func.upper(func.trim(Cotizacion.vendedor_nombre)).in_(visible_names),
+                    )
+                )
+            query = query.filter(or_(*seller_filters))
+
+    result = await db.execute(query)
+    items_with_quotes = result.all()
+
+    clients = find_clients_for_promotion(
+        promotion,
+        items_with_quotes,
+        only_invoiced=False,  # Include both invoiced and quoted
+    )
+
+    # Build pre-filled message for WhatsApp/Email.
+    promo_desc = promotion.descripcion_material or promotion.codigo_material or "Material"
+    promo_price = f"${promotion.precio_promocion:,.2f}" if promotion.precio_promocion else "Precio especial"
+    promo_valid = promotion.valido_hasta.strftime("%d/%m/%Y") if promotion.valido_hasta else "por tiempo limitado"
+
+    wa_message = (
+        f"¡Hola! Le informamos que tenemos una promoción especial en "
+        f"{promo_desc} a {promo_price} (válido hasta {promo_valid}). "
+        f"¿Le interesa? Quedo a sus órdenes."
+    )
+    email_subject = f"Promoción Especial: {promo_desc} a {promo_price}"
+    email_body = (
+        f"Estimado cliente,\n\n"
+        f"Le informamos que tenemos una promoción especial:\n\n"
+        f"  Material: {promo_desc}\n"
+        f"  Precio de Promoción: {promo_price}\n"
+        f"  Válido hasta: {promo_valid}\n\n"
+        f"¡No deje pasar esta oportunidad!\n\nSaludos cordiales."
+    )
+
+    # Enrich each client with contact action URLs.
+    for client in clients:
+        contact = client.get("contacto", {})
+        phone = safe_phone_href(contact.get("contacto_preferente"))
+        email = contact.get("email")
+        client["acciones"] = {
+            "whatsapp_url": (
+                f"https://wa.me/{phone}?text={__import__('urllib.parse', fromlist=['quote']).quote(wa_message)}"
+                if phone
+                else None
+            ),
+            "email_url": (
+                f"mailto:{email}?subject={__import__('urllib.parse', fromlist=['quote']).quote(email_subject)}"
+                f"&body={__import__('urllib.parse', fromlist=['quote']).quote(email_body)}"
+                if email
+                else None
+            ),
+            "telefono": phone,
+        }
+
+    return {
+        "status": "success",
+        "data": {
+            "promocion": promotion.to_dict(),
+            "mensaje_whatsapp": wa_message,
+            "asunto_email": email_subject,
+            "clientes": clients,
+            "total_clientes": len(clients),
+        },
+    }

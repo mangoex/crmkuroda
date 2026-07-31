@@ -119,7 +119,8 @@ const state = {
         promociones: null,
         vendido: null,
         vencido: null
-    }
+    },
+    pendingReminders: []
 };
 
 // Mapa rol -> secciones permitidas en el menú lateral y la navegación móvil.
@@ -455,7 +456,40 @@ const DOM = {
     filterPorEntregarEstado: document.getElementById("filter-por-entregar-estado"),
     filterPorEntregarSearch: document.getElementById("filter-por-entregar-search"),
     btnClearPorEntregarFilters: document.getElementById("btn-clear-por-entregar-filters"),
-    pagPorEntregar: document.getElementById("pag-por-entregar")
+    pagPorEntregar: document.getElementById("pag-por-entregar"),
+
+    // HU-1, HU-2, HU-3 UI elements
+    clientHistoryModal: document.getElementById("client-history-modal"),
+    btnCloseClientHistory: document.getElementById("btn-close-client-history"),
+    btnCancelClientHistory: document.getElementById("btn-cancel-client-history"),
+    clientHistorySubtitle: document.getElementById("client-history-subtitle"),
+    clientHistoryTotalQuotes: document.getElementById("client-history-total-quotes"),
+    clientHistoryInvoicedCount: document.getElementById("client-history-invoiced-count"),
+    clientHistoryTotalQuoted: document.getElementById("client-history-total-quoted"),
+    clientHistoryTotalInvoiced: document.getElementById("client-history-total-invoiced"),
+    clientHistoryConversionRate: document.getElementById("client-history-conversion-rate"),
+    clientHistoryTable: document.querySelector("#client-history-table tbody"),
+    searchClientHistoryInput: document.getElementById("search-client-history-input"),
+    btnSearchClientHistory: document.getElementById("btn-search-client-history"),
+
+    promoClientsModal: document.getElementById("promo-clients-modal"),
+    btnClosePromoClients: document.getElementById("btn-close-promo-clients"),
+    btnCancelPromoClients: document.getElementById("btn-cancel-promo-clients"),
+    promoClientsInfo: document.getElementById("promo-clients-info"),
+    promoClientsTable: document.querySelector("#promo-clients-table tbody"),
+
+    addReminderModal: document.getElementById("add-reminder-modal"),
+    btnCloseAddReminder: document.getElementById("btn-close-add-reminder"),
+    btnCancelAddReminder: document.getElementById("btn-cancel-add-reminder"),
+    addReminderForm: document.getElementById("add-reminder-form"),
+    reminderQuoteId: document.getElementById("reminder-quote-id"),
+    reminderDateInput: document.getElementById("reminder-date-input"),
+    reminderNoteInput: document.getElementById("reminder-note-input"),
+    dailyRemindersCard: document.getElementById("daily-reminders-card"),
+    dailyRemindersList: document.getElementById("daily-reminders-list"),
+    dailyRemindersBadgeCount: document.getElementById("daily-reminders-badge-count"),
+    remindersNavBtn: document.getElementById("reminders-nav-btn"),
+    remindersNavBadge: document.getElementById("reminders-nav-badge")
 };
 
 /* ==========================================================================
@@ -598,6 +632,7 @@ async function initSession() {
         // previously viewed user/section from remaining visible.
         state.currentSection = "summary";
         await switchSection("summary");
+        await loadPendingReminders();
     } else {
         DOM.authContainer?.classList.remove("hidden");
         DOM.dashboardContainer?.classList.add("hidden");
@@ -770,6 +805,8 @@ async function loadSummaryData() {
     state.metas = metas;
     state.cotizaciones = quotes;
 
+    await loadPendingReminders();
+
     if (state.user.rol === "vendedor") {
         if (DOM.sellerHomeDashboard) DOM.sellerHomeDashboard.classList.remove("hidden");
         if (DOM.summaryAdminKpis) DOM.summaryAdminKpis.classList.add("hidden");
@@ -828,6 +865,7 @@ async function loadSummaryData() {
     
     // Load Slight Edge summary tracking card
     await loadSlightEdgeSummaryWidget();
+    await loadPendingReminders();
 }
 
 function formatSellerMoney(value) {
@@ -2647,7 +2685,7 @@ async function loadPromocionesData(forceRefresh = false) {
         
         DOM.tablePromociones.innerHTML = "";
         if (promociones.length === 0) {
-            DOM.tablePromociones.innerHTML = `<tr><td colspan="10" style="text-align: center;">No se encontraron promociones cargadas.</td></tr>`;
+            DOM.tablePromociones.innerHTML = `<tr><td colspan="11" style="text-align: center;">No se encontraron promociones cargadas.</td></tr>`;
             if (DOM.pagPromociones) DOM.pagPromociones.innerHTML = "";
             return;
         }
@@ -2683,6 +2721,11 @@ async function loadPromocionesData(forceRefresh = false) {
                 <td>${p.margen_promocion ? (p.margen_promocion).toFixed(2) : '-'}</td>
                 <td>${p.inventario_disponible !== null && p.inventario_disponible !== undefined ? p.inventario_disponible : '-'}</td>
                 <td>${p.valido_hasta ? p.valido_hasta.split('T')[0] : '-'}</td>
+                <td>
+                    <button type="button" class="btn btn-primary btn-sm btn-promo-clients" onclick="openPromoClientsModal(${p.id})">
+                        <i class="fa-solid fa-users"></i> Ver Clientes
+                    </button>
+                </td>
             `;
             DOM.tablePromociones.appendChild(tr);
         });
@@ -3646,11 +3689,13 @@ function renderQuotesTableFiltered() {
                 `<span class="status-pill status-pendiente">Si</span>` :
                 `<span class="status-pill status-completada">No</span>`;
                 
+            const clientDisplay = `<strong>${escapeHTML(c.cliente_nombre)}</strong>${c.numero_cliente ? `<br><a href="#" class="btn-client-history text-muted" style="font-size: 11px; text-decoration: underline;" data-cliente="${escapeHTML(c.numero_cliente)}"><i class="fa-solid fa-clock-rotate-left"></i> ${escapeHTML(c.numero_cliente)}</a>` : ''}`;
+
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td><code>${quoteNum}</code></td>
                 <td>${dateStr}</td>
-                <td><strong>${c.cliente_nombre}</strong></td>
+                <td>${clientDisplay}</td>
                 <td>${contactInfo}</td>
                 <td>${canal}</td>
                 <td><strong>$${c.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong></td>
@@ -3666,6 +3711,12 @@ function renderQuotesTableFiltered() {
                             <i class="fa-regular fa-comments"></i>
                             ${c.comentarios_seguimiento_count ? `<span style="position:absolute;top:-6px;right:-5px;background:#38bdf8;color:#08111f;border-radius:999px;font-size:9px;font-weight:900;min-width:16px;height:16px;line-height:16px;">${c.comentarios_seguimiento_count}</span>` : ""}
                         </button>
+                        <button class="btn btn-secondary btn-sm reminder-btn" data-id="${c.id}" title="Agendar recordatorio" style="min-width:38px; padding:8px 10px;">
+                            <i class="fa-regular fa-bell"></i>
+                        </button>
+                        <button class="btn btn-secondary btn-sm client-history-btn" data-cliente="${escapeHTML(c.numero_cliente || '')}" title="Historial del Cliente" style="min-width:38px; padding:8px 10px;" ${!c.numero_cliente ? 'disabled' : ''}>
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </button>
                     </div>
                 </td>
             `;
@@ -3677,6 +3728,21 @@ function renderQuotesTableFiltered() {
                 const id = btn.getAttribute("data-id");
                 const quote = state.cotizaciones.find(q => q.id === id);
                 if (quote) openLostReasonModal(quote);
+            });
+        });
+
+        document.querySelectorAll(".reminder-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const id = btn.getAttribute("data-id");
+                if (id) openAddReminderModal(id);
+            });
+        });
+
+        document.querySelectorAll(".client-history-btn, .btn-client-history").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                const cliente = btn.getAttribute("data-cliente");
+                if (cliente) openClientHistoryModal(cliente);
             });
         });
     }
@@ -4073,9 +4139,16 @@ function renderKanbanColumns() {
                 ? `<div style="margin-top:8px;font-size:11px;color:#fbbf24;">${q.promociones_coincidentes.map(p => `${escapeHTML(p.codigo_material)} · vence ${escapeHTML(p.valido_hasta)}`).join("<br>")}</div>`
                 : "";
             
+            const hasPendingReminder = (state.pendingReminders || []).some(r => String(r.cotizacion_id) === String(q.id));
+            const reminderIndicator = hasPendingReminder
+                ? `<span class="kanban-card-reminder-indicator" title="Tiene recordatorio pendiente agendado"><i class="fa-regular fa-calendar-check"></i></span>`
+                : "";
+
             card.innerHTML = `
                 <div class="kanban-card-header">
-                    <h4 class="kanban-card-client">${escapeHTML(q.cliente_nombre)}</h4>
+                    <h4 class="kanban-card-client" style="display:flex; align-items:center; gap:6px;">
+                        <span>${escapeHTML(q.cliente_nombre)}</span> ${reminderIndicator}
+                    </h4>
                     <span class="kanban-card-num">${quoteNum !== '-' ? '#' + quoteNum : 'Sin #'}</span>
                 </div>
                 <div class="kanban-card-body">
@@ -4085,9 +4158,17 @@ function renderKanbanColumns() {
                 <div class="kanban-card-footer">
                     <span class="kanban-card-total">$${totalStr}</span>
                     ${statusBadge}
-                    <button class="btn btn-secondary btn-sm quote-comments-btn kanban-card-actions" data-id="${q.id}" title="Comentarios de seguimiento" style="min-width:34px;padding:6px 8px;">
-                        <i class="fa-regular fa-comments"></i>${q.comentarios_seguimiento_count ? ` <small>${q.comentarios_seguimiento_count}</small>` : ""}
-                    </button>
+                    <div class="kanban-card-actions" style="display:flex; gap:4px;">
+                        <button class="btn btn-secondary btn-sm quote-comments-btn" data-id="${q.id}" title="Comentarios de seguimiento" style="min-width:34px;padding:6px 8px;">
+                            <i class="fa-regular fa-comments"></i>${q.comentarios_seguimiento_count ? ` <small>${q.comentarios_seguimiento_count}</small>` : ""}
+                        </button>
+                        <button class="btn btn-secondary btn-sm kanban-reminder-btn" data-id="${q.id}" title="Agendar recordatorio" style="min-width:34px;padding:6px 8px;">
+                            <i class="fa-regular fa-bell"></i>
+                        </button>
+                        <button class="btn btn-secondary btn-sm kanban-history-btn" data-cliente="${escapeHTML(q.numero_cliente || '')}" title="Historial del cliente" style="min-width:34px;padding:6px 8px;" ${!q.numero_cliente ? 'disabled' : ''}>
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </button>
+                    </div>
                 </div>
                 ${promotionDetail}
             `;
@@ -4103,9 +4184,26 @@ function renderKanbanColumns() {
                 card.classList.remove("dragging");
             });
             
-            // Open proposal modal on click (if they don't drag)
+            // Action button listeners
+            const remBtn = card.querySelector(".kanban-reminder-btn");
+            if (remBtn) {
+                remBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    openAddReminderModal(q.id);
+                });
+            }
+
+            const histBtn = card.querySelector(".kanban-history-btn");
+            if (histBtn) {
+                histBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    if (q.numero_cliente) openClientHistoryModal(q.numero_cliente);
+                });
+            }
+
+            // Open proposal modal on click (if they don't click action buttons or drag)
             card.addEventListener("click", (e) => {
-                if (e.target.closest(".kanban-card-actions") || card.classList.contains("dragging")) return;
+                if (e.target.closest(".kanban-card-actions") || e.target.closest(".quote-comments-btn") || e.target.closest(".kanban-reminder-btn") || e.target.closest(".kanban-history-btn") || card.classList.contains("dragging")) return;
                 showProposalModal(q);
             });
             
@@ -5173,6 +5271,379 @@ document.addEventListener("click", (e) => {
 function closeModal() {
     DOM.proposalModal.classList.add("hidden");
 }
+
+/* ==========================================================================
+   HU-1, HU-2, HU-3 FEATURE MODULES
+   ========================================================================== */
+
+// --- HU-2: CLIENT HISTORY MODAL ---
+async function openClientHistoryModal(numeroCliente) {
+    if (!numeroCliente) {
+        showToast("Por favor ingresa un número de cliente.", "info");
+        return;
+    }
+    const cleanNum = String(numeroCliente).trim();
+    if (!cleanNum || !DOM.clientHistoryModal) return;
+
+    if (DOM.clientHistorySubtitle) DOM.clientHistorySubtitle.textContent = `Consultando historial para el cliente: ${cleanNum}...`;
+    if (DOM.clientHistoryTotalQuotes) DOM.clientHistoryTotalQuotes.textContent = "0";
+    if (DOM.clientHistoryInvoicedCount) DOM.clientHistoryInvoicedCount.textContent = "0";
+    if (DOM.clientHistoryTotalQuoted) DOM.clientHistoryTotalQuoted.textContent = "$0.00";
+    if (DOM.clientHistoryTotalInvoiced) DOM.clientHistoryTotalInvoiced.textContent = "$0.00";
+    if (DOM.clientHistoryConversionRate) DOM.clientHistoryConversionRate.textContent = "0%";
+    if (DOM.clientHistoryTable) {
+        DOM.clientHistoryTable.innerHTML = '<tr><td colspan="7" style="text-align: center;">Cargando historial...</td></tr>';
+    }
+
+    DOM.clientHistoryModal.classList.remove("hidden");
+
+    try {
+        const res = await apiRequest(`/api/v1/cotizaciones/historial-cliente?numero_cliente=${encodeURIComponent(cleanNum)}`);
+        const data = res.data || {};
+        const resumen = data.resumen || {};
+        const ops = data.operaciones || [];
+
+        const clientName = data.cliente_nombre ? `${data.cliente_nombre} (${cleanNum})` : `Cliente No. ${cleanNum}`;
+        if (DOM.clientHistorySubtitle) DOM.clientHistorySubtitle.textContent = clientName;
+
+        if (DOM.clientHistoryTotalQuotes) DOM.clientHistoryTotalQuotes.textContent = resumen.total_cotizaciones || 0;
+        if (DOM.clientHistoryInvoicedCount) DOM.clientHistoryInvoicedCount.textContent = resumen.total_facturadas || 0;
+        if (DOM.clientHistoryTotalQuoted) DOM.clientHistoryTotalQuoted.textContent = `$${formatNumber(resumen.importe_cotizado || 0)}`;
+        if (DOM.clientHistoryTotalInvoiced) DOM.clientHistoryTotalInvoiced.textContent = `$${formatNumber(resumen.importe_facturado || 0)}`;
+        if (DOM.clientHistoryConversionRate) DOM.clientHistoryConversionRate.textContent = `${resumen.tasa_conversion || 0}%`;
+
+        if (DOM.clientHistoryTable) {
+            DOM.clientHistoryTable.innerHTML = "";
+            if (ops.length === 0) {
+                DOM.clientHistoryTable.innerHTML = '<tr><td colspan="7" style="text-align: center;">No se registraron operaciones para este cliente.</td></tr>';
+                return;
+            }
+
+            ops.forEach(op => {
+                let statusBadge = `<span class="badge badge-secondary">${escapeHTML(op.estado || 'Pendiente')}</span>`;
+                if (op.estado === "Facturado") {
+                    statusBadge = `<span class="badge badge-success" style="background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);">Facturado</span>`;
+                } else if (op.estado === "Venta Perdida") {
+                    statusBadge = `<span class="badge badge-danger" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4);">Venta Perdida</span>`;
+                } else if (op.estado === "Expirada") {
+                    statusBadge = `<span class="badge badge-secondary" style="background: rgba(156, 163, 175, 0.2); color: #9ca3af;">Expirada</span>`;
+                } else if (op.estado === "Pendiente") {
+                    statusBadge = `<span class="badge badge-warning" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4);">Pendiente</span>`;
+                }
+
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td><code>${escapeHTML(op.numero_cotizacion || 'S/N')}</code></td>
+                    <td>${op.fecha_registro ? escapeHTML(op.fecha_registro.split('T')[0]) : '-'}</td>
+                    <td>${escapeHTML(op.canal || '-')}</td>
+                    <td><strong>$${formatNumber(op.total_cotizado || 0)}</strong></td>
+                    <td>$${formatNumber(op.importe_facturado || 0)}${op.numero_factura ? ` <small class="text-muted">(${escapeHTML(op.numero_factura)})</small>` : ''}</td>
+                    <td>${statusBadge}</td>
+                    <td>${escapeHTML(op.vendedor_nombre || '-')}</td>
+                `;
+                DOM.clientHistoryTable.appendChild(tr);
+            });
+        }
+    } catch (err) {
+        showToast("Error al cargar historial del cliente: " + err.message, "error");
+        if (DOM.clientHistoryTable) {
+            DOM.clientHistoryTable.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #ef4444;">${escapeHTML(err.message)}</td></tr>`;
+        }
+    }
+}
+
+function closeClientHistoryModal() {
+    if (DOM.clientHistoryModal) DOM.clientHistoryModal.classList.add("hidden");
+}
+
+if (DOM.btnCloseClientHistory) DOM.btnCloseClientHistory.addEventListener("click", closeClientHistoryModal);
+if (DOM.btnCancelClientHistory) DOM.btnCancelClientHistory.addEventListener("click", closeClientHistoryModal);
+if (DOM.clientHistoryModal) {
+    DOM.clientHistoryModal.addEventListener("click", (e) => {
+        if (e.target === DOM.clientHistoryModal) closeClientHistoryModal();
+    });
+}
+
+if (DOM.btnSearchClientHistory) {
+    DOM.btnSearchClientHistory.addEventListener("click", () => {
+        const val = DOM.searchClientHistoryInput ? DOM.searchClientHistoryInput.value : "";
+        openClientHistoryModal(val);
+    });
+}
+if (DOM.searchClientHistoryInput) {
+    DOM.searchClientHistoryInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            openClientHistoryModal(DOM.searchClientHistoryInput.value);
+        }
+    });
+}
+
+
+// --- HU-3: POTENTIAL CLIENTS FOR PROMOTION MODAL ---
+async function openPromoClientsModal(promoId) {
+    if (!promoId || !DOM.promoClientsModal) return;
+
+    if (DOM.promoClientsInfo) DOM.promoClientsInfo.textContent = "Cargando clientes potenciales...";
+    if (DOM.promoClientsTable) {
+        DOM.promoClientsTable.innerHTML = '<tr><td colspan="5" style="text-align: center;">Cargando clientes potenciales...</td></tr>';
+    }
+
+    DOM.promoClientsModal.classList.remove("hidden");
+
+    try {
+        const res = await apiRequest(`/api/v1/promociones/${promoId}/clientes-potenciales`);
+        const data = res.data || {};
+        const promo = data.promocion || {};
+        const clients = data.clientes || [];
+
+        const promoDesc = promo.descripcion_material || promo.codigo_material || "Material en Promoción";
+        const promoPrice = promo.precio_promocion ? `$${formatNumber(promo.precio_promocion)}` : "Precio especial";
+        const promoValid = promo.valido_hasta ? promo.valido_hasta.split("T")[0] : "por tiempo limitado";
+
+        if (DOM.promoClientsInfo) {
+            DOM.promoClientsInfo.innerHTML = `<strong>${escapeHTML(promoDesc)}</strong> · Precio Promo: <span style="color:#10b981; font-weight:700;">${escapeHTML(promoPrice)}</span> · Válido hasta: ${escapeHTML(promoValid)} · <strong>${data.total_clientes || clients.length} clientes potenciales</strong>`;
+        }
+
+        if (DOM.promoClientsTable) {
+            DOM.promoClientsTable.innerHTML = "";
+            if (clients.length === 0) {
+                DOM.promoClientsTable.innerHTML = '<tr><td colspan="5" style="text-align: center;">No se encontraron clientes anteriores para este producto.</td></tr>';
+                return;
+            }
+
+            clients.forEach(c => {
+                const acciones = c.acciones || {};
+                const contact = c.contacto || {};
+                const phone = acciones.telefono || contact.contacto_preferente || contact.telefono || "";
+
+                let actionButtons = [];
+
+                if (acciones.whatsapp_url) {
+                    actionButtons.push(`
+                        <a href="${escapeHTML(acciones.whatsapp_url)}" target="_blank" rel="noopener" class="btn btn-sm btn-action-wa" title="Contactar por WhatsApp">
+                            <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                        </a>
+                    `);
+                }
+
+                if (acciones.email_url) {
+                    actionButtons.push(`
+                        <a href="${escapeHTML(acciones.email_url)}" class="btn btn-sm btn-action-email" title="Enviar Email">
+                            <i class="fa-regular fa-envelope"></i> Email
+                        </a>
+                    `);
+                }
+
+                if (phone) {
+                    actionButtons.push(`
+                        <a href="tel:${escapeHTML(phone)}" class="btn btn-secondary btn-sm" title="Llamar">
+                            <i class="fa-solid fa-phone"></i> ${escapeHTML(phone)}
+                        </a>
+                    `);
+                }
+
+                if (actionButtons.length === 0) {
+                    actionButtons.push('<span class="text-muted" style="font-size: 12px;">Sin contacto disponible</span>');
+                }
+
+                const clientDisplay = `<strong>${escapeHTML(c.cliente_nombre || 'Cliente')}</strong>${c.numero_cliente ? `<br><small class="text-muted">No. ${escapeHTML(c.numero_cliente)}</small>` : ''}`;
+
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${clientDisplay}</td>
+                    <td>${escapeHTML(c.vendedor_nombre || '-')}</td>
+                    <td>${c.ultima_compra ? escapeHTML(c.ultima_compra.split('T')[0]) : '-'}</td>
+                    <td style="text-align: right; font-weight: 600;">${formatNumber(c.cantidad_comprada || 0)}</td>
+                    <td><div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">${actionButtons.join('')}</div></td>
+                `;
+                DOM.promoClientsTable.appendChild(tr);
+            });
+        }
+    } catch (err) {
+        showToast("Error al cargar clientes potenciales: " + err.message, "error");
+        if (DOM.promoClientsTable) {
+            DOM.promoClientsTable.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #ef4444;">${escapeHTML(err.message)}</td></tr>`;
+        }
+    }
+}
+
+function closePromoClientsModal() {
+    if (DOM.promoClientsModal) DOM.promoClientsModal.classList.add("hidden");
+}
+
+if (DOM.btnClosePromoClients) DOM.btnClosePromoClients.addEventListener("click", closePromoClientsModal);
+if (DOM.btnCancelPromoClients) DOM.btnCancelPromoClients.addEventListener("click", closePromoClientsModal);
+if (DOM.promoClientsModal) {
+    DOM.promoClientsModal.addEventListener("click", (e) => {
+        if (e.target === DOM.promoClientsModal) closePromoClientsModal();
+    });
+}
+
+
+// --- HU-1: SCHEDULED FOLLOW-UP REMINDERS ---
+function openAddReminderModal(quoteId) {
+    if (!quoteId || !DOM.addReminderModal) return;
+    if (DOM.reminderQuoteId) DOM.reminderQuoteId.value = quoteId;
+    if (DOM.reminderDateInput) {
+        const todayStr = new Date().toISOString().split("T")[0];
+        DOM.reminderDateInput.value = todayStr;
+    }
+    if (DOM.reminderNoteInput) DOM.reminderNoteInput.value = "";
+    DOM.addReminderModal.classList.remove("hidden");
+}
+
+function closeAddReminderModal() {
+    if (DOM.addReminderModal) DOM.addReminderModal.classList.add("hidden");
+    if (DOM.addReminderForm) DOM.addReminderForm.reset();
+}
+
+if (DOM.btnCloseAddReminder) DOM.btnCloseAddReminder.addEventListener("click", closeAddReminderModal);
+if (DOM.btnCancelAddReminder) DOM.btnCancelAddReminder.addEventListener("click", closeAddReminderModal);
+if (DOM.addReminderModal) {
+    DOM.addReminderModal.addEventListener("click", (e) => {
+        if (e.target === DOM.addReminderModal) closeAddReminderModal();
+    });
+}
+
+if (DOM.addReminderForm) {
+    DOM.addReminderForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const quoteId = DOM.reminderQuoteId ? DOM.reminderQuoteId.value : "";
+        const dateVal = DOM.reminderDateInput ? DOM.reminderDateInput.value : "";
+        const noteVal = DOM.reminderNoteInput ? DOM.reminderNoteInput.value : "";
+        await saveReminder(quoteId, dateVal, noteVal);
+    });
+}
+
+async function saveReminder(quoteId, dateVal, noteVal) {
+    if (!quoteId || !dateVal) {
+        showToast("Por favor selecciona una fecha programada.", "error");
+        return;
+    }
+    try {
+        const payload = {
+            fecha_programada: dateVal,
+            nota: noteVal ? noteVal.trim() : null
+        };
+        const res = await apiRequest(`/api/v1/cotizaciones/${quoteId}/recordatorio`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+        if (res.status === "success") {
+            showToast(res.message || "Recordatorio agendado exitosamente.", "success");
+            closeAddReminderModal();
+            await loadPendingReminders();
+        }
+    } catch (err) {
+        showToast("Error al guardar recordatorio: " + err.message, "error");
+    }
+}
+
+async function toggleReminderComplete(reminderId, completed) {
+    try {
+        const res = await apiRequest(`/api/v1/cotizaciones/recordatorios/${reminderId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ completado: completed })
+        });
+        if (res.status === "success") {
+            showToast(completed ? "Recordatorio marcado como completado." : "Recordatorio actualizado.", "success");
+            await loadPendingReminders();
+        }
+    } catch (err) {
+        showToast("Error al actualizar recordatorio: " + err.message, "error");
+    }
+}
+
+async function loadPendingReminders() {
+    if (!state.token || !state.user || state.user.rol === "soporte") return;
+    try {
+        const res = await apiRequest("/api/v1/cotizaciones/recordatorios/pendientes");
+        state.pendingReminders = res.data || [];
+        
+        const pendingCount = state.pendingReminders.length;
+        if (DOM.remindersNavBadge) {
+            DOM.remindersNavBadge.textContent = pendingCount;
+            if (pendingCount > 0) {
+                DOM.remindersNavBadge.classList.remove("hidden");
+            } else {
+                DOM.remindersNavBadge.classList.add("hidden");
+            }
+        }
+
+        if (DOM.dailyRemindersBadgeCount) {
+            DOM.dailyRemindersBadgeCount.textContent = `${pendingCount} pendiente${pendingCount !== 1 ? 's' : ''}`;
+        }
+
+        if (DOM.dailyRemindersList) {
+            if (state.pendingReminders.length === 0) {
+                DOM.dailyRemindersList.innerHTML = `<p class="text-muted" style="margin: 0; padding: 12px 0;">No tienes seguimientos pendientes agendados.</p>`;
+            } else {
+                const todayStr = new Date().toISOString().split("T")[0];
+                DOM.dailyRemindersList.innerHTML = state.pendingReminders.map(r => {
+                    const rDate = r.fecha_programada ? r.fecha_programada.split("T")[0] : "";
+                    const isPast = rDate && rDate < todayStr;
+                    const isToday = rDate === todayStr;
+                    
+                    let badgeClass = "badge-primary";
+                    let badgeText = rDate;
+                    if (isPast) {
+                        badgeClass = "badge-danger";
+                        badgeText = `${rDate} (Vencido)`;
+                    } else if (isToday) {
+                        badgeClass = "badge-warning";
+                        badgeText = `${rDate} (Hoy)`;
+                    }
+
+                    return `
+                        <div class="reminder-item-card glass-card" style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; gap: 16px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);">
+                            <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                                <input type="checkbox" class="reminder-checkbox" data-id="${r.id}" style="width: 18px; height: 18px; cursor: pointer; accent-color: #10b981;">
+                                <div style="display: flex; flex-direction: column; gap: 2px;">
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        <strong style="font-size: 14px; color: hsl(var(--text-primary));">${escapeHTML(r.cliente_nombre || "Cliente")}</strong>
+                                        ${r.numero_cotizacion ? `<span style="font-size: 12px; color: #38bdf8; font-weight: 600;">Cotización #${escapeHTML(r.numero_cotizacion)}</span>` : ""}
+                                        <span class="badge ${badgeClass}" style="font-size: 11px;">${escapeHTML(badgeText)}</span>
+                                    </div>
+                                    ${r.nota ? `<p style="font-size: 13px; color: hsl(var(--text-secondary)); margin: 2px 0 0 0;">${escapeHTML(r.nota)}</p>` : ""}
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="openQuoteCommentsModal({ id: '${r.cotizacion_id}', cliente_nombre: '${escapeHTML(r.cliente_nombre || '')}' })" title="Ver comentarios de seguimiento">
+                                    <i class="fa-regular fa-comments"></i>
+                                </button>
+                                ${r.numero_cliente ? `<button type="button" class="btn btn-secondary btn-sm" onclick="openClientHistoryModal('${escapeHTML(r.numero_cliente)}')" title="Historial del Cliente"><i class="fa-solid fa-clock-rotate-left"></i></button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join("");
+
+                DOM.dailyRemindersList.querySelectorAll(".reminder-checkbox").forEach(chk => {
+                    chk.addEventListener("change", (e) => {
+                        const id = e.target.getAttribute("data-id");
+                        if (id) toggleReminderComplete(id, e.target.checked);
+                    });
+                });
+            }
+        }
+
+        if (state.currentSection === "seguimiento") {
+            renderKanbanColumns();
+        }
+    } catch (err) {
+        console.error("Error loading pending reminders:", err);
+    }
+}
+
+if (DOM.remindersNavBtn) {
+    DOM.remindersNavBtn.addEventListener("click", () => {
+        switchSection("summary");
+        if (DOM.dailyRemindersCard) {
+            DOM.dailyRemindersCard.scrollIntoView({ behavior: "smooth" });
+        }
+    });
+}
+
 
 DOM.btnCloseProposalModal?.addEventListener("click", closeModal);
 DOM.btnCloseProposal?.addEventListener("click", closeModal);
@@ -7718,3 +8189,256 @@ document.addEventListener('DOMContentLoaded', () => {
         loadSobrepedidosData();
     });
 });
+
+/* ==========================================================================
+   HU-1, HU-2, HU-3 FUNCTIONS & EVENT LISTENERS
+   ========================================================================== */
+
+// --- HU-2: HISTORIAL DEL CLIENTE ---
+async function openClientHistoryModal(numeroCliente) {
+    if (!numeroCliente) return;
+    if (!DOM.clientHistoryModal) return;
+
+    DOM.clientHistorySubtitle.textContent = `Buscando historial para el Cliente No. ${escapeHTML(numeroCliente)}...`;
+    DOM.clientHistoryTable.innerHTML = '<tr><td colspan="7" class="text-center">Cargando operaciones...</td></tr>';
+    DOM.clientHistoryModal.classList.remove("hidden");
+
+    try {
+        const res = await apiRequest(`/api/v1/cotizaciones/historial-cliente?numero_cliente=${encodeURIComponent(numeroCliente)}`);
+        const history = res.data;
+
+        const nombre = history.cliente_nombre || `Cliente No. ${numeroCliente}`;
+        DOM.clientHistorySubtitle.textContent = `${escapeHTML(nombre)} · No. SAP: ${escapeHTML(history.numero_cliente)}`;
+
+        DOM.clientHistoryTotalQuotes.textContent = history.resumen.total_cotizaciones;
+        DOM.clientHistoryInvoicedCount.textContent = history.resumen.total_facturadas;
+        DOM.clientHistoryTotalQuoted.textContent = `$${history.resumen.importe_cotizado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+        DOM.clientHistoryTotalInvoiced.textContent = `$${history.resumen.importe_facturado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+        DOM.clientHistoryConversionRate.textContent = `${history.resumen.tasa_conversion}%`;
+
+        if (!history.operaciones || history.operaciones.length === 0) {
+            DOM.clientHistoryTable.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No se encontraron operaciones registradas para este cliente.</td></tr>';
+            return;
+        }
+
+        DOM.clientHistoryTable.innerHTML = history.operaciones.map(op => {
+            let badgeClass = "badge-secondary";
+            if (op.estado === "Facturado") badgeClass = "badge-success";
+            else if (op.estado === "Venta Perdida") badgeClass = "badge-danger";
+            else if (op.estado === "Expirada") badgeClass = "badge-warning";
+            else if (op.estado === "Pendiente") badgeClass = "badge-primary";
+
+            return `
+                <tr>
+                    <td><strong>${escapeHTML(op.numero_cotizacion || 'Sin #')}</strong></td>
+                    <td>${op.fecha_registro || '-'}</td>
+                    <td>${escapeHTML(op.canal || '-')}</td>
+                    <td>$${op.total_cotizado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
+                    <td>${op.importe_facturado > 0 ? '$' + op.importe_facturado.toLocaleString('es-MX', { minimumFractionDigits: 2 }) : '-'}</td>
+                    <td><span class="badge ${badgeClass}">${op.estado}</span></td>
+                    <td><small>${escapeHTML(op.vendedor_nombre || 'Asesor')}</small></td>
+                </tr>
+            `;
+        }).join("");
+    } catch (err) {
+        showToast("Error al obtener historial del cliente: " + err.message, "error");
+        DOM.clientHistorySubtitle.textContent = "Error al cargar datos.";
+    }
+}
+
+// --- HU-3: CLIENTES POTENCIALES DE PROMOCIÓN ---
+async function openPromoClientsModal(promoId) {
+    if (!promoId) return;
+    if (!DOM.promoClientsModal) return;
+
+    DOM.promoClientsInfo.textContent = "Cargando clientes potenciales...";
+    DOM.promoClientsTable.innerHTML = '<tr><td colspan="5" class="text-center">Cargando...</td></tr>';
+    DOM.promoClientsModal.classList.remove("hidden");
+
+    try {
+        const res = await apiRequest(`/api/v1/promociones/${promoId}/clientes-potenciales`);
+        const data = res.data;
+        const promo = data.promocion;
+
+        DOM.promoClientsInfo.innerHTML = `
+            <strong>${escapeHTML(promo.descripcion_material || promo.codigo_material)}</strong> 
+            · Precio Promo: <span style="color:#10b981; font-weight:700;">$${(promo.precio_promocion || 0).toLocaleString('es-MX', {minimumFractionDigits: 2})}</span>
+            · Total Clientes: <span class="badge badge-primary">${data.total_clientes}</span>
+        `;
+
+        if (!data.clientes || data.clientes.length === 0) {
+            DOM.promoClientsTable.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No se encontraron clientes registrados que hayan comprado previamente este material.</td></tr>';
+            return;
+        }
+
+        DOM.promoClientsTable.innerHTML = data.clientes.map(c => {
+            const waBtn = c.acciones.whatsapp_url
+                ? `<a href="${c.acciones.whatsapp_url}" target="_blank" rel="noopener" class="btn btn-sm btn-action-wa" title="Enviar WhatsApp"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>`
+                : `<span class="text-muted" style="font-size:11px;">Sin celular</span>`;
+
+            const emailBtn = c.acciones.email_url
+                ? `<a href="${c.acciones.email_url}" class="btn btn-sm btn-action-email" title="Enviar Correo"><i class="fa-regular fa-envelope"></i> Correo</a>`
+                : `<span class="text-muted" style="font-size:11px;">Sin correo</span>`;
+
+            return `
+                <tr>
+                    <td>
+                        <strong>${escapeHTML(c.cliente_nombre || 'Cliente sin nombre')}</strong>
+                        ${c.numero_cliente ? `<br><small class="text-muted">No. ${escapeHTML(c.numero_cliente)}</small>` : ''}
+                    </td>
+                    <td><small>${escapeHTML(c.vendedor_nombre || 'Asesor')}</small></td>
+                    <td>${c.ultima_compra || '-'}</td>
+                    <td><strong>${c.cantidad_total}</strong> <small class="text-muted">($${c.importe_total.toLocaleString('es-MX', {minimumFractionDigits: 2})})</small></td>
+                    <td>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            ${waBtn}
+                            ${emailBtn}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+    } catch (err) {
+        showToast("Error al cargar clientes potenciales: " + err.message, "error");
+    }
+}
+
+// --- HU-1: RECORDATORIOS DE SEGUIMIENTO ---
+async function openAddReminderModal(quoteId) {
+    if (!quoteId) return;
+    if (!DOM.addReminderModal) return;
+
+    DOM.reminderQuoteId.value = quoteId;
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    DOM.reminderDateInput.value = tomorrow.toISOString().split('T')[0];
+    DOM.reminderNoteInput.value = "";
+    DOM.addReminderModal.classList.remove("hidden");
+}
+
+async function saveReminder(e) {
+    e.preventDefault();
+    const quoteId = DOM.reminderQuoteId.value;
+    const dateVal = DOM.reminderDateInput.value;
+    const noteVal = DOM.reminderNoteInput.value;
+
+    if (!quoteId || !dateVal) {
+        showToast("Selecciona una fecha válida.", "error");
+        return;
+    }
+
+    try {
+        const res = await apiRequest(`/api/v1/cotizaciones/${quoteId}/recordatorio`, {
+            method: "POST",
+            body: JSON.stringify({
+                fecha_programada: dateVal,
+                nota: noteVal || null
+            })
+        });
+        showToast(res.message, "success");
+        DOM.addReminderModal.classList.add("hidden");
+        await loadPendingReminders();
+    } catch (err) {
+        showToast("Error al guardar recordatorio: " + err.message, "error");
+    }
+}
+
+async function loadPendingReminders() {
+    try {
+        const res = await apiRequest("/api/v1/cotizaciones/recordatorios/pendientes");
+        state.pendingReminders = res.data || [];
+
+        // Update nav badge
+        const count = state.pendingReminders.length;
+        if (DOM.remindersNavBadge) {
+            DOM.remindersNavBadge.textContent = count;
+            if (count > 0) DOM.remindersNavBadge.classList.remove("hidden");
+            else DOM.remindersNavBadge.classList.add("hidden");
+        }
+
+        // Update Dashboard card
+        if (DOM.dailyRemindersBadgeCount) {
+            DOM.dailyRemindersBadgeCount.textContent = `${count} pendiente${count === 1 ? '' : 's'}`;
+        }
+
+        if (DOM.dailyRemindersList) {
+            if (count === 0) {
+                DOM.dailyRemindersList.innerHTML = '<p class="text-muted" style="margin: 0; padding: 8px 0;"><i class="fa-solid fa-circle-check" style="color: #10b981;"></i> No tienes seguimientos pendientes para hoy.</p>';
+            } else {
+                const todayStr = new Date().toISOString().split('T')[0];
+                DOM.dailyRemindersList.innerHTML = state.pendingReminders.map(r => {
+                    const isDueToday = r.fecha_programada <= todayStr;
+                    const borderStyle = isDueToday ? 'border-left: 4px solid #f59e0b;' : 'border-left: 4px solid #38bdf8;';
+                    const dueLabel = isDueToday ? '<span class="badge badge-warning">¡Hoy!</span>' : `<span class="badge badge-secondary">${r.fecha_programada}</span>`;
+
+                    return `
+                        <div class="glass-card reminder-item-card" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; ${borderStyle}">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <strong>${escapeHTML(r.cliente_nombre)}</strong>
+                                    ${r.numero_cotizacion ? `<small class="text-muted">#${escapeHTML(r.numero_cotizacion)}</small>` : ''}
+                                    ${dueLabel}
+                                </div>
+                                ${r.nota ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: hsl(var(--text-secondary));"><i class="fa-regular fa-note-sticky"></i> ${escapeHTML(r.nota)}</p>` : ''}
+                            </div>
+                            <button class="btn btn-sm btn-secondary btn-complete-reminder" data-id="${r.id}" title="Marcar como completado">
+                                <i class="fa-solid fa-check"></i> Listo
+                            </button>
+                        </div>
+                    `;
+                }).join("");
+
+                // Attach event listener for complete button
+                DOM.dailyRemindersList.querySelectorAll(".btn-complete-reminder").forEach(btn => {
+                    btn.addEventListener("click", async () => {
+                        const remId = btn.getAttribute("data-id");
+                        try {
+                            await apiRequest(`/api/v1/cotizaciones/recordatorios/${remId}`, {
+                                method: "PATCH",
+                                body: JSON.stringify({ completado: true })
+                            });
+                            showToast("Seguimiento marcado como completado.", "success");
+                            await loadPendingReminders();
+                        } catch (err) {
+                            showToast("Error al actualizar recordatorio: " + err.message, "error");
+                        }
+                    });
+                });
+            }
+        }
+    } catch (err) {
+        console.error("Error loading pending reminders:", err);
+    }
+}
+
+// Global Event Listeners for HU-1, HU-2, HU-3
+document.addEventListener("DOMContentLoaded", () => {
+    // Client History Modal Listeners
+    DOM.btnCloseClientHistory?.addEventListener("click", () => DOM.clientHistoryModal.classList.add("hidden"));
+    DOM.btnCancelClientHistory?.addEventListener("click", () => DOM.clientHistoryModal.classList.add("hidden"));
+
+    if (DOM.btnSearchClientHistory && DOM.searchClientHistoryInput) {
+        DOM.btnSearchClientHistory.addEventListener("click", () => {
+            const val = DOM.searchClientHistoryInput.value.trim();
+            if (val) openClientHistoryModal(val);
+            else showToast("Ingresa un número de cliente.", "info");
+        });
+        DOM.searchClientHistoryInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                const val = DOM.searchClientHistoryInput.value.trim();
+                if (val) openClientHistoryModal(val);
+            }
+        });
+    }
+
+    // Promo Clients Modal Listeners
+    DOM.btnClosePromoClients?.addEventListener("click", () => DOM.promoClientsModal.classList.add("hidden"));
+    DOM.btnCancelPromoClients?.addEventListener("click", () => DOM.promoClientsModal.classList.add("hidden"));
+
+    // Add Reminder Modal Listeners
+    DOM.btnCloseAddReminder?.addEventListener("click", () => DOM.addReminderModal.classList.add("hidden"));
+    DOM.btnCancelAddReminder?.addEventListener("click", () => DOM.addReminderModal.classList.add("hidden"));
+    DOM.addReminderForm?.addEventListener("submit", saveReminder);
+    DOM.remindersNavBtn?.addEventListener("click", () => switchSection("summary"));
+});
+
