@@ -5597,13 +5597,28 @@ if (analystTrigger) {
    ========================================================================== */
 
 function initTheme() {
-    document.body.classList.add("light-mode");
-    localStorage.setItem("theme_mode", "light");
+    const savedTheme = localStorage.getItem("theme_mode");
+    if (savedTheme === "dark") {
+        document.body.classList.remove("light-mode");
+        if (DOM.themeToggleIcon) {
+            DOM.themeToggleIcon.className = "fa-solid fa-moon";
+        }
+    } else {
+        document.body.classList.add("light-mode");
+        localStorage.setItem("theme_mode", "light");
+        if (DOM.themeToggleIcon) {
+            DOM.themeToggleIcon.className = "fa-solid fa-sun";
+        }
+    }
 }
 
 function toggleTheme() {
-    document.body.classList.add("light-mode");
-    localStorage.setItem("theme_mode", "light");
+    const isLight = document.body.classList.toggle("light-mode");
+    const newTheme = isLight ? "light" : "dark";
+    localStorage.setItem("theme_mode", newTheme);
+    if (DOM.themeToggleIcon) {
+        DOM.themeToggleIcon.className = isLight ? "fa-solid fa-sun" : "fa-solid fa-moon";
+    }
 }
 
 /* ==========================================================================
