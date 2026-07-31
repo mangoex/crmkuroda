@@ -16,7 +16,9 @@ a sus cotizaciones.
 - La vigencia operativa de una cotización pendiente es de 30 días.
 - El día comercial se calcula con la zona horaria configurada; por defecto
   `America/Mazatlan`.
-- El menú lateral tiene un orden fijo para todos los roles.
+- El menú lateral tiene un orden fijo estricto (Mi Panel, Seguimiento, Cotizaciones, Promociones, Inventario D, Sobrepedidos, Por entregar, Vendedores, Centro de Agentes, La Ventaja, Asignación, API WhatsApp) sin funcionalidad de reordenamiento drag & drop.
+- El sistema opera únicamente en versión clara (light-mode), habiendo deshabilitado la conmutación a modo oscuro.
+- Los cálculos deterministas de menú, ordenamiento y métricas son procesados exclusivamente en backend con Python.
 - El contacto preferente es celular y, si falta, teléfono.
 - Los comentarios de seguimiento son un historial independiente del motivo de
   venta perdida.
@@ -48,10 +50,9 @@ Gerencia y vendedores consultan importe facturado, operaciones, importe
 cotizado, conversión, ticket promedio y participación por canal. Los códigos
 desconocidos permanecen visibles como `Sin clasificar`.
 
-### HU-03 — Orden fijo del menú lateral
+### HU-03 — Orden fijo del menú lateral y modo claro exclusivo
 
-Las pestañas no se pueden reordenar mediante ratón, tacto o preferencias
-guardadas en el navegador.
+Las pestañas del menú lateral se presentan en un orden estricto (Mi Panel, Seguimiento, Cotizaciones, Promociones, Inventario D, Sobrepedidos, Por entregar, Vendedores, Centro de Agentes, La Ventaja, Asignación, API WhatsApp) y no se pueden reordenar mediante arrastre (*drag & drop*) ni preferencias guardadas. El sistema opera exclusivamente en su versión clara (light-mode).
 
 ### HU-04 — Rendimiento de asesores
 

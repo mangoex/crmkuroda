@@ -19,8 +19,10 @@
 ## HU-03
 
 **Dado** cualquier rol autenticado
-**Cuando** intenta arrastrar una pestaña lateral
-**Entonces** el orden no cambia después de recargar.
+**Cuando** carga el sistema o interactúa con el menú lateral
+**Entonces** las pestañas se presentan en el orden fijo oficial (Mi Panel, Seguimiento, Cotizaciones, Promociones, Inventario D, Sobrepedidos, Por entregar, Vendedores, Centro de Agentes, La Ventaja, Asignación, API WhatsApp)
+**Y** las pestañas carecen de la capacidad de arrastre (*drag & drop*)
+**Y** la interfaz se renderiza exclusivamente en versión clara (*light-mode*).
 
 ## HU-04
 

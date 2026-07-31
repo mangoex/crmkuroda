@@ -20,8 +20,9 @@ class MenuServiceTest(unittest.TestCase):
         self.assertNotIn("vendedores", vendedor_sections)
         self.assertNotIn("asignacion", vendedor_sections)
         self.assertNotIn("api", vendedor_sections)
-        self.assertIn("summary", vendedor_sections)
-        self.assertIn("cotizaciones", vendedor_sections)
+        self.assertEqual(vendedor_sections[0], "summary")
+        self.assertEqual(vendedor_sections[1], "seguimiento")
+        self.assertEqual(vendedor_sections[2], "cotizaciones")
 
     def test_default_menu_order_admin_and_gerente(self):
         admin_sections = get_allowed_sections_for_role("admin")
@@ -31,50 +32,25 @@ class MenuServiceTest(unittest.TestCase):
         self.assertIn("api", admin_sections)
         self.assertEqual(len(admin_sections), 12)
         self.assertEqual(len(gerente_sections), 12)
+        self.assertEqual(admin_sections[0], "summary")
+        self.assertEqual(admin_sections[1], "seguimiento")
+        self.assertEqual(admin_sections[7], "vendedores")
 
-    def test_custom_reordering_vendedor(self):
+    def test_fixed_menu_order_ignores_custom_reordering(self):
         custom = ["cotizaciones", "slight-edge", "summary", "promociones"]
         ordered = calculate_menu_order("vendedor", custom)
-        
-        # Check that requested custom items come first in specified order
-        self.assertEqual(ordered[0], "cotizaciones")
-        self.assertEqual(ordered[1], "slight-edge")
-        self.assertEqual(ordered[2], "summary")
-        self.assertEqual(ordered[3], "promociones")
-
-        # Check all allowed vendor items are present
         allowed = get_allowed_sections_for_role("vendedor")
-        self.assertEqual(set(ordered), set(allowed))
-        self.assertEqual(len(ordered), len(allowed))
+        self.assertEqual(ordered, allowed)
 
     def test_role_restriction_strips_forbidden_sections(self):
-        # A vendedor attempts to inject admin-only sections in custom order
         custom = ["api", "vendedores", "cotizaciones", "asignacion", "summary"]
         ordered = calculate_menu_order("vendedor", custom)
-
         self.assertNotIn("api", ordered)
         self.assertNotIn("vendedores", ordered)
         self.assertNotIn("asignacion", ordered)
-        self.assertEqual(ordered[0], "cotizaciones")
-        self.assertEqual(ordered[1], "summary")
-
-    def test_missing_sections_appended(self):
-        custom = ["seguimiento"]
-        ordered = calculate_menu_order("vendedor", custom)
-        
-        self.assertEqual(ordered[0], "seguimiento")
-        # Remaining allowed items appended
-        self.assertEqual(len(ordered), len(get_allowed_sections_for_role("vendedor")))
-
-    def test_duplicate_removal(self):
-        custom = ["cotizaciones", "summary", "cotizaciones", "summary", "agentes"]
-        ordered = calculate_menu_order("admin", custom)
-
-        self.assertEqual(ordered[0], "cotizaciones")
-        self.assertEqual(ordered[1], "summary")
-        self.assertEqual(ordered[2], "agentes")
-        self.assertEqual(len(ordered), 12)
+        self.assertEqual(ordered, get_allowed_sections_for_role("vendedor"))
 
 
 if __name__ == "__main__":
     unittest.main()
+

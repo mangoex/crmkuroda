@@ -16,6 +16,7 @@ class DarkUixContractTest(unittest.TestCase):
     def test_dark_redesign_is_scoped_away_from_light_mode(self):
         self.assertIn("body:not(.light-mode)", self.dark_section)
         self.assertNotIn("body.light-mode", self.dark_section)
+        self.assertIn('<body class="light-mode">', self.html)
 
     def test_dark_redesign_has_primitive_semantic_and_component_tokens(self):
         for token in (

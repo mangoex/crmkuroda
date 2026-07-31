@@ -5245,92 +5245,17 @@ function saveCurrentMenuOrder() {
     localStorage.setItem(storageKey, JSON.stringify(currentOrder));
 }
 
-function getDragAfterElement(container, y) {
-    const draggableElements = Array.from(
-        container.querySelectorAll(".menu-item:not(.dragging):not(.hidden)")
-    );
-
-    return draggableElements.reduce(
-        (closest, child) => {
-            const box = child.getBoundingClientRect();
-            const offset = y - box.top - box.height / 2;
-            if (offset < 0 && offset > closest.offset) {
-                return { offset: offset, element: child };
-            } else {
-                return closest;
-            }
-        },
-        { offset: Number.NEGATIVE_INFINITY }
-    ).element;
-}
-
 function initSidebarMenuDragAndDrop() {
     const menuContainer = document.getElementById("sidebar-menu");
     if (!menuContainer) return;
 
-    let draggedItem = null;
-
-    const updateMenuItemsDraggable = () => {
-        menuContainer.querySelectorAll(".menu-item").forEach(item => {
-            item.setAttribute("draggable", "true");
-        });
-    };
-    updateMenuItemsDraggable();
-
-    menuContainer.addEventListener("dragstart", (e) => {
-        const targetItem = e.target.closest(".menu-item");
-        if (!targetItem) return;
-        draggedItem = targetItem;
-        draggedItem.classList.add("dragging");
-
-        if (e.dataTransfer) {
-            e.dataTransfer.effectAllowed = "move";
-            e.dataTransfer.setData("text/plain", targetItem.getAttribute("data-section") || "");
-        }
-    });
-
-    menuContainer.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        if (e.dataTransfer) {
-            e.dataTransfer.dropEffect = "move";
-        }
-
-        if (!draggedItem) return;
-
-        const afterElement = getDragAfterElement(menuContainer, e.clientY);
-        if (afterElement == null) {
-            menuContainer.appendChild(draggedItem);
-        } else {
-            menuContainer.insertBefore(draggedItem, afterElement);
-        }
-    });
-
-    menuContainer.addEventListener("drop", (e) => {
-        e.preventDefault();
-        if (draggedItem) {
-            draggedItem.classList.remove("dragging");
-        }
-        menuContainer.querySelectorAll(".menu-item").forEach(item => {
-            item.classList.remove("dragging", "drag-over-above", "drag-over-below");
-        });
-        saveCurrentMenuOrder();
-        DOM.menuItems = document.querySelectorAll(".menu-item");
-    });
-
-    menuContainer.addEventListener("dragend", () => {
-        if (draggedItem) {
-            draggedItem.classList.remove("dragging");
-            draggedItem = null;
-        }
-        menuContainer.querySelectorAll(".menu-item").forEach(item => {
-            item.classList.remove("dragging", "drag-over-above", "drag-over-below");
-        });
-        saveCurrentMenuOrder();
-        DOM.menuItems = document.querySelectorAll(".menu-item");
+    menuContainer.querySelectorAll(".menu-item").forEach(item => {
+        item.draggable = false;
+        item.removeAttribute("draggable");
     });
 }
 
-// Initialize Drag and Drop on startup
+// Initialize Sidebar Menu on startup
 initSidebarMenuDragAndDrop();
 
 // Sidebar collapse persistence on load
@@ -5353,14 +5278,12 @@ if (DOM.btnToggleSidebar) {
    ========================================================================== */
 
 function initSidebarDrag() {
-    // El orden del menú es parte del contrato del producto y no es editable.
     document.querySelectorAll(".sidebar-menu .menu-item").forEach(item => {
         item.draggable = false;
         item.removeAttribute("draggable");
     });
 }
 
-// Inicializa el drag una sola vez al cargar la página (seguro ante cualquier orden de carga)
 if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initSidebarDrag);
 } else {
@@ -5674,42 +5597,13 @@ if (analystTrigger) {
    ========================================================================== */
 
 function initTheme() {
-    const savedTheme = localStorage.getItem("theme_mode");
-    const themeIcon = DOM.themeToggleIcon || document.getElementById("theme-toggle-icon");
-    if (savedTheme === "light") {
-        document.body.classList.add("light-mode");
-        if (themeIcon) {
-            themeIcon.className = "fa-solid fa-moon";
-        }
-    } else {
-        document.body.classList.remove("light-mode");
-        if (themeIcon) {
-            themeIcon.className = "fa-solid fa-sun";
-        }
-    }
+    document.body.classList.add("light-mode");
+    localStorage.setItem("theme_mode", "light");
 }
 
 function toggleTheme() {
-    const isLight = document.body.classList.toggle("light-mode");
-    localStorage.setItem("theme_mode", isLight ? "light" : "dark");
-    
-    // Update button icon
-    const themeIcon = DOM.themeToggleIcon || document.getElementById("theme-toggle-icon");
-    if (themeIcon) {
-        if (isLight) {
-            themeIcon.className = "fa-solid fa-moon";
-        } else {
-            themeIcon.className = "fa-solid fa-sun";
-        }
-    }
-    
-    // Re-render charts to update tick and grid colors dynamically
-    if (state.cotizaciones && state.cotizaciones.length > 0) {
-        renderSalesChart(state.cotizaciones);
-    }
-    if (state.metas && state.vendedores) {
-        renderGoalsChart(state.metas, state.cotizaciones, state.vendedores);
-    }
+    document.body.classList.add("light-mode");
+    localStorage.setItem("theme_mode", "light");
 }
 
 /* ==========================================================================
