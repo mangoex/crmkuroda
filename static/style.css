@@ -8,28 +8,28 @@
     --brand-white: 0, 0%, 100%;         /* #ffffff */
     --brand-black: 0, 0%, 0%;           /* #000000 */
 
-    /* Color Palette - HSL values for seamless opacity binding */
-    --bg-primary: 222, 20%, 6%;        /* #0c0e12 */
-    --bg-secondary: 220, 20%, 10%;      /* #131720 */
-    --card-bg: 220, 22%, 13%;           /* #1a1e28 */
+    /* Color Palette - HSL values for Light Mode Default */
+    --bg-primary: 220, 20%, 97%;        /* Light background #f4f6f9 */
+    --bg-secondary: 220, 16%, 92%;      /* Light secondary #e8ecf2 */
+    --card-bg: 220, 20%, 100%;          /* Pure White cards #ffffff */
     
     --primary: var(--brand-red);
-    --primary-glow: 0, 100%, 45%, 0.30;
+    --primary-glow: 0, 100%, 45%, 0.15;
     
-    --accent: 184, 100%, 50%;           /* #00f2fe - Cyan */
-    --accent-glow: 184, 100%, 50%, 0.35;
+    --accent: 184, 100%, 40%;           /* Cyan */
+    --accent-glow: 184, 100%, 40%, 0.20;
     
-    --success: 145, 80%, 45%;           /* Emerald Green */
-    --warning: 38, 95%, 55%;            /* Vibrant Amber */
-    --danger: 355, 85%, 55%;            /* Hot Coral */
+    --success: 145, 80%, 35%;           /* Emerald Green */
+    --warning: 38, 95%, 45%;            /* Amber */
+    --danger: 355, 85%, 45%;            /* Coral */
     
-    --text-primary: 210, 20%, 95%;      /* #f1f3f7 */
-    --text-secondary: 215, 15%, 70%;    /* #abb2bf */
-    --text-muted: 215, 10%, 45%;        /* #636d83 */
+    --text-primary: 222, 47%, 11%;      /* #0f172a */
+    --text-secondary: 215, 16%, 35%;    /* #334155 */
+    --text-muted: 215, 10%, 55%;        /* #64748b */
     
-    --border-color: 220, 20%, 18%;      /* #252b3b */
-    --glass-border: 255, 255, 255, 0.06;
-    --glass-highlight: 255, 255, 255, 0.02;
+    --border-color: 210, 20%, 86%;      /* #cbd5e1 */
+    --glass-border: 0, 0%, 0%, 0.08;
+    --glass-highlight: 255, 255, 255, 0.4;
     
     /* Layout Constants */
     --sidebar-width: 260px;
@@ -65,7 +65,7 @@ h1, h2, h3, h4, h5, h6 {
     font-family: 'Outfit', sans-serif;
     font-weight: 600;
     letter-spacing: -0.02em;
-    color: #fff;
+    color: hsl(var(--text-primary));
 }
 
 /* Custom Scrollbar */
