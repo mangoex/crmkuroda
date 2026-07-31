@@ -45,7 +45,7 @@ class LightUixContractTest(unittest.TestCase):
         self.assertIn('document.body.classList.add("light-mode")', self.javascript)
 
     def test_stylesheet_cache_version_was_bumped(self):
-        self.assertIn("/static/style.css?v=1.0.17", self.html)
+        self.assertIn("/static/style.css?v=1.0.18", self.html)
 
 
 if __name__ == "__main__":

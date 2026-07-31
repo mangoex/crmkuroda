@@ -5212,11 +5212,14 @@ function restoreSavedMenuOrder() {
     const menuContainer = document.getElementById("sidebar-menu");
     if (!menuContainer) return;
 
-    // Clear legacy custom orders from localStorage to prevent stale ordering
+    // Purge ALL legacy custom menu order keys from localStorage
     try {
-        const storageKey = getMenuOrderStorageKey();
-        localStorage.removeItem(storageKey);
-        localStorage.removeItem("crm_menu_order_default");
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith("crm_menu_order")) {
+                localStorage.removeItem(key);
+            }
+        }
     } catch (e) {
         // Ignore storage errors
     }
