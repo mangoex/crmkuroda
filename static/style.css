@@ -93,11 +93,11 @@ h1, h2, h3, h4, h5, h6 {
    ========================================================================== */
 
 .glass-card {
-    background: rgba(var(--card-bg), 0.35);
+    background: #ffffff;
     backdrop-filter: blur(16px) saturate(120%);
     -webkit-backdrop-filter: blur(16px) saturate(120%);
     border: 1px solid rgba(var(--glass-border));
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.05);
     border-radius: var(--border-radius);
     padding: 24px;
     transition: var(--transition-normal);
@@ -127,7 +127,7 @@ h1, h2, h3, h4, h5, h6 {
     width: 100%;
     max-width: 440px;
     border: 1px solid rgba(var(--primary), 0.15);
-    background: rgba(19, 23, 32, 0.5);
+    background: #ffffff;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
 }
 
@@ -203,11 +203,11 @@ h1, h2, h3, h4, h5, h6 {
 .input-group select, 
 .input-group textarea {
     width: 100%;
-    background: rgba(12, 14, 18, 0.6);
+    background: #ffffff;
     border: 1px solid hsl(var(--border-color));
     border-radius: var(--border-radius-sm);
     padding: 12px 16px;
-    color: #fff;
+    color: #0f172a;
     font-size: 14px;
     transition: var(--transition-fast);
 }
@@ -218,7 +218,7 @@ h1, h2, h3, h4, h5, h6 {
     outline: none;
     border-color: hsl(var(--primary));
     box-shadow: 0 0 10px rgba(var(--primary-glow));
-    background: rgba(12, 14, 18, 0.9);
+    background: #ffffff;
 }
 
 .input-group textarea {
@@ -343,7 +343,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Sidebar styling */
 .sidebar-container {
     width: var(--sidebar-width);
-    background: rgba(18, 22, 33, 0.7);
+    background: #ffffff;
     backdrop-filter: blur(25px);
     -webkit-backdrop-filter: blur(25px);
     border-right: 1px solid rgba(var(--glass-border));
@@ -502,7 +502,7 @@ h1, h2, h3, h4, h5, h6 {
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid rgba(var(--glass-border));
-    background: rgba(12, 14, 18, 0.4);
+    background: #ffffff;
     backdrop-filter: blur(10px);
 }
 
@@ -676,7 +676,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .form-card {
-    background: rgba(19, 23, 32, 0.6);
+    background: #ffffff;
 }
 
 .border-glow {
@@ -733,7 +733,7 @@ h1, h2, h3, h4, h5, h6 {
     border: 1px solid hsl(var(--border-color));
     border-radius: var(--border-radius-sm);
     padding: 16px;
-    background: rgba(12, 14, 18, 0.4);
+    background: #ffffff;
     margin-top: 20px;
 }
 
@@ -888,7 +888,7 @@ h1, h2, h3, h4, h5, h6 {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(8, 10, 14, 0.85);
+    background: rgba(15, 23, 42, 0.4);
     backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
@@ -900,7 +900,7 @@ h1, h2, h3, h4, h5, h6 {
 .modal-card {
     width: 100%;
     max-width: 760px;
-    background: rgba(26, 30, 40, 0.95);
+    background: #ffffff;
     border: 1px solid rgba(var(--primary-glow));
     max-height: 85vh;
     display: flex;
@@ -1153,7 +1153,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Kanban Card */
 .kanban-card {
-    background: rgba(var(--card-bg), 0.45);
+    background: #ffffff;
     backdrop-filter: blur(8px);
     border: 1px solid rgba(var(--glass-border));
     border-radius: var(--border-radius-sm);
@@ -1339,7 +1339,7 @@ h1, h2, h3, h4, h5, h6 {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(12, 14, 18, 0.6);
+    background: #ffffff;
     transition: all var(--transition-fast) ease-in-out;
 }
 
@@ -1371,7 +1371,7 @@ h1, h2, h3, h4, h5, h6 {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(12, 14, 18, 0.8);
+    background: #ffffff;
     backdrop-filter: blur(2px);
     display: flex;
     flex-direction: column;
@@ -1775,7 +1775,7 @@ body.light-mode ::-webkit-scrollbar-thumb:hover {
         width: 100% !important;
         border-right: none !important;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-        background: rgba(12, 14, 18, 0.95) !important;
+        background: #ffffff !important;
         backdrop-filter: blur(20px) !important;
         position: relative !important;
         box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
@@ -2622,13 +2622,13 @@ input:checked + .slider:before {
 .seller-search-box {
     min-height: 58px;
     padding: 0 18px;
-    background: linear-gradient(90deg, rgba(20, 32, 57, 0.92), rgba(11, 21, 39, 0.86));
+    background: #ffffff;
     border-color: rgba(132, 146, 177, 0.18);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
 }
 
 .seller-search-box i {
-    color: #aeb9d1;
+    color: #64748b;
     font-size: 17px;
 }
 
@@ -2641,7 +2641,7 @@ input:checked + .slider:before {
     min-height: 56px;
     border: 1px solid rgba(132, 146, 177, 0.18);
     border-radius: 8px;
-    background: rgba(18, 30, 51, 0.72);
+    background: #f8fafc;
     color: hsl(var(--text-primary));
     cursor: pointer;
 }
@@ -2655,7 +2655,7 @@ input:checked + .slider:before {
     font-weight: 700;
 }
 
-.seller-today-chip i { color: #c4b5fd; font-size: 17px; }
+.seller-today-chip i { color: #e60000; font-size: 17px; }
 
 .seller-command-icon {
     width: 56px;
@@ -2668,7 +2668,7 @@ input:checked + .slider:before {
     width: 56px;
     height: 56px;
     border-color: rgba(132, 146, 177, 0.18);
-    background: rgba(18, 30, 51, 0.72);
+    background: #f8fafc;
 }
 
 .seller-hero-card {
@@ -2680,7 +2680,7 @@ input:checked + .slider:before {
     padding: 24px 36px;
     overflow: hidden;
     border-color: rgba(230, 0, 0, 0.30);
-    background: linear-gradient(105deg, rgba(11, 24, 45, 0.98) 0%, rgba(18, 25, 38, 0.96) 55%, rgba(121, 0, 0, 0.94) 100%);
+    background: linear-gradient(110deg, #ffffff 0%, #fff8f8 58%, #fee2e2 100%);
     box-shadow: 0 22px 48px rgba(0, 0, 0, 0.3);
 }
 
@@ -2699,26 +2699,26 @@ input:checked + .slider:before {
     width: 122px;
     height: 122px;
     box-shadow: 0 0 0 11px rgba(7, 14, 31, 0.4), 0 0 0 1px rgba(164, 183, 222, 0.12);
-    background: radial-gradient(circle at center, #071020 0 55%, transparent 56%), conic-gradient(#4ade80 calc(var(--progress) * 1%), #59677d 0);
+    background: radial-gradient(circle at center, #ffffff 0 55%, transparent 56%), conic-gradient(#e60000 calc(var(--progress) * 1%), #e2e8f0 0);
 }
 
 .seller-progress-ring div {
     width: 82px;
     height: 82px;
-    background: #091323;
+    background: #ffffff;
 }
 
 .seller-progress-ring strong { font-size: 28px; }
 
 .seller-hero-main { gap: 8px; }
-.seller-hero-main span { font-size: 15px; color: #b8c2d7; }
+.seller-hero-main span { font-size: 15px; color: #475569; }
 .seller-hero-main strong { font-size: clamp(34px, 4vw, 46px); }
 .seller-hero-main small { font-size: 15px; }
 
 .seller-period-selector {
     margin-top: 8px;
     border-color: rgba(155, 170, 202, 0.2);
-    background: rgba(5, 12, 27, 0.42);
+    background: #ffffff;
 }
 
 .seller-period-btn { min-width: 58px; min-height: 30px; }
@@ -2731,7 +2731,7 @@ input:checked + .slider:before {
     justify-content: center;
 }
 
-.seller-hero-days > i { color: #d8ccff; font-size: 27px; margin-bottom: 4px; }
+.seller-hero-days > i { color: #e60000; font-size: 27px; margin-bottom: 4px; }
 .seller-hero-days span { font-size: 14px; }
 .seller-hero-days strong { font-size: clamp(26px, 3vw, 34px); }
 
@@ -2742,7 +2742,7 @@ input:checked + .slider:before {
     padding: 16px;
     gap: 14px;
     border-color: rgba(135, 151, 185, 0.18);
-    background: linear-gradient(145deg, rgba(15, 30, 53, 0.92), rgba(10, 22, 39, 0.94));
+    background: #ffffff;
     box-shadow: 0 16px 32px rgba(0, 0, 0, 0.18);
 }
 
@@ -2766,7 +2766,7 @@ input:checked + .slider:before {
 .seller-follow-card,
 .seller-promo-card {
     border-color: rgba(145, 160, 193, 0.2);
-    background: rgba(12, 26, 47, 0.7);
+    background: #ffffff;
 }
 
 .seller-quote-card { padding: 16px; box-shadow: 0 12px 22px rgba(109, 15, 20, 0.22); }
@@ -2789,7 +2789,7 @@ input:checked + .slider:before {
     padding: 16px;
     border: 1px solid rgba(135, 151, 185, 0.18);
     border-radius: 8px;
-    background: linear-gradient(145deg, rgba(15, 30, 53, 0.9), rgba(10, 22, 39, 0.94));
+    background: #ffffff;
 }
 
 .seller-insight-heading {
