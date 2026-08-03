@@ -222,6 +222,8 @@ const DOM = {
     btnCancelAiGoals: document.getElementById("btn-cancel-ai-goals"),
     btnCloseAiGoals: document.getElementById("btn-close-ai-goals"),
     filterPromoProveedor: document.getElementById("filter-promo-proveedor"),
+    filterPromoFamilia: document.getElementById("filter-promo-familia"),
+    filterPromoSubfamilia: document.getElementById("filter-promo-subfamilia"),
     promoKpiProveedores: document.getElementById("promo-kpi-proveedores"),
     filterPromoSearch: document.getElementById("filter-promo-search"),
     thInvDisp: document.getElementById("th-inv-disp"),
@@ -243,6 +245,8 @@ const DOM = {
     filterInvSucursal: document.getElementById("filter-inv-sucursal"),
     filterInvAbcf: document.getElementById("filter-inv-abcf"),
     filterInvProveedor: document.getElementById("filter-inv-proveedor"),
+    filterInvFamilia: document.getElementById("filter-inv-familia"),
+    filterInvSubfamilia: document.getElementById("filter-inv-subfamilia"),
     filterInvSearch: document.getElementById("filter-inv-search"),
     btnClearInvFilters: document.getElementById("btn-clear-inv-filters"),
     pagInventarioAbcf: document.getElementById("pag-inventario-abcf"),
@@ -1833,7 +1837,41 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             DOM.filterInvProveedor.value = currentProv;
         }
 
+        if (DOM.filterInvFamilia && DOM.filterInvFamilia.options.length <= 1) {
+            const currentFam = DOM.filterInvFamilia.value;
+            DOM.filterInvFamilia.innerHTML = '<option value="todos">Todas</option>';
+            const familias = [...new Set(state.inventario_abcf.map(i => i.familia || i.descrip_gpo_materiales).filter(Boolean))].sort();
+            familias.forEach(f => {
+                const opt = document.createElement("option");
+                opt.value = f;
+                opt.textContent = f;
+                DOM.filterInvFamilia.appendChild(opt);
+            });
+            DOM.filterInvFamilia.value = currentFam || "todos";
+        }
+
+        if (DOM.filterInvSubfamilia) {
+            const currentSub = DOM.filterInvSubfamilia.value;
+            const selectedFam = DOM.filterInvFamilia ? DOM.filterInvFamilia.value : "todos";
+            let subItems = state.inventario_abcf || [];
+            if (selectedFam !== "todos") {
+                subItems = subItems.filter(i => (i.familia || i.descrip_gpo_materiales) === selectedFam);
+            }
+            const subfamilias = [...new Set(subItems.map(i => i.subfamilia || (i.descripcion_material ? i.descripcion_material.trim().split(" ")[0] : null)).filter(Boolean))].sort();
+            DOM.filterInvSubfamilia.innerHTML = '<option value="todas">Todas</option>';
+            subfamilias.forEach(sf => {
+                const opt = document.createElement("option");
+                opt.value = sf;
+                opt.textContent = sf;
+                DOM.filterInvSubfamilia.appendChild(opt);
+            });
+            DOM.filterInvSubfamilia.value = subfamilias.includes(currentSub) ? currentSub : "todas";
+        }
+
         // Apply filters
+        const familiaFilter = DOM.filterInvFamilia ? DOM.filterInvFamilia.value : "todos";
+        const subfamiliaFilter = DOM.filterInvSubfamilia ? DOM.filterInvSubfamilia.value : "todas";
+
         if (sucursalFilter !== "todos") {
             inventario = inventario.filter(i => i.nombre_centro === sucursalFilter);
         }
@@ -1842,6 +1880,15 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         }
         if (proveedorFilter !== "todos") {
             inventario = inventario.filter(i => getInventoryProviderName(i) === proveedorFilter);
+        }
+        if (familiaFilter !== "todos") {
+            inventario = inventario.filter(i => (i.familia || i.descrip_gpo_materiales) === familiaFilter);
+        }
+        if (subfamiliaFilter !== "todas") {
+            inventario = inventario.filter(i => {
+                const sf = i.subfamilia || (i.descripcion_material ? i.descripcion_material.trim().split(" ")[0] : "");
+                return sf === subfamiliaFilter;
+            });
         }
         if (searchTerm) {
             inventario = inventario.filter(i => {
@@ -2523,6 +2570,8 @@ async function loadPromocionesData(forceRefresh = false) {
     const statusFilter = DOM.filterPromoStatus ? DOM.filterPromoStatus.value : "activas";
     const sortFilter = DOM.filterPromoSort ? DOM.filterPromoSort.value : "default";
     const proveedorFilter = DOM.filterPromoProveedor ? DOM.filterPromoProveedor.value : "todos";
+    const familiaFilter = DOM.filterPromoFamilia ? DOM.filterPromoFamilia.value : "todos";
+    const subfamiliaFilter = DOM.filterPromoSubfamilia ? DOM.filterPromoSubfamilia.value : "todas";
     let endpoint = "/api/v1/promociones/";
     
 
@@ -2536,6 +2585,39 @@ async function loadPromocionesData(forceRefresh = false) {
         const today = new Date();
         today.setHours(0,0,0,0);
         
+        // Populate Familia select
+        if (DOM.filterPromoFamilia && DOM.filterPromoFamilia.options.length <= 1) {
+            const currentFam = DOM.filterPromoFamilia.value;
+            DOM.filterPromoFamilia.innerHTML = '<option value="todos">Todas</option>';
+            const familias = [...new Set(state.promociones.map(p => p.familia || p.descrip_gpo_materiales).filter(Boolean))].sort();
+            familias.forEach(f => {
+                const opt = document.createElement("option");
+                opt.value = f;
+                opt.textContent = f;
+                DOM.filterPromoFamilia.appendChild(opt);
+            });
+            DOM.filterPromoFamilia.value = currentFam || "todos";
+        }
+
+        // Populate Subfamilia select (cascading based on Familia)
+        if (DOM.filterPromoSubfamilia) {
+            const currentSub = DOM.filterPromoSubfamilia.value;
+            const selectedFam = DOM.filterPromoFamilia ? DOM.filterPromoFamilia.value : "todos";
+            let subItems = state.promociones || [];
+            if (selectedFam !== "todos") {
+                subItems = subItems.filter(p => (p.familia || p.descrip_gpo_materiales) === selectedFam);
+            }
+            const subfamilias = [...new Set(subItems.map(p => p.subfamilia || (p.descripcion_material ? p.descripcion_material.trim().split(" ")[0] : null)).filter(Boolean))].sort();
+            DOM.filterPromoSubfamilia.innerHTML = '<option value="todas">Todas</option>';
+            subfamilias.forEach(sf => {
+                const opt = document.createElement("option");
+                opt.value = sf;
+                opt.textContent = sf;
+                DOM.filterPromoSubfamilia.appendChild(opt);
+            });
+            DOM.filterPromoSubfamilia.value = subfamilias.includes(currentSub) ? currentSub : "todas";
+        }
+
         // Filter Status
         if (statusFilter !== "todas") {
             promociones = promociones.filter(p => {
@@ -2546,15 +2628,22 @@ async function loadPromocionesData(forceRefresh = false) {
             });
         }
         
-        
-        console.log("Promociones before filter:", promociones.length);
         if (proveedorFilter !== "todos") {
             promociones = promociones.filter(p => (p.proveedor || "Sin Proveedor") === proveedorFilter);
-            console.log("Promociones after proveedor filter:", promociones.length);
         }
 
-        
-                // Filter Search Text
+        if (familiaFilter !== "todos") {
+            promociones = promociones.filter(p => (p.familia || p.descrip_gpo_materiales) === familiaFilter);
+        }
+
+        if (subfamiliaFilter !== "todas") {
+            promociones = promociones.filter(p => {
+                const sf = p.subfamilia || (p.descripcion_material ? p.descripcion_material.trim().split(" ")[0] : "");
+                return sf === subfamiliaFilter;
+            });
+        }
+
+        // Filter Search Text
         if (searchTerm) {
             promociones = promociones.filter(p => 
                 (p.codigo_material && String(p.codigo_material).toLowerCase().includes(searchTerm)) ||
@@ -4908,6 +4997,8 @@ DOM.aiGoalsForm?.addEventListener("submit", async (e) => {
 });
 
 DOM.filterPromoProveedor?.addEventListener("change", () => loadPromocionesData(false));
+DOM.filterPromoFamilia?.addEventListener("change", () => loadPromocionesData(false));
+DOM.filterPromoSubfamilia?.addEventListener("change", () => loadPromocionesData(false));
 DOM.filterPromoSearch?.addEventListener("input", () => loadPromocionesData(false));
 DOM.thInvDisp?.addEventListener("click", () => {
     if (DOM.filterPromoSort) {
@@ -4924,6 +5015,8 @@ DOM.btnClearPromoFilters?.addEventListener("click", () => {
     if (DOM.filterPromoStatus) DOM.filterPromoStatus.value = 'activas';
     if (DOM.filterPromoSort) DOM.filterPromoSort.value = 'default';
     if (DOM.filterPromoProveedor) DOM.filterPromoProveedor.value = 'todos';
+    if (DOM.filterPromoFamilia) DOM.filterPromoFamilia.value = 'todos';
+    if (DOM.filterPromoSubfamilia) DOM.filterPromoSubfamilia.value = 'todas';
     loadPromocionesData(false);
 });
 DOM.filterPromoStatus?.addEventListener("change", () => loadPromocionesData(false));
@@ -8039,6 +8132,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (DOM.filterInvSucursal) DOM.filterInvSucursal.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
     if (DOM.filterInvAbcf) DOM.filterInvAbcf.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
     if (DOM.filterInvProveedor) DOM.filterInvProveedor.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
+    if (DOM.filterInvFamilia) DOM.filterInvFamilia.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
+    if (DOM.filterInvSubfamilia) DOM.filterInvSubfamilia.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
     if (DOM.filterInvSearch) DOM.filterInvSearch.addEventListener('input', () => {
         clearTimeout(window.invSearchTimeout);
         window.invSearchTimeout = setTimeout(() => { state.invCurrentPage = 1; loadInventarioAbcfData(); }, 300);
@@ -8048,6 +8143,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (DOM.filterInvSucursal) DOM.filterInvSucursal.value = 'todos';
             if (DOM.filterInvAbcf) DOM.filterInvAbcf.value = 'todos';
             if (DOM.filterInvProveedor) DOM.filterInvProveedor.value = 'todos';
+            if (DOM.filterInvFamilia) DOM.filterInvFamilia.value = 'todos';
+            if (DOM.filterInvSubfamilia) DOM.filterInvSubfamilia.value = 'todas';
             if (DOM.filterInvSearch) DOM.filterInvSearch.value = '';
             state.invCurrentPage = 1;
             loadInventarioAbcfData();

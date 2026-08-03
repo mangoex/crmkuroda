@@ -31,6 +31,9 @@ class InventarioAbcf(Base):
     fecha_ultimo_inventario = Column(String) # as string to avoid parsing issues, or DateTime
 
     def to_dict(self):
+        desc = (self.descripcion_material or "").strip()
+        subfam = desc.split()[0] if desc else "GENERAL"
+        fam = self.descrip_gpo_materiales or "GENERAL"
         return {
             "id": self.id,
             "nombre_centro": self.nombre_centro,
@@ -53,6 +56,8 @@ class InventarioAbcf(Base):
             "ubicacion": self.ubicacion,
             "grupo_materiales": self.grupo_materiales,
             "descrip_gpo_materiales": self.descrip_gpo_materiales,
+            "familia": fam,
+            "subfamilia": subfam,
             "codigo_anterior_material": self.codigo_anterior_material,
             "abc": self.abc,
             "fecha_ultimo_inventario": self.fecha_ultimo_inventario

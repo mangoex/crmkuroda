@@ -24,10 +24,15 @@ class Promocion(Base):
     inventario_disponible = Column(Float)
 
     def to_dict(self):
+        desc = (self.descripcion_material or "").strip()
+        subfam = desc.split()[0] if desc else "GENERAL"
+        fam = self.descrip_gpo_materiales or "GENERAL"
         return {
             "id": self.id,
             "centro": self.centro,
             "descrip_gpo_materiales": self.descrip_gpo_materiales,
+            "familia": fam,
+            "subfamilia": subfam,
             "indicador_abc": self.indicador_abc,
             "codigo_material": self.codigo_material,
             "descripcion_material": self.descripcion_material,
