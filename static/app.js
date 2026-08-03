@@ -1861,17 +1861,19 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             });
         }
         
+        const canViewCosts = state.user && (state.user.rol === "gerente" || state.user.rol === "admin");
+        
         DOM.tableInventarioAbcf.innerHTML = "";
         if (inventario.length === 0) {
-            const inventoryColumns = state.user?.rol === "vendedor" ? 10 : 11;
+            const inventoryColumns = canViewCosts ? 11 : 9;
             DOM.tableInventarioAbcf.innerHTML = `<tr><td colspan="${inventoryColumns}" style="text-align: center;">No se encontraron registros de inventario.</td></tr>`;
             return;
         }
         
+        const thPrecio = document.getElementById("th-inv-precio");
         const thImporte = document.getElementById("th-inv-importe");
-        if (thImporte) {
-            thImporte.style.display = (state.user && state.user.rol === "vendedor") ? "none" : "";
-        }
+        if (thPrecio) thPrecio.style.display = canViewCosts ? "" : "none";
+        if (thImporte) thImporte.style.display = canViewCosts ? "" : "none";
         
         // --- SORTING LOGIC ---
         if (state.invSortField === undefined) state.invSortField = null;
@@ -1917,8 +1919,8 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                 <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(getInventoryDescription(i))}">${escapeHTML(getInventoryDescription(i) || "-")}</td>
                 <td>${i.cantidad_propia !== null ? i.cantidad_propia.toLocaleString() : "-"}</td>
                 <td>${i.existencia_consignacion !== null ? i.existencia_consignacion.toLocaleString() : "-"}</td>
-                <td>$${i.costo_promedio_unitario !== null ? i.costo_promedio_unitario.toLocaleString(undefined, {minimumFractionDigits: 2}) : "0.00"}</td>
-                ${(state.user && state.user.rol === "vendedor") ? '' : `<td><strong style="color: #10b981;">$${i.importe_inventario_propio !== null ? i.importe_inventario_propio.toLocaleString(undefined, {minimumFractionDigits: 2}) : "0.00"}</strong></td>`}
+                ${canViewCosts ? `<td>$${i.costo_promedio_unitario !== null ? i.costo_promedio_unitario.toLocaleString(undefined, {minimumFractionDigits: 2}) : "0.00"}</td>` : ''}
+                ${canViewCosts ? `<td><strong style="color: #10b981;">$${i.importe_inventario_propio !== null ? i.importe_inventario_propio.toLocaleString(undefined, {minimumFractionDigits: 2}) : "0.00"}</strong></td>` : ''}
                 <td>${escapeHTML(i.ubicacion || "-")}</td>
             `;
             DOM.tableInventarioAbcf.appendChild(tr);
