@@ -39,7 +39,13 @@ def _row_value(row, index: Optional[int], fallback: Optional[int] = None):
 def _as_float(value, default=None):
     if value is None or value == "":
         return default
-    return float(value)
+    if isinstance(value, (int, float)):
+        return float(value)
+    val_str = str(value).replace("$", "").replace(",", "").strip()
+    try:
+        return float(val_str)
+    except ValueError:
+        return default
 
 @router.get("/")
 async def list_inventario(db: AsyncSession = Depends(get_db)):

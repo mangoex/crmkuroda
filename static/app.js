@@ -1,4 +1,50 @@
 
+// --- KURODA OFFICIAL CLASSIFICATION MATRIX ---
+const KURODA_FAMILIALES = [
+    "PLOMERIA CROMADA",
+    "ARTICULOS DE PLOMERIA",
+    "CERAMICOS",
+    "REVESTESIMIENTO DECORATIVOS",
+    "SERVICIO",
+    "HOGAR"
+];
+
+const KURODA_SUBFAMILIAS_MAP = {
+    "PLOMERIA CROMADA": [
+        "ACCESORIOS DE BAÑO", "ACCESORIOS DE BAÑ", "ACCESORIOS DE BANO", "PLOMERIA CROMADA"
+    ],
+    "ARTICULOS DE PLOMERIA": [
+        "ABRAZADERAS", "ARTICULOS PLOMERIA", "ARTICULOS DE PLOMERIA", "BOMBAS",
+        "COLADERAS", "CONEXIONES", "FILTROS", "MEDIDORES", "PEGAMENTOS",
+        "REFACCIONES", "REFACCIONES P/BOMB", "REFACCIONES P/BOMBAS",
+        "TOMAS DOMICILIARIA", "TOMAS DOMICILIARIAS", "TUBERIA",
+        "VALVULA INDUSTRIAL", "VALVULAS"
+    ],
+    "CERAMICOS": [
+        "ASIENTOS", "LAVABOS", "SANITARIOS"
+    ],
+    "REVESTESIMIENTO DECORATIVOS": [
+        "ADHESIVOS CERAMICO", "ADHESIVOS CERAMICOS", "AZULEJOS", "BOQUILLAS",
+        "ESQUINEROS/MOLDURA", "ESQUINEROS/MOLDURAS", "PISOS", "REVEST DECORADOS",
+        "REVESTIMIENTO DECORATIVOS"
+    ],
+    "SERVICIO": [
+        "AIRE ACON/MINI SPL", "ASPERSORES", "CALENTADORES", "CISTERNAS",
+        "CORTADORAS", "EQ HIDRONEUMATICOS", "FERRETERIA", "FOSAS",
+        "HERRAMIENTAS", "IRRIGACION", "JUEGOS ESPARCIMIEN", "MANGUERAS",
+        "MANOMETROS", "MOTORES", "SERVICIOS", "TANQUES Y CILINDRO",
+        "TANQUES Y CILINDROS", "TINACOS", "TINAS", "TRABAJOS DE TALLER"
+    ],
+    "HOGAR": [
+        "ACCESORIOS", "ARTICULOS DE COCIN", "ARTICULOS DE COCINA", "CABLES Y ALAMBRES",
+        "CTRO CARGA/INTERRU", "CTRO CARGA/INTERRUPT", "ESPEJOS", "FOCOS Y FILAMENTOS",
+        "FREGADEROS", "GABINETES PARA BAÑ", "GABINETES PARA BAÑO", "ILUMINACION",
+        "IMPERMEABILIZANTES", "LAM CANAL GALV ACR", "LAM CANAL GALV ACRI",
+        "LAVADEROS", "LINEA BLANCA", "MATERIAL ELECTR/HE", "MATERIAL ELECTR/HERR",
+        "PLACAS", "TAPA/CONTACT/APAGA", "TAPA/CONTACT/APAGAD"
+    ]
+};
+
 // --- UNIFIED PAGINATION CONTROLS ---
 function createPaginationControls(stateKey, totalItems, onPageChange, pageSize = 25) {
     const totalPages = Math.ceil(totalItems / pageSize) || 1;
@@ -1840,8 +1886,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         if (DOM.filterInvFamilia && DOM.filterInvFamilia.options.length <= 1) {
             const currentFam = DOM.filterInvFamilia.value;
             DOM.filterInvFamilia.innerHTML = '<option value="todos">Todas</option>';
-            const familias = [...new Set(state.inventario_abcf.map(i => i.familia || i.descrip_gpo_materiales).filter(Boolean))].sort();
-            familias.forEach(f => {
+            KURODA_FAMILIALES.forEach(f => {
                 const opt = document.createElement("option");
                 opt.value = f;
                 opt.textContent = f;
@@ -1853,19 +1898,25 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         if (DOM.filterInvSubfamilia) {
             const currentSub = DOM.filterInvSubfamilia.value;
             const selectedFam = DOM.filterInvFamilia ? DOM.filterInvFamilia.value : "todos";
-            let subItems = state.inventario_abcf || [];
-            if (selectedFam !== "todos") {
-                subItems = subItems.filter(i => (i.familia || i.descrip_gpo_materiales) === selectedFam);
-            }
-            const subfamilias = [...new Set(subItems.map(i => i.subfamilia || (i.descripcion_material ? i.descripcion_material.trim().split(" ")[0] : null)).filter(Boolean))].sort();
             DOM.filterInvSubfamilia.innerHTML = '<option value="todas">Todas</option>';
-            subfamilias.forEach(sf => {
+            
+            let validSubList = null;
+            if (selectedFam !== "todos" && KURODA_SUBFAMILIAS_MAP[selectedFam]) {
+                validSubList = KURODA_SUBFAMILIAS_MAP[selectedFam];
+            }
+            
+            const subOptions = [...new Set((state.inventario_abcf || [])
+                .map(i => i.subfamilia || i.descrip_gpo_materiales)
+                .filter(s => s && (!validSubList || validSubList.includes(s.toUpperCase()))))
+            ].sort();
+            
+            subOptions.forEach(sf => {
                 const opt = document.createElement("option");
                 opt.value = sf;
                 opt.textContent = sf;
                 DOM.filterInvSubfamilia.appendChild(opt);
             });
-            DOM.filterInvSubfamilia.value = subfamilias.includes(currentSub) ? currentSub : "todas";
+            DOM.filterInvSubfamilia.value = subOptions.includes(currentSub) ? currentSub : "todas";
         }
 
         // Apply filters
@@ -1882,13 +1933,10 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             inventario = inventario.filter(i => getInventoryProviderName(i) === proveedorFilter);
         }
         if (familiaFilter !== "todos") {
-            inventario = inventario.filter(i => (i.familia || i.descrip_gpo_materiales) === familiaFilter);
+            inventario = inventario.filter(i => i.familia === familiaFilter);
         }
         if (subfamiliaFilter !== "todas") {
-            inventario = inventario.filter(i => {
-                const sf = i.subfamilia || (i.descripcion_material ? i.descripcion_material.trim().split(" ")[0] : "");
-                return sf === subfamiliaFilter;
-            });
+            inventario = inventario.filter(i => (i.subfamilia || i.descrip_gpo_materiales) === subfamiliaFilter);
         }
         if (searchTerm) {
             inventario = inventario.filter(i => {
@@ -2589,8 +2637,7 @@ async function loadPromocionesData(forceRefresh = false) {
         if (DOM.filterPromoFamilia && DOM.filterPromoFamilia.options.length <= 1) {
             const currentFam = DOM.filterPromoFamilia.value;
             DOM.filterPromoFamilia.innerHTML = '<option value="todos">Todas</option>';
-            const familias = [...new Set(state.promociones.map(p => p.familia || p.descrip_gpo_materiales).filter(Boolean))].sort();
-            familias.forEach(f => {
+            KURODA_FAMILIALES.forEach(f => {
                 const opt = document.createElement("option");
                 opt.value = f;
                 opt.textContent = f;
@@ -2603,19 +2650,25 @@ async function loadPromocionesData(forceRefresh = false) {
         if (DOM.filterPromoSubfamilia) {
             const currentSub = DOM.filterPromoSubfamilia.value;
             const selectedFam = DOM.filterPromoFamilia ? DOM.filterPromoFamilia.value : "todos";
-            let subItems = state.promociones || [];
-            if (selectedFam !== "todos") {
-                subItems = subItems.filter(p => (p.familia || p.descrip_gpo_materiales) === selectedFam);
-            }
-            const subfamilias = [...new Set(subItems.map(p => p.subfamilia || (p.descripcion_material ? p.descripcion_material.trim().split(" ")[0] : null)).filter(Boolean))].sort();
             DOM.filterPromoSubfamilia.innerHTML = '<option value="todas">Todas</option>';
-            subfamilias.forEach(sf => {
+            
+            let validSubList = null;
+            if (selectedFam !== "todos" && KURODA_SUBFAMILIAS_MAP[selectedFam]) {
+                validSubList = KURODA_SUBFAMILIAS_MAP[selectedFam];
+            }
+            
+            const subOptions = [...new Set((state.promociones || [])
+                .map(p => p.subfamilia || p.descrip_gpo_materiales)
+                .filter(s => s && (!validSubList || validSubList.includes(s.toUpperCase()))))
+            ].sort();
+            
+            subOptions.forEach(sf => {
                 const opt = document.createElement("option");
                 opt.value = sf;
                 opt.textContent = sf;
                 DOM.filterPromoSubfamilia.appendChild(opt);
             });
-            DOM.filterPromoSubfamilia.value = subfamilias.includes(currentSub) ? currentSub : "todas";
+            DOM.filterPromoSubfamilia.value = subOptions.includes(currentSub) ? currentSub : "todas";
         }
 
         // Filter Status
@@ -2633,14 +2686,11 @@ async function loadPromocionesData(forceRefresh = false) {
         }
 
         if (familiaFilter !== "todos") {
-            promociones = promociones.filter(p => (p.familia || p.descrip_gpo_materiales) === familiaFilter);
+            promociones = promociones.filter(p => p.familia === familiaFilter);
         }
 
         if (subfamiliaFilter !== "todas") {
-            promociones = promociones.filter(p => {
-                const sf = p.subfamilia || (p.descripcion_material ? p.descripcion_material.trim().split(" ")[0] : "");
-                return sf === subfamiliaFilter;
-            });
+            promociones = promociones.filter(p => (p.subfamilia || p.descrip_gpo_materiales) === subfamiliaFilter);
         }
 
         // Filter Search Text
@@ -4997,7 +5047,10 @@ DOM.aiGoalsForm?.addEventListener("submit", async (e) => {
 });
 
 DOM.filterPromoProveedor?.addEventListener("change", () => loadPromocionesData(false));
-DOM.filterPromoFamilia?.addEventListener("change", () => loadPromocionesData(false));
+DOM.filterPromoFamilia?.addEventListener("change", () => {
+    if (DOM.filterPromoSubfamilia) DOM.filterPromoSubfamilia.options.length = 1;
+    loadPromocionesData(false);
+});
 DOM.filterPromoSubfamilia?.addEventListener("change", () => loadPromocionesData(false));
 DOM.filterPromoSearch?.addEventListener("input", () => loadPromocionesData(false));
 DOM.thInvDisp?.addEventListener("click", () => {
@@ -8132,7 +8185,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (DOM.filterInvSucursal) DOM.filterInvSucursal.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
     if (DOM.filterInvAbcf) DOM.filterInvAbcf.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
     if (DOM.filterInvProveedor) DOM.filterInvProveedor.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
-    if (DOM.filterInvFamilia) DOM.filterInvFamilia.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
+    if (DOM.filterInvFamilia) DOM.filterInvFamilia.addEventListener('change', () => {
+        if (DOM.filterInvSubfamilia) DOM.filterInvSubfamilia.options.length = 1;
+        state.invCurrentPage = 1;
+        loadInventarioAbcfData();
+    });
     if (DOM.filterInvSubfamilia) DOM.filterInvSubfamilia.addEventListener('change', () => { state.invCurrentPage = 1; loadInventarioAbcfData(); });
     if (DOM.filterInvSearch) DOM.filterInvSearch.addEventListener('input', () => {
         clearTimeout(window.invSearchTimeout);

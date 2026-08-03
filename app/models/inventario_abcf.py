@@ -2,6 +2,8 @@ from sqlalchemy import Column, Integer, String, Float, DateTime
 from app.core.database import Base
 from datetime import datetime
 
+from app.core.kuroda_matrix import get_kuroda_familia_y_subfamilia
+
 class InventarioAbcf(Base):
     __tablename__ = "inventario_abcf"
 
@@ -31,9 +33,7 @@ class InventarioAbcf(Base):
     fecha_ultimo_inventario = Column(String) # as string to avoid parsing issues, or DateTime
 
     def to_dict(self):
-        desc = (self.descripcion_material or "").strip()
-        subfam = desc.split()[0] if desc else "GENERAL"
-        fam = self.descrip_gpo_materiales or "GENERAL"
+        fam, subfam = get_kuroda_familia_y_subfamilia(self.descrip_gpo_materiales)
         return {
             "id": self.id,
             "nombre_centro": self.nombre_centro,
