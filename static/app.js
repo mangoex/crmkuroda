@@ -1883,8 +1883,8 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             DOM.filterInvProveedor.value = currentProv;
         }
 
-        if (DOM.filterInvFamilia && DOM.filterInvFamilia.options.length <= 1) {
-            const currentFam = DOM.filterInvFamilia.value;
+        if (DOM.filterInvFamilia) {
+            const currentFam = DOM.filterInvFamilia.value || "todos";
             DOM.filterInvFamilia.innerHTML = '<option value="todos">Todas</option>';
             KURODA_FAMILIALES.forEach(f => {
                 const opt = document.createElement("option");
@@ -1892,7 +1892,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                 opt.textContent = f;
                 DOM.filterInvFamilia.appendChild(opt);
             });
-            DOM.filterInvFamilia.value = currentFam || "todos";
+            DOM.filterInvFamilia.value = currentFam;
         }
 
         if (DOM.filterInvSubfamilia) {
@@ -2633,8 +2633,8 @@ async function loadPromocionesData(forceRefresh = false) {
         today.setHours(0,0,0,0);
         
         // Populate Familia select
-        if (DOM.filterPromoFamilia && DOM.filterPromoFamilia.options.length <= 1) {
-            const currentFam = DOM.filterPromoFamilia.value;
+        if (DOM.filterPromoFamilia) {
+            const currentFam = DOM.filterPromoFamilia.value || "todos";
             DOM.filterPromoFamilia.innerHTML = '<option value="todos">Todas</option>';
             KURODA_FAMILIALES.forEach(f => {
                 const opt = document.createElement("option");
@@ -2642,7 +2642,7 @@ async function loadPromocionesData(forceRefresh = false) {
                 opt.textContent = f;
                 DOM.filterPromoFamilia.appendChild(opt);
             });
-            DOM.filterPromoFamilia.value = currentFam || "todos";
+            DOM.filterPromoFamilia.value = currentFam;
         }
 
         // Populate Subfamilia select (cascading based on Familia)
