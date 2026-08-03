@@ -26,7 +26,7 @@ class Promocion(Base):
     inventario_disponible = Column(Float)
 
     def to_dict(self):
-        fam, subfam = get_kuroda_familia_y_subfamilia(self.descrip_gpo_materiales)
+        fam, subfam = get_kuroda_familia_y_subfamilia(self.descrip_gpo_materiales, self.descripcion_material)
         return {
             "id": self.id,
             "centro": self.centro,

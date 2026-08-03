@@ -1900,23 +1900,22 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             const selectedFam = DOM.filterInvFamilia ? DOM.filterInvFamilia.value : "todos";
             DOM.filterInvSubfamilia.innerHTML = '<option value="todas">Todas</option>';
             
-            let validSubList = null;
+            let subList = [];
             if (selectedFam !== "todos" && KURODA_SUBFAMILIAS_MAP[selectedFam]) {
-                validSubList = KURODA_SUBFAMILIAS_MAP[selectedFam];
+                subList = KURODA_SUBFAMILIAS_MAP[selectedFam];
+            } else {
+                let allSubs = [];
+                Object.values(KURODA_SUBFAMILIAS_MAP).forEach(l => allSubs = allSubs.concat(l));
+                subList = [...new Set(allSubs)].sort();
             }
             
-            const subOptions = [...new Set((state.inventario_abcf || [])
-                .map(i => i.subfamilia || i.descrip_gpo_materiales)
-                .filter(s => s && (!validSubList || validSubList.includes(s.toUpperCase()))))
-            ].sort();
-            
-            subOptions.forEach(sf => {
+            subList.forEach(sf => {
                 const opt = document.createElement("option");
                 opt.value = sf;
                 opt.textContent = sf;
                 DOM.filterInvSubfamilia.appendChild(opt);
             });
-            DOM.filterInvSubfamilia.value = subOptions.includes(currentSub) ? currentSub : "todas";
+            DOM.filterInvSubfamilia.value = subList.includes(currentSub) ? currentSub : "todas";
         }
 
         // Apply filters
@@ -2652,23 +2651,22 @@ async function loadPromocionesData(forceRefresh = false) {
             const selectedFam = DOM.filterPromoFamilia ? DOM.filterPromoFamilia.value : "todos";
             DOM.filterPromoSubfamilia.innerHTML = '<option value="todas">Todas</option>';
             
-            let validSubList = null;
+            let subList = [];
             if (selectedFam !== "todos" && KURODA_SUBFAMILIAS_MAP[selectedFam]) {
-                validSubList = KURODA_SUBFAMILIAS_MAP[selectedFam];
+                subList = KURODA_SUBFAMILIAS_MAP[selectedFam];
+            } else {
+                let allSubs = [];
+                Object.values(KURODA_SUBFAMILIAS_MAP).forEach(l => allSubs = allSubs.concat(l));
+                subList = [...new Set(allSubs)].sort();
             }
             
-            const subOptions = [...new Set((state.promociones || [])
-                .map(p => p.subfamilia || p.descrip_gpo_materiales)
-                .filter(s => s && (!validSubList || validSubList.includes(s.toUpperCase()))))
-            ].sort();
-            
-            subOptions.forEach(sf => {
+            subList.forEach(sf => {
                 const opt = document.createElement("option");
                 opt.value = sf;
                 opt.textContent = sf;
                 DOM.filterPromoSubfamilia.appendChild(opt);
             });
-            DOM.filterPromoSubfamilia.value = subOptions.includes(currentSub) ? currentSub : "todas";
+            DOM.filterPromoSubfamilia.value = subList.includes(currentSub) ? currentSub : "todas";
         }
 
         // Filter Status

@@ -33,7 +33,7 @@ class InventarioAbcf(Base):
     fecha_ultimo_inventario = Column(String) # as string to avoid parsing issues, or DateTime
 
     def to_dict(self):
-        fam, subfam = get_kuroda_familia_y_subfamilia(self.descrip_gpo_materiales)
+        fam, subfam = get_kuroda_familia_y_subfamilia(self.descrip_gpo_materiales, self.descripcion_material)
         return {
             "id": self.id,
             "nombre_centro": self.nombre_centro,
