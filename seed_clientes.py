@@ -3,15 +3,15 @@ import csv
 import asyncio
 import logging
 from sqlalchemy.future import select
-from sqlalchemy import func
+from sqlalchemy import func, insert
 from app.core.database import SessionLocal, engine, Base
 from app.models.cliente import Cliente
 
 logger = logging.getLogger(__name__)
 
 CSV_PATHS = [
-    os.path.join(os.path.dirname(__file__), "..", "LISTADO CLIENTES.csv"),
     os.path.join(os.path.dirname(__file__), "LISTADO CLIENTES.csv"),
+    os.path.join(os.path.dirname(__file__), "..", "LISTADO CLIENTES.csv"),
     "LISTADO CLIENTES.csv",
     "../LISTADO CLIENTES.csv",
 ]
@@ -108,13 +108,12 @@ async def seed_clientes_from_csv(force=False):
 
         print(f"Total registros leídos del CSV: {len(records)}")
 
-        # Bulk insert in batches
+        # Bulk insert using raw SQL insert statement for maximum speed
         batch_size = 2000
         total_inserted = 0
         for i in range(0, len(records), batch_size):
             batch = records[i:i + batch_size]
-            db_objs = [Cliente(**item) for item in batch]
-            session.add_all(db_objs)
+            await session.execute(insert(Cliente), batch)
             await session.commit()
             total_inserted += len(batch)
             print(f"  Insertados {total_inserted} / {len(records)} clientes...")

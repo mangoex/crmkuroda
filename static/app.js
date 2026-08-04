@@ -169,7 +169,7 @@ const state = {
     pendingReminders: [],
     clientes: {
         page: 1,
-        limit: 50,
+        limit: 25,
         search: "",
         tipo_persona: "",
         colonia: "",
@@ -8768,23 +8768,34 @@ function renderClientesPagination() {
     const end = Math.min(page * limit, total);
 
     pag.innerHTML = `
-        <div style="font-size: 0.85rem; color: hsl(var(--text-secondary));">
-            Mostrando <strong>${start}</strong> - <strong>${end}</strong> de <strong>${total.toLocaleString()}</strong> clientes
+        <div style="font-size: 0.85rem; color: hsl(var(--text-secondary)); display: flex; align-items: center; gap: 8px;">
+            <span>Mostrando <strong>${start}</strong> - <strong>${end}</strong> de <strong>${total.toLocaleString()}</strong> clientes</span>
+            <span style="font-size: 11px; padding: 2px 8px; border-radius: 12px; background: rgba(59, 130, 246, 0.15); color: #60a5fa; font-weight: 500;">(25 por página)</span>
         </div>
-        <div style="display: flex; gap: 6px; align-items: center;">
-            <button class="btn btn-sm btn-secondary" id="btn-clientes-prev" ${page <= 1 ? 'disabled' : ''}>
+        <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <button class="btn btn-sm btn-secondary" id="btn-clientes-first" ${page <= 1 ? 'disabled' : ''} title="Primera página">
+                <i class="fa-solid fa-angles-left"></i> Inicio
+            </button>
+            <button class="btn btn-sm btn-secondary" id="btn-clientes-prev" ${page <= 1 ? 'disabled' : ''} title="Página anterior">
                 <i class="fa-solid fa-chevron-left"></i> Anterior
             </button>
 
-            <span style="font-size: 0.85rem; padding: 0 8px; color: hsl(var(--text-secondary));">
-                Página <strong>${page}</strong> de <strong>${pages}</strong>
+            <span style="font-size: 0.85rem; padding: 0 10px; color: hsl(var(--text-secondary)); font-weight: 500;">
+                Página <strong style="color: hsl(var(--text-primary));">${page}</strong> de <strong>${pages}</strong>
             </span>
 
-            <button class="btn btn-sm btn-secondary" id="btn-clientes-next" ${page >= pages ? 'disabled' : ''}>
+            <button class="btn btn-sm btn-secondary" id="btn-clientes-next" ${page >= pages ? 'disabled' : ''} title="Página siguiente">
                 Siguiente <i class="fa-solid fa-chevron-right"></i>
+            </button>
+            <button class="btn btn-sm btn-secondary" id="btn-clientes-last" ${page >= pages ? 'disabled' : ''} title="Última página">
+                Fin <i class="fa-solid fa-angles-right"></i>
             </button>
         </div>
     `;
+
+    document.getElementById("btn-clientes-first")?.addEventListener("click", () => {
+        if (page > 1) loadClientesData(1);
+    });
 
     document.getElementById("btn-clientes-prev")?.addEventListener("click", () => {
         if (page > 1) loadClientesData(page - 1);
@@ -8792,6 +8803,10 @@ function renderClientesPagination() {
 
     document.getElementById("btn-clientes-next")?.addEventListener("click", () => {
         if (page < pages) loadClientesData(page + 1);
+    });
+
+    document.getElementById("btn-clientes-last")?.addEventListener("click", () => {
+        if (page < pages) loadClientesData(pages);
     });
 }
 

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, or_, delete
+from sqlalchemy import func, or_, delete, case
 from typing import Optional, List
 import csv
 import io
@@ -33,7 +33,7 @@ async def list_clientes(
     colonia: Optional[str] = Query(None, description="Filtro por colonia"),
     poblacion: Optional[str] = Query(None, description="Filtro por población"),
     page: int = Query(1, ge=1, description="Número de página"),
-    limit: int = Query(50, ge=1, le=500, description="Registros por página"),
+    limit: int = Query(25, ge=1, le=500, description="Registros por página (por defecto 25)"),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(require_clientes_user),
 ):
@@ -66,31 +66,40 @@ async def list_clientes(
     if filters:
         query = query.filter(*filters)
 
-    # Count total records matching criteria
-    count_query = select(func.count(Cliente.id))
+    # Single query to calculate total, total_fisicas, and total_morales matching criteria
+    stats_query = select(
+        func.count(Cliente.id).label("total"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (or_(Cliente.tipo_persona.ilike("%física%"), Cliente.tipo_persona.ilike("%fisica%")), 1),
+                    else_=0
+                )
+            ), 0
+        ).label("total_fisicas"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (or_(Cliente.tipo_persona.ilike("%jurídica%"), Cliente.tipo_persona.ilike("%juridica%"), Cliente.tipo_persona.ilike("%moral%")), 1),
+                    else_=0
+                )
+            ), 0
+        ).label("total_morales"),
+    )
     if filters:
-        count_query = count_query.filter(*filters)
-    
-    total_res = await db.execute(count_query)
-    total = total_res.scalar() or 0
+        stats_query = stats_query.filter(*filters)
 
-    # Count personas fisicas and morales matching search
-    fisicas_query = select(func.count(Cliente.id)).filter(Cliente.tipo_persona.ilike("%física%") | Cliente.tipo_persona.ilike("%fisica%"))
-    morales_query = select(func.count(Cliente.id)).filter(Cliente.tipo_persona.ilike("%jurídica%") | Cliente.tipo_persona.ilike("%juridica%") | Cliente.tipo_persona.ilike("%moral%"))
-    if filters:
-        fisicas_query = fisicas_query.filter(*filters)
-        morales_query = morales_query.filter(*filters)
-
-    res_fisicas = await db.execute(fisicas_query)
-    res_morales = await db.execute(morales_query)
-    total_fisicas = res_fisicas.scalar() or 0
-    total_morales = res_morales.scalar() or 0
+    stats_res = await db.execute(stats_query)
+    row_stats = stats_res.first()
+    total = row_stats.total if row_stats else 0
+    total_fisicas = int(row_stats.total_fisicas) if row_stats else 0
+    total_morales = int(row_stats.total_morales) if row_stats else 0
 
     # Pagination calculation
     offset = (page - 1) * limit
     pages = (total + limit - 1) // limit if total > 0 else 1
 
-    query = query.order_by(Cliente.nombre.asc()).offset(offset).limit(limit)
+    query = query.order_by(Cliente.id.asc()).offset(offset).limit(limit)
     result = await db.execute(query)
     clientes = result.scalars().all()
 
