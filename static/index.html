@@ -95,6 +95,9 @@
                 <a href="#" class="menu-item" data-section="por-entregar">
                     <i class="fa-solid fa-box-open"></i> <span>Por entregar</span>
                 </a>
+                <a href="#" class="menu-item" data-section="clientes" id="menu-clientes">
+                    <i class="fa-solid fa-address-book"></i> <span>Clientes</span>
+                </a>
                 <a href="#" class="menu-item" data-section="vendedores" id="menu-vendedores">
                     <i class="fa-solid fa-users"></i> <span>Vendedores</span>
                 </a>
@@ -1038,6 +1041,131 @@
                             <tbody></tbody>
                         </table>
                         <div class="table-pagination" id="pag-por-entregar"></div>
+                    </div>
+                </section>
+
+                <!-- Section Clientes -->
+                <section id="section-clientes" class="dashboard-section hidden animate-fade-in">
+                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+                        <div>
+                            <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                                <i class="fa-solid fa-address-book" style="color: #3b82f6;"></i> Catálogo de Clientes
+                            </h2>
+                            <p style="margin: 4px 0 0 0; color: hsl(var(--text-secondary)); font-size: 0.9rem;">
+                                Gestión unificada de la cartera de clientes, empresas y contactos comerciales.
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button id="btn-nuevo-cliente" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-user-plus"></i> <span>+ Nuevo Cliente</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Clientes KPI Cards -->
+                    <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6;">
+                                <i class="fa-solid fa-users"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Total Clientes</span>
+                                <h3 class="kpi-value" id="kpi-clientes-total">0</h3>
+                            </div>
+                        </div>
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                                <i class="fa-solid fa-user-large"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Personas Físicas</span>
+                                <h3 class="kpi-value" id="kpi-clientes-fisicas">0</h3>
+                            </div>
+                        </div>
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">
+                                <i class="fa-solid fa-building"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Personas Morales / Jurídicas</span>
+                                <h3 class="kpi-value" id="kpi-clientes-morales">0</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter Control Bar -->
+                    <div class="glass-card filters-card margin-bottom" style="padding: 20px; margin-bottom: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; align-items: end;">
+                            <div class="input-group" style="grid-column: 1 / -1; max-width: 100%;">
+                                <label for="clientes-search-input" style="font-size: 0.85rem; color: hsl(var(--text-secondary)); font-weight: 500;">
+                                    <i class="fa-solid fa-magnifying-glass"></i> Buscador dinámico por nombre, RFC, email o # cliente
+                                </label>
+                                <div style="position: relative;">
+                                    <input type="search" id="clientes-search-input" class="form-control" placeholder="Escribe un nombre (ej. ACME, SALADO, RUBEN...)" style="padding-left: 36px; width: 100%;">
+                                    <i class="fa-solid fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af;"></i>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="clientes-filter-persona" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Tipo de Persona</label>
+                                <select id="clientes-filter-persona" class="form-control" style="width: 100%;">
+                                    <option value="">Todos los tipos</option>
+                                    <option value="Persona física">Persona física</option>
+                                    <option value="Persona jurídica">Persona jurídica</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="clientes-filter-colonia" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Colonia</label>
+                                <select id="clientes-filter-colonia" class="form-control" style="width: 100%;">
+                                    <option value="">Todas las colonias</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="clientes-filter-poblacion" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Población / Ciudad</label>
+                                <select id="clientes-filter-poblacion" class="form-control" style="width: 100%;">
+                                    <option value="">Todas las poblaciones</option>
+                                </select>
+                            </div>
+                            <div class="input-group" style="display: flex; align-items: flex-end;">
+                                <button type="button" id="clientes-btn-clear-filters" class="btn btn-secondary" style="width: 100%; height: 38px;">
+                                    <i class="fa-solid fa-rotate-left"></i> Limpiar Filtros
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Clientes Data Table -->
+                    <div class="glass-card" style="padding: 20px; overflow-x: auto;">
+                        <table class="table" id="table-clientes" style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th style="white-space: nowrap;"># Cliente</th>
+                                    <th>Nombre del Cliente</th>
+                                    <th style="white-space: nowrap;">RFC</th>
+                                    <th style="white-space: nowrap;">Tipo Persona</th>
+                                    <th>Calle y Núm.</th>
+                                    <th>Colonia</th>
+                                    <th>C.P.</th>
+                                    <th>Población</th>
+                                    <th>Estado</th>
+                                    <th>Teléfono</th>
+                                    <th>Celular</th>
+                                    <th>Correo Electrónico</th>
+                                    <th style="text-align: center; white-space: nowrap;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-clientes">
+                                <tr>
+                                    <td colspan="13" style="text-align: center; padding: 30px; color: #9ca3af;">
+                                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i>
+                                        <p>Cargando catálogo de clientes...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="table-pagination" id="clientes-pagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 10px;">
+                            <!-- Dynamically loaded -->
+                        </div>
                     </div>
                 </section>
 
@@ -2413,6 +2541,113 @@
                     <button type="submit" id="btn-save-reminder" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Guardar Recordatorio</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal Add/Edit Cliente -->
+    <div id="modal-cliente" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 680px; width: 92%;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <h3 id="modal-cliente-title" style="margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-user-pen" style="color: #3b82f6;"></i> <span>Alta de Cliente</span>
+                </h3>
+                <button id="btn-close-modal-cliente" class="btn-icon" type="button"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="form-cliente">
+                <input type="hidden" id="cliente-id-input">
+                <div class="modal-body" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; padding: 20px 0; max-height: 65vh; overflow-y: auto;">
+                    <div class="input-group" style="grid-column: 1 / -1;">
+                        <label for="cliente-nombre-input"><i class="fa-solid fa-user"></i> Nombre del Cliente *</label>
+                        <input type="text" id="cliente-nombre-input" required class="form-control" placeholder="Ej. JUAN PEREZ GONZALEZ / ACME S.A. DE C.V.">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-num-input"><i class="fa-solid fa-hashtag"></i> Número de Cliente</label>
+                        <input type="text" id="cliente-num-input" class="form-control" placeholder="Ej. 1045">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-rfc-input"><i class="fa-solid fa-id-card"></i> R.F.C.</label>
+                        <input type="text" id="cliente-rfc-input" class="form-control" placeholder="Ej. XAXX010101000">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-persona-input"><i class="fa-solid fa-users"></i> Tipo de Persona</label>
+                        <select id="cliente-persona-input" class="form-control">
+                            <option value="Persona física">Persona física</option>
+                            <option value="Persona jurídica">Persona jurídica</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-sociedad-input"><i class="fa-solid fa-building"></i> Sociedad</label>
+                        <input type="text" id="cliente-sociedad-input" class="form-control" value="MKS">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-calle-input"><i class="fa-solid fa-road"></i> Calle</label>
+                        <input type="text" id="cliente-calle-input" class="form-control" placeholder="Ej. BLVD. EMILIANO ZAPATA">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-numext-input"><i class="fa-solid fa-location-dot"></i> Número Exterior</label>
+                        <input type="text" id="cliente-numext-input" class="form-control" placeholder="Ej. 3080 PTE">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-colonia-input"><i class="fa-solid fa-tree"></i> Colonia</label>
+                        <input type="text" id="cliente-colonia-input" class="form-control" placeholder="Ej. COL. TIERRA BLANCA">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-cp-input"><i class="fa-solid fa-mail-bulk"></i> Código Postal</label>
+                        <input type="text" id="cliente-cp-input" class="form-control" placeholder="Ej. 80000">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-poblacion-input"><i class="fa-solid fa-city"></i> Población / Ciudad</label>
+                        <input type="text" id="cliente-poblacion-input" class="form-control" placeholder="Ej. CULIACAN">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-estado-input"><i class="fa-solid fa-map"></i> Estado</label>
+                        <input type="text" id="cliente-estado-input" class="form-control" placeholder="Ej. SIN">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-tel-input"><i class="fa-solid fa-phone"></i> Teléfono</label>
+                        <input type="text" id="cliente-tel-input" class="form-control" placeholder="Ej. 6677123456">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-cel-input"><i class="fa-solid fa-mobile-screen"></i> Celular</label>
+                        <input type="text" id="cliente-cel-input" class="form-control" placeholder="Ej. 6671500942">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-fax-input"><i class="fa-solid fa-fax"></i> Fax</label>
+                        <input type="text" id="cliente-fax-input" class="form-control" placeholder="Ej. 7134153">
+                    </div>
+                    <div class="input-group" style="grid-column: 1 / -1;">
+                        <label for="cliente-email-input"><i class="fa-regular fa-envelope"></i> Correo Electrónico</label>
+                        <input type="email" id="cliente-email-input" class="form-control" placeholder="Ej. contacto@cliente.com">
+                    </div>
+                </div>
+                <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <button type="button" id="btn-cancel-modal-cliente" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" id="btn-save-cliente" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Guardar Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Delete Confirmation -->
+    <div id="modal-confirm-delete-cliente" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 440px; width: 90%;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 18px; color: #ef4444; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> <span>Confirmar Eliminación</span>
+                </h3>
+                <button id="btn-close-delete-cliente" class="btn-icon" type="button"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 16px 0;">
+                <p style="margin-bottom: 12px; color: hsl(var(--text-secondary)); font-size: 0.95rem;">¿Estás seguro de que deseas eliminar este cliente del catálogo?</p>
+                <div style="background: rgba(239, 68, 68, 0.12); border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 6px;">
+                    <strong id="delete-cliente-nombre-display" style="display: block; color: #ef4444; font-size: 1.05rem;">-</strong>
+                    <span id="delete-cliente-rfc-display" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">-</span>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <button type="button" id="btn-cancel-delete-cliente" class="btn btn-secondary">Cancelar</button>
+                <button type="button" id="btn-confirm-delete-cliente" class="btn btn-danger"><i class="fa-solid fa-trash-can"></i> Sí, Eliminar Cliente</button>
+            </div>
         </div>
     </div>
 

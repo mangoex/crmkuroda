@@ -166,7 +166,20 @@ const state = {
         vendido: null,
         vencido: null
     },
-    pendingReminders: []
+    pendingReminders: [],
+    clientes: {
+        page: 1,
+        limit: 50,
+        search: "",
+        tipo_persona: "",
+        colonia: "",
+        poblacion: "",
+        total: 0,
+        pages: 1,
+        total_fisicas: 0,
+        total_morales: 0,
+        filtersLoaded: false
+    }
 };
 
 // Mapa rol -> secciones permitidas en el menú lateral y la navegación móvil.
@@ -814,6 +827,8 @@ async function loadSectionData(sectionId) {
             await loadSobrepedidosData();
         } else if (sectionId === "por-entregar") {
             await loadPorEntregarData();
+        } else if (sectionId === "clientes") {
+            await loadClientesData();
         } else if (sectionId === "cotizaciones") {
             await loadCotizacionesData();
         } else if (sectionId === "seguimiento") {
@@ -8594,5 +8609,412 @@ document.addEventListener("DOMContentLoaded", () => {
     DOM.btnCancelAddReminder?.addEventListener("click", () => DOM.addReminderModal.classList.add("hidden"));
     DOM.addReminderForm?.addEventListener("submit", saveReminder);
     DOM.remindersNavBtn?.addEventListener("click", () => switchSection("summary"));
+
+    // Clientes Event Listeners
+    setupClientesEventListeners();
 });
+
+/* ==========================================================================
+   CLIENTES CATALOG SECTION
+   ========================================================================== */
+
+let searchClientesDebounceTimer = null;
+let targetDeleteClienteId = null;
+
+async function loadClientesData(page = 1) {
+    state.clientes.page = page;
+    const tbody = document.getElementById("tbody-clientes");
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="13" style="text-align: center; padding: 30px; color: #9ca3af;">
+                    <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i>
+                    <p>Cargando catálogo de clientes...</p>
+                </td>
+            </tr>
+        `;
+    }
+
+    try {
+        const queryParams = new URLSearchParams({
+            page: state.clientes.page,
+            limit: state.clientes.limit,
+            search: state.clientes.search || "",
+            tipo_persona: state.clientes.tipo_persona || "",
+            colonia: state.clientes.colonia || "",
+            poblacion: state.clientes.poblacion || ""
+        });
+
+        const res = await apiRequest(`/api/v1/clientes/?${queryParams.toString()}`);
+        
+        state.clientes.total = res.total || 0;
+        state.clientes.pages = res.pages || 1;
+        state.clientes.total_fisicas = res.total_fisicas || 0;
+        state.clientes.total_morales = res.total_morales || 0;
+
+        // Update KPI values
+        const kpiTotal = document.getElementById("kpi-clientes-total");
+        const kpiFisicas = document.getElementById("kpi-clientes-fisicas");
+        const kpiMorales = document.getElementById("kpi-clientes-morales");
+
+        if (kpiTotal) kpiTotal.textContent = state.clientes.total.toLocaleString();
+        if (kpiFisicas) kpiFisicas.textContent = state.clientes.total_fisicas.toLocaleString();
+        if (kpiMorales) kpiMorales.textContent = state.clientes.total_morales.toLocaleString();
+
+        renderClientesTable(res.data || []);
+        renderClientesPagination();
+
+        if (!state.clientes.filtersLoaded) {
+            await loadClientesFilters();
+        }
+
+    } catch (err) {
+        console.error("Error loading clientes:", err);
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="13" style="text-align: center; padding: 30px; color: #ef4444;">
+                        <i class="fa-solid fa-circle-exclamation" style="font-size: 24px; margin-bottom: 10px;"></i>
+                        <p>Error al cargar clientes: ${escapeHTML(err.message)}</p>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+}
+
+function renderClientesTable(clientes) {
+    const tbody = document.getElementById("tbody-clientes");
+    if (!tbody) return;
+
+    if (!clientes || clientes.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="13" style="text-align: center; padding: 40px; color: #9ca3af;">
+                    <i class="fa-solid fa-folder-open" style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;"></i>
+                    <p style="font-size: 1.05rem; margin: 0;">No se encontraron clientes con los filtros aplicados.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = clientes.map(c => {
+        const isFisica = (c.tipo_persona || "").toLowerCase().includes("física") || (c.tipo_persona || "").toLowerCase().includes("fisica");
+        const badgeClass = isFisica ? "badge-primary" : "badge-secondary";
+        const badgeIcon = isFisica ? "fa-user" : "fa-building";
+        const numCliente = c.numero_cliente ? `#${escapeHTML(c.numero_cliente)}` : "-";
+        const rfc = c.rfc ? escapeHTML(c.rfc) : "-";
+        const direccion = [c.calle, c.numero_exterior].filter(Boolean).map(escapeHTML).join(" ");
+
+        return `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);" class="table-row-hover">
+                <td style="font-family: monospace; font-weight: bold; color: #3b82f6; white-space: nowrap;">${numCliente}</td>
+                <td>
+                    <strong style="color: hsl(var(--text-primary)); display: block;">${escapeHTML(c.nombre)}</strong>
+                    ${c.sociedad ? `<small class="text-muted" style="font-size: 11px;">Sociedad: ${escapeHTML(c.sociedad)}</small>` : ''}
+                </td>
+                <td style="font-family: monospace; font-size: 12px; white-space: nowrap;">${rfc}</td>
+                <td style="white-space: nowrap;">
+                    <span class="badge ${badgeClass}" style="font-size: 11px; padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px;">
+                        <i class="fa-solid ${badgeIcon}"></i> ${escapeHTML(c.tipo_persona || 'Persona física')}
+                    </span>
+                </td>
+                <td>${direccion || '-'}</td>
+                <td>${escapeHTML(c.colonia || '-')}</td>
+                <td style="font-family: monospace;">${escapeHTML(c.codigo_postal || '-')}</td>
+                <td>${escapeHTML(c.poblacion || '-')}</td>
+                <td>${escapeHTML(c.estado || '-')}</td>
+                <td style="white-space: nowrap;">${c.telefono ? `<a href="tel:${escapeHTML(c.telefono)}" style="color: #3b82f6; text-decoration: none;"><i class="fa-solid fa-phone" style="font-size: 10px;"></i> ${escapeHTML(c.telefono)}</a>` : '-'}</td>
+                <td style="white-space: nowrap;">${c.celular ? `<a href="tel:${escapeHTML(c.celular)}" style="color: #10b981; text-decoration: none;"><i class="fa-solid fa-mobile-screen" style="font-size: 10px;"></i> ${escapeHTML(c.celular)}</a>` : '-'}</td>
+                <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${c.email ? `<a href="mailto:${escapeHTML(c.email)}" style="color: #a855f7; text-decoration: none;" title="${escapeHTML(c.email)}"><i class="fa-regular fa-envelope" style="font-size: 10px;"></i> ${escapeHTML(c.email)}</a>` : '-'}
+                </td>
+                <td style="text-align: center; white-space: nowrap;">
+                    <div style="display: flex; gap: 6px; justify-content: center;">
+                        <button class="btn btn-sm btn-secondary btn-edit-cliente" data-id="${c.id}" title="Editar cliente" style="padding: 4px 8px;">
+                            <i class="fa-solid fa-pen" style="font-size: 12px;"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger btn-delete-cliente" data-id="${c.id}" data-nombre="${escapeHTML(c.nombre)}" data-rfc="${escapeHTML(c.rfc || '')}" title="Eliminar cliente" style="padding: 4px 8px;">
+                            <i class="fa-solid fa-trash-can" style="font-size: 12px;"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join("");
+
+    // Attach row action click events
+    tbody.querySelectorAll(".btn-edit-cliente").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const id = btn.getAttribute("data-id");
+            openModalCliente(id);
+        });
+    });
+
+    tbody.querySelectorAll(".btn-delete-cliente").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const id = btn.getAttribute("data-id");
+            const nombre = btn.getAttribute("data-nombre");
+            const rfc = btn.getAttribute("data-rfc");
+            confirmDeleteCliente(id, nombre, rfc);
+        });
+    });
+}
+
+function renderClientesPagination() {
+    const pag = document.getElementById("clientes-pagination");
+    if (!pag) return;
+
+    const { page, pages, limit, total } = state.clientes;
+    const start = total > 0 ? (page - 1) * limit + 1 : 0;
+    const end = Math.min(page * limit, total);
+
+    pag.innerHTML = `
+        <div style="font-size: 0.85rem; color: hsl(var(--text-secondary));">
+            Mostrando <strong>${start}</strong> - <strong>${end}</strong> de <strong>${total.toLocaleString()}</strong> clientes
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+            <button class="btn btn-sm btn-secondary" id="btn-clientes-prev" ${page <= 1 ? 'disabled' : ''}>
+                <i class="fa-solid fa-chevron-left"></i> Anterior
+            </button>
+
+            <span style="font-size: 0.85rem; padding: 0 8px; color: hsl(var(--text-secondary));">
+                Página <strong>${page}</strong> de <strong>${pages}</strong>
+            </span>
+
+            <button class="btn btn-sm btn-secondary" id="btn-clientes-next" ${page >= pages ? 'disabled' : ''}>
+                Siguiente <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+    `;
+
+    document.getElementById("btn-clientes-prev")?.addEventListener("click", () => {
+        if (page > 1) loadClientesData(page - 1);
+    });
+
+    document.getElementById("btn-clientes-next")?.addEventListener("click", () => {
+        if (page < pages) loadClientesData(page + 1);
+    });
+}
+
+async function loadClientesFilters() {
+    try {
+        const res = await apiRequest("/api/v1/clientes/filters");
+        
+        const selColonia = document.getElementById("clientes-filter-colonia");
+        const selPoblacion = document.getElementById("clientes-filter-poblacion");
+
+        if (selColonia && res.colonias) {
+            const curCol = state.clientes.colonia;
+            selColonia.innerHTML = '<option value="">Todas las colonias</option>' +
+                res.colonias.map(c => `<option value="${escapeHTML(c)}" ${c === curCol ? 'selected' : ''}>${escapeHTML(c)}</option>`).join("");
+        }
+
+        if (selPoblacion && res.poblaciones) {
+            const curPob = state.clientes.poblacion;
+            selPoblacion.innerHTML = '<option value="">Todas las poblaciones</option>' +
+                res.poblaciones.map(p => `<option value="${escapeHTML(p)}" ${p === curPob ? 'selected' : ''}>${escapeHTML(p)}</option>`).join("");
+        }
+
+        state.clientes.filtersLoaded = true;
+    } catch (err) {
+        console.error("Error loading filter options:", err);
+    }
+}
+
+async function openModalCliente(clienteId = null) {
+    const modal = document.getElementById("modal-cliente");
+    const form = document.getElementById("form-cliente");
+    const title = document.getElementById("modal-cliente-title");
+    if (!modal || !form) return;
+
+    form.reset();
+    document.getElementById("cliente-id-input").value = "";
+
+    if (clienteId) {
+        if (title) title.innerHTML = '<i class="fa-solid fa-user-pen" style="color: #3b82f6;"></i> <span>Editar Cliente</span>';
+        try {
+            const cliente = await apiRequest(`/api/v1/clientes/${clienteId}`);
+            document.getElementById("cliente-id-input").value = cliente.id || "";
+            document.getElementById("cliente-nombre-input").value = cliente.nombre || "";
+            document.getElementById("cliente-num-input").value = cliente.numero_cliente || "";
+            document.getElementById("cliente-rfc-input").value = cliente.rfc || "";
+            document.getElementById("cliente-persona-input").value = cliente.tipo_persona || "Persona física";
+            document.getElementById("cliente-sociedad-input").value = cliente.sociedad || "MKS";
+            document.getElementById("cliente-calle-input").value = cliente.calle || "";
+            document.getElementById("cliente-numext-input").value = cliente.numero_exterior || "";
+            document.getElementById("cliente-colonia-input").value = cliente.colonia || "";
+            document.getElementById("cliente-cp-input").value = cliente.codigo_postal || "";
+            document.getElementById("cliente-poblacion-input").value = cliente.poblacion || "";
+            document.getElementById("cliente-estado-input").value = cliente.estado || "";
+            document.getElementById("cliente-tel-input").value = cliente.telefono || "";
+            document.getElementById("cliente-cel-input").value = cliente.celular || "";
+            document.getElementById("cliente-fax-input").value = cliente.fax || "";
+            document.getElementById("cliente-email-input").value = cliente.email || "";
+        } catch (err) {
+            showToast("Error al cargar datos del cliente: " + err.message, "error");
+            return;
+        }
+    } else {
+        if (title) title.innerHTML = '<i class="fa-solid fa-user-plus" style="color: #3b82f6;"></i> <span>Alta de Cliente</span>';
+        document.getElementById("cliente-sociedad-input").value = "MKS";
+    }
+
+    modal.classList.remove("hidden");
+}
+
+async function saveClienteForm(e) {
+    if (e) e.preventDefault();
+
+    const id = document.getElementById("cliente-id-input")?.value;
+    const nombre = document.getElementById("cliente-nombre-input")?.value.trim();
+
+    if (!nombre) {
+        showToast("El nombre del cliente es obligatorio.", "warning");
+        return;
+    }
+
+    const payload = {
+        sociedad: document.getElementById("cliente-sociedad-input")?.value.trim() || "MKS",
+        numero_cliente: document.getElementById("cliente-num-input")?.value.trim() || "",
+        nombre: nombre,
+        rfc: document.getElementById("cliente-rfc-input")?.value.trim() || "",
+        tipo_persona: document.getElementById("cliente-persona-input")?.value || "Persona física",
+        calle: document.getElementById("cliente-calle-input")?.value.trim() || "",
+        numero_exterior: document.getElementById("cliente-numext-input")?.value.trim() || "",
+        colonia: document.getElementById("cliente-colonia-input")?.value.trim() || "",
+        codigo_postal: document.getElementById("cliente-cp-input")?.value.trim() || "",
+        poblacion: document.getElementById("cliente-poblacion-input")?.value.trim() || "",
+        estado: document.getElementById("cliente-estado-input")?.value.trim() || "",
+        telefono: document.getElementById("cliente-tel-input")?.value.trim() || "",
+        celular: document.getElementById("cliente-cel-input")?.value.trim() || "",
+        fax: document.getElementById("cliente-fax-input")?.value.trim() || "",
+        email: document.getElementById("cliente-email-input")?.value.trim() || "",
+    };
+
+    try {
+        if (id) {
+            await apiRequest(`/api/v1/clientes/${id}`, {
+                method: "PUT",
+                body: JSON.stringify(payload)
+            });
+            showToast(`Cliente '${nombre}' actualizado con éxito.`, "success");
+        } else {
+            await apiRequest("/api/v1/clientes/", {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+            showToast(`Cliente '${nombre}' dado de alta exitosamente.`, "success");
+        }
+
+        document.getElementById("modal-cliente")?.classList.add("hidden");
+        await loadClientesData(state.clientes.page);
+        state.clientes.filtersLoaded = false;
+    } catch (err) {
+        showToast("Error al guardar cliente: " + err.message, "error");
+    }
+}
+
+function confirmDeleteCliente(id, nombre, rfc) {
+    targetDeleteClienteId = id;
+    const modal = document.getElementById("modal-confirm-delete-cliente");
+    const nameDisplay = document.getElementById("delete-cliente-nombre-display");
+    const rfcDisplay = document.getElementById("delete-cliente-rfc-display");
+
+    if (nameDisplay) nameDisplay.textContent = nombre || "Cliente sin nombre";
+    if (rfcDisplay) rfcDisplay.textContent = rfc ? `RFC: ${rfc}` : "Sin RFC registrado";
+
+    if (modal) modal.classList.remove("hidden");
+}
+
+async function executeDeleteCliente() {
+    if (!targetDeleteClienteId) return;
+
+    try {
+        const res = await apiRequest(`/api/v1/clientes/${targetDeleteClienteId}`, {
+            method: "DELETE"
+        });
+        showToast(res.message || "Cliente eliminado exitosamente.", "success");
+        document.getElementById("modal-confirm-delete-cliente")?.classList.add("hidden");
+        targetDeleteClienteId = null;
+        await loadClientesData(state.clientes.page);
+        state.clientes.filtersLoaded = false;
+    } catch (err) {
+        showToast("Error al eliminar cliente: " + err.message, "error");
+    }
+}
+
+function setupClientesEventListeners() {
+    // Search input dynamic live listener (debounced)
+    const searchInput = document.getElementById("clientes-search-input");
+    if (searchInput) {
+        searchInput.addEventListener("input", (e) => {
+            clearTimeout(searchClientesDebounceTimer);
+            searchClientesDebounceTimer = setTimeout(() => {
+                state.clientes.search = e.target.value.trim();
+                loadClientesData(1);
+            }, 300);
+        });
+    }
+
+    // Filter selects
+    document.getElementById("clientes-filter-persona")?.addEventListener("change", (e) => {
+        state.clientes.tipo_persona = e.target.value;
+        loadClientesData(1);
+    });
+
+    document.getElementById("clientes-filter-colonia")?.addEventListener("change", (e) => {
+        state.clientes.colonia = e.target.value;
+        loadClientesData(1);
+    });
+
+    document.getElementById("clientes-filter-poblacion")?.addEventListener("change", (e) => {
+        state.clientes.poblacion = e.target.value;
+        loadClientesData(1);
+    });
+
+    // Clear filters button
+    document.getElementById("clientes-btn-clear-filters")?.addEventListener("click", () => {
+        state.clientes.search = "";
+        state.clientes.tipo_persona = "";
+        state.clientes.colonia = "";
+        state.clientes.poblacion = "";
+
+        if (searchInput) searchInput.value = "";
+        const selPersona = document.getElementById("clientes-filter-persona");
+        const selColonia = document.getElementById("clientes-filter-colonia");
+        const selPoblacion = document.getElementById("clientes-filter-poblacion");
+
+        if (selPersona) selPersona.value = "";
+        if (selColonia) selColonia.value = "";
+        if (selPoblacion) selPoblacion.value = "";
+
+        loadClientesData(1);
+    });
+
+    // New client modal button
+    document.getElementById("btn-nuevo-cliente")?.addEventListener("click", () => {
+        openModalCliente(null);
+    });
+
+    // Modal forms and close buttons
+    document.getElementById("form-cliente")?.addEventListener("submit", saveClienteForm);
+    document.getElementById("btn-close-modal-cliente")?.addEventListener("click", () => {
+        document.getElementById("modal-cliente")?.classList.add("hidden");
+    });
+    document.getElementById("btn-cancel-modal-cliente")?.addEventListener("click", () => {
+        document.getElementById("modal-cliente")?.classList.add("hidden");
+    });
+
+    // Delete confirm modal buttons
+    document.getElementById("btn-confirm-delete-cliente")?.addEventListener("click", executeDeleteCliente);
+    document.getElementById("btn-close-delete-cliente")?.addEventListener("click", () => {
+        document.getElementById("modal-confirm-delete-cliente")?.classList.add("hidden");
+    });
+    document.getElementById("btn-cancel-delete-cliente")?.addEventListener("click", () => {
+        document.getElementById("modal-confirm-delete-cliente")?.classList.add("hidden");
+    });
+}
+
 

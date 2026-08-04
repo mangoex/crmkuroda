@@ -3125,3 +3125,30 @@ body.light-mode .reminder-item-card {
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
 }
 
+/* ==========================================================================
+   CLIENTES CATALOG STYLES
+   ========================================================================== */
+
+.table-row-hover:hover {
+    background-color: rgba(59, 130, 246, 0.06) !important;
+}
+
+body.dark-mode .table-row-hover:hover {
+    background-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+#table-clientes th {
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: hsl(var(--text-secondary));
+    padding: 12px 10px;
+}
+
+#table-clientes td {
+    padding: 12px 10px;
+    vertical-align: middle;
+    font-size: 0.9rem;
+}
+
+
