@@ -8627,7 +8627,7 @@ async function loadClientesData(page = 1) {
     if (tbody) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="13" style="text-align: center; padding: 30px; color: #9ca3af;">
+                <td colspan="8" style="text-align: center; padding: 30px; color: #9ca3af;">
                     <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i>
                     <p>Cargando catálogo de clientes...</p>
                 </td>
@@ -8673,7 +8673,7 @@ async function loadClientesData(page = 1) {
         if (tbody) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="13" style="text-align: center; padding: 30px; color: #ef4444;">
+                    <td colspan="8" style="text-align: center; padding: 30px; color: #ef4444;">
                         <i class="fa-solid fa-circle-exclamation" style="font-size: 24px; margin-bottom: 10px;"></i>
                         <p>Error al cargar clientes: ${escapeHTML(err.message)}</p>
                     </td>
@@ -8690,7 +8690,7 @@ function renderClientesTable(clientes) {
     if (!clientes || clientes.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="13" style="text-align: center; padding: 40px; color: #9ca3af;">
+                <td colspan="8" style="text-align: center; padding: 40px; color: #9ca3af;">
                     <i class="fa-solid fa-folder-open" style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;"></i>
                     <p style="font-size: 1.05rem; margin: 0;">No se encontraron clientes con los filtros aplicados.</p>
                 </td>
@@ -8700,37 +8700,24 @@ function renderClientesTable(clientes) {
     }
 
     tbody.innerHTML = clientes.map(c => {
-        const isFisica = (c.tipo_persona || "").toLowerCase().includes("física") || (c.tipo_persona || "").toLowerCase().includes("fisica");
-        const badgeClass = isFisica ? "badge-primary" : "badge-secondary";
-        const badgeIcon = isFisica ? "fa-user" : "fa-building";
         const numCliente = c.numero_cliente ? `#${escapeHTML(c.numero_cliente)}` : "-";
         const rfc = c.rfc ? escapeHTML(c.rfc) : "-";
-        const direccion = [c.calle, c.numero_exterior].filter(Boolean).map(escapeHTML).join(" ");
 
         return `
-            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);" class="table-row-hover">
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer;" class="table-row-hover" data-cliente-id="${c.id}">
                 <td style="font-family: monospace; font-weight: bold; color: #3b82f6; white-space: nowrap;">${numCliente}</td>
                 <td>
                     <strong style="color: hsl(var(--text-primary)); display: block;">${escapeHTML(c.nombre)}</strong>
                     ${c.sociedad ? `<small class="text-muted" style="font-size: 11px;">Sociedad: ${escapeHTML(c.sociedad)}</small>` : ''}
                 </td>
                 <td style="font-family: monospace; font-size: 12px; white-space: nowrap;">${rfc}</td>
-                <td style="white-space: nowrap;">
-                    <span class="badge ${badgeClass}" style="font-size: 11px; padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px;">
-                        <i class="fa-solid ${badgeIcon}"></i> ${escapeHTML(c.tipo_persona || 'Persona física')}
-                    </span>
-                </td>
-                <td>${direccion || '-'}</td>
-                <td>${escapeHTML(c.colonia || '-')}</td>
-                <td style="font-family: monospace;">${escapeHTML(c.codigo_postal || '-')}</td>
                 <td>${escapeHTML(c.poblacion || '-')}</td>
                 <td>${escapeHTML(c.estado || '-')}</td>
-                <td style="white-space: nowrap;">${c.telefono ? `<a href="tel:${escapeHTML(c.telefono)}" style="color: #3b82f6; text-decoration: none;"><i class="fa-solid fa-phone" style="font-size: 10px;"></i> ${escapeHTML(c.telefono)}</a>` : '-'}</td>
-                <td style="white-space: nowrap;">${c.celular ? `<a href="tel:${escapeHTML(c.celular)}" style="color: #10b981; text-decoration: none;"><i class="fa-solid fa-mobile-screen" style="font-size: 10px;"></i> ${escapeHTML(c.celular)}</a>` : '-'}</td>
-                <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                    ${c.email ? `<a href="mailto:${escapeHTML(c.email)}" style="color: #a855f7; text-decoration: none;" title="${escapeHTML(c.email)}"><i class="fa-regular fa-envelope" style="font-size: 10px;"></i> ${escapeHTML(c.email)}</a>` : '-'}
+                <td style="white-space: nowrap;">${c.celular ? `<a href="tel:${escapeHTML(c.celular)}" style="color: #10b981; text-decoration: none;" onclick="event.stopPropagation();"><i class="fa-solid fa-mobile-screen" style="font-size: 10px;"></i> ${escapeHTML(c.celular)}</a>` : '-'}</td>
+                <td style="max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${c.email ? `<a href="mailto:${escapeHTML(c.email)}" style="color: #a855f7; text-decoration: none;" title="${escapeHTML(c.email)}" onclick="event.stopPropagation();"><i class="fa-regular fa-envelope" style="font-size: 10px;"></i> ${escapeHTML(c.email)}</a>` : '-'}
                 </td>
-                <td style="text-align: center; white-space: nowrap;">
+                <td style="text-align: center; white-space: nowrap;" onclick="event.stopPropagation();">
                     <div style="display: flex; gap: 6px; justify-content: center;">
                         <button class="btn btn-sm btn-secondary btn-edit-cliente" data-id="${c.id}" title="Editar cliente" style="padding: 4px 8px;">
                             <i class="fa-solid fa-pen" style="font-size: 12px;"></i>
@@ -8744,16 +8731,26 @@ function renderClientesTable(clientes) {
         `;
     }).join("");
 
+    // Attach row click event to open edit modal with all fields
+    tbody.querySelectorAll("tr[data-cliente-id]").forEach(tr => {
+        tr.addEventListener("click", () => {
+            const id = tr.getAttribute("data-cliente-id");
+            openModalCliente(id);
+        });
+    });
+
     // Attach row action click events
     tbody.querySelectorAll(".btn-edit-cliente").forEach(btn => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
             const id = btn.getAttribute("data-id");
             openModalCliente(id);
         });
     });
 
     tbody.querySelectorAll(".btn-delete-cliente").forEach(btn => {
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
             const id = btn.getAttribute("data-id");
             const nombre = btn.getAttribute("data-nombre");
             const rfc = btn.getAttribute("data-rfc");

@@ -25,6 +25,7 @@ require_clientes_user = RoleChecker(["admin", "gerente", "vendedor"])
 require_admin_or_gerente = RoleChecker(["admin", "gerente"])
 
 
+@router.get("", response_model=ClientePaginatedOut)
 @router.get("/", response_model=ClientePaginatedOut)
 async def list_clientes(
     search: Optional[str] = Query(None, description="Búsqueda dinámica por nombre, RFC o número de cliente"),
