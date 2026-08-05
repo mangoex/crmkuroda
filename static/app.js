@@ -2193,31 +2193,31 @@ async function loadSobrepedidosData(forceRefresh = false) {
             if (rowClass) tr.className = rowClass;
             
             const facturaText = item.factura || item.id_pedido_erp || "";
-            const vendedorText = item.vendedor_codigo || item.vendedor_nombre || "";
-            const cellPedido = `<td>${escapeHTML(facturaText)}</td>`;
-            const cellCliente = `<td>${escapeHTML(item.cliente_nombre)}</td>`;
-            const cellVendedor = `<td>${escapeHTML(vendedorText)}</td>`;
-            const cellSku = `<td><code>${escapeHTML(item.producto_sku)}</code></td>`;
-            const cellDesc = `<td>${escapeHTML(item.producto_desc)}</td>`;
-            const cellGrupo = `<td>${escapeHTML(item.grupo)}</td>`;
-            const cellCant = `<td style="text-align: right; font-weight: 600;">${formatNumber(item.cantidad_pendiente || 0)}</td>`;
-            const cellDisp = `<td>${escapeHTML(item.disponibilidad_vl06o)}</td>`;
-            const cellCantDisp = `<td style="text-align: right;">${formatNumber(item.cantidad_disponible || 0)}</td>`;
-            const cellFechaDisp = `<td>${escapeHTML(item.fecha_disponibilidad || "-")}</td>`;
-            const cellDiasDisp = `<td style="text-align: right;">${item.dias_disponible ?? "-"}</td>`;
-            
-            // Highlight date cell if delayed
-            const dateText = item.fecha_pedido || "Sin fecha";
+            const dateText = item.fecha_venta || item.fecha_pedido || "Sin fecha";
             const dateDisplay = isDelayed ? `<span class="cell-delayed-text" title="Retraso crítico: ${daysDelay} días">${dateText} (${daysDelay}d)</span>` : dateText;
-            const cellFecha = `<td>${dateDisplay}</td>`;
-            
-            const cellProv = `<td>${item.proveedor}</td>`;
-            
-            const commentDisplay = isDelayed ? `<span class="cell-delayed-text">${item.estatus_compras}</span>` : item.estatus_compras;
-            const cellComments = `<td>${commentDisplay}</td>`;
-            const cellStatus = `<td>${statusPill}</td>`;
-            
-            tr.innerHTML = cellPedido + cellCliente + cellVendedor + cellSku + cellDesc + cellCant + cellFecha + cellProv + cellComments + cellStatus;
+            const vendedorText = item.vendedor_codigo || item.vendedor_nombre || "";
+            const commentText = item.estatus_compras || "-";
+            const commentDisplay = isDelayed ? `<span class="cell-delayed-text" title="${escapeHTML(commentText)}">${escapeHTML(commentText)}</span>` : escapeHTML(commentText);
+            const motivoText = item.motivo_estado || item.motivo || "-";
+
+            tr.innerHTML = [
+                `<td style="white-space: nowrap;">${escapeHTML(facturaText)}</td>`,
+                `<td style="white-space: nowrap;">${dateDisplay}</td>`,
+                `<td class="col-truncate" title="${escapeHTML(item.cliente_nombre || '')}">${escapeHTML(item.cliente_nombre || '-')}</td>`,
+                `<td style="white-space: nowrap;">${escapeHTML(vendedorText)}</td>`,
+                `<td style="white-space: nowrap;"><code>${escapeHTML(item.producto_sku || '-')}</code></td>`,
+                `<td class="col-truncate-lg" title="${escapeHTML(item.producto_desc || '')}">${escapeHTML(item.producto_desc || '-')}</td>`,
+                `<td class="col-truncate-sm" title="${escapeHTML(item.grupo || '')}">${escapeHTML(item.grupo || '-')}</td>`,
+                `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_pendiente || 0)}</td>`,
+                `<td style="white-space: nowrap;">${escapeHTML(item.disponibilidad_vl06o || '-')}</td>`,
+                `<td style="text-align: right; white-space: nowrap;">${formatNumber(item.cantidad_disponible || 0)}</td>`,
+                `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
+                `<td style="text-align: right; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
+                `<td class="col-truncate" title="${escapeHTML(item.proveedor || '')}">${escapeHTML(item.proveedor || '-')}</td>`,
+                `<td class="col-truncate" title="${escapeHTML(commentText)}">${commentDisplay}</td>`,
+                `<td class="col-truncate" title="${escapeHTML(motivoText)}">${escapeHTML(motivoText)}</td>`,
+                `<td style="white-space: nowrap;">${statusPill}</td>`
+            ].join("");
             DOM.tableSobrepedidos.appendChild(tr);
         });
 
@@ -2594,17 +2594,17 @@ async function loadPorEntregarData(forceRefresh = false) {
 
             const tr = document.createElement("tr");
             tr.innerHTML = [
-                `<td>${escapeHTML(item.factura)}</td>`,
-                `<td><code>${escapeHTML(item.producto_sku)}</code></td>`,
-                `<td>${escapeHTML(item.producto_desc)}</td>`,
-                `<td style="text-align: right; font-weight: 600;">${formatNumber(item.cantidad_entregar || 0)}</td>`,
-                `<td>${escapeHTML(item.vendedor_codigo || item.vendedor_nombre || "")}</td>`,
-                `<td>${escapeHTML(item.numero_cliente)}</td>`,
-                `<td>${escapeHTML(item.cliente_nombre)}</td>`,
-                `<td>${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
-                `<td style="text-align: right; font-weight: 600;">${item.dias_disponible ?? "-"}</td>`,
-                `<td>${escapeHTML(item.motivo_estado)}</td>`,
-                `<td>${statusPill}</td>`
+                `<td style="white-space: nowrap;">${escapeHTML(item.factura || 'Sin Información')}</td>`,
+                `<td style="white-space: nowrap;"><code>${escapeHTML(item.producto_sku || '-')}</code></td>`,
+                `<td class="col-truncate-lg" title="${escapeHTML(item.producto_desc || '')}">${escapeHTML(item.producto_desc || '-')}</td>`,
+                `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_entregar || 0)}</td>`,
+                `<td style="white-space: nowrap;">${escapeHTML(item.vendedor_codigo || item.vendedor_nombre || "")}</td>`,
+                `<td style="white-space: nowrap;">${escapeHTML(item.numero_cliente || '-')}</td>`,
+                `<td class="col-truncate" title="${escapeHTML(item.cliente_nombre || '')}">${escapeHTML(item.cliente_nombre || '-')}</td>`,
+                `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
+                `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
+                `<td class="col-truncate-lg" title="${escapeHTML(item.motivo_estado || '')}">${escapeHTML(item.motivo_estado || '-')}</td>`,
+                `<td style="white-space: nowrap;">${statusPill}</td>`
             ].join("");
             DOM.tablePorEntregar.appendChild(tr);
         });
