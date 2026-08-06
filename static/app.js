@@ -4148,7 +4148,11 @@ async function loadKanbanData(forceRefresh = false) {
     }
     
     if (forceRefresh || state.cotizaciones.length === 0) {
-        let endpoint = "/api/v1/cotizaciones/?limit=20000";
+        // Optimización: Pedir versión ligera y solo los últimos 60 días
+        const refDate = new Date();
+        refDate.setDate(refDate.getDate() - 60);
+        const fechaInicio = refDate.toISOString().split('T')[0];
+        let endpoint = `/api/v1/cotizaciones/?limit=2000&lite=true&fecha_inicio=${fechaInicio}`;
         if (DOM.kanbanFilterSeller?.value) {
             endpoint += `&vendedor_id=${encodeURIComponent(DOM.kanbanFilterSeller.value)}`;
         }

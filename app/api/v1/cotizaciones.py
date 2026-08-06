@@ -61,6 +61,7 @@ def serialize_cotizacion(
     c: Cotizacion,
     resolved_vendedor_id: Optional[UUID] = None,
     enrichment: Optional[dict] = None,
+    lite: bool = False,
 ) -> dict:
     vendedor_id = c.vendedor_id or resolved_vendedor_id
     enrichment = enrichment or {}
@@ -73,7 +74,7 @@ def serialize_cotizacion(
         "numero_cliente": c.numero_cliente,
         "datos_contacto": normalize_contact(c.datos_contacto),
         "items": c.items,
-        "items_detalle": enrichment.get("items_detalle", []),
+        "items_detalle": [] if lite else enrichment.get("items_detalle", []),
         "total": float(c.total),
         "texto_propuesta": c.texto_propuesta,
         "numero_cotizacion": c.numero_cotizacion,
@@ -207,6 +208,7 @@ async def list_cotizaciones(
     fecha_fin: Optional[date] = Query(default=None),
     limit: int = Query(default=10, ge=1, le=50000),
     offset: int = Query(default=0, ge=0),
+    lite: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
@@ -292,6 +294,7 @@ async def list_cotizaciones(
             c,
             seller_ids_by_name.get(_normalize_seller_text(c.vendedor_nombre)),
             enrichment.get(c.id),
+            lite=lite,
         )
         for c in cotizaciones
     ]
