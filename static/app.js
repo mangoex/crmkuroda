@@ -863,7 +863,7 @@ async function loadSummaryData() {
     const metasRes = await apiRequest("/api/v1/metas/?limit=100");
     const metas = metasRes.data || [];
     
-    const quotesRes = await apiRequest("/api/v1/cotizaciones/?limit=20000");
+    const quotesRes = await apiRequest("/api/v1/cotizaciones/?limit=20000&lite=true");
     const quotes = quotesRes.data || [];
     
     state.vendedores = sellers;
@@ -4147,7 +4147,7 @@ async function loadKanbanData(forceRefresh = false) {
         });
     }
     
-    if (forceRefresh || state.cotizaciones.length === 0) {
+    if (forceRefresh || !state.kanbanCotizaciones || state.kanbanCotizaciones.length === 0) {
         // Optimización: Pedir versión ligera y solo los últimos 60 días
         const refDate = new Date();
         refDate.setDate(refDate.getDate() - 60);
@@ -4157,7 +4157,7 @@ async function loadKanbanData(forceRefresh = false) {
             endpoint += `&vendedor_id=${encodeURIComponent(DOM.kanbanFilterSeller.value)}`;
         }
         const res = await apiRequest(endpoint);
-        state.cotizaciones = res.data || [];
+        state.kanbanCotizaciones = res.data || [];
     }
     
     renderKanbanColumns();
@@ -4168,7 +4168,7 @@ function renderKanbanColumns() {
     const sellerVal = DOM.kanbanFilterSeller ? DOM.kanbanFilterSeller.value : "";
     const daysVal = DOM.kanbanFilterDays ? DOM.kanbanFilterDays.value : "";
     
-    let filteredQuotes = state.cotizaciones;
+    let filteredQuotes = state.kanbanCotizaciones || [];
     
     // Apply filters
     if (searchVal) {
