@@ -42,6 +42,19 @@ class CommercialFrontendContractTest(unittest.TestCase):
         self.assertIn("/detalle-materiales/upload", self.javascript)
         self.assertIn("material-group-toggle", self.javascript)
 
+    def test_inventory_table_displays_material_code(self):
+        self.assertIn('id="table-inventario-abcf"', self.html)
+        self.assertIn("Código material", self.html)
+        self.assertIn("escapeHTML(getInventoryProductKey(i) || \"-\")", self.javascript)
+
+    def test_followup_proposal_dialog_shows_or_maintains_client_cellular(self):
+        self.assertIn("renderProposalClientContact", self.javascript)
+        self.assertIn("findCatalogClientForQuote", self.javascript)
+        self.assertIn("Celular del cliente", self.javascript)
+        self.assertIn("proposal-update-client-contact", self.javascript)
+        self.assertIn('switchSection("clientes")', self.javascript)
+        self.assertIn('document.getElementById("cliente-cel-input")?.focus()', self.javascript)
+
     def test_management_filters_and_unlinked_seller_exist(self):
         self.assertIn('id="coordinator-performance-start"', self.html)
         self.assertIn('id="coordinator-performance-end"', self.html)

@@ -2224,6 +2224,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                 <td>${escapeHTML(getInventoryWarehouse(i) || "-")}</td>
                 <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(getInventoryProviderName(i))}">${escapeHTML(getInventoryProviderName(i) || "-")}</td>
                 <td><strong>${escapeHTML(getInventoryDCode(i) || "-")}</strong></td>
+                <td><code>${escapeHTML(getInventoryProductKey(i) || "-")}</code></td>
                 <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(getInventoryDescription(i))}">${escapeHTML(getInventoryDescription(i) || "-")}</td>
                 <td>${i.cantidad_propia !== null ? i.cantidad_propia.toLocaleString() : "-"}</td>
                 <td>${i.existencia_consignacion !== null ? i.existencia_consignacion.toLocaleString() : "-"}</td>
@@ -4262,6 +4263,77 @@ async function saveQuoteComment(event) {
     }
 }
 
+function normalizeClientLookupText(value) {
+    return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase();
+}
+
+async function findCatalogClientForQuote(quote) {
+    const search = String(quote.numero_cliente || quote.cliente_nombre || "").trim();
+    if (!search) return null;
+    try {
+        const result = await apiRequest(`/api/v1/clientes/?search=${encodeURIComponent(search)}&limit=10`);
+        const clients = result.data || [];
+        const exactNumber = clients.find(client =>
+            quote.numero_cliente && String(client.numero_cliente || "").trim() === String(quote.numero_cliente).trim()
+        );
+        if (exactNumber) return exactNumber;
+        const quoteName = normalizeClientLookupText(quote.cliente_nombre);
+        return clients.find(client => normalizeClientLookupText(client.nombre) === quoteName) || null;
+    } catch (error) {
+        console.warn("No se pudo consultar el contacto del catálogo:", error);
+        return null;
+    }
+}
+
+function renderProposalClientContact(quote, catalogClient) {
+    const quoteContact = quote.datos_contacto || {};
+    const celular = quoteContact.celular || catalogClient?.celular || "";
+    const telefono = quoteContact.telefono || catalogClient?.telefono || "";
+    const digits = String(celular).replace(/\D/g, "");
+    const hasCellular = Boolean(celular);
+    const updateLabel = catalogClient
+        ? "Actualizar celular en Clientes"
+        : "Buscar o registrar en Clientes";
+    const clientId = catalogClient?.id || "";
+    const source = quoteContact.celular
+        ? "Cotización"
+        : (catalogClient?.celular ? "Catálogo de clientes" : "Sin registro");
+
+    return `
+        <section class="proposal-client-contact" style="margin-bottom:16px; padding:14px 16px; border:1px solid rgba(59,130,246,.24); border-radius:10px; background:rgba(59,130,246,.06);">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+                <div>
+                    <strong style="display:block; margin-bottom:4px;"><i class="fa-solid fa-mobile-screen-button" style="color:#10b981;"></i> Celular del cliente</strong>
+                    ${hasCellular
+                        ? `<a href="tel:${escapeHTML(celular)}" style="color:#10b981; font-weight:700; text-decoration:none;">${escapeHTML(celular)}</a>${digits ? ` <a href="https://wa.me/${digits}" target="_blank" rel="noopener" title="Abrir WhatsApp" style="margin-left:8px; color:#25d366;"><i class="fa-brands fa-whatsapp"></i></a>` : ""}`
+                        : `<span style="color:hsl(var(--text-secondary));">Sin celular registrado${telefono ? ` · Teléfono: ${escapeHTML(telefono)}` : ""}</span>`}
+                    <small style="display:block; margin-top:3px; color:hsl(var(--text-secondary));">Fuente: ${escapeHTML(source)}</small>
+                </div>
+                ${!hasCellular ? `<button type="button" class="btn btn-secondary btn-sm proposal-update-client-contact" data-client-id="${escapeHTML(clientId)}" data-client-search="${escapeHTML(quote.numero_cliente || quote.cliente_nombre || "")}"><i class="fa-solid fa-user-pen"></i> ${escapeHTML(updateLabel)}</button>` : ""}
+            </div>
+        </section>
+    `;
+}
+
+async function openClientContactMaintenance(clientId, clientSearch) {
+    closeModal();
+    state.clientes.search = String(clientSearch || "").trim();
+    await switchSection("clientes");
+    const input = document.getElementById("clientes-search-input");
+    if (input) input.value = state.clientes.search;
+    if (clientId) {
+        await openModalCliente(clientId);
+        document.getElementById("cliente-cel-input")?.focus();
+    } else {
+        showToast("Busca el cliente en la tabla o regístralo para capturar su celular.", "info");
+        input?.focus();
+    }
+}
+
 async function showProposalModal(quote) {
     DOM.modalProposalTitle.textContent = `Propuesta Comercial - ${quote.cliente_nombre}`;
     DOM.proposalModal.classList.remove("hidden");
@@ -4273,7 +4345,12 @@ async function showProposalModal(quote) {
             const index = state.cotizaciones.findIndex(item => item.id === quote.id);
             if (index >= 0) state.cotizaciones[index] = quote;
         }
-        DOM.modalProposalBody.textContent = quote.texto_propuesta || "Esta cotización no contiene propuesta detallada.";
+        const catalogClient = await findCatalogClientForQuote(quote);
+        const proposal = quote.texto_propuesta || "Esta cotización no contiene propuesta detallada.";
+        DOM.modalProposalBody.innerHTML = `${renderProposalClientContact(quote, catalogClient)}<div style="white-space:pre-wrap;">${escapeHTML(proposal)}</div>`;
+        DOM.modalProposalBody.querySelector(".proposal-update-client-contact")?.addEventListener("click", () => {
+            openClientContactMaintenance(catalogClient?.id, quote.numero_cliente || quote.cliente_nombre);
+        });
     } catch (error) {
         DOM.modalProposalBody.textContent = "No fue posible cargar la propuesta.";
         showToast(error.message, "error");
