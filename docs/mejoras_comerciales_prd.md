@@ -1,8 +1,8 @@
 # PRD — Analítica y seguimiento comercial
 
 Estado: aprobado para desarrollo
-Versión: 1.0
-Fecha: 2026-07-26
+Versión: 1.1
+Fecha: 2026-08-06
 
 ## Objetivo
 
@@ -24,6 +24,11 @@ a sus cotizaciones.
   relación explícita se reporta como `Sin clasificar`.
 - Las coincidencias de promociones se realizan únicamente por código exacto de
   material y vigencia.
+- Ver todas las cotizaciones significa poder recorrer el universo autorizado
+  mediante filtros y páginas; no descargarlo completo al navegador.
+- Los cálculos comerciales, estados y agregados se resuelven de forma
+  determinista en Python o PostgreSQL. El LLM no interviene en resultados,
+  filtros ni paginación.
 
 ## Roles
 
@@ -85,6 +90,25 @@ una coincidencia solo por descripción no genera prioridad.
 Cotizaciones, seguimiento y asignaciones muestran contacto preferente y
 acciones de llamada o WhatsApp cuando corresponda.
 
+### HU-10 — Consulta comercial escalable
+
+Gerencia y vendedores pueden recorrer todas las cotizaciones autorizadas por
+fecha, vendedor, estado y búsqueda de cliente o número de cliente. La interfaz
+carga sólo una página operativa y recupera el detalle pesado bajo demanda; los
+KPIs mantienen los totales del filtro completo. Seguimiento muestra un conjunto
+acotado de tarjetas por carga, sin crear una tarjeta por cada cotización
+histórica.
+
+## Requisitos no funcionales
+
+- `NFR-PERF-001`: las listas operativas de cotizaciones y seguimiento no
+  solicitan más de 100 registros por petición.
+- `NFR-PERF-002`: la lista no transporta propuesta ni partidas SKU; éstos se
+  consultan al abrir una cotización autorizada.
+- `NFR-DATA-001`: una reconciliación de Excel sólo puede eliminar cotizaciones
+  importadas con número de cotización que no estén presentes en el archivo;
+  nunca elimina cotizaciones manuales o generadas por agente sin folio.
+
 ## Fuera de alcance
 
 - Inferir familia o SKU a partir de descripciones libres.
@@ -99,3 +123,5 @@ acciones de llamada o WhatsApp cuando corresponda.
 - Cero falsos positivos promocionales por coincidencia de texto.
 - Comentarios auditables sin pérdida del motivo de venta perdida.
 - Contacto visible cuando teléfono o celular existe.
+- Navegación estable con el archivo completo de cotizaciones, sin omitir
+  registros ni bloquear el navegador por materializar todos los resultados.

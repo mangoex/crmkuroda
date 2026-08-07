@@ -73,3 +73,21 @@
 **Dado** un cliente con celular pero sin teléfono
 **Cuando** se muestra en Cotizaciones, Seguimiento o Asignaciones
 **Entonces** el celular aparece como contacto preferente.
+
+## HU-10 / NFR-PERF-001
+
+**Dado** más cotizaciones autorizadas que el tamaño de página
+**Cuando** el usuario abre Cotizaciones o Seguimiento
+**Entonces** la API devuelve sólo la página solicitada, nunca más de 100 filas
+**Y** informa el total completo para que el usuario pueda recorrer todos los
+registros.
+
+**Dado** una búsqueda por cliente, número de cliente, vendedor, fecha o estado
+**Cuando** el usuario cambia un filtro
+**Entonces** PostgreSQL aplica el filtro antes de paginar
+**Y** los KPI se calculan sobre todo el filtro base de forma determinista.
+
+**Dado** una cotización manual o generada por agente sin número oficial
+**Cuando** se reconcilia un Excel resumen
+**Entonces** la cotización no se elimina
+**Y** sólo se eliminan filas importadas con folio ausente del archivo completo.

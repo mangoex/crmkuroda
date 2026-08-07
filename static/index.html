@@ -1245,8 +1245,9 @@
                             </div>
                         </div>
                         <div class="glass-card chart-container" style="min-height: 300px;">
-                            <div class="card-header">
+                            <div class="card-header" style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
                                 <h2>Distribución por Canal</h2>
+                                <button id="btn-load-commercial-analytics" class="btn btn-secondary btn-sm" type="button">Cargar análisis detallado</button>
                             </div>
                             <div class="chart-wrapper" style="height: 220px;">
                                 <canvas id="chartQuoteChannel"></canvas>
@@ -1274,7 +1275,7 @@
                         <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
                             <div>
                                 <h2>Ventas por familia y grupo de materiales</h2>
-                                <small id="material-analytics-status" class="text-muted">Esperando detalle por SKU.</small>
+                                <small id="material-analytics-status" class="text-muted">Carga el análisis detallado solo cuando lo necesites.</small>
                             </div>
                         </div>
                         <div class="table-container" style="max-height:360px;overflow:auto;">
@@ -1463,6 +1464,7 @@
                             </div>
                         </div>
                     </div>
+                    <div class="table-pagination" id="pag-kanban"></div>
                 </section>
 
                 <!-- Section 6: Centro de Agentes -->

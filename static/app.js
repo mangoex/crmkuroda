@@ -110,7 +110,12 @@ const state = {
     chartQuoteTrend: null,
     chartQuoteChannel: null,
     quotesCurrentPage: 1,
-    quotesPageSize: 15,
+    quotesPageSize: 50,
+    quotePagination: { total: 0, limit: 50, offset: 0 },
+    quoteSummary: null,
+    kanbanCurrentPage: 1,
+    kanbanPageSize: 50,
+    kanbanPagination: { total: 0, limit: 50, offset: 0 },
     quotesSortOrder: "desc", // date sort: 'asc' or 'desc'
     activeHeatmapFilter: null,
     sellerGoalPeriod: "day",
@@ -274,6 +279,7 @@ const DOM = {
     activeHeatmapFilter: document.getElementById("active-heatmap-filter"),
     activeHeatmapFilterText: document.getElementById("active-heatmap-filter-text"),
     btnClearHeatmapFilter: document.getElementById("btn-clear-heatmap-filter"),
+    btnLoadCommercialAnalytics: document.getElementById("btn-load-commercial-analytics"),
     kpiQuotesTotalCount: document.getElementById("kpi-quotes-total-count"),
     kpiQuotesTotalAmount: document.getElementById("kpi-quotes-total-amount"),
     kpiQuotesSoldCount: document.getElementById("kpi-quotes-sold-count"),
@@ -303,6 +309,7 @@ const DOM = {
     countKanbanCotizado: document.getElementById("count-kanban-cotizado"),
     countKanbanVendido: document.getElementById("count-kanban-vendido"),
     countKanbanVencido: document.getElementById("count-kanban-vencido"),
+    pagKanban: document.getElementById("pag-kanban"),
     
     // Proposal Modal
     proposalModal: document.getElementById("proposal-modal"),
@@ -757,8 +764,12 @@ async function loadSummaryData() {
     const metasRes = await apiRequest("/api/v1/metas/?limit=100");
     const metas = metasRes.data || [];
     
-    const quotesRes = await apiRequest("/api/v1/cotizaciones/?limit=20000");
+    // El resumen no necesita materializar el histórico completo en el navegador.
+    // La API calcula los KPI de forma determinista y entrega solo una muestra
+    // reciente para las visualizaciones de contexto.
+    const quotesRes = await apiRequest("/api/v1/cotizaciones/?limit=100&vista=resumen");
     const quotes = quotesRes.data || [];
+    const quoteSummary = quotesRes.summary || null;
     
     state.vendedores = sellers;
     state.metas = metas;
@@ -792,13 +803,13 @@ async function loadSummaryData() {
     if (DOM.summaryAdminOperational) DOM.summaryAdminOperational.classList.remove("hidden");
     
     // Calculate totals
-    const totalCotizado = quotes.reduce((acc, q) => acc + q.total, 0);
+    const totalCotizado = quoteSummary?.total?.amount ?? quotes.reduce((acc, q) => acc + q.total, 0);
     const completedMetas = metas.filter(m => m.estado === "completada").length;
     
     // Update KPI UI
     DOM.kpiTotalSales.textContent = `$${totalCotizado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
     DOM.kpiActiveGoals.textContent = `${completedMetas} / ${metas.length}`;
-    DOM.kpiTotalQuotes.textContent = quotes.length;
+    DOM.kpiTotalQuotes.textContent = quoteSummary?.total?.count ?? quotesRes.pagination?.total ?? quotes.length;
     DOM.kpiTotalSellers.textContent = state.user.rol === "vendedor" ? 1 : sellers.length;
     
     // Render visual modules independently so one widget cannot freeze the dashboard refresh.
@@ -2845,22 +2856,39 @@ async function loadCotizacionesData(forceRefresh = true) {
         }
     }
 
-    if (forceRefresh || state.cotizaciones.length === 0) {
-        const params = new URLSearchParams({ limit: "20000" });
-        const startDate = DOM.filterQuoteStartDate?.value;
-        const endDate = DOM.filterQuoteEndDate?.value;
-        if (startDate) params.set("fecha_inicio", startDate);
-        if (endDate) params.set("fecha_fin", endDate);
-        const endpoint = `/api/v1/cotizaciones/?${params.toString()}`;
-        const res = await apiRequest(endpoint);
-        state.cotizaciones = res.data || [];
+    const params = new URLSearchParams({
+        limit: String(state.quotesPageSize),
+        offset: String((state.quotesCurrentPage - 1) * state.quotesPageSize),
+        vista: "resumen",
+        orden: state.quotesSortOrder,
+    });
+    const startDate = DOM.filterQuoteStartDate?.value;
+    const endDate = DOM.filterQuoteEndDate?.value;
+    const seller = state.user?.rol === "vendedor" ? "" : DOM.filterQuoteSeller?.value;
+    const status = DOM.filterQuoteDays?.value;
+    const search = DOM.searchQuoteClient?.value?.trim();
+    if (startDate) params.set("fecha_inicio", startDate);
+    if (endDate) params.set("fecha_fin", endDate);
+    if (search) params.set("busqueda", search);
+    if (state.activeHeatmapFilter) {
+        params.set("total_min", String(state.activeHeatmapFilter.minVal));
+        params.set("total_max", String(state.activeHeatmapFilter.maxVal));
+        params.set("edad_min_dias", String(state.activeHeatmapFilter.minDays));
+        params.set("edad_max_dias", String(state.activeHeatmapFilter.maxDays));
     }
-    
-    // Reset current page when loading fresh section
-    state.quotesCurrentPage = 1;
-    
+    if (["total", "concretadas", "pendientes", "vencidas"].includes(status)) {
+        params.set("estado", status);
+    }
+    if (seller === "__unlinked__") params.set("sin_vincular", "true");
+    if (seller && seller !== "__unlinked__") params.set("vendedor_id", seller);
+
+    const endpoint = `/api/v1/cotizaciones/?${params.toString()}`;
+    const res = await apiRequest(endpoint);
+    state.cotizaciones = res.data || [];
+    state.quotePagination = res.pagination || { total: state.cotizaciones.length, limit: state.quotesPageSize, offset: 0 };
+    state.quoteSummary = res.summary || null;
+
     renderQuotesDashboard();
-    await loadCommercialAnalytics();
 }
 
 function currentCommercialAnalyticsParams() {
@@ -3036,6 +3064,8 @@ async function loadCommercialAnalytics() {
     }
 }
 
+DOM.btnLoadCommercialAnalytics?.addEventListener("click", () => loadCommercialAnalytics());
+
 function updateActiveHeatmapFilterBadge() {
     if (!DOM.activeHeatmapFilter || !DOM.activeHeatmapFilterText) return;
 
@@ -3057,10 +3087,6 @@ async function applyHeatmapQuoteFilter(filter) {
     if (DOM.filterQuoteStartDate) DOM.filterQuoteStartDate.value = "";
     if (DOM.filterQuoteEndDate) DOM.filterQuoteEndDate.value = "";
 
-    if (state.cotizaciones.length > 0) {
-        renderQuotesDashboard();
-    }
-
     await switchSection("cotizaciones");
     showToast(`Filtro aplicado: ${filter.amountLabel} · ${filter.ageLabel}`, "info");
 }
@@ -3069,77 +3095,25 @@ function clearHeatmapQuoteFilter() {
     state.activeHeatmapFilter = null;
     state.quotesCurrentPage = 1;
     updateActiveHeatmapFilterBadge();
-    renderQuotesDashboard();
+    loadCotizacionesData(true);
 }
 
 function renderQuotesDashboard() {
-    const sellerVal = state.user.rol === "vendedor" ? state.user.id : (DOM.filterQuoteSeller ? DOM.filterQuoteSeller.value : "");
-    const startDate = DOM.filterQuoteStartDate ? DOM.filterQuoteStartDate.value : "";
-    const endDate = DOM.filterQuoteEndDate ? DOM.filterQuoteEndDate.value : "";
     const daysVal = DOM.filterQuoteDays ? DOM.filterQuoteDays.value : "all";
     updateActiveHeatmapFilterBadge();
-    
-    const refDate = new Date(); // Reference date for mock data
-    
-    // Apply base filters first. KPI cards use this dataset so their counts stay useful
-    // even after one status card is selected.
-    const baseFiltered = state.cotizaciones.filter(q => {
-        // 1. Seller Filter
-        if (sellerVal === "__unlinked__" && !q.vendedor_sin_vincular) return false;
-        if (sellerVal && sellerVal !== "__unlinked__" && q.vendedor_id !== sellerVal) return false;
-        
-        // 2. Date Range Filter. Normalize dates before comparing so imported
-        // values with a time component or dd/mm/yyyy format remain visible.
-        if (!isQuoteDateInRange(q, startDate, endDate)) return false;
-        
-        if (state.activeHeatmapFilter) {
-            const heatmapFilter = state.activeHeatmapFilter;
-            const total = Number(q.total) || 0;
-            const ageDays = quoteAgeDays(q, refDate);
-            if (total < heatmapFilter.minVal || total >= heatmapFilter.maxVal) return false;
-            if (ageDays < heatmapFilter.minDays || ageDays > heatmapFilter.maxDays) return false;
-        }
-        return true;
-    });
+    // Los KPI provienen de la misma consulta filtrada, agregados por PostgreSQL;
+    // no se extrapolan a partir de la página visible.
+    const summary = state.quoteSummary || {};
+    const totalCount = Number(summary.total?.count || 0);
+    const totalSum = Number(summary.total?.amount || 0);
+    const soldCount = Number(summary.concretadas?.count || 0);
+    const soldSum = Number(summary.concretadas?.amount || 0);
+    const pendingCount = Number(summary.pendientes?.count || 0);
+    const pendingSum = Number(summary.pendientes?.amount || 0);
+    const expiredCount = Number(summary.vencidas?.count || 0);
+    const expiredSum = Number(summary.vencidas?.amount || 0);
 
-    const filtered = baseFiltered.filter(q => quoteMatchesStatusFilter(q, daysVal, refDate));
-    
-    // Save to state for table rendering
-    state.filteredQuotesForTable = filtered;
-    
-    // Calculate KPIs on the filtered dataset
-    let totalCount = 0;
-    let totalSum = 0;
-    
-    let soldCount = 0;
-    let soldSum = 0;
-    
-    let pendingCount = 0;
-    let pendingSum = 0;
-    
-    let expiredCount = 0;
-    let expiredSum = 0;
-    
-    baseFiltered.forEach(q => {
-        const total = Number(q.total) || 0;
-        const statusInfo = getQuoteStatusInfo(q, refDate);
-        
-        if (!statusInfo.isExpired) {
-            totalCount++;
-            totalSum += total;
-        }
-        
-        if (statusInfo.hasInvoice) {
-            soldCount++;
-            soldSum += total;
-        } else if (statusInfo.isExpired) {
-            expiredCount++;
-            expiredSum += total;
-        } else if (statusInfo.isPending) {
-            pendingCount++;
-            pendingSum += total;
-        }
-    });
+    state.filteredQuotesForTable = state.cotizaciones;
     
     // Update DOM KPI elements
     if (DOM.kpiQuotesTotalCount) DOM.kpiQuotesTotalCount.textContent = totalCount;
@@ -3160,16 +3134,19 @@ function renderQuotesDashboard() {
 
     // Render visual charts independently; the table above must refresh even if a chart fails.
     try {
-        renderDashboardCharts(filtered);
+        renderDashboardCharts(state.cotizaciones);
     } catch (chartErr) {
         console.error("Error renderizando graficas de cotizaciones:", chartErr);
     }
 
-    // Update Quotes funnel card
-    try {
-        updateQuotesFunnelDisplay();
-    } catch (funnelErr) {
-        console.error("Error actualizando embudo de cotizaciones:", funnelErr);
+    // El embudo necesita un universo completo; se conserva solo cuando todos
+    // los resultados caben en la página para no presentar datos parciales.
+    if (state.quotePagination.total <= state.cotizaciones.length) {
+        try {
+            updateQuotesFunnelDisplay();
+        } catch (funnelErr) {
+            console.error("Error actualizando embudo de cotizaciones:", funnelErr);
+        }
     }
 }
 
@@ -3589,28 +3566,14 @@ function renderDashboardCharts(filtered) {
 }
 
 function renderQuotesTableFiltered() {
-    const searchVal = normalizeSearchText(DOM.searchQuoteClient?.value);
-    let filteredQuotes = state.filteredQuotesForTable || state.cotizaciones;
-    
-    // Apply client search filter
-    if (searchVal) {
-        filteredQuotes = filteredQuotes.filter(q => {
-            const searchableValues = [q.cliente_nombre, q.numero_cliente];
-            return searchableValues.some(value => normalizeSearchText(value).includes(searchVal));
-        });
-    }
-    
-    filteredQuotes = [...filteredQuotes].sort((a, b) => {
-        const aTime = getQuoteDate(a)?.getTime() || 0;
-        const bTime = getQuoteDate(b)?.getTime() || 0;
-        return state.quotesSortOrder === "asc" ? aTime - bTime : bTime - aTime;
-    });
-    
-    // Set up pagination
-    const totalItems = filteredQuotes.length;
-    const pag = createPaginationControls('quotesCurrentPage', totalItems, renderQuotesTableFiltered, 25);
-    const pageQuotes = filteredQuotes.slice(pag.startIndex, pag.endIndex);
-    const totalPages = Math.max(1, Math.ceil(totalItems / 25)); // keeping this variable for heatmap compatibility if needed
+    const pageQuotes = state.filteredQuotesForTable || state.cotizaciones;
+    const totalItems = state.quotePagination?.total ?? pageQuotes.length;
+    const pag = createPaginationControls(
+        'quotesCurrentPage',
+        totalItems,
+        () => loadCotizacionesData(true),
+        state.quotesPageSize,
+    );
     
     if (DOM.tableCotizaciones) {
         DOM.tableCotizaciones.innerHTML = "";
@@ -3886,10 +3849,22 @@ async function saveQuoteComment(event) {
     }
 }
 
-function showProposalModal(quote) {
+async function showProposalModal(quote) {
     DOM.modalProposalTitle.textContent = `Propuesta Comercial - ${quote.cliente_nombre}`;
-    DOM.modalProposalBody.textContent = quote.texto_propuesta || "Esta cotización no contiene propuesta detallada.";
     DOM.proposalModal.classList.remove("hidden");
+    DOM.modalProposalBody.textContent = "Cargando propuesta…";
+    try {
+        if (!Object.prototype.hasOwnProperty.call(quote, "texto_propuesta")) {
+            const result = await apiRequest(`/api/v1/cotizaciones/${quote.id}`);
+            quote = { ...quote, ...(result.data || {}) };
+            const index = state.cotizaciones.findIndex(item => item.id === quote.id);
+            if (index >= 0) state.cotizaciones[index] = quote;
+        }
+        DOM.modalProposalBody.textContent = quote.texto_propuesta || "Esta cotización no contiene propuesta detallada.";
+    } catch (error) {
+        DOM.modalProposalBody.textContent = "No fue posible cargar la propuesta.";
+        showToast(error.message, "error");
+    }
 }
 
 /* ==========================================================================
@@ -3921,45 +3896,32 @@ async function loadKanbanData(forceRefresh = false) {
         });
     }
     
-    if (forceRefresh || state.cotizaciones.length === 0) {
-        let endpoint = "/api/v1/cotizaciones/?limit=20000";
-        if (DOM.kanbanFilterSeller?.value) {
-            endpoint += `&vendedor_id=${encodeURIComponent(DOM.kanbanFilterSeller.value)}`;
-        }
-        const res = await apiRequest(endpoint);
-        state.cotizaciones = res.data || [];
+    const params = new URLSearchParams({
+        limit: String(state.kanbanPageSize),
+        offset: String((state.kanbanCurrentPage - 1) * state.kanbanPageSize),
+        vista: "resumen",
+    });
+    const seller = DOM.kanbanFilterSeller?.value;
+    const search = DOM.kanbanSearchClient?.value?.trim();
+    const days = Number(DOM.kanbanFilterDays?.value || 0);
+    if (seller) params.set("vendedor_id", seller);
+    if (search) params.set("busqueda", search);
+    if (Number.isFinite(days) && days > 0) {
+        const start = new Date();
+        start.setDate(start.getDate() - days);
+        params.set("fecha_inicio", start.toISOString().slice(0, 10));
     }
+    const res = await apiRequest(`/api/v1/cotizaciones/?${params.toString()}`);
+    state.cotizaciones = res.data || [];
+    state.kanbanPagination = res.pagination || { total: state.cotizaciones.length, limit: state.kanbanPageSize, offset: 0 };
     
     renderKanbanColumns();
 }
 
 function renderKanbanColumns() {
-    const searchVal = DOM.kanbanSearchClient ? DOM.kanbanSearchClient.value.toLowerCase() : "";
-    const sellerVal = DOM.kanbanFilterSeller ? DOM.kanbanFilterSeller.value : "";
-    const daysVal = DOM.kanbanFilterDays ? DOM.kanbanFilterDays.value : "";
-    
-    let filteredQuotes = state.cotizaciones;
-    
-    // Apply filters
-    if (searchVal) {
-        filteredQuotes = filteredQuotes.filter(q => q.cliente_nombre.toLowerCase().includes(searchVal));
-    }
-    
-    if (sellerVal) {
-        filteredQuotes = filteredQuotes.filter(q => quoteMatchesSelectedSeller(q, sellerVal));
-    }
-    
-    if (daysVal) {
-        const daysLimit = parseInt(daysVal);
-        const refDate = new Date();
-        filteredQuotes = filteredQuotes.filter(q => {
-            if (!q.fecha_registro) return false;
-            const quoteDate = new Date(`${q.fecha_registro}T12:00:00Z`);
-            const diffTime = refDate - quoteDate;
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            return diffDays >= 0 && diffDays <= daysLimit;
-        });
-    }
+    // Búsqueda, vendedor y periodo ya se ejecutaron en PostgreSQL. Esta etapa
+    // solamente clasifica la página visible para evitar crear miles de tarjetas.
+    const filteredQuotes = state.cotizaciones;
     
     // Categorize quotes
     const stages = {
@@ -4112,6 +4074,16 @@ function renderKanbanColumns() {
     });
     
     setupKanbanDragAndDrop();
+    if (DOM.pagKanban) {
+        const pag = createPaginationControls(
+            "kanbanCurrentPage",
+            state.kanbanPagination?.total ?? filteredQuotes.length,
+            () => loadKanbanData(true),
+            state.kanbanPageSize,
+        );
+        DOM.pagKanban.innerHTML = pag.html;
+        pag.bindEvents();
+    }
 }
 
 function setupKanbanDragAndDrop() {
@@ -4932,20 +4904,20 @@ DOM.aiQuoteForm?.addEventListener("submit", async (e) => {
 
 DOM.searchQuoteClient?.addEventListener("input", () => {
     state.quotesCurrentPage = 1;
-    renderQuotesTableFiltered();
+    window.quoteSearchTimeout && clearTimeout(window.quoteSearchTimeout);
+    window.quoteSearchTimeout = setTimeout(() => loadCotizacionesData(true), 300);
 });
 
 DOM.filterQuoteSeller?.addEventListener("change", () => {
     state.activeHeatmapFilter = null;
     state.quotesCurrentPage = 1;
-    renderQuotesDashboard();
-    loadCommercialAnalytics();
+    loadCotizacionesData(true);
 });
 
 DOM.filterQuoteDays?.addEventListener("change", () => {
     state.activeHeatmapFilter = null;
     state.quotesCurrentPage = 1;
-    renderQuotesDashboard();
+    loadCotizacionesData(true);
 });
 
 DOM.quoteFilterCards?.forEach(card => {
@@ -4964,7 +4936,7 @@ DOM.quoteFilterCards?.forEach(card => {
             if (DOM.quotesDetailsToggleIcon) DOM.quotesDetailsToggleIcon.style.transform = "rotate(180deg)";
         }
         
-        renderQuotesDashboard();
+        loadCotizacionesData(true);
     };
     
     card.addEventListener("click", applyCardFilter);
@@ -5053,7 +5025,9 @@ if (DOM.btnToggleQuotesDetails) {
 // Kanban Board event listeners
 if (DOM.kanbanSearchClient) {
     DOM.kanbanSearchClient?.addEventListener("input", () => {
-        renderKanbanColumns();
+        state.kanbanCurrentPage = 1;
+        window.kanbanSearchTimeout && clearTimeout(window.kanbanSearchTimeout);
+        window.kanbanSearchTimeout = setTimeout(() => loadKanbanData(true), 300);
     });
 }
 if (DOM.kanbanFilterSeller) {
@@ -5063,7 +5037,8 @@ if (DOM.kanbanFilterSeller) {
 }
 if (DOM.kanbanFilterDays) {
     DOM.kanbanFilterDays?.addEventListener("change", () => {
-        renderKanbanColumns();
+        state.kanbanCurrentPage = 1;
+        loadKanbanData(true);
     });
 }
 
@@ -5073,7 +5048,8 @@ if (DOM.sortQuotesAsc) {
         state.quotesSortOrder = "asc";
         DOM.sortQuotesAsc.classList.add("active");
         if (DOM.sortQuotesDesc) DOM.sortQuotesDesc.classList.remove("active");
-        renderQuotesTableFiltered();
+        state.quotesCurrentPage = 1;
+        loadCotizacionesData(true);
     });
 }
 
@@ -5082,7 +5058,8 @@ if (DOM.sortQuotesDesc) {
         state.quotesSortOrder = "desc";
         DOM.sortQuotesDesc.classList.add("active");
         if (DOM.sortQuotesAsc) DOM.sortQuotesAsc.classList.remove("active");
-        renderQuotesTableFiltered();
+        state.quotesCurrentPage = 1;
+        loadCotizacionesData(true);
     });
 }
 
@@ -5928,15 +5905,6 @@ async function loadSellerSlightEdgePlanAndLog() {
         // Render checklist structure
         renderSlightEdgeChecklist(plan);
 
-        // Fetch quotes to calculate real metrics
-        let quotes = [];
-        try {
-            const quotesRes = await apiRequest(`/api/v1/cotizaciones/?limit=5000`);
-            quotes = quotesRes.data || [];
-        } catch (qErr) {
-            console.error("Error fetching quotes for slight edge:", qErr);
-        }
-
         // Fetch logs for the historical consistency chart
         const historyRes = await apiRequest(`/api/slight-edge/log/${state.user.id}`);
         const historyLogs = historyRes.data || [];
@@ -5945,23 +5913,20 @@ async function loadSellerSlightEdgePlanAndLog() {
         const now = new Date();
         const currentYear = now.getFullYear();
         const currentMonth = now.getMonth(); // 0-indexed
-
-        // Filter quotes for the current calendar month
-        const currentMonthQuotes = quotes.filter(q => {
-            if (!q.fecha_registro) return false;
-            const qDate = new Date(`${q.fecha_registro}T12:00:00Z`);
-            return qDate.getFullYear() === currentYear && qDate.getMonth() === currentMonth;
-        });
-
-        const wonQuotes = currentMonthQuotes.filter(q => {
-            const hasInvoice = !!q.numero_factura;
-            const isLost = isQuoteLost(q, now);
-            return hasInvoice && !isLost;
-        });
-
-        const realMoneyWon = wonQuotes.reduce((sum, q) => sum + (Number(q.importe_facturado) || 0), 0);
-        const realTicketAvg = wonQuotes.length > 0 ? (realMoneyWon / wonQuotes.length) : 0;
-        const realConversionRate = currentMonthQuotes.length > 0 ? (wonQuotes.length / currentMonthQuotes.length * 100) : 0;
+        const monthStart = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-01`;
+        const monthEnd = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(new Date(currentYear, currentMonth + 1, 0).getDate()).padStart(2, "0")}`;
+        let quoteSummary = null;
+        try {
+            const quotesRes = await apiRequest(`/api/v1/cotizaciones/?limit=1&vista=resumen&fecha_inicio=${monthStart}&fecha_fin=${monthEnd}`);
+            quoteSummary = quotesRes.summary || null;
+        } catch (qErr) {
+            console.error("Error fetching quote summary for slight edge:", qErr);
+        }
+        const monthlyQuotes = Number(quoteSummary?.total?.count || 0);
+        const wonQuotes = Number(quoteSummary?.concretadas?.count || 0);
+        const realMoneyWon = Number(quoteSummary?.concretadas?.invoiced_amount || 0);
+        const realTicketAvg = wonQuotes > 0 ? (realMoneyWon / wonQuotes) : 0;
+        const realConversionRate = monthlyQuotes > 0 ? (wonQuotes / monthlyQuotes * 100) : 0;
 
         // Sum checklist activities in the current calendar month
         let realCalls = 0;
@@ -6005,8 +5970,8 @@ async function loadSellerSlightEdgePlanAndLog() {
             moneyWon: realMoneyWon,
             ticketAvg: realTicketAvg,
             conversionRate: realConversionRate,
-            sales: wonQuotes.length,
-            quotes: currentMonthQuotes.length,
+            sales: wonQuotes,
+            quotes: monthlyQuotes,
             meetings: realMeetings,
             calls: realCalls
         };
@@ -6735,7 +6700,9 @@ async function openSellerBurndownModal(sellerId, name) {
             console.warn("Seller has no plan set up:", e);
         }
 
-        const quotesRes = await apiRequest(`/api/v1/cotizaciones/?vendedor_id=${sellerId}&limit=5000`);
+        // El burndown usa una muestra reciente para sus barras diarias; los
+        // indicadores comerciales del modal se calculan con el plan y bitácora.
+        const quotesRes = await apiRequest(`/api/v1/cotizaciones/?vendedor_id=${sellerId}&limit=100&vista=resumen`);
         const quotes = quotesRes.data || [];
 
         const planObj = (plan && plan.data) ? plan.data : null;

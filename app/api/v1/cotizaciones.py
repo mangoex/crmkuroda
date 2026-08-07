@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import io
 import unicodedata
 from zoneinfo import ZoneInfo
@@ -8,7 +8,8 @@ import openpyxl
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import and_, delete, func, or_
+from sqlalchemy import and_, case, delete, func, or_
+from sqlalchemy.orm import load_only
 from uuid import UUID
 from typing import Optional
 
@@ -28,6 +29,10 @@ from app.core.config import settings
 require_admin_or_gerente = RoleChecker(["admin", "gerente"])
 
 router = APIRouter()
+
+MAX_OPERATIONAL_PAGE_SIZE = 100
+VALID_QUOTE_STATES = {"all", "total", "concretadas", "pendientes", "vencidas"}
+VALID_QUOTE_VIEWS = {"completa", "resumen"}
 
 def _normalize_seller_text(value) -> str:
     text = unicodedata.normalize("NFKD", str(value or ""))
@@ -49,10 +54,72 @@ def _seller_ids_by_name(users: list[Usuario]) -> dict[str, UUID]:
     return {name: seller_id for name, seller_id in matches.items() if seller_id is not None}
 
 
+def _business_today() -> date:
+    try:
+        return datetime.now(ZoneInfo(settings.BUSINESS_TIMEZONE)).date()
+    except Exception:
+        return date.today()
+
+
+def _quote_status_conditions(today: date) -> dict[str, object]:
+    """Condiciones SQL deterministas que comparten listado y KPI."""
+    has_invoice = and_(
+        Cotizacion.numero_factura.is_not(None),
+        func.length(func.trim(Cotizacion.numero_factura)) > 0,
+    )
+    explicitly_lost = (
+        func.upper(func.trim(func.coalesce(Cotizacion.venta_perdida, ""))) == "SI"
+    )
+    expired_by_age = and_(
+        Cotizacion.fecha_registro.is_not(None),
+        Cotizacion.fecha_registro < today - timedelta(days=settings.QUOTE_VALID_DAYS),
+    )
+    expired = and_(~has_invoice, or_(explicitly_lost, expired_by_age))
+    return {
+        "total": ~expired,
+        "concretadas": has_invoice,
+        "pendientes": and_(~has_invoice, ~expired),
+        "vencidas": expired,
+    }
+
+
+async def _quote_summary(db: AsyncSession, query, conditions: dict[str, object]) -> dict:
+    """Obtiene KPI por SQL sin materializar cotizaciones en Python."""
+    metrics = []
+    for status_name in ("total", "concretadas", "pendientes", "vencidas"):
+        condition = conditions[status_name]
+        metrics.extend(
+            [
+                func.coalesce(
+                    func.sum(case((condition, 1), else_=0)), 0
+                ).label(f"{status_name}_count"),
+                func.coalesce(
+                    func.sum(case((condition, Cotizacion.total), else_=0)), 0
+                ).label(f"{status_name}_amount"),
+                func.coalesce(
+                    func.sum(
+                        case((condition, Cotizacion.importe_facturado), else_=0)
+                    ),
+                    0,
+                ).label(f"{status_name}_invoiced_amount"),
+            ]
+        )
+    row = (await db.execute(query.with_only_columns(*metrics))).mappings().one()
+    return {
+        status_name: {
+            "count": int(row[f"{status_name}_count"] or 0),
+            "amount": float(row[f"{status_name}_amount"] or 0),
+            "invoiced_amount": float(row[f"{status_name}_invoiced_amount"] or 0),
+        }
+        for status_name in ("total", "concretadas", "pendientes", "vencidas")
+    }
+
+
 def serialize_cotizacion(
     c: Cotizacion,
     resolved_vendedor_id: Optional[UUID] = None,
     enrichment: Optional[dict] = None,
+    vista: str = "completa",
 ) -> dict:
     vendedor_id = c.vendedor_id or resolved_vendedor_id
     enrichment = enrichment or {}
@@ -64,10 +131,7 @@ def serialize_cotizacion(
         "cliente_nombre": c.cliente_nombre,
         "numero_cliente": c.numero_cliente,
         "datos_contacto": normalize_contact(c.datos_contacto),
-        "items": c.items,
-        "items_detalle": enrichment.get("items_detalle", []),
         "total": float(c.total),
-        "texto_propuesta": c.texto_propuesta,
         "numero_cotizacion": c.numero_cotizacion,
         "fecha_registro": c.fecha_registro.isoformat() if c.fecha_registro else None,
         "canal": c.canal,
@@ -81,12 +145,21 @@ def serialize_cotizacion(
         "nivel_prioridad": enrichment.get("nivel_prioridad"),
         "promociones_coincidentes": enrichment.get("promociones_coincidentes", []),
     }
+    if vista != "resumen":
+        data.update(
+            {
+                "items": c.items,
+                "items_detalle": enrichment.get("items_detalle", []),
+                "texto_propuesta": c.texto_propuesta,
+            }
+        )
     return data
 
 
 async def _load_quote_enrichment(
     db: AsyncSession,
     quotes: list[Cotizacion],
+    include_items_detail: bool = True,
 ) -> dict[UUID, dict]:
     if not quotes:
         return {}
@@ -154,7 +227,7 @@ async def _load_quote_enrichment(
                     "importe_facturado": float(item.importe_facturado),
                 }
                 for item in items
-            ],
+            ] if include_items_detail else [],
         }
     return result
 
@@ -197,7 +270,16 @@ async def list_cotizaciones(
     vendedor_id: Optional[UUID] = None,
     fecha_inicio: Optional[date] = Query(default=None),
     fecha_fin: Optional[date] = Query(default=None),
-    limit: int = Query(default=10, ge=1, le=50000),
+    busqueda: Optional[str] = Query(default=None, max_length=120),
+    total_min: Optional[float] = Query(default=None, ge=0),
+    total_max: Optional[float] = Query(default=None, gt=0),
+    edad_min_dias: Optional[int] = Query(default=None, ge=0),
+    edad_max_dias: Optional[int] = Query(default=None, ge=0),
+    sin_vincular: bool = Query(default=False),
+    estado: str = Query(default="all"),
+    vista: str = Query(default="completa"),
+    orden: str = Query(default="desc"),
+    limit: int = Query(default=50, ge=1, le=MAX_OPERATIONAL_PAGE_SIZE),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
@@ -206,6 +288,21 @@ async def list_cotizaciones(
     Lists all quotes. Salespeople can only list their own.
     Admins and Managers can list all or filter by seller.
     """
+    if estado not in VALID_QUOTE_STATES:
+        raise HTTPException(status_code=422, detail="Estado de cotización inválido.")
+    if vista not in VALID_QUOTE_VIEWS:
+        raise HTTPException(status_code=422, detail="Vista de cotización inválida.")
+    if orden not in {"asc", "desc"}:
+        raise HTTPException(status_code=422, detail="Orden de cotización inválido.")
+    if total_min is not None and total_max is not None and total_min >= total_max:
+        raise HTTPException(status_code=422, detail="El rango de total es inválido.")
+    if (
+        edad_min_dias is not None
+        and edad_max_dias is not None
+        and edad_min_dias > edad_max_dias
+    ):
+        raise HTTPException(status_code=422, detail="El rango de antigüedad es inválido.")
+
     # Filter by vendedor_id based on role
     if current_user.rol == "vendedor":
         # Vendedor: propio + hijos (jerarquia 1 nivel)
@@ -232,6 +329,7 @@ async def list_cotizaciones(
             seller_condition = or_(*seller_filters)
             query = query.filter(seller_condition)
             count_query = count_query.filter(seller_condition)
+
     else:
         query = select(Cotizacion)
         count_query = select(func.count()).select_from(Cotizacion)
@@ -252,6 +350,13 @@ async def list_cotizaciones(
             query = query.filter(seller_condition)
             count_query = count_query.filter(seller_condition)
 
+    if sin_vincular:
+        # Los registros con nombre que se resuelve de manera inequívoca siguen
+        # siendo visibles por su vendedor; este filtro muestra únicamente los
+        # que no tienen un UUID persistido para revisión administrativa.
+        query = query.filter(Cotizacion.vendedor_id.is_(None))
+        count_query = count_query.filter(Cotizacion.vendedor_id.is_(None))
+
     # El filtro se resuelve en PostgreSQL para evitar ambigüedades de formato
     # o zona horaria en el navegador.
     if fecha_inicio is not None:
@@ -261,15 +366,80 @@ async def list_cotizaciones(
         query = query.filter(Cotizacion.fecha_registro <= fecha_fin)
         count_query = count_query.filter(Cotizacion.fecha_registro <= fecha_fin)
 
+    if busqueda and busqueda.strip():
+        search_term = f"%{busqueda.strip()}%"
+        search_condition = or_(
+            Cotizacion.cliente_nombre.ilike(search_term),
+            Cotizacion.numero_cliente.ilike(search_term),
+        )
+        query = query.filter(search_condition)
+        count_query = count_query.filter(search_condition)
+
+    if total_min is not None:
+        query = query.filter(Cotizacion.total >= total_min)
+        count_query = count_query.filter(Cotizacion.total >= total_min)
+    if total_max is not None:
+        query = query.filter(Cotizacion.total < total_max)
+        count_query = count_query.filter(Cotizacion.total < total_max)
+
+    # La antigüedad se traduce a fechas de corte en Python, con la zona de
+    # negocio, y PostgreSQL sólo compara columnas indexables de fecha.
+    today = _business_today()
+    if edad_min_dias is not None:
+        max_date = today - timedelta(days=edad_min_dias)
+        query = query.filter(Cotizacion.fecha_registro <= max_date)
+        count_query = count_query.filter(Cotizacion.fecha_registro <= max_date)
+    if edad_max_dias is not None:
+        min_date = today - timedelta(days=edad_max_dias)
+        query = query.filter(Cotizacion.fecha_registro >= min_date)
+        count_query = count_query.filter(Cotizacion.fecha_registro >= min_date)
+
+    summary = None
+    status_conditions = _quote_status_conditions(today)
+    if vista == "resumen":
+        summary = await _quote_summary(db, query, status_conditions)
+
+    if estado != "all":
+        status_condition = status_conditions[estado]
+        query = query.filter(status_condition)
+        count_query = count_query.filter(status_condition)
+
     # Count total quotes
     count_res = await db.execute(count_query)
     total = count_res.scalar_one()
 
     # List quotes
-    query = query.order_by(
-        Cotizacion.fecha_registro.desc().nullslast(),
-        Cotizacion.numero_cotizacion.desc().nullslast(),
-    ).offset(offset).limit(limit)
+    if vista == "resumen":
+        query = query.options(
+            load_only(
+                Cotizacion.id,
+                Cotizacion.vendedor_id,
+                Cotizacion.vendedor_nombre,
+                Cotizacion.cliente_nombre,
+                Cotizacion.numero_cliente,
+                Cotizacion.datos_contacto,
+                Cotizacion.total,
+                Cotizacion.numero_cotizacion,
+                Cotizacion.fecha_registro,
+                Cotizacion.canal,
+                Cotizacion.numero_factura,
+                Cotizacion.fecha_factura,
+                Cotizacion.importe_facturado,
+                Cotizacion.venta_perdida,
+                Cotizacion.comentarios,
+            )
+        )
+    date_order = (
+        Cotizacion.fecha_registro.asc().nullslast()
+        if orden == "asc"
+        else Cotizacion.fecha_registro.desc().nullslast()
+    )
+    number_order = (
+        Cotizacion.numero_cotizacion.asc().nullslast()
+        if orden == "asc"
+        else Cotizacion.numero_cotizacion.desc().nullslast()
+    )
+    query = query.order_by(date_order, number_order).offset(offset).limit(limit)
     res = await db.execute(query)
     cotizaciones = res.scalars().all()
 
@@ -278,17 +448,22 @@ async def list_cotizaciones(
     # administrativos funcionen también con esos registros.
     users = (await db.execute(select(Usuario))).scalars().all()
     seller_ids_by_name = _seller_ids_by_name(users)
-    enrichment = await _load_quote_enrichment(db, list(cotizaciones))
+    enrichment = await _load_quote_enrichment(
+        db,
+        list(cotizaciones),
+        include_items_detail=vista != "resumen",
+    )
     data = [
         serialize_cotizacion(
             c,
             seller_ids_by_name.get(_normalize_seller_text(c.vendedor_nombre)),
             enrichment.get(c.id),
+            vista=vista,
         )
         for c in cotizaciones
     ]
 
-    return {
+    payload = {
         "status": "success",
         "pagination": {
             "limit": limit,
@@ -297,6 +472,9 @@ async def list_cotizaciones(
         },
         "data": data
     }
+    if summary is not None:
+        payload["summary"] = summary
+    return payload
 
 
 def _serialize_comment(comment: CotizacionComentario, author: Optional[Usuario] = None) -> dict:
@@ -439,6 +617,19 @@ def _apply_imported_quote_values(cotizacion: Cotizacion, values: dict) -> Cotiza
     for field, value in values.items():
         setattr(cotizacion, field, value)
     return cotizacion
+
+
+def _stale_imported_quote_ids(
+    existing_quotes: list[Cotizacion],
+    retained_ids: set[UUID],
+) -> set[UUID]:
+    """Sólo las filas importadas con folio pueden ser removidas al reconciliar."""
+    return {
+        quote.id
+        for quote in existing_quotes
+        if _excel_identifier(quote.numero_cotizacion)
+        and quote.id not in retained_ids
+    }
 
 
 @router.post("/detalle-materiales/upload", status_code=status.HTTP_201_CREATED)
@@ -829,11 +1020,7 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                     new_quotes.append(Cotizacion(**imported_values))
                 synced_count += 1
                     
-            stale_ids = {
-                quote.id
-                for quote in existing_quotes
-                if quote.id not in retained_ids
-            }
+            stale_ids = _stale_imported_quote_ids(existing_quotes, retained_ids)
             if stale_ids:
                 await db.execute(delete(Cotizacion).where(Cotizacion.id.in_(stale_ids)))
             db.add_all(new_quotes)

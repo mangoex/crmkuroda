@@ -11,6 +11,8 @@
 | HU-07 | `cotizacion_comentarios` | alta, edición, autoría, permiso y preservación del campo legado | modal de historial y edición |
 | HU-08 | cruce SKU-promoción | exactitud, vigencia, caducidad y ausencia de inferencia por descripción | distintivo y orden Kanban |
 | HU-09 | normalizador de contacto | prioridad celular, respaldo teléfono y preservación | enlaces de correo, llamada y WhatsApp |
+| HU-10 / NFR-PERF-001 / NFR-PERF-002 | lista paginada, vista resumen e indicadores deterministas | límite, filtros antes de paginar, proyección ligera e indicadores | páginas de Cotizaciones y Seguimiento sin carga masiva |
+| NFR-DATA-001 | reconciliación de Excel por folio importado | cotización manual sin folio preservada | carga Excel sin pérdida de datos manuales |
 
 ## Puertas de aceptación
 
@@ -20,3 +22,5 @@
 4. `git diff --check` sin errores.
 5. Permisos cubiertos para gerencia, vendedor, jerarquía y soporte.
 6. Totales analíticos reconciliados y calculados sin LLM.
+7. Consultas operativas limitadas a 100 filas y detalle pesado bajo demanda.
+8. Reconciliación Excel preserva registros sin folio importado.

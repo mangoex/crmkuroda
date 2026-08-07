@@ -1,7 +1,7 @@
 # SDD — Analítica y seguimiento comercial
 
 Estado: aprobado para desarrollo
-Versión: 1.0
+Versión: 1.1
 
 ## Arquitectura
 
@@ -62,11 +62,33 @@ Cruza `cotizacion_items.codigo_material` con
 Las agregaciones se calculan en código o SQL de forma determinista. El LLM no
 participa en cifras comerciales.
 
+### Consulta operativa de cotizaciones
+
+- La lista usa `limit` (máximo 100) y `offset`; el frontend utiliza 50 por
+  página.
+- `vista=resumen` proyecta sólo los campos para tabla y Kanban. Excluye
+  `items`, `items_detalle` y `texto_propuesta`.
+- `busqueda` se resuelve en PostgreSQL sobre cliente y número de cliente.
+- `estado` acepta `all`, `total`, `concretadas`, `pendientes` y `vencidas`.
+  Sus condiciones se calculan de forma determinista con factura, pérdida,
+  fecha de registro y `QUOTE_VALID_DAYS`.
+- La respuesta resumida incluye indicadores agregados para el filtro base,
+  antes del filtro de estado, para conservar los KPI sin descargar todas las
+  filas.
+- El detalle completo se conserva en `GET /api/v1/cotizaciones/{id}` tras la
+  validación de ámbito.
+- Los índices de `vendedor_id + fecha_registro`, `fecha_registro +
+  numero_cotizacion` y búsqueda histórica por vendedor sin vínculo se gestionan
+  mediante una migración Alembic reversible.
+
 ## API
 
 - `GET /api/v1/cotizaciones/`
-  - conserva filtros actuales;
-  - añade contacto preferente, vendedor resuelto y prioridad promocional.
+  - conserva filtros actuales y añade `busqueda`, `estado` y `vista`;
+  - con `vista=resumen` devuelve una página ligera, prioridad promocional y
+    los indicadores deterministas del filtro;
+  - conserva la vista completa para integraciones que aún requieran propuesta
+    o partidas.
 - `GET|POST /api/v1/cotizaciones/{id}/comentarios`
 - `PUT /api/v1/cotizaciones/{id}/comentarios/{comentario_id}`
 - `POST /api/v1/cotizaciones/detalle-materiales/upload`
@@ -107,10 +129,11 @@ aceptada; el detalle de otras cotizaciones permanece intacto.
 - El Excel resumen actual continúa funcionando.
 - La carga resumen reconcilia por `numero_cotizacion`: conserva el UUID y el
   historial de los registros existentes, crea los nuevos y elimina únicamente
-  los que ya no aparecen en el archivo completo.
+  cotizaciones importadas con número que ya no aparecen en el archivo completo.
 - Un número duplicado en el archivo o en la base cancela la transacción para
   evitar una reconciliación ambigua.
-- `Cotizacion.items` se conserva para cotizaciones manuales y de agente.
+- `Cotizacion.items` y las cotizaciones manuales/de agente sin folio se
+  conservan durante la reconciliación.
 - El detalle por SKU se importa por un endpoint separado.
 - El campo legado `comentarios` se conserva para observaciones existentes y
   motivos de venta perdida.
