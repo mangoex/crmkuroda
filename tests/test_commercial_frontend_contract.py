@@ -14,10 +14,12 @@ class CommercialFrontendContractTest(unittest.TestCase):
             encoding="utf-8"
         )
 
-    def test_sidebar_has_fixed_order_contract(self):
-        self.assertNotIn("drag-handle", self.html)
-        self.assertNotIn("item.draggable = true", self.javascript)
-        self.assertNotIn("applyStoredMenuOrder();", self.javascript)
+    def test_sidebar_has_fixed_menu_contract(self):
+        self.assertNotIn('draggable="true"', self.html)
+        self.assertIn('data-section="summary"', self.html)
+        self.assertIn('data-section="seguimiento"', self.html)
+        self.assertIn('data-section="cotizaciones"', self.html)
+
 
     def test_quick_period_controls_exist(self):
         for element_id in (

@@ -17,9 +17,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="/static/style.css?v=1.0.14">
+    <link rel="stylesheet" href="/static/style.css?v=1.0.19">
 </head>
-<body class="dark-theme">
+<body class="light-mode">
     
     <!-- Toast Notifications Container -->
     <div id="toast-container" class="toast-container"></div>
@@ -73,18 +73,21 @@
                 <button id="btn-toggle-sidebar" class="btn-icon" style="color: hsl(var(--text-secondary)); font-size: 16px;"><i class="fa-solid fa-chevron-left"></i></button>
             </div>
             
-            <nav class="sidebar-menu">
+            <nav class="sidebar-menu" id="sidebar-menu">
                 <a href="#" class="menu-item active" data-section="summary">
                     <i class="fa-solid fa-table-cells-large"></i> <span>Mi Panel</span>
                 </a>
-                <a href="#" class="menu-item" data-section="vendedores" id="menu-vendedores">
-                    <i class="fa-solid fa-users"></i> <span>Vendedores</span>
+                <a href="#" class="menu-item" data-section="seguimiento">
+                    <i class="fa-solid fa-table-columns"></i> <span>Seguimiento</span>
                 </a>
-                <a href="#" class="menu-item" data-section="inventario-abcf">
-                    <i class="fa-solid fa-boxes-stacked"></i> <span>Inventario D</span>
+                <a href="#" class="menu-item" data-section="cotizaciones">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> <span>Cotizaciones</span>
                 </a>
                 <a href="#" class="menu-item" data-section="promociones">
                     <i class="fa-solid fa-tags"></i> <span>Promociones</span>
+                </a>
+                <a href="#" class="menu-item" data-section="inventario-abcf">
+                    <i class="fa-solid fa-boxes-stacked"></i> <span>Inventario D</span>
                 </a>
                 <a href="#" class="menu-item" data-section="sobrepedidos">
                     <i class="fa-solid fa-truck-ramp-box"></i> <span>Sobrepedidos</span>
@@ -92,11 +95,11 @@
                 <a href="#" class="menu-item" data-section="por-entregar">
                     <i class="fa-solid fa-box-open"></i> <span>Por entregar</span>
                 </a>
-                <a href="#" class="menu-item" data-section="cotizaciones">
-                    <i class="fa-solid fa-file-invoice-dollar"></i> <span>Cotizaciones</span>
+                <a href="#" class="menu-item" data-section="clientes" id="menu-clientes">
+                    <i class="fa-solid fa-address-book"></i> <span>Clientes</span>
                 </a>
-                <a href="#" class="menu-item" data-section="seguimiento">
-                    <i class="fa-solid fa-table-columns"></i> <span>Seguimiento</span>
+                <a href="#" class="menu-item" data-section="vendedores" id="menu-vendedores">
+                    <i class="fa-solid fa-users"></i> <span>Vendedores</span>
                 </a>
                 <a href="#" class="menu-item" data-section="agentes">
                     <i class="fa-solid fa-user-gear"></i> <span>Centro de Agentes</span>
@@ -110,7 +113,6 @@
                 <a href="#" class="menu-item" data-section="api" id="menu-api">
                     <i class="fa-brands fa-whatsapp"></i> <span>API WhatsApp</span>
                 </a>
-                
             </nav>
             
             <div class="sidebar-footer">
@@ -130,7 +132,11 @@
                 </div>
                 
                 <div class="user-badge">
-                    <button id="theme-toggle-btn" class="btn btn-secondary btn-icon" style="border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); color: hsl(var(--text-primary)); padding: 0; margin-right: 8px;" title="Cambiar tema">
+                    <button id="reminders-nav-btn" class="btn btn-secondary btn-icon" title="Recordatorios de seguimiento" style="position: relative;">
+                        <i class="fa-solid fa-bell"></i>
+                        <span id="reminders-nav-badge" class="badge badge-danger hidden" style="position: absolute; top: -5px; right: -5px; padding: 2px 6px; font-size: 10px; border-radius: 10px;">0</span>
+                    </button>
+                    <button id="theme-toggle-btn" class="btn btn-secondary btn-icon" title="Cambiar tema">
                         <i class="fa-solid fa-sun" id="theme-toggle-icon"></i>
                     </button>
                     <span id="user-role-badge" class="badge badge-primary">Vendedor</span>
@@ -263,6 +269,20 @@
                             <button type="button" data-seller-jump="slight-edge"><i class="fa-solid fa-pen-to-square"></i> Registrar actividad</button>
                             <button type="button" id="seller-quick-search"><i class="fa-solid fa-magnifying-glass"></i> Buscar cliente</button>
                             <button type="button" data-seller-jump="seguimiento"><i class="fa-regular fa-calendar-days"></i> Ver seguimiento</button>
+                        </div>
+                    </div>
+
+                    <!-- Daily Follow-up Reminders Card -->
+                    <div id="daily-reminders-card" class="glass-card border-glow" style="margin-top: 24px; margin-bottom: 24px; padding: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <i class="fa-solid fa-calendar-check text-glow" style="color: #f59e0b; font-size: 20px;"></i>
+                                <h2 style="margin: 0; font-size: 18px;">Seguimientos Agendados del Día</h2>
+                            </div>
+                            <span id="daily-reminders-badge-count" class="badge badge-primary">0 pendientes</span>
+                        </div>
+                        <div id="daily-reminders-list" class="reminders-list-grid" style="display: flex; flex-direction: column; gap: 12px;">
+                            <p class="text-muted" style="margin: 0; padding: 8px 0;">Cargando recordatorios...</p>
                         </div>
                     </div>
 
@@ -624,6 +644,24 @@
                                     <option value="todos">Todos</option>
                                 </select>
                             </div>
+                            <div class="input-group">
+                                <label for="filter-inv-familia" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Familia</label>
+                                <select id="filter-inv-familia" class="form-control" style="width: 100%;">
+                                    <option value="todos">Todas</option>
+                                    <option value="PLOMERIA CROMADA">PLOMERIA CROMADA</option>
+                                    <option value="ARTICULOS DE PLOMERIA">ARTICULOS DE PLOMERIA</option>
+                                    <option value="CERAMICOS">CERAMICOS</option>
+                                    <option value="REVESTESIMIENTO DECORATIVOS">REVESTESIMIENTO DECORATIVOS</option>
+                                    <option value="SERVICIO">SERVICIO</option>
+                                    <option value="HOGAR">HOGAR</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="filter-inv-subfamilia" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Subfamilia</label>
+                                <select id="filter-inv-subfamilia" class="form-control" style="width: 100%;">
+                                    <option value="todas">Todas</option>
+                                </select>
+                            </div>
                             <div style="display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1;">
                                 <label for="filter-inv-search" style="font-size: 0.85rem; color: hsl(var(--text-secondary));"><i class="fa-solid fa-magnifying-glass"></i> Buscar material o proveedor</label>
                                 <div style="display: flex; gap: 10px;">
@@ -649,7 +687,7 @@
                                     <th>Descripción</th>
                                     <th id="th-inv-cant" style="cursor: pointer;">Cant Propia <i class="fa-solid fa-sort" style="color: #6b7280; font-size: 11px; margin-left: 4px;"></i></th>
                                     <th id="th-inv-consig" style="cursor: pointer;">Inv. Consig. <i class="fa-solid fa-sort" style="color: #6b7280; font-size: 11px; margin-left: 4px;"></i></th>
-                                    <th>Precio Prom.</th>
+                                    <th id="th-inv-precio">Precio Prom.</th>
                                     <th id="th-inv-importe">Importe Inv.</th>
                                     <th>Ubicación</th>
                                 </tr>
@@ -759,6 +797,24 @@
                                 </select>
                             </div>
                             <div class="input-group">
+                                <label for="filter-promo-familia" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Familia</label>
+                                <select id="filter-promo-familia" class="form-control" style="width: 100%;">
+                                    <option value="todos">Todas</option>
+                                    <option value="PLOMERIA CROMADA">PLOMERIA CROMADA</option>
+                                    <option value="ARTICULOS DE PLOMERIA">ARTICULOS DE PLOMERIA</option>
+                                    <option value="CERAMICOS">CERAMICOS</option>
+                                    <option value="REVESTESIMIENTO DECORATIVOS">REVESTESIMIENTO DECORATIVOS</option>
+                                    <option value="SERVICIO">SERVICIO</option>
+                                    <option value="HOGAR">HOGAR</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="filter-promo-subfamilia" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Subfamilia</label>
+                                <select id="filter-promo-subfamilia" class="form-control" style="width: 100%;">
+                                    <option value="todas">Todas</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
                                 <label for="filter-promo-sort" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Ordenar por</label>
                                 <select id="filter-promo-sort" class="form-control" style="width: 100%;">
                                     <option value="default">Por Defecto</option>
@@ -797,6 +853,7 @@
                                     <th>Margen</th>
                                     <th style="cursor: pointer; user-select: none;" id="th-inv-disp">Inv. Disp. <i class="fa-solid fa-sort" style="color: hsl(var(--text-secondary)); font-size: 12px; margin-left: 4px;"></i></th>
                                     <th>Válido Hasta</th>
+                                    <th>Clientes Potenciales</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -898,7 +955,7 @@
 
                     <!-- Sobrepedidos Table -->
                     <div class="glass-card table-container" style="overflow-x: auto;">
-                        <table class="data-table" id="table-sobrepedidos" style="min-width: 1700px;">
+                        <table class="data-table compact-extended-table" id="table-sobrepedidos" style="width: 100%;">
                             <thead>
                                 <tr>
                                     <th id="th-sobrepedidos-pedido" style="cursor: pointer; user-select: none;">Factura <i class="fa-solid fa-sort" style="color: hsl(var(--text-secondary)); font-size: 11px; margin-left: 4px;"></i></th>
@@ -965,7 +1022,7 @@
                     </div>
 
                     <div class="glass-card table-container" style="overflow-x: auto;">
-                        <table class="data-table" id="table-por-entregar" style="min-width: 1300px;">
+                        <table class="data-table compact-extended-table" id="table-por-entregar" style="width: 100%;">
                             <thead>
                                 <tr>
                                     <th>Factura</th>
@@ -984,6 +1041,126 @@
                             <tbody></tbody>
                         </table>
                         <div class="table-pagination" id="pag-por-entregar"></div>
+                    </div>
+                </section>
+
+                <!-- Section Clientes -->
+                <section id="section-clientes" class="dashboard-section hidden animate-fade-in">
+                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+                        <div>
+                            <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                                <i class="fa-solid fa-address-book" style="color: #3b82f6;"></i> Catálogo de Clientes
+                            </h2>
+                            <p style="margin: 4px 0 0 0; color: hsl(var(--text-secondary)); font-size: 0.9rem;">
+                                Gestión unificada de la cartera de clientes, empresas y contactos comerciales.
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button id="btn-nuevo-cliente" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-user-plus"></i> <span>+ Nuevo Cliente</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Clientes KPI Cards -->
+                    <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6;">
+                                <i class="fa-solid fa-users"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Total Clientes</span>
+                                <h3 class="kpi-value" id="kpi-clientes-total">0</h3>
+                            </div>
+                        </div>
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                                <i class="fa-solid fa-user-large"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Personas Físicas</span>
+                                <h3 class="kpi-value" id="kpi-clientes-fisicas">0</h3>
+                            </div>
+                        </div>
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">
+                                <i class="fa-solid fa-building"></i>
+                            </div>
+                            <div class="kpi-content">
+                                <span class="kpi-label">Personas Morales / Jurídicas</span>
+                                <h3 class="kpi-value" id="kpi-clientes-morales">0</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter Control Bar -->
+                    <div class="glass-card filters-card margin-bottom" style="padding: 20px; margin-bottom: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; align-items: end;">
+                            <div class="input-group" style="grid-column: 1 / -1; max-width: 100%;">
+                                <label for="clientes-search-input" style="font-size: 0.85rem; color: hsl(var(--text-secondary)); font-weight: 500;">
+                                    <i class="fa-solid fa-magnifying-glass"></i> Buscador dinámico por nombre, RFC, email o # cliente
+                                </label>
+                                <div style="position: relative;">
+                                    <input type="search" id="clientes-search-input" class="form-control" placeholder="Escribe un nombre (ej. ACME, SALADO, RUBEN...)" style="padding-left: 36px; width: 100%;">
+                                    <i class="fa-solid fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af;"></i>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="clientes-filter-persona" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Tipo de Persona</label>
+                                <select id="clientes-filter-persona" class="form-control" style="width: 100%;">
+                                    <option value="">Todos los tipos</option>
+                                    <option value="Persona física">Persona física</option>
+                                    <option value="Persona jurídica">Persona jurídica</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="clientes-filter-colonia" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Colonia</label>
+                                <select id="clientes-filter-colonia" class="form-control" style="width: 100%;">
+                                    <option value="">Todas las colonias</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="clientes-filter-poblacion" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Población / Ciudad</label>
+                                <select id="clientes-filter-poblacion" class="form-control" style="width: 100%;">
+                                    <option value="">Todas las poblaciones</option>
+                                </select>
+                            </div>
+                            <div class="input-group" style="display: flex; align-items: flex-end;">
+                                <button type="button" id="clientes-btn-clear-filters" class="btn btn-secondary" style="width: 100%; height: 38px;">
+                                    <i class="fa-solid fa-rotate-left"></i> Limpiar Filtros
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Clientes Data Table -->
+                    <div class="glass-card" style="padding: 20px; overflow-x: auto;">
+                        <table class="table" id="table-clientes" style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th style="white-space: nowrap;"># Cliente</th>
+                                    <th>Nombre del Cliente</th>
+                                    <th style="white-space: nowrap;">RFC</th>
+                                    <th>Población</th>
+                                    <th>Estado</th>
+                                    <th style="white-space: nowrap;">Celular</th>
+                                    <th>Correo Electrónico</th>
+                                    <th style="text-align: center; white-space: nowrap;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-clientes">
+                                <tr>
+                                    <td colspan="8" style="text-align: center; padding: 30px; color: #9ca3af;">
+                                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 10px;"></i>
+                                        <p>Cargando catálogo de clientes...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="table-pagination" id="clientes-pagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 10px;">
+                            <!-- Dynamically loaded -->
+                        </div>
                     </div>
                 </section>
 
@@ -1292,10 +1469,20 @@
                             <h2 style="font-size: 16px; font-weight: 600; margin: 0;"><i class="fa-solid fa-list-check" style="margin-right: 8px; color: hsl(var(--primary));"></i> Listado Detallado de Cotizaciones</h2>
                             <span id="quotes-details-toggle-icon" style="transition: transform var(--transition-fast);"><i class="fa-solid fa-chevron-down"></i></span>
                         </div>
-                        <div id="quotes-details-content" class="hidden" style="padding: 20px 24px;">
-                            <div class="input-group margin-bottom" style="max-width: 400px; margin-top: 10px;">
-                                <label for="search-quote-client">Buscar Cliente:</label>
-                                <input type="text" id="search-quote-client" placeholder="Buscar por empresa, nombre o No. de cliente...">
+                            <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-top: 10px; margin-bottom: 16px;">
+                                <div class="input-group" style="max-width: 380px; margin: 0; flex: 1;">
+                                    <label for="search-quote-client">Buscar Cliente:</label>
+                                    <input type="text" id="search-quote-client" placeholder="Buscar por empresa, nombre o No. de cliente...">
+                                </div>
+                                <div class="input-group" style="max-width: 320px; margin: 0; flex: 1;">
+                                    <label for="search-client-history-input">Consultar Historial de Cliente:</label>
+                                    <div style="display: flex; gap: 8px;">
+                                        <input type="text" id="search-client-history-input" placeholder="No. de Cliente SAP...">
+                                        <button type="button" id="btn-search-client-history" class="btn btn-secondary" title="Ver Historial del Cliente" style="white-space: nowrap; padding: 0 14px;">
+                                            <i class="fa-solid fa-clock-rotate-left"></i> Historial
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                             <div class="table-container" style="margin-top: 10px;">
                                 <table class="data-table" id="table-cotizaciones">
@@ -2232,6 +2419,235 @@
         </div>
     </div>
 
+    <!-- Client History Modal (HU-2) -->
+    <div id="client-history-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 900px; width: 95%;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="margin: 0; font-size: 18px;"><i class="fa-solid fa-clock-rotate-left" style="color: #38bdf8; margin-right: 8px;"></i>Historial del Cliente</h3>
+                    <p id="client-history-subtitle" style="font-size: 13px; color: hsl(var(--text-secondary)); margin: 4px 0 0 0;">Cargando datos del cliente...</p>
+                </div>
+                <button id="btn-close-client-history" class="btn-icon" type="button"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 20px; padding: 20px;">
+                <!-- Metrics Summary Cards -->
+                <div class="client-history-metrics-grid">
+                    <div class="metric-card">
+                        <span>Total Cotizaciones</span>
+                        <strong id="client-history-total-quotes">0</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Total Facturadas</span>
+                        <strong id="client-history-invoiced-count" style="color: #10b981;">0</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Total Cotizado</span>
+                        <strong id="client-history-total-quoted">$0.00</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Total Facturado</span>
+                        <strong id="client-history-total-invoiced" style="color: #10b981;">$0.00</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>Tasa Conversión</span>
+                        <strong id="client-history-conversion-rate" style="color: #38bdf8;">0%</strong>
+                    </div>
+                </div>
+
+                <!-- Operations Table -->
+                <div class="table-container" style="max-height: 380px; overflow-y: auto;">
+                    <table class="data-table" id="client-history-table">
+                        <thead>
+                            <tr>
+                                <th>No. Cotización</th>
+                                <th>Fecha</th>
+                                <th>Canal</th>
+                                <th>Total Cotizado</th>
+                                <th>Importe Facturado</th>
+                                <th>Estado</th>
+                                <th>Vendedor</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-cancel-client-history" class="btn btn-secondary">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Potential Clients for Promotion Modal (HU-3) -->
+    <div id="promo-clients-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 950px; width: 95%;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="margin: 0; font-size: 18px;"><i class="fa-solid fa-users" style="color: #a78bfa; margin-right: 8px;"></i>Clientes Potenciales para Promoción</h3>
+                    <div id="promo-clients-info" style="font-size: 13px; color: hsl(var(--text-secondary)); margin-top: 4px;">Cargando información de la promoción...</div>
+                </div>
+                <button id="btn-close-promo-clients" class="btn-icon" type="button"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div class="table-container" style="max-height: 420px; overflow-y: auto;">
+                    <table class="data-table" id="promo-clients-table">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Vendedor</th>
+                                <th>Ús. Compra</th>
+                                <th>Cant. Comprada</th>
+                                <th>Acciones de Contacto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-cancel-promo-clients" class="btn btn-secondary">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Follow-up Reminder Modal (HU-1) -->
+    <div id="add-reminder-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 480px; width: 90%;">
+            <div class="modal-header">
+                <h3 style="margin: 0; font-size: 18px;"><i class="fa-solid fa-calendar-plus" style="color: #f59e0b; margin-right: 8px;"></i>Agendar Recordatorio de Seguimiento</h3>
+                <button id="btn-close-add-reminder" class="btn-icon" type="button"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="add-reminder-form">
+                <input type="hidden" id="reminder-quote-id">
+                <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px; padding: 20px;">
+                    <div class="input-group">
+                        <label for="reminder-date-input"><i class="fa-regular fa-calendar"></i> Fecha Programada</label>
+                        <input type="date" id="reminder-date-input" required>
+                    </div>
+                    <div class="input-group" style="margin-bottom: 0;">
+                        <label for="reminder-note-input"><i class="fa-regular fa-note-sticky"></i> Nota / Motivo del Seguimiento</label>
+                        <textarea id="reminder-note-input" rows="4" placeholder="Ej: Llamar al cliente para confirmar presupuesto de materiales..." style="resize: vertical;"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="btn-cancel-add-reminder" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" id="btn-save-reminder" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Guardar Recordatorio</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Add/Edit Cliente -->
+    <div id="modal-cliente" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 680px; width: 92%;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <h3 id="modal-cliente-title" style="margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-user-pen" style="color: #3b82f6;"></i> <span>Alta de Cliente</span>
+                </h3>
+                <button id="btn-close-modal-cliente" class="btn-icon" type="button"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="form-cliente">
+                <input type="hidden" id="cliente-id-input">
+                <div class="modal-body" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; padding: 20px 0; max-height: 65vh; overflow-y: auto;">
+                    <div class="input-group" style="grid-column: 1 / -1;">
+                        <label for="cliente-nombre-input"><i class="fa-solid fa-user"></i> Nombre del Cliente *</label>
+                        <input type="text" id="cliente-nombre-input" required class="form-control" placeholder="Ej. JUAN PEREZ GONZALEZ / ACME S.A. DE C.V.">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-num-input"><i class="fa-solid fa-hashtag"></i> Número de Cliente</label>
+                        <input type="text" id="cliente-num-input" class="form-control" placeholder="Ej. 1045">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-rfc-input"><i class="fa-solid fa-id-card"></i> R.F.C.</label>
+                        <input type="text" id="cliente-rfc-input" class="form-control" placeholder="Ej. XAXX010101000">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-persona-input"><i class="fa-solid fa-users"></i> Tipo de Persona</label>
+                        <select id="cliente-persona-input" class="form-control">
+                            <option value="Persona física">Persona física</option>
+                            <option value="Persona jurídica">Persona jurídica</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-sociedad-input"><i class="fa-solid fa-building"></i> Sociedad</label>
+                        <input type="text" id="cliente-sociedad-input" class="form-control" value="MKS">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-calle-input"><i class="fa-solid fa-road"></i> Calle</label>
+                        <input type="text" id="cliente-calle-input" class="form-control" placeholder="Ej. BLVD. EMILIANO ZAPATA">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-numext-input"><i class="fa-solid fa-location-dot"></i> Número Exterior</label>
+                        <input type="text" id="cliente-numext-input" class="form-control" placeholder="Ej. 3080 PTE">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-colonia-input"><i class="fa-solid fa-tree"></i> Colonia</label>
+                        <input type="text" id="cliente-colonia-input" class="form-control" placeholder="Ej. COL. TIERRA BLANCA">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-cp-input"><i class="fa-solid fa-mail-bulk"></i> Código Postal</label>
+                        <input type="text" id="cliente-cp-input" class="form-control" placeholder="Ej. 80000">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-poblacion-input"><i class="fa-solid fa-city"></i> Población / Ciudad</label>
+                        <input type="text" id="cliente-poblacion-input" class="form-control" placeholder="Ej. CULIACAN">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-estado-input"><i class="fa-solid fa-map"></i> Estado</label>
+                        <input type="text" id="cliente-estado-input" class="form-control" placeholder="Ej. SIN">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-tel-input"><i class="fa-solid fa-phone"></i> Teléfono</label>
+                        <input type="text" id="cliente-tel-input" class="form-control" placeholder="Ej. 6677123456">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-cel-input"><i class="fa-solid fa-mobile-screen"></i> Celular</label>
+                        <input type="text" id="cliente-cel-input" class="form-control" placeholder="Ej. 6671500942">
+                    </div>
+                    <div class="input-group">
+                        <label for="cliente-fax-input"><i class="fa-solid fa-fax"></i> Fax</label>
+                        <input type="text" id="cliente-fax-input" class="form-control" placeholder="Ej. 7134153">
+                    </div>
+                    <div class="input-group" style="grid-column: 1 / -1;">
+                        <label for="cliente-email-input"><i class="fa-regular fa-envelope"></i> Correo Electrónico</label>
+                        <input type="email" id="cliente-email-input" class="form-control" placeholder="Ej. contacto@cliente.com">
+                    </div>
+                </div>
+                <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <button type="button" id="btn-cancel-modal-cliente" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" id="btn-save-cliente" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Guardar Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Delete Confirmation -->
+    <div id="modal-confirm-delete-cliente" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 440px; width: 90%;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 18px; color: #ef4444; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> <span>Confirmar Eliminación</span>
+                </h3>
+                <button id="btn-close-delete-cliente" class="btn-icon" type="button"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 16px 0;">
+                <p style="margin-bottom: 12px; color: hsl(var(--text-secondary)); font-size: 0.95rem;">¿Estás seguro de que deseas eliminar este cliente del catálogo?</p>
+                <div style="background: rgba(239, 68, 68, 0.12); border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 6px;">
+                    <strong id="delete-cliente-nombre-display" style="display: block; color: #ef4444; font-size: 1.05rem;">-</strong>
+                    <span id="delete-cliente-rfc-display" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">-</span>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <button type="button" id="btn-cancel-delete-cliente" class="btn btn-secondary">Cancelar</button>
+                <button type="button" id="btn-confirm-delete-cliente" class="btn btn-danger"><i class="fa-solid fa-trash-can"></i> Sí, Eliminar Cliente</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Mobile Bottom Navigation -->
     <nav class="mobile-bottom-nav">
         <a href="#" class="mobile-nav-item active" data-mobile-section="summary" onclick="switchSection('summary'); return false;">
@@ -2257,6 +2673,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.0.57"></script>
+    <script src="/static/app.js?v=1.0.68"></script>
 </body>
 </html>

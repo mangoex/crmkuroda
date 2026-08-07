@@ -39,7 +39,13 @@ def _row_value(row, index: Optional[int], fallback: Optional[int] = None):
 def _as_float(value, default=None):
     if value is None or value == "":
         return default
-    return float(value)
+    if isinstance(value, (int, float)):
+        return float(value)
+    val_str = str(value).replace("$", "").replace(",", "").strip()
+    try:
+        return float(val_str)
+    except ValueError:
+        return default
 
 @router.get("/")
 async def list_inventario(db: AsyncSession = Depends(get_db)):
@@ -72,10 +78,10 @@ async def upload_inventario(
             header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), ())
             headers = [_normalize_header(value) for value in header_row]
             indices = {
-                "centro": _header_index(headers, "centro", "sucursal", "centro distribucion"),
+                "centro": _header_index(headers, "centro", "sucursal", "centro distribucion", "nombre centro"),
                 "almacen": _header_index(headers, "almacen", "almacen origen"),
-                "numero_proveedor": _header_index(headers, "numero proveedor", "codigo proveedor", "proveedor codigo"),
-                "nombre_proveedor": _header_index(headers, "nombre proveedor", "proveedor", "razon social proveedor"),
+                "numero_proveedor": _header_index(headers, "numero proveedor", "codigo proveedor", "proveedor codigo", "numero de proveedor"),
+                "nombre_proveedor": _header_index(headers, "nombre proveedor", "proveedor", "razon social proveedor", "nombre del proveedor"),
                 # D representa el indicador ABC+Frecuencia de Venta, no la clave de material.
                 "abc_f": _header_index(
                     headers,
@@ -90,21 +96,21 @@ async def upload_inventario(
                 "codigo_material": _header_index(headers, "codigo material", "clave material", "codigo producto", "clave producto", "sku"),
                 "descripcion_material": _header_index(headers, "descripcion material", "descripcion producto", "descripcion", "producto"),
                 "cantidad_propia": _header_index(headers, "cantidad propia", "cant propia", "inventario disponible", "existencia propia", "disponible"),
-                "existencia_consignacion": _header_index(headers, "existencia consignacion", "inv consig", "inventario consignacion"),
+                "existencia_consignacion": _header_index(headers, "existencia consignacion", "inv consig", "inventario consignacion", "existencia en consignacion de proveedore", "existencia en consignacion de proveedores"),
                 "entregas_pendientes": _header_index(headers, "entregas pendientes"),
                 "existencia_transito": _header_index(headers, "existencia transito", "transito"),
                 "existencia_bloqueada": _header_index(headers, "existencia bloqueada", "bloqueada"),
                 "existencia_control_calidad": _header_index(headers, "existencia control calidad", "control calidad"),
                 "umb": _header_index(headers, "umb", "unidad medida"),
                 "costo_promedio_unitario": _header_index(headers, "costo promedio unitario", "precio promedio", "costo promedio"),
-                "importe_inventario_propio": _header_index(headers, "importe inventario propio", "importe inv"),
+                "importe_inventario_propio": _header_index(headers, "importe inventario propio", "importe inv", "importe de inventario propio"),
                 "valor_consignacion_proveedor": _header_index(headers, "valor consignacion proveedor"),
                 "ubicacion": _header_index(headers, "ubicacion", "localizacion"),
                 "grupo_materiales": _header_index(headers, "grupo materiales"),
                 "descrip_gpo_materiales": _header_index(headers, "descripcion grupo materiales", "descrip gpo materiales"),
                 "codigo_anterior_material": _header_index(headers, "codigo anterior material"),
                 "abc": _header_index(headers, "abc"),
-                "fecha_ultimo_inventario": _header_index(headers, "fecha ultimo inventario"),
+                "fecha_ultimo_inventario": _header_index(headers, "fecha ultimo inventario", "fecha del ultimo inventario ciclico"),
             }
 
             iter_rows = ws.iter_rows(min_row=2, values_only=True)

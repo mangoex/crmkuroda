@@ -237,13 +237,19 @@ async def sales_by_material(
     quote_ids = [quote.id for quote in quotes]
     if not quote_ids:
         return {"status": "success", "totals": {}, "data": []}
-    rows = (
-        await db.execute(
-            select(CotizacionItem, Cotizacion)
-            .join(Cotizacion, Cotizacion.id == CotizacionItem.cotizacion_id)
-            .where(CotizacionItem.cotizacion_id.in_(quote_ids))
-        )
-    ).all()
+
+    rows = []
+    chunk_size = 500
+    for i in range(0, len(quote_ids), chunk_size):
+        chunk = quote_ids[i:i + chunk_size]
+        chunk_rows = (
+            await db.execute(
+                select(CotizacionItem, Cotizacion)
+                .join(Cotizacion, Cotizacion.id == CotizacionItem.cotizacion_id)
+                .where(CotizacionItem.cotizacion_id.in_(chunk))
+            )
+        ).all()
+        rows.extend(chunk_rows)
     users = (await db.execute(select(Usuario))).scalars().all()
     seller_names = {
         str(user.id): user.nombre_completo or user.email

@@ -19,9 +19,9 @@ acciones requieren el entorno de destino.
   - código de salida 0.
 - `venv/bin/python -m compileall -q app tests alembic/versions`
   - código de salida 0.
-- `venv/bin/python -m alembic upgrade k1e5f6a7b8c9 --sql`
+- `venv/bin/python -m alembic upgrade m3n4o5p6q7r8 --sql`
   - genera los índices operativos de vendedor/fecha, fecha/folio y asesor no vinculado.
-- `venv/bin/python -m alembic downgrade k1e5f6a7b8c9:j0e5f6a7b8c9 --sql`
+- `venv/bin/python -m alembic downgrade m3n4o5p6q7r8:j0e5f6a7b8c9 --sql`
   - elimina de forma reversible únicamente esos tres índices.
 - Importación de `app.main`
   - registra las rutas estáticas antes de `/{cotizacion_id}` y expone todas las

@@ -325,3 +325,103 @@ def promotion_priority(
 def safe_phone_href(value: Any) -> str | None:
     digits = re.sub(r"[^\d+]", "", str(value or ""))
     return digits or None
+
+
+def find_clients_for_promotion(
+    promotion: Any,
+    items_with_quotes: Iterable[tuple[Any, Any]],
+    *,
+    only_invoiced: bool = True,
+) -> list[dict[str, Any]]:
+    """Find clients who previously purchased a material now on promotion.
+
+    Parameters
+    ----------
+    promotion:
+        A ``Promocion`` model instance (or duck-typed object with
+        ``codigo_material``, ``descripcion_material``, ``precio_promocion``,
+        ``valido_hasta``).
+    items_with_quotes:
+        An iterable of ``(CotizacionItem, Cotizacion)`` tuples — the join
+        of items and their parent quotes.
+    only_invoiced:
+        If ``True`` (default), only consider clients whose quote was
+        actually invoiced (``numero_factura`` is set or ``importe_facturado > 0``).
+        If ``False``, also include clients who only quoted the material.
+
+    Returns
+    -------
+    list[dict]
+        One dict per distinct client, sorted by ``ultima_compra`` descending.
+    """
+    promo_code = normalize_text(getattr(promotion, "codigo_material", None))
+    if not promo_code:
+        return []
+
+    # Group by (numero_cliente | cliente_nombre) to deduplicate.
+    clients: dict[str, dict[str, Any]] = {}
+
+    for item, quote in items_with_quotes:
+        item_code = normalize_text(getattr(item, "codigo_material", None))
+        if item_code != promo_code:
+            continue
+
+        has_invoice = (
+            bool(getattr(quote, "numero_factura", None))
+            or decimal_value(getattr(quote, "importe_facturado", 0)) > 0
+        )
+        if only_invoiced and not has_invoice:
+            continue
+
+        # Build a stable client key.
+        num_cliente = str(getattr(quote, "numero_cliente", None) or "").strip()
+        nombre = str(getattr(quote, "cliente_nombre", None) or "").strip()
+        client_key = num_cliente or nombre
+        if not client_key:
+            continue
+
+        contact = normalize_contact(getattr(quote, "datos_contacto", None))
+        fecha = getattr(quote, "fecha_factura", None) or getattr(quote, "fecha_registro", None)
+        cantidad = decimal_value(getattr(item, "cantidad_facturada", 0))
+        if cantidad == 0:
+            cantidad = decimal_value(getattr(item, "cantidad_cotizada", 0))
+        importe = decimal_value(getattr(item, "importe_facturado", 0))
+        if importe == 0:
+            importe = decimal_value(getattr(item, "importe_cotizado", 0))
+
+        existing = clients.get(client_key)
+        if existing is None:
+            clients[client_key] = {
+                "numero_cliente": num_cliente or None,
+                "cliente_nombre": nombre or None,
+                "vendedor_nombre": getattr(quote, "vendedor_nombre", None),
+                "vendedor_id": str(getattr(quote, "vendedor_id", "")) or None,
+                "contacto": contact,
+                "operaciones": 1,
+                "cantidad_total": cantidad,
+                "importe_total": importe,
+                "ultima_compra": fecha,
+                "tipo_operacion": "Facturado" if has_invoice else "Cotizado",
+            }
+        else:
+            existing["operaciones"] += 1
+            existing["cantidad_total"] += cantidad
+            existing["importe_total"] += importe
+            if fecha and (existing["ultima_compra"] is None or fecha > existing["ultima_compra"]):
+                existing["ultima_compra"] = fecha
+                # Update contact to the most recent one.
+                existing["contacto"] = contact
+            if has_invoice:
+                existing["tipo_operacion"] = "Facturado"
+
+    result = []
+    for client in clients.values():
+        fecha_compra = client["ultima_compra"]
+        result.append({
+            **client,
+            "cantidad_total": float(client["cantidad_total"]),
+            "importe_total": float(client["importe_total"]),
+            "ultima_compra": fecha_compra.isoformat() if fecha_compra else None,
+        })
+
+    return sorted(result, key=lambda c: c["ultima_compra"] or "", reverse=True)

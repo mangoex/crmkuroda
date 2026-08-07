@@ -62,10 +62,11 @@ async def get_current_user(
 class RoleChecker:
     """Dependency class to validate that the current user has the correct role permissions."""
     def __init__(self, allowed_roles: list[str]):
-        self.allowed_roles = allowed_roles
+        self.allowed_roles = [r.lower() for r in allowed_roles]
 
     def __call__(self, current_user: Usuario = Depends(get_current_user)) -> Usuario:
-        if current_user.rol not in self.allowed_roles:
+        user_role = (current_user.rol or "").lower()
+        if user_role not in self.allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Acceso denegado. Se requiere uno de los siguientes roles: {', '.join(self.allowed_roles)} (Tu rol es '{current_user.rol}')."

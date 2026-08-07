@@ -2,6 +2,8 @@ from sqlalchemy import Column, Integer, String, Float, DateTime
 from app.core.database import Base
 from datetime import datetime
 
+from app.core.kuroda_matrix import get_kuroda_familia_y_subfamilia
+
 class Promocion(Base):
     __tablename__ = "promociones"
 
@@ -24,10 +26,13 @@ class Promocion(Base):
     inventario_disponible = Column(Float)
 
     def to_dict(self):
+        fam, subfam = get_kuroda_familia_y_subfamilia(self.descrip_gpo_materiales, self.descripcion_material)
         return {
             "id": self.id,
             "centro": self.centro,
             "descrip_gpo_materiales": self.descrip_gpo_materiales,
+            "familia": fam,
+            "subfamilia": subfam,
             "indicador_abc": self.indicador_abc,
             "codigo_material": self.codigo_material,
             "descripcion_material": self.descripcion_material,

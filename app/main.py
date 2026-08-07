@@ -22,6 +22,7 @@ from app.api.v1.sobrepedidos import router as sobrepedidos_router
 from app.api.v1.por_entregar import router as por_entregar_router
 from app.api.v1.actualizaciones_datos import router as actualizaciones_datos_router
 from app.api.v1.commercial_analytics import router as commercial_analytics_router
+from app.api.v1.clientes import router as clientes_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -128,6 +129,13 @@ async def on_startup():
 
         await session.commit()
 
+    # Siembra automática del catálogo de clientes si está vacío
+    try:
+        from seed_clientes import seed_clientes_from_csv
+        await seed_clientes_from_csv(force=False)
+    except Exception as e:
+        print(f"Error al sembrar clientes en el arranque: {e}")
+
     # Iniciar el planificador de tareas en segundo plano
     start_scheduler()
 
@@ -199,6 +207,7 @@ app.include_router(sobrepedidos_router, prefix="/api/v1/sobrepedidos", tags=["So
 app.include_router(por_entregar_router, prefix="/api/v1/por-entregar", tags=["Por Entregar"])
 app.include_router(actualizaciones_datos_router, prefix="/api/v1/actualizaciones-datos", tags=["Actualizaciones de datos"])
 app.include_router(commercial_analytics_router, prefix="/api/v1/analitica", tags=["Analítica comercial"])
+app.include_router(clientes_router, prefix="/api/v1/clientes", tags=["Clientes"])
 
 # Mount Static Files (CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")
