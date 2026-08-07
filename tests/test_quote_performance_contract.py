@@ -62,6 +62,17 @@ class QuotePerformanceContractTest(unittest.TestCase):
         self.assertIn('vista: "resumen"', javascript)
         self.assertIn('limit: String(state.quotesPageSize)', javascript)
 
+    def test_kanban_loads_expired_quotes_in_a_bounded_dedicated_query(self):
+        javascript = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+
+        self.assertIn(
+            'const kanbanStages = ["pendientes", "concretadas", "vencidas"]',
+            javascript,
+        )
+        self.assertIn("kanbanPageSize: 50", javascript)
+        self.assertIn('params.set("estado", stage)', javascript)
+        self.assertIn('state.kanbanStageData.vencidas', javascript)
+
     def test_api_contract_limits_operational_pages_and_exposes_server_filters(self):
         quotes_api = (ROOT / "app" / "api" / "v1" / "cotizaciones.py").read_text(
             encoding="utf-8"

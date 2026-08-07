@@ -10,6 +10,7 @@ from app.core.database import engine, Base
 from app.api.auth import router as auth_router
 from app.api.v1.vendedores import router as vendedores_router
 from app.api.v1.metas import router as metas_router
+from app.api.v1.metas_comerciales import router as metas_comerciales_router
 from app.api.v1.cotizaciones import router as cotizaciones_router
 from app.api.v1.webhooks import router as webhooks_router
 from app.api.v1.analisis import router as analisis_router
@@ -194,6 +195,7 @@ async def root():
 # Register API Routers
 app.include_router(auth_router, prefix="/api/auth", tags=["Autenticación"])
 app.include_router(vendedores_router, prefix="/api/v1/vendedores", tags=["Vendedores"])
+app.include_router(metas_comerciales_router, prefix="/api/v1/metas", tags=["Metas comerciales"])
 app.include_router(metas_router, prefix="/api/v1/metas", tags=["Metas"])
 app.include_router(cotizaciones_router, prefix="/api/v1/cotizaciones", tags=["Cotizaciones"])
 app.include_router(webhooks_router, prefix="/api/v1/webhooks", tags=["Webhooks"])

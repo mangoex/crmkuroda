@@ -1,7 +1,7 @@
 # SDD — Analítica y seguimiento comercial
 
 Estado: aprobado para desarrollo
-Versión: 1.1
+Versión: 1.2
 
 ## Arquitectura
 
@@ -39,6 +39,21 @@ estático existente.
 - `nombre_normalizado`
 - `activo`
 
+#### `metas_comerciales`
+
+- `id` UUID
+- `tipo`: `general`, `vendedor` o `sucursal`
+- `vendedor_id` opcional, obligatorio sólo para `tipo=vendedor`
+- `sucursal` opcional, obligatoria sólo para `tipo=sucursal`
+- `mes`: primer día del mes calendario
+- `monto_objetivo`, `descripcion`, autor y marcas de auditoría
+
+Las restricciones de base de datos impiden combinar vendedor y sucursal o
+guardar un alcance incompatible. Los índices únicos parciales impiden duplicar
+el mismo alcance en el mismo mes. Al eliminar un vendedor se eliminan sus metas de vendedor;
+la autoría de una meta permanece opcional para permitir conservar el registro
+cuando se elimina quien la creó.
+
 ## Servicios
 
 ### Contactos
@@ -62,10 +77,25 @@ Cruza `cotizacion_items.codigo_material` con
 Las agregaciones se calculan en código o SQL de forma determinista. El LLM no
 participa en cifras comerciales.
 
+### Metas comerciales
+
+- `commercial_goals` construye rangos de día, semana o mes y prorratea cada
+  meta mensual por días calendario del mes afectado.
+- Una venta cuenta por `importe_facturado` cuando existe factura o importe
+  facturado positivo; se ubica en el periodo por `fecha_registro`, conservando
+  el contrato comercial existente.
+- Las ventas por sucursal se agrupan exclusivamente por
+  `Cotizacion.organizacion_ventas` no vacío.
+- La meta nueva por vendedor prevalece en el dashboard y en
+  `rendimiento-asesores`; la entidad legada `metas` es respaldo de lectura.
+
 ### Consulta operativa de cotizaciones
 
 - La lista usa `limit` (máximo 100) y `offset`; el frontend utiliza 50 por
   página.
+- Seguimiento solicita en paralelo páginas ligeras para `pendientes`,
+  `concretadas` y `vencidas`. La página global avanza las tres consultas, por
+  lo que las vencidas nunca dependen de la primera página cronológica.
 - `vista=resumen` proyecta sólo los campos para tabla y Kanban. Excluye
   `items`, `items_detalle` y `texto_propuesta`.
 - `busqueda` se resuelve en PostgreSQL sobre cliente y número de cliente.
@@ -95,6 +125,10 @@ participa en cifras comerciales.
 - `GET /api/v1/analitica/ventas-por-canal`
 - `GET /api/v1/analitica/ventas-por-material`
 - `GET /api/v1/analitica/rendimiento-asesores`
+- `GET|POST /api/v1/metas/comerciales`
+- `PUT|DELETE /api/v1/metas/comerciales/{id}`
+- `GET /api/v1/metas/comerciales/dashboard?periodo=dia|semana|mes`
+- `GET /api/v1/metas/comerciales/mis-avances?periodo=dia|semana|mes`
 - `GET|PUT /api/v1/analitica/canales`
 
 ## Contrato de importación de partidas
@@ -122,6 +156,10 @@ aceptada; el detalle de otras cotizaciones permanece intacto.
   de vendedores.
 - Configurar canales y cargar partidas requiere `admin` o `gerente`.
 - La analítica de equipo requiere `admin` o `gerente`.
+- Crear, editar, borrar y consultar el dashboard de metas requiere `admin` o
+  `gerente`; la sección visible se ofrece a gerencia y nunca a vendedor.
+- El endpoint de avance sólo responde al vendedor autenticado y nunca expone
+  el avance de otro usuario.
 - La analítica por canal y material permite al vendedor solo su ámbito.
 
 ## Compatibilidad

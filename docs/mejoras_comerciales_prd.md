@@ -1,7 +1,7 @@
 # PRD — Analítica y seguimiento comercial
 
 Estado: aprobado para desarrollo
-Versión: 1.1
+Versión: 1.2
 Fecha: 2026-08-06
 
 ## Objetivo
@@ -31,6 +31,11 @@ a sus cotizaciones.
 - Los cálculos comerciales, estados y agregados se resuelven de forma
   determinista en Python o PostgreSQL. El LLM no interviene en resultados,
   filtros ni paginación.
+- Una meta comercial se captura por mes calendario presente o futuro. Los
+  indicadores diarios y semanales son el prorrateo determinista de esa meta
+  mensual, nunca una sugerencia del LLM.
+- La sucursal comercial se obtiene de `cotizaciones.organizacion_ventas`; no
+  se infiere ni se asigna artificialmente a un usuario.
 
 ## Roles
 
@@ -97,8 +102,19 @@ Gerencia y vendedores pueden recorrer todas las cotizaciones autorizadas por
 fecha, vendedor, estado y búsqueda de cliente o número de cliente. La interfaz
 carga sólo una página operativa y recupera el detalle pesado bajo demanda; los
 KPIs mantienen los totales del filtro completo. Seguimiento muestra un conjunto
-acotado de tarjetas por carga, sin crear una tarjeta por cada cotización
-histórica.
+acotado de tarjetas por estado en cada carga, sin crear una tarjeta por cada
+cotización histórica. Las vencidas se consultan en su propia página, para que
+no dependan de aparecer entre las cotizaciones más recientes.
+
+### HU-11 — Metas comerciales gerenciales
+
+Gerencia administra metas mensuales generales, por vendedor y por sucursal
+para el mes presente o futuros. Puede crear, editar el monto o nota y eliminar
+cada meta. El tablero muestra avance facturado contra meta a nivel general,
+por vendedor y por `organizacion_ventas`, con vistas diaria, semanal y mensual.
+El vendedor sólo consulta su propio avance en Mi Panel. Los reportes de
+rendimiento usan primero la nueva meta comercial de vendedor y conservan la
+meta legada únicamente como respaldo cuando no hay una nueva configurada.
 
 ## Requisitos no funcionales
 
@@ -109,6 +125,9 @@ histórica.
 - `NFR-DATA-001`: una reconciliación de Excel sólo puede eliminar cotizaciones
   importadas con número de cotización que no estén presentes en el archivo;
   nunca elimina cotizaciones manuales o generadas por agente sin folio.
+- `NFR-METAS-001`: una meta no puede mezclar alcances: general no admite
+  vendedor ni sucursal; vendedor requiere vendedor válido; sucursal requiere
+  `organizacion_ventas` explícita.
 
 ## Fuera de alcance
 
@@ -116,6 +135,8 @@ histórica.
 - Inventar equivalencias entre códigos de canal y nombres comerciales.
 - Cambiar la política actual de jerarquía padre-hijo.
 - Enviar mensajes de WhatsApp automáticamente desde estas historias.
+- Inventar una relación entre vendedores y sucursales cuando la cotización no
+  contiene `organizacion_ventas`.
 
 ## Indicadores de éxito
 

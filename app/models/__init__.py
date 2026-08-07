@@ -1,6 +1,7 @@
 from app.core.database import Base
 from app.models.usuario import Usuario
 from app.models.meta import Meta
+from app.models.meta_comercial import MetaComercial
 from app.models.cotizacion import Cotizacion
 from app.models.log_agente import LogAgente
 from app.models.seguimiento import SeguimientoDiario
@@ -21,6 +22,7 @@ __all__ = [
     "Base", 
     "Usuario", 
     "Meta", 
+    "MetaComercial",
     "Cotizacion", 
     "LogAgente", 
     "SeguimientoDiario",

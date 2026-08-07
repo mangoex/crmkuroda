@@ -89,7 +89,35 @@ registros.
 **Entonces** PostgreSQL aplica el filtro antes de paginar
 **Y** los KPI se calculan sobre todo el filtro base de forma determinista.
 
+**Dado** que las cotizaciones vencidas son más antiguas que la primera página
+cronológica de Seguimiento
+**Cuando** el usuario abre Seguimiento sin filtros excluyentes
+**Entonces** la columna Vencido recibe su propia página de resultados
+**Y** no se descargan más de 100 filas por petición.
+
 **Dado** una cotización manual o generada por agente sin número oficial
 **Cuando** se reconcilia un Excel resumen
 **Entonces** la cotización no se elimina
 **Y** sólo se eliminan filas importadas con folio ausente del archivo completo.
+
+## HU-11
+
+**Dado** un gerente autenticado y el mes presente o futuro seleccionado
+**Cuando** registra una meta general, de vendedor o de sucursal válida
+**Entonces** queda guardada como meta mensual auditable
+**Y** puede actualizar su monto o nota, o eliminarla desde la sección Metas.
+
+**Dado** una meta mensual y una fecha de referencia
+**Cuando** el gerente consulta día, semana o mes
+**Entonces** el objetivo se prorratea por los días del mes calendario
+**Y** la venta real usa únicamente importe facturado.
+
+**Dado** cotizaciones con `organizacion_ventas`
+**Cuando** gerencia revisa el tablero por sucursal
+**Entonces** cada avance se agrupa por ese campo explícito
+**Y** no se atribuyen cotizaciones sin sucursal a una sucursal inventada.
+
+**Dado** un vendedor autenticado
+**Cuando** abre Mi Panel y cambia entre día, semana y mes
+**Entonces** ve únicamente su avance calculado en backend
+**Y** no puede crear, editar, eliminar ni consultar metas de terceros.

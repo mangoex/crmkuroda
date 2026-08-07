@@ -15,6 +15,7 @@ from app.core.security import get_current_user
 from app.models.cotizacion import Cotizacion
 from app.models.cotizacion_detalle import CanalVenta, CotizacionItem
 from app.models.meta import Meta
+from app.models.meta_comercial import MetaComercial
 from app.models.slight_edge_log import SlightEdgeLog
 from app.models.usuario import Usuario
 from app.schemas.commercial import CanalVentaUpsert
@@ -26,6 +27,7 @@ from app.services.commercial_analytics import (
     normalize_text,
 )
 from app.services.jerarquia import get_ids_vendedores_visibles
+from app.services.commercial_goals import commercial_goal_amount, month_starts_between
 
 
 router = APIRouter()
@@ -308,6 +310,11 @@ async def seller_performance(
             )
         )
     ).scalars().all()
+    commercial_goals = (
+        await db.execute(
+            select(MetaComercial).where(MetaComercial.mes.in_(month_starts_between(start, end)))
+        )
+    ).scalars().all()
     logs = (
         await db.execute(
             select(SlightEdgeLog).where(
@@ -325,6 +332,26 @@ async def seller_performance(
         today,
         settings.QUOTE_VALID_DAYS,
     )
+    # Las metas comerciales mensuales son la fuente vigente del reporte.
+    # Las metas heredadas se conservan sólo cuando no existe una nueva para ese asesor.
+    for row in data:
+        target, configured = commercial_goal_amount(
+            commercial_goals,
+            "vendedor",
+            start,
+            end,
+            vendedor_id=UUID(row["vendedor_id"]),
+        )
+        if configured:
+            row["meta"] = float(target)
+            row["cumplimiento"] = (
+                round(float(row["venta_facturada"] / float(target) * 100), 2)
+                if target
+                else 0
+            )
+            row["origen_meta"] = "comercial"
+        else:
+            row["origen_meta"] = "legada" if row["meta"] else "sin_meta"
     return {
         "status": "success",
         "filters": {"fecha_inicio": start, "fecha_fin": end},

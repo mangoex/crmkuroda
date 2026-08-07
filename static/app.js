@@ -162,9 +162,15 @@ const state = {
     kanbanCurrentPage: 1,
     kanbanPageSize: 50,
     kanbanPagination: { total: 0, limit: 50, offset: 0 },
+    kanbanStageData: { pendientes: [], concretadas: [], vencidas: [] },
+    kanbanStagePagination: {},
     quotesSortOrder: "desc", // date sort: 'asc' or 'desc'
     activeHeatmapFilter: null,
     sellerGoalPeriod: "day",
+    sellerGoalProgress: null,
+    commercialGoals: [],
+    commercialGoalsDashboard: null,
+    editingCommercialGoalId: null,
     kanbanSortOrders: {
         cotizado: null,
         promociones: null,
@@ -250,6 +256,7 @@ const DOM = {
     
     sidebarMenu: document.getElementById("sidebar-menu"),
     menuVendedores: document.getElementById("menu-vendedores"),
+    menuMetas: document.getElementById("menu-metas"),
     menuAsignacion: document.getElementById("menu-asignacion"),
     menuApi: document.getElementById("menu-api"),
     btnAddSeller: document.getElementById("btn-add-seller"),
@@ -273,6 +280,30 @@ const DOM = {
     sellerFormTitle: document.getElementById("seller-form-title"),
     sellerPasswordLabel: document.getElementById("seller-password-label"),
     btnSubmitSeller: document.getElementById("btn-submit-seller"),
+
+    // Metas comerciales de gerencia
+    metasMonth: document.getElementById("metas-month"),
+    metasPeriod: document.getElementById("metas-period"),
+    metasReferenceDate: document.getElementById("metas-reference-date"),
+    btnLoadMetas: document.getElementById("btn-load-metas"),
+    metasForm: document.getElementById("metas-form"),
+    metasFormTitle: document.getElementById("metas-form-title"),
+    metasType: document.getElementById("metas-type"),
+    metasVendedorGroup: document.getElementById("metas-vendedor-group"),
+    metasVendedor: document.getElementById("metas-vendedor"),
+    metasSucursalGroup: document.getElementById("metas-sucursal-group"),
+    metasSucursal: document.getElementById("metas-sucursal"),
+    metasSucursalesList: document.getElementById("metas-sucursales-list"),
+    metasTarget: document.getElementById("metas-target"),
+    metasDescription: document.getElementById("metas-description"),
+    btnSubmitMetas: document.getElementById("btn-submit-metas"),
+    btnCancelMetasEdit: document.getElementById("btn-cancel-metas-edit"),
+    metasGeneralTarget: document.getElementById("metas-general-target"),
+    metasGeneralSales: document.getElementById("metas-general-sales"),
+    metasGeneralProgress: document.getElementById("metas-general-progress"),
+    tableMetasComerciales: document.getElementById("table-metas-comerciales"),
+    metasSellersDashboard: document.getElementById("metas-sellers-dashboard"),
+    metasBranchesDashboard: document.getElementById("metas-branches-dashboard"),
     
     // Metas Section
     btnGenerateGoalsModal: document.getElementById("btn-generate-goals-modal"),
@@ -680,6 +711,7 @@ async function initSession() {
             document.querySelectorAll(".mobile-nav-item").forEach(item => item.classList.remove("hidden"));
             if (state.user.rol === "vendedor") {
                 DOM.menuVendedores?.classList.add("hidden");
+                DOM.menuMetas?.classList.add("hidden");
                 if (DOM.menuAsignacion) DOM.menuAsignacion.classList.add("hidden");
                 DOM.btnGenerateGoalsModal?.classList.add("hidden");
                 if (DOM.menuApi) DOM.menuApi.classList.add("hidden");
@@ -825,6 +857,8 @@ async function loadSectionData(sectionId) {
             await loadSummaryData();
         } else if (sectionId === "vendedores") {
             await loadVendedoresData();
+        } else if (sectionId === "metas") {
+            await loadCommercialGoalsData();
         } else if (sectionId === "promociones") {
             await loadPromocionesData();
         } else if (sectionId === "inventario-abcf") {
@@ -899,7 +933,8 @@ async function loadSummaryData() {
             console.warn("No se pudieron cargar promociones para el panel vendedor:", err);
         }
 
-        await renderSellerHomeDashboard({ metas, quotes, promociones });
+        await refreshSellerGoalProgress();
+        await renderSellerHomeDashboard({ metas, quotes, promociones, goalProgress: state.sellerGoalProgress });
         return;
     }
 
@@ -941,6 +976,159 @@ async function loadSummaryData() {
     // Load Slight Edge summary tracking card
     await loadSlightEdgeSummaryWidget();
     await loadPendingReminders();
+}
+
+function getCurrentMonthValue() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function metasMonthAsDate() {
+    const value = DOM.metasMonth?.value || getCurrentMonthValue();
+    return `${value}-01`;
+}
+
+function currentDateValue() {
+    const now = new Date();
+    return `${getCurrentMonthValue()}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function renderCommercialGoalScopeFields() {
+    const type = DOM.metasType?.value || "general";
+    DOM.metasVendedorGroup?.classList.toggle("hidden", type !== "vendedor");
+    DOM.metasSucursalGroup?.classList.toggle("hidden", type !== "sucursal");
+}
+
+function resetCommercialGoalForm() {
+    state.editingCommercialGoalId = null;
+    DOM.metasForm?.reset();
+    if (DOM.metasType) DOM.metasType.value = "general";
+    if (DOM.metasFormTitle) DOM.metasFormTitle.textContent = "Agregar meta mensual";
+    if (DOM.btnSubmitMetas) DOM.btnSubmitMetas.innerHTML = '<i class="fa-solid fa-plus"></i> Guardar meta';
+    DOM.btnCancelMetasEdit?.classList.add("hidden");
+    if (DOM.metasType) DOM.metasType.disabled = false;
+    if (DOM.metasVendedor) DOM.metasVendedor.disabled = false;
+    if (DOM.metasSucursal) DOM.metasSucursal.disabled = false;
+    renderCommercialGoalScopeFields();
+}
+
+function renderCommercialGoalsDashboard(data) {
+    const general = data?.general || {};
+    if (DOM.metasGeneralTarget) DOM.metasGeneralTarget.textContent = formatSellerMoney(general.meta);
+    if (DOM.metasGeneralSales) DOM.metasGeneralSales.textContent = formatSellerMoney(general.venta_facturada);
+    if (DOM.metasGeneralProgress) DOM.metasGeneralProgress.textContent = `${Number(general.cumplimiento || 0).toFixed(1)}%`;
+
+    const progressCell = row => `${Number(row.cumplimiento || 0).toFixed(1)}%`;
+    if (DOM.metasSellersDashboard) {
+        const rows = data?.vendedores || [];
+        DOM.metasSellersDashboard.innerHTML = rows.length ? rows.map(row => `
+            <tr><td>${escapeHTML(row.vendedor)}</td><td>${formatSellerMoney(row.meta)}</td><td>${formatSellerMoney(row.venta_facturada)}</td><td>${progressCell(row)}</td></tr>
+        `).join("") : '<tr><td colspan="4" class="text-muted">No hay vendedores para el periodo.</td></tr>';
+    }
+    if (DOM.metasBranchesDashboard) {
+        const rows = data?.sucursales || [];
+        DOM.metasBranchesDashboard.innerHTML = rows.length ? rows.map(row => `
+            <tr><td>${escapeHTML(row.sucursal)}</td><td>${formatSellerMoney(row.meta)}</td><td>${formatSellerMoney(row.venta_facturada)}</td><td>${progressCell(row)}</td></tr>
+        `).join("") : '<tr><td colspan="4" class="text-muted">No hay sucursales en las cotizaciones ni metas configuradas.</td></tr>';
+    }
+    if (DOM.metasSucursalesList) {
+        DOM.metasSucursalesList.innerHTML = (data?.sucursales || []).map(row =>
+            `<option value="${escapeHTML(row.sucursal)}"></option>`
+        ).join("");
+    }
+}
+
+function renderCommercialGoalsTable() {
+    if (!DOM.tableMetasComerciales) return;
+    const sellerNames = new Map((state.commercialGoalsDashboard?.vendedores || []).map(row => [row.vendedor_id, row.vendedor]));
+    if (!state.commercialGoals.length) {
+        DOM.tableMetasComerciales.innerHTML = '<tr><td colspan="5" class="text-muted">No hay metas configuradas para este mes.</td></tr>';
+        return;
+    }
+    DOM.tableMetasComerciales.innerHTML = state.commercialGoals.map(goal => {
+        const scope = goal.tipo === "general" ? "General" : goal.tipo === "vendedor" ? "Vendedor" : "Sucursal";
+        const subject = goal.tipo === "general" ? "Empresa" : goal.tipo === "vendedor" ? (sellerNames.get(goal.vendedor_id) || "Vendedor") : goal.sucursal;
+        return `<tr>
+            <td>${scope}</td><td>${escapeHTML(subject)}</td><td>${formatSellerMoney(goal.monto_objetivo)}</td><td>${escapeHTML(goal.descripcion || "—")}</td>
+            <td><button class="btn btn-secondary btn-sm edit-commercial-goal" data-id="${goal.id}"><i class="fa-solid fa-pen"></i></button> <button class="btn btn-danger btn-sm delete-commercial-goal" data-id="${goal.id}"><i class="fa-solid fa-trash"></i></button></td>
+        </tr>`;
+    }).join("");
+    DOM.tableMetasComerciales.querySelectorAll(".edit-commercial-goal").forEach(button => {
+        button.addEventListener("click", () => startCommercialGoalEdit(button.dataset.id));
+    });
+    DOM.tableMetasComerciales.querySelectorAll(".delete-commercial-goal").forEach(button => {
+        button.addEventListener("click", () => deleteCommercialGoal(button.dataset.id));
+    });
+}
+
+function populateCommercialGoalSellers(rows) {
+    if (!DOM.metasVendedor) return;
+    const selected = DOM.metasVendedor.value;
+    DOM.metasVendedor.innerHTML = '<option value="">Selecciona un vendedor</option>' + (rows || []).map(row =>
+        `<option value="${row.vendedor_id}">${escapeHTML(row.vendedor)}</option>`
+    ).join("");
+    if (selected) DOM.metasVendedor.value = selected;
+}
+
+async function loadCommercialGoalsData() {
+    if (!state.user || !["admin", "gerente"].includes(state.user.rol)) return;
+    if (DOM.metasMonth && !DOM.metasMonth.value) DOM.metasMonth.value = getCurrentMonthValue();
+    if (DOM.metasReferenceDate && !DOM.metasReferenceDate.value) DOM.metasReferenceDate.value = currentDateValue();
+    const monthDate = metasMonthAsDate();
+    const period = DOM.metasPeriod?.value || "mes";
+    const referenceDate = DOM.metasReferenceDate?.value || monthDate;
+    const [goalsRes, dashboardRes] = await Promise.all([
+        apiRequest(`/api/v1/metas/comerciales?mes=${encodeURIComponent(monthDate)}`),
+        apiRequest(`/api/v1/metas/comerciales/dashboard?periodo=${encodeURIComponent(period)}&fecha=${encodeURIComponent(referenceDate)}`),
+    ]);
+    state.commercialGoals = goalsRes.data || [];
+    state.commercialGoalsDashboard = dashboardRes.data || null;
+    populateCommercialGoalSellers(state.commercialGoalsDashboard?.vendedores || []);
+    renderCommercialGoalsDashboard(state.commercialGoalsDashboard);
+    renderCommercialGoalsTable();
+    if (!state.editingCommercialGoalId) renderCommercialGoalScopeFields();
+}
+
+function startCommercialGoalEdit(goalId) {
+    const goal = state.commercialGoals.find(item => item.id === goalId);
+    if (!goal || !DOM.metasForm) return;
+    state.editingCommercialGoalId = goalId;
+    DOM.metasType.value = goal.tipo;
+    DOM.metasVendedor.value = goal.vendedor_id || "";
+    DOM.metasSucursal.value = goal.sucursal || "";
+    DOM.metasTarget.value = goal.monto_objetivo;
+    DOM.metasDescription.value = goal.descripcion || "";
+    DOM.metasType.disabled = true;
+    DOM.metasVendedor.disabled = true;
+    DOM.metasSucursal.disabled = true;
+    DOM.metasFormTitle.textContent = "Editar meta mensual";
+    DOM.btnSubmitMetas.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Actualizar meta';
+    DOM.btnCancelMetasEdit.classList.remove("hidden");
+    renderCommercialGoalScopeFields();
+    DOM.metasForm.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+async function deleteCommercialGoal(goalId) {
+    if (!goalId || !window.confirm("¿Eliminar esta meta comercial? Esta acción no se puede deshacer.")) return;
+    try {
+        await apiRequest(`/api/v1/metas/comerciales/${goalId}`, { method: "DELETE" });
+        showToast("Meta eliminada.");
+        resetCommercialGoalForm();
+        await loadCommercialGoalsData();
+    } catch (error) {
+        showToast(error.message, "error");
+    }
+}
+
+async function refreshSellerGoalProgress() {
+    if (state.user?.rol !== "vendedor") return;
+    try {
+        const res = await apiRequest(`/api/v1/metas/comerciales/mis-avances?periodo=${state.sellerGoalPeriod}`);
+        state.sellerGoalProgress = res.data || null;
+    } catch (error) {
+        console.warn("No se pudo cargar el avance de meta comercial:", error);
+        state.sellerGoalProgress = null;
+    }
 }
 
 function formatSellerMoney(value) {
@@ -1604,13 +1792,13 @@ function renderSellerDashboardInsights(quotes, period, periodGoal, invoicedTotal
     `).join("");
 }
 
-async function renderSellerHomeDashboard({ metas, quotes, promociones }) {
+async function renderSellerHomeDashboard({ metas, quotes, promociones, goalProgress = null }) {
     const search = DOM.sellerDashboardSearch ? DOM.sellerDashboardSearch.value.trim() : "";
     const sellerName = state.user.nombre_completo || state.user.email || "Vendedor";
     const period = getSellerGoalPeriodConfig(state.sellerGoalPeriod);
     const monthlyGoal = getCurrentMonthlyGoal(metas);
-    const periodGoal = monthlyGoal * period.targetFactor;
-    const invoicedTotal = quotes
+    const fallbackPeriodGoal = monthlyGoal * period.targetFactor;
+    const fallbackInvoicedTotal = quotes
         .filter(q => q.numero_factura)
         .filter(q => {
             // El periodo comercial se determina por la fecha de la cotización;
@@ -1619,6 +1807,10 @@ async function renderSellerHomeDashboard({ metas, quotes, promociones }) {
             return quoteDate && quoteDate >= period.start && quoteDate <= period.end;
         })
         .reduce((sum, q) => sum + getInvoiceAmount(q), 0);
+    // La API calcula el avance sobre el universo autorizado, no sobre la muestra
+    // ligera de cotizaciones que usa el panel para tarjetas operativas.
+    const periodGoal = Number(goalProgress?.meta ?? fallbackPeriodGoal);
+    const invoicedTotal = Number(goalProgress?.venta_facturada ?? fallbackInvoicedTotal);
     const percent = periodGoal > 0 ? Math.min(100, Math.round((invoicedTotal / periodGoal) * 100)) : 0;
     const remaining = Math.max(0, periodGoal - invoicedTotal);
 
@@ -4117,7 +4309,7 @@ async function loadKanbanData(forceRefresh = false) {
         });
     }
     
-    const params = new URLSearchParams({
+    const baseParams = new URLSearchParams({
         limit: String(state.kanbanPageSize),
         offset: String((state.kanbanCurrentPage - 1) * state.kanbanPageSize),
         vista: "resumen",
@@ -4125,24 +4317,53 @@ async function loadKanbanData(forceRefresh = false) {
     const seller = DOM.kanbanFilterSeller?.value;
     const search = DOM.kanbanSearchClient?.value?.trim();
     const days = Number(DOM.kanbanFilterDays?.value || 0);
-    if (seller) params.set("vendedor_id", seller);
-    if (search) params.set("busqueda", search);
+    if (seller) baseParams.set("vendedor_id", seller);
+    if (search) baseParams.set("busqueda", search);
     if (Number.isFinite(days) && days > 0) {
         const start = new Date();
         start.setDate(start.getDate() - days);
-        params.set("fecha_inicio", start.toISOString().slice(0, 10));
+        baseParams.set("fecha_inicio", start.toISOString().slice(0, 10));
     }
-    const res = await apiRequest(`/api/v1/cotizaciones/?${params.toString()}`);
-    state.cotizaciones = res.data || [];
-    state.kanbanPagination = res.pagination || { total: state.cotizaciones.length, limit: state.kanbanPageSize, offset: 0 };
+
+    // Cada estado recibe su propia página ligera. Así, las vencidas no quedan
+    // ocultas detrás de las cotizaciones más recientes del listado cronológico.
+    const kanbanStages = ["pendientes", "concretadas", "vencidas"];
+    const stageResults = await Promise.all(
+        kanbanStages.map(async stage => {
+            const params = new URLSearchParams(baseParams);
+            params.set("estado", stage);
+            const response = await apiRequest(`/api/v1/cotizaciones/?${params.toString()}`);
+            return [stage, response];
+        })
+    );
+    state.kanbanStageData = Object.fromEntries(
+        stageResults.map(([stage, response]) => [stage, response.data || []])
+    );
+    state.kanbanStagePagination = Object.fromEntries(
+        stageResults.map(([stage, response]) => [
+            stage,
+            response.pagination || { total: 0, limit: state.kanbanPageSize, offset: 0 },
+        ])
+    );
+    state.kanbanPagination = {
+        total: Math.max(
+            ...Object.values(state.kanbanStagePagination).map(page => Number(page.total || 0)),
+            0,
+        ),
+        limit: state.kanbanPageSize,
+        offset: (state.kanbanCurrentPage - 1) * state.kanbanPageSize,
+    };
+    state.cotizaciones = Object.values(state.kanbanStageData)
+        .flat()
+        .filter((quote, index, quotes) => quotes.findIndex(item => item.id === quote.id) === index);
     
     renderKanbanColumns();
 }
 
 function renderKanbanColumns() {
-    // Búsqueda, vendedor y periodo ya se ejecutaron en PostgreSQL. Esta etapa
-    // solamente clasifica la página visible para evitar crear miles de tarjetas.
-    const filteredQuotes = state.cotizaciones;
+    // Búsqueda, vendedor, periodo y estado se ejecutaron en PostgreSQL. Las
+    // tres páginas permanecen acotadas y se muestran en sus columnas correctas.
+    const filteredQuotes = state.kanbanStageData.pendientes || [];
     
     // Categorize quotes
     const stages = {
@@ -4180,6 +4401,8 @@ function renderKanbanColumns() {
             }
         }
     });
+    stages.vendido = [...(state.kanbanStageData.concretadas || [])];
+    stages.vencido = [...(state.kanbanStageData.vencidas || [])];
     
     // Sort columns if sort order is set
     const columns = ['cotizado', 'promociones', 'vendido', 'vencido'];
@@ -5292,6 +5515,7 @@ if (DOM.kanbanSearchClient) {
 }
 if (DOM.kanbanFilterSeller) {
     DOM.kanbanFilterSeller?.addEventListener("change", () => {
+        state.kanbanCurrentPage = 1;
         loadKanbanData(true);
     });
 }
@@ -5804,6 +6028,7 @@ const FIXED_SYSTEM_MENU_ORDER = [
     "sobrepedidos",
     "por-entregar",
     "vendedores",
+    "metas",
     "agentes",
     "slight-edge",
     "asignacion",
@@ -6237,24 +6462,78 @@ document.addEventListener("DOMContentLoaded", () => {
     initTheme();
     initSession();
 
+    if (DOM.metasMonth && !DOM.metasMonth.value) DOM.metasMonth.value = getCurrentMonthValue();
+    if (DOM.metasReferenceDate && !DOM.metasReferenceDate.value) DOM.metasReferenceDate.value = currentDateValue();
+    DOM.metasType?.addEventListener("change", renderCommercialGoalScopeFields);
+    DOM.btnLoadMetas?.addEventListener("click", async () => {
+        resetCommercialGoalForm();
+        try {
+            await loadCommercialGoalsData();
+        } catch (error) {
+            showToast(error.message, "error");
+        }
+    });
+    DOM.btnCancelMetasEdit?.addEventListener("click", resetCommercialGoalForm);
+    DOM.metasForm?.addEventListener("submit", async event => {
+        event.preventDefault();
+        const type = DOM.metasType.value;
+        const payload = {
+            monto_objetivo: Number(DOM.metasTarget.value),
+            descripcion: DOM.metasDescription.value.trim() || null,
+        };
+        if (!payload.monto_objetivo || payload.monto_objetivo <= 0) {
+            showToast("Indica una meta mayor a cero.", "error");
+            return;
+        }
+        try {
+            if (state.editingCommercialGoalId) {
+                await apiRequest(`/api/v1/metas/comerciales/${state.editingCommercialGoalId}`, {
+                    method: "PUT",
+                    body: JSON.stringify(payload),
+                });
+                showToast("Meta actualizada.");
+            } else {
+                const createPayload = {
+                    ...payload,
+                    tipo: type,
+                    mes: metasMonthAsDate(),
+                    vendedor_id: type === "vendedor" ? (DOM.metasVendedor.value || null) : null,
+                    sucursal: type === "sucursal" ? (DOM.metasSucursal.value.trim() || null) : null,
+                };
+                await apiRequest("/api/v1/metas/comerciales", {
+                    method: "POST",
+                    body: JSON.stringify(createPayload),
+                });
+                showToast("Meta creada.");
+            }
+            resetCommercialGoalForm();
+            await loadCommercialGoalsData();
+        } catch (error) {
+            showToast(error.message, "error");
+        }
+    });
+
     if (DOM.sellerDashboardSearch) {
         DOM.sellerDashboardSearch.addEventListener("input", () => {
             if (state.user?.rol === "vendedor" && state.currentSection === "summary") {
                 renderSellerHomeDashboard({
                     metas: state.metas || [],
                     quotes: state.cotizaciones || [],
-                    promociones: state.promociones || []
+                    promociones: state.promociones || [],
+                    goalProgress: state.sellerGoalProgress
                 });
             }
         });
     }
 
-    DOM.sellerDashboardToday?.addEventListener("click", () => {
+    DOM.sellerDashboardToday?.addEventListener("click", async () => {
         state.sellerGoalPeriod = "day";
-        renderSellerHomeDashboard({
+        await refreshSellerGoalProgress();
+        await renderSellerHomeDashboard({
             metas: state.metas || [],
             quotes: state.cotizaciones || [],
-            promociones: state.promociones || []
+            promociones: state.promociones || [],
+            goalProgress: state.sellerGoalProgress
         });
     });
 
@@ -6263,13 +6542,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     DOM.sellerPeriodButtons.forEach(button => {
-        button.addEventListener("click", () => {
+        button.addEventListener("click", async () => {
             if (state.user?.rol !== "vendedor") return;
             state.sellerGoalPeriod = button.dataset.sellerPeriod || "month";
-            renderSellerHomeDashboard({
+            await refreshSellerGoalProgress();
+            await renderSellerHomeDashboard({
                 metas: state.metas || [],
                 quotes: state.cotizaciones || [],
-                promociones: state.promociones || []
+                promociones: state.promociones || [],
+                goalProgress: state.sellerGoalProgress
             });
         });
     });

@@ -11,7 +11,8 @@
 | HU-07 | `cotizacion_comentarios` | alta, edición, autoría, permiso y preservación del campo legado | modal de historial y edición |
 | HU-08 | cruce SKU-promoción | exactitud, vigencia, caducidad y ausencia de inferencia por descripción | distintivo y orden Kanban |
 | HU-09 | normalizador de contacto | prioridad celular, respaldo teléfono y preservación | enlaces de correo, llamada y WhatsApp |
-| HU-10 / NFR-PERF-001 / NFR-PERF-002 | lista paginada, vista resumen e indicadores deterministas | límite, filtros antes de paginar, proyección ligera e indicadores | páginas de Cotizaciones y Seguimiento sin carga masiva |
+| HU-10 / NFR-PERF-001 / NFR-PERF-002 | lista paginada, vista resumen e indicadores deterministas | límite, filtros antes de paginar, proyección ligera e indicadores; vencidas por estado | páginas de Cotizaciones y Seguimiento sin carga masiva y con vencidas visibles |
+| HU-11 / NFR-METAS-001 | `metas_comerciales`, prorrateo mensual y RBAC | `test_commercial_goals`: día/semana, vendedor, sucursal, respaldo legado y validación de alcance | sección Metas para gerencia y avance propio en Mi Panel |
 | NFR-DATA-001 | reconciliación de Excel por folio importado | cotización manual sin folio preservada | carga Excel sin pérdida de datos manuales |
 
 ## Puertas de aceptación

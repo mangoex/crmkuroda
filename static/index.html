@@ -101,6 +101,9 @@
                 <a href="#" class="menu-item" data-section="vendedores" id="menu-vendedores">
                     <i class="fa-solid fa-users"></i> <span>Vendedores</span>
                 </a>
+                <a href="#" class="menu-item" data-section="metas" id="menu-metas">
+                    <i class="fa-solid fa-bullseye"></i> <span>Metas</span>
+                </a>
                 <a href="#" class="menu-item" data-section="agentes">
                     <i class="fa-solid fa-user-gear"></i> <span>Centro de Agentes</span>
                 </a>
@@ -584,6 +587,55 @@
                         <div class="table-pagination" id="pag-vendedores">
                             <!-- Loaded dynamically -->
                         </div>
+                    </div>
+                </section>
+
+                <!-- Section: Metas comerciales (gerencia) -->
+                <section id="section-metas" class="dashboard-section hidden animate-fade-in">
+                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
+                        <div>
+                            <h2>Metas comerciales</h2>
+                            <p style="margin:4px 0 0; color:hsl(var(--text-secondary)); font-size:13px;">Objetivos mensuales y avance real por empresa, vendedor y sucursal.</p>
+                        </div>
+                        <div style="display:flex; align-items:end; gap:10px; flex-wrap:wrap;">
+                            <div class="input-group" style="margin:0; min-width:170px;">
+                                <label for="metas-month">Mes de metas</label>
+                                <input id="metas-month" type="month" class="form-control">
+                            </div>
+                            <div class="input-group" style="margin:0; min-width:130px;"><label for="metas-period">Vista</label><select id="metas-period" class="form-control"><option value="dia">Día</option><option value="semana">Semana</option><option value="mes" selected>Mes</option></select></div>
+                            <div class="input-group" style="margin:0; min-width:160px;"><label for="metas-reference-date">Fecha de corte</label><input id="metas-reference-date" type="date" class="form-control"></div>
+                            <button id="btn-load-metas" class="btn btn-secondary"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                        </div>
+                    </div>
+
+                    <div class="kpi-grid" style="margin:20px 0;">
+                        <div class="glass-card kpi-card"><div class="kpi-icon icon-purple"><i class="fa-solid fa-building"></i></div><div class="kpi-data"><h3>Meta general</h3><p id="metas-general-target">$0</p></div></div>
+                        <div class="glass-card kpi-card"><div class="kpi-icon icon-green"><i class="fa-solid fa-hand-holding-dollar"></i></div><div class="kpi-data"><h3>Venta facturada</h3><p id="metas-general-sales">$0</p></div></div>
+                        <div class="glass-card kpi-card"><div class="kpi-icon icon-blue"><i class="fa-solid fa-chart-line"></i></div><div class="kpi-data"><h3>Cumplimiento</h3><p id="metas-general-progress">0%</p></div></div>
+                    </div>
+
+                    <div class="glass-card form-card margin-bottom" style="padding:20px;">
+                        <div class="card-header"><h3 id="metas-form-title">Agregar meta mensual</h3></div>
+                        <form id="metas-form">
+                            <div class="form-grid">
+                                <div class="input-group"><label for="metas-type">Alcance</label><select id="metas-type" class="form-control"><option value="general">General</option><option value="vendedor">Por vendedor</option><option value="sucursal">Por sucursal</option></select></div>
+                                <div class="input-group hidden" id="metas-vendedor-group"><label for="metas-vendedor">Vendedor</label><select id="metas-vendedor" class="form-control"><option value="">Selecciona un vendedor</option></select></div>
+                                <div class="input-group hidden" id="metas-sucursal-group"><label for="metas-sucursal">Sucursal / organización de ventas</label><input id="metas-sucursal" class="form-control" maxlength="160" list="metas-sucursales-list" placeholder="Ej. Sucursal Centro"><datalist id="metas-sucursales-list"></datalist></div>
+                                <div class="input-group"><label for="metas-target">Meta de facturación ($)</label><input id="metas-target" type="number" min="0.01" step="0.01" class="form-control" required></div>
+                                <div class="input-group"><label for="metas-description">Nota (opcional)</label><input id="metas-description" maxlength="1000" class="form-control" placeholder="Objetivo comercial del mes"></div>
+                            </div>
+                            <div class="form-actions"><button id="btn-cancel-metas-edit" type="button" class="btn btn-secondary hidden">Cancelar edición</button><button id="btn-submit-metas" type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Guardar meta</button></div>
+                        </form>
+                    </div>
+
+                    <div class="glass-card table-container margin-bottom" style="overflow-x:auto;">
+                        <div class="card-header" style="padding:20px 20px 0;"><h3>Metas configuradas</h3></div>
+                        <table class="data-table" style="min-width:780px;"><thead><tr><th>Alcance</th><th>Responsable / sucursal</th><th>Meta mensual</th><th>Nota</th><th>Acciones</th></tr></thead><tbody id="table-metas-comerciales"></tbody></table>
+                    </div>
+
+                    <div class="charts-grid" style="grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));">
+                        <div class="glass-card table-container" style="overflow-x:auto;"><div class="card-header" style="padding:20px 20px 0;"><h3>Avance por vendedor</h3></div><table class="data-table"><thead><tr><th>Vendedor</th><th>Meta</th><th>Facturado</th><th>Avance</th></tr></thead><tbody id="metas-sellers-dashboard"></tbody></table></div>
+                        <div class="glass-card table-container" style="overflow-x:auto;"><div class="card-header" style="padding:20px 20px 0;"><h3>Avance por sucursal</h3></div><table class="data-table"><thead><tr><th>Sucursal</th><th>Meta</th><th>Facturado</th><th>Avance</th></tr></thead><tbody id="metas-branches-dashboard"></tbody></table></div>
                     </div>
                 </section>
 
