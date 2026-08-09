@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from app.services.commercial_analytics import (
     aggregate_channels,
+    aggregate_channel_summary_rows,
     aggregate_material_items,
     build_seller_performance,
     find_clients_for_promotion,
@@ -62,6 +63,16 @@ class CommercialAnalyticsTest(unittest.TestCase):
         self.assertEqual(rows[0]["importe_facturado"], 800.0)
         self.assertEqual(rows[0]["importe_cotizado"], 1500.0)
         self.assertEqual(rows[0]["operaciones_facturadas"], 1)
+        self.assertEqual(rows[0]["conversion"], 50.0)
+
+    def test_dashboard_channel_summary_preserves_numeric_source_code(self):
+        rows = aggregate_channel_summary_rows(
+            [("01", 4, Decimal("1200"), 2, Decimal("900"))]
+        )
+
+        self.assertEqual(rows[0]["codigo_canal"], "01")
+        self.assertEqual(rows[0]["etiqueta"], "Canal 01")
+        self.assertEqual(rows[0]["importe_facturado"], 900.0)
         self.assertEqual(rows[0]["conversion"], 50.0)
 
     def test_material_detail_reconciles_by_seller_family_group_and_sku(self):

@@ -55,6 +55,12 @@ class CommercialFrontendContractTest(unittest.TestCase):
         self.assertIn('switchSection("clientes")', self.javascript)
         self.assertIn('document.getElementById("cliente-cel-input")?.focus()', self.javascript)
 
+    def test_main_panel_has_numeric_channel_sales_summary_and_filter(self):
+        self.assertIn('id="summary-channel-sales"', self.html)
+        self.assertIn('id="summary-channel-filter"', self.html)
+        self.assertIn("loadSummaryChannelSales", self.javascript)
+        self.assertIn("resumen-principal/canales", self.javascript)
+
     def test_management_filters_and_unlinked_seller_exist(self):
         self.assertIn('id="coordinator-performance-start"', self.html)
         self.assertIn('id="coordinator-performance-end"', self.html)

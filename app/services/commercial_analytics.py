@@ -122,6 +122,43 @@ def aggregate_channels(
     return sorted(result, key=lambda item: item["importe_facturado"], reverse=True)
 
 
+def aggregate_channel_summary_rows(
+    rows: Iterable[tuple[Any, Any, Any, Any, Any]],
+    configured: Mapping[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Format database-level channel totals without loading each quote in memory."""
+    configured = configured or {}
+    result = []
+    total_invoiced = sum((decimal_value(row[4]) for row in rows), Decimal("0"))
+
+    for raw_code, quote_count, quoted_total, invoiced_operations, invoiced_total in rows:
+        code = str(raw_code or "").strip()
+        business_name = normalize_channel(code, configured)
+        display_name = business_name if business_name != "Sin clasificar" else (
+            f"Canal {code}" if code else "Sin clave"
+        )
+        quotes = int(quote_count or 0)
+        operations = int(invoiced_operations or 0)
+        invoiced = decimal_value(invoiced_total)
+        result.append(
+            {
+                "codigo_canal": code or None,
+                "canal": business_name,
+                "etiqueta": display_name,
+                "cotizaciones": quotes,
+                "operaciones_facturadas": operations,
+                "importe_cotizado": float(decimal_value(quoted_total)),
+                "importe_facturado": float(invoiced),
+                "conversion": round(operations / quotes * 100, 2) if quotes else 0,
+                "ticket_promedio": float(invoiced / operations) if operations else 0,
+                "participacion": round(float(invoiced / total_invoiced * 100), 2)
+                if total_invoiced
+                else 0,
+            }
+        )
+    return sorted(result, key=lambda item: item["importe_facturado"], reverse=True)
+
+
 def aggregate_material_items(
     rows: Iterable[tuple[Any, Any]],
     seller_names: Mapping[str, str] | None = None,

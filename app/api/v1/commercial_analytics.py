@@ -6,7 +6,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -22,6 +22,7 @@ from app.schemas.commercial import CanalVentaUpsert
 from app.services.commercial_analytics import (
     CANONICAL_CHANNELS,
     aggregate_channels,
+    aggregate_channel_summary_rows,
     aggregate_material_items,
     build_seller_performance,
     normalize_text,
@@ -125,6 +126,53 @@ async def _channel_map(db: AsyncSession) -> dict[str, str]:
         await db.execute(select(CanalVenta).where(CanalVenta.activo.is_(True)))
     ).scalars().all()
     return {row.codigo_origen: row.nombre_normalizado for row in rows}
+
+
+@router.get("/resumen-principal/canales")
+async def main_dashboard_channel_summary(
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Small, database-aggregated channel summary for the manager dashboard."""
+    if current_user.rol not in ("admin", "gerente"):
+        raise HTTPException(status_code=403, detail="No tienes permiso para ver el resumen de ventas por canal.")
+
+    invoice_condition = or_(
+        func.nullif(func.trim(Cotizacion.numero_factura), "").is_not(None),
+        Cotizacion.importe_facturado > 0,
+    )
+    statement = select(
+        Cotizacion.canal,
+        func.count(Cotizacion.id),
+        func.coalesce(func.sum(Cotizacion.total), 0),
+        func.coalesce(func.sum(case((invoice_condition, 1), else_=0)), 0),
+        func.coalesce(
+            func.sum(
+                case(
+                    (invoice_condition, func.coalesce(Cotizacion.importe_facturado, 0)),
+                    else_=0,
+                )
+            ),
+            0,
+        ),
+    )
+    visible_ids = await get_ids_vendedores_visibles(db, current_user)
+    if visible_ids is not None:
+        statement = statement.where(await _seller_condition(db, visible_ids))
+    rows = (
+        await db.execute(statement.group_by(Cotizacion.canal).order_by(Cotizacion.canal))
+    ).all()
+    data = aggregate_channel_summary_rows(rows, await _channel_map(db))
+    return {
+        "status": "success",
+        "totals": {
+            "importe_cotizado": round(sum(row["importe_cotizado"] for row in data), 2),
+            "importe_facturado": round(sum(row["importe_facturado"] for row in data), 2),
+            "cotizaciones": sum(row["cotizaciones"] for row in data),
+            "operaciones_facturadas": sum(row["operaciones_facturadas"] for row in data),
+        },
+        "data": data,
+    }
 
 
 @router.get("/canales")

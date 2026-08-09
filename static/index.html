@@ -329,6 +329,28 @@
                         </div>
                     </div>
 
+                    <section id="summary-channel-sales" class="glass-card border-glow" style="margin-top: 24px; padding: 24px;">
+                        <div class="card-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+                            <div>
+                                <h2><i class="fa-solid fa-chart-pie" style="margin-right:8px;color:#38bdf8;"></i>Ventas facturadas por canal</h2>
+                                <p style="margin:4px 0 0;color:hsl(var(--text-secondary));font-size:13px;">Basado en la clave numérica de la columna <strong>Canal</strong> del archivo de cotizaciones.</p>
+                            </div>
+                            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;" for="summary-channel-filter">
+                                Canal
+                                <select id="summary-channel-filter" aria-label="Filtrar resumen de ventas por canal" disabled>
+                                    <option value="">Cargando canales...</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div id="summary-channel-kpis" class="kpi-grid" style="margin-top:18px;"></div>
+                        <div class="table-container" style="max-height:300px;overflow:auto;margin-top:18px;">
+                            <table class="data-table" id="summary-channel-table">
+                                <thead><tr><th>Clave</th><th>Canal</th><th>Venta facturada</th><th>Operaciones</th><th>Conversión</th><th>Participación</th></tr></thead>
+                                <tbody><tr><td colspan="6" style="text-align:center;">Cargando resumen por canal...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </section>
+
                     <!-- Charts Grid -->
                     <div id="summary-admin-charts" class="charts-grid">
                         <div class="glass-card chart-container">

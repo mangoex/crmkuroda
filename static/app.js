@@ -155,6 +155,7 @@ const state = {
     chartQuoteSeller: null,
     chartQuoteTrend: null,
     chartQuoteChannel: null,
+    summaryChannelSales: [],
     quotesCurrentPage: 1,
     quotesPageSize: 50,
     quotePagination: { total: 0, limit: 50, offset: 0 },
@@ -248,6 +249,10 @@ const DOM = {
     summaryAdminCharts: document.getElementById("summary-admin-charts"),
     summaryAdminHeatmap: document.getElementById("summary-admin-heatmap"),
     summaryAdminOperational: document.getElementById("summary-admin-operational"),
+    summaryChannelSales: document.getElementById("summary-channel-sales"),
+    summaryChannelFilter: document.getElementById("summary-channel-filter"),
+    summaryChannelKpis: document.getElementById("summary-channel-kpis"),
+    summaryChannelTable: document.querySelector("#summary-channel-table tbody"),
     adminTodayQuotes: document.getElementById("admin-today-quotes"),
     adminTodayAccessLog: document.getElementById("admin-today-access-log"),
     adminAccessMonth: document.getElementById("admin-access-month"),
@@ -922,6 +927,7 @@ async function loadSummaryData() {
         if (DOM.summaryAdminCharts) DOM.summaryAdminCharts.classList.add("hidden");
         if (DOM.summaryAdminHeatmap) DOM.summaryAdminHeatmap.classList.add("hidden");
         if (DOM.summaryAdminOperational) DOM.summaryAdminOperational.classList.add("hidden");
+        if (DOM.summaryChannelSales) DOM.summaryChannelSales.classList.add("hidden");
         if (DOM.slightEdgeSummaryCard) DOM.slightEdgeSummaryCard.classList.add("hidden");
 
         let promociones = state.promociones || [];
@@ -943,6 +949,7 @@ async function loadSummaryData() {
     if (DOM.summaryAdminCharts) DOM.summaryAdminCharts.classList.remove("hidden");
     if (DOM.summaryAdminHeatmap) DOM.summaryAdminHeatmap.classList.remove("hidden");
     if (DOM.summaryAdminOperational) DOM.summaryAdminOperational.classList.remove("hidden");
+    if (DOM.summaryChannelSales) DOM.summaryChannelSales.classList.toggle("hidden", state.user.rol === "soporte");
     
     // Calculate totals
     const totalCotizado = quoteSummary?.total?.amount ?? quotes.reduce((acc, q) => acc + q.total, 0);
@@ -971,11 +978,83 @@ async function loadSummaryData() {
         console.error("Error renderizando mapa de calor:", heatmapErr);
     }
 
-    await loadAdminAccessLog();
+    await Promise.all([
+        loadAdminAccessLog(),
+        loadSummaryChannelSales(),
+    ]);
     
     // Load Slight Edge summary tracking card
     await loadSlightEdgeSummaryWidget();
     await loadPendingReminders();
+}
+
+function formatChannelMoney(value) {
+    return `$${Number(value || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function renderSummaryChannelSales(rows = []) {
+    if (!DOM.summaryChannelKpis || !DOM.summaryChannelTable || !DOM.summaryChannelFilter) return;
+
+    const selectedCode = DOM.summaryChannelFilter.value;
+    const visibleRows = selectedCode
+        ? rows.filter(row => String(row.codigo_canal || "") === selectedCode)
+        : rows;
+    const totals = visibleRows.reduce((acc, row) => ({
+        importe_facturado: acc.importe_facturado + Number(row.importe_facturado || 0),
+        importe_cotizado: acc.importe_cotizado + Number(row.importe_cotizado || 0),
+        operaciones_facturadas: acc.operaciones_facturadas + Number(row.operaciones_facturadas || 0),
+        cotizaciones: acc.cotizaciones + Number(row.cotizaciones || 0),
+    }), { importe_facturado: 0, importe_cotizado: 0, operaciones_facturadas: 0, cotizaciones: 0 });
+    const conversion = totals.cotizaciones ? totals.operaciones_facturadas / totals.cotizaciones * 100 : 0;
+
+    DOM.summaryChannelKpis.innerHTML = [
+        ["Venta facturada", formatChannelMoney(totals.importe_facturado), "#10b981", "fa-hand-holding-dollar"],
+        ["Importe cotizado", formatChannelMoney(totals.importe_cotizado), "#38bdf8", "fa-file-invoice-dollar"],
+        ["Operaciones facturadas", totals.operaciones_facturadas.toLocaleString("es-MX"), "#a78bfa", "fa-file-circle-check"],
+        ["Conversión", `${conversion.toFixed(1)}%`, "#f59e0b", "fa-arrow-trend-up"],
+    ].map(([label, value, color, icon]) => `
+        <div class="glass-card kpi-card" style="border-top:3px solid ${color};">
+            <div class="kpi-icon" style="color:${color};"><i class="fa-solid ${icon}"></i></div>
+            <div class="kpi-data"><h3>${label}</h3><p>${value}</p></div>
+        </div>`).join("");
+
+    DOM.summaryChannelTable.innerHTML = visibleRows.length
+        ? visibleRows.map(row => `<tr>
+            <td><code>${escapeHTML(row.codigo_canal || "Sin clave")}</code></td>
+            <td>${escapeHTML(row.etiqueta || row.canal || "Sin clasificar")}</td>
+            <td><strong>${formatChannelMoney(row.importe_facturado)}</strong></td>
+            <td>${Number(row.operaciones_facturadas || 0).toLocaleString("es-MX")}</td>
+            <td>${Number(row.conversion || 0).toFixed(1)}%</td>
+            <td>${Number(row.participacion || 0).toFixed(1)}%</td>
+        </tr>`).join("")
+        : '<tr><td colspan="6" style="text-align:center;">No hay ventas para el canal seleccionado.</td></tr>';
+}
+
+async function loadSummaryChannelSales() {
+    if (!DOM.summaryChannelSales) return;
+    if (!["admin", "gerente"].includes(state.user?.rol)) {
+        DOM.summaryChannelSales.classList.add("hidden");
+        return;
+    }
+    try {
+        const response = await apiRequest("/api/v1/analitica/resumen-principal/canales");
+        const rows = response.data || [];
+        const previouslySelected = DOM.summaryChannelFilter.value;
+        state.summaryChannelSales = rows;
+        DOM.summaryChannelFilter.innerHTML = [
+            '<option value="">Todos los canales</option>',
+            ...rows.map(row => `<option value="${escapeHTML(row.codigo_canal || "")}">${escapeHTML(row.etiqueta || row.codigo_canal || "Sin clave")}</option>`),
+        ].join("");
+        DOM.summaryChannelFilter.disabled = rows.length === 0;
+        if (rows.some(row => String(row.codigo_canal || "") === previouslySelected)) {
+            DOM.summaryChannelFilter.value = previouslySelected;
+        }
+        renderSummaryChannelSales(rows);
+    } catch (error) {
+        console.error("No se pudo cargar el resumen de ventas por canal:", error);
+        DOM.summaryChannelKpis.innerHTML = "";
+        DOM.summaryChannelTable.innerHTML = '<tr><td colspan="6" style="text-align:center;">No se pudo cargar el resumen por canal.</td></tr>';
+    }
 }
 
 function getCurrentMonthValue() {
@@ -3456,6 +3535,7 @@ async function loadCommercialAnalytics() {
 }
 
 DOM.btnLoadCommercialAnalytics?.addEventListener("click", () => loadCommercialAnalytics());
+DOM.summaryChannelFilter?.addEventListener("change", () => renderSummaryChannelSales(state.summaryChannelSales));
 
 function updateActiveHeatmapFilterBadge() {
     if (!DOM.activeHeatmapFilter || !DOM.activeHeatmapFilterText) return;
