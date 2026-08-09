@@ -190,6 +190,7 @@ async def create_cliente(
         sociedad=payload.sociedad or "MKS",
         numero_cliente=payload.numero_cliente or "",
         nombre=payload.nombre.strip(),
+        nombre_contacto=payload.nombre_contacto.strip() if payload.nombre_contacto else "",
         rfc=payload.rfc.strip() if payload.rfc else "",
         tipo_persona=payload.tipo_persona or "Persona física",
         calle=payload.calle or "",

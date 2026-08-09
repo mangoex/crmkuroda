@@ -24,6 +24,7 @@ class ClienteModelTest(unittest.TestCase):
             sociedad="MKS",
             numero_cliente="100",
             nombre="ACME INDUSTRIAL S.A. DE C.V.",
+            nombre_contacto="Romana Pérez Iribe",
             rfc="ACM900101AB1",
             tipo_persona="Persona jurídica",
             calle="AV. INDUSTRIAL",
@@ -50,6 +51,7 @@ class ClienteModelTest(unittest.TestCase):
         self.assertEqual(d["sociedad"], "MKS")
         self.assertEqual(d["numero_cliente"], "100")
         self.assertEqual(d["nombre"], "ACME INDUSTRIAL S.A. DE C.V.")
+        self.assertEqual(d["nombre_contacto"], "Romana Pérez Iribe")
         self.assertEqual(d["rfc"], "ACM900101AB1")
         self.assertEqual(d["tipo_persona"], "Persona jurídica")
         self.assertEqual(d["poblacion"], "CULIACAN")
@@ -61,6 +63,7 @@ class ClienteModelTest(unittest.TestCase):
             "sociedad": "MKS",
             "numero_cliente": "101",
             "nombre": "JUAN PEREZ GONZALEZ",
+            "nombre_contacto": "Juan Pérez",
             "rfc": "PEGJ800101XX1",
             "tipo_persona": "Persona física",
             "calle": "JUAN DE LA BARRERA",
@@ -76,6 +79,7 @@ class ClienteModelTest(unittest.TestCase):
         }
         create_schema = ClienteCreate(**payload)
         self.assertEqual(create_schema.nombre, "JUAN PEREZ GONZALEZ")
+        self.assertEqual(create_schema.nombre_contacto, "Juan Pérez")
         self.assertEqual(create_schema.tipo_persona, "Persona física")
 
         update_schema = ClienteUpdate(nombre="JUAN PEREZ G.")

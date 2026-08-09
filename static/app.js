@@ -4372,31 +4372,71 @@ async function findCatalogClientForQuote(quote) {
 function renderProposalClientContact(quote, catalogClient) {
     const quoteContact = quote.datos_contacto || {};
     const celular = quoteContact.celular || catalogClient?.celular || "";
-    const telefono = quoteContact.telefono || catalogClient?.telefono || "";
+    const nombreContacto = quoteContact.nombre_contacto || catalogClient?.nombre_contacto || "";
     const digits = String(celular).replace(/\D/g, "");
     const hasCellular = Boolean(celular);
-    const updateLabel = catalogClient
-        ? "Actualizar celular en Clientes"
-        : "Buscar o registrar en Clientes";
     const clientId = catalogClient?.id || "";
-    const source = quoteContact.celular
-        ? "Cotización"
-        : (catalogClient?.celular ? "Catálogo de clientes" : "Sin registro");
 
     return `
-        <section class="proposal-client-contact" style="margin-bottom:16px; padding:14px 16px; border:1px solid rgba(59,130,246,.24); border-radius:10px; background:rgba(59,130,246,.06);">
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-                <div>
-                    <strong style="display:block; margin-bottom:4px;"><i class="fa-solid fa-mobile-screen-button" style="color:#10b981;"></i> Celular del cliente</strong>
-                    ${hasCellular
-                        ? `<a href="tel:${escapeHTML(celular)}" style="color:#10b981; font-weight:700; text-decoration:none;">${escapeHTML(celular)}</a>${digits ? ` <a href="https://wa.me/${digits}" target="_blank" rel="noopener" title="Abrir WhatsApp" style="margin-left:8px; color:#25d366;"><i class="fa-brands fa-whatsapp"></i></a>` : ""}`
-                        : `<span style="color:hsl(var(--text-secondary));">Sin celular registrado${telefono ? ` · Teléfono: ${escapeHTML(telefono)}` : ""}</span>`}
-                    <small style="display:block; margin-top:3px; color:hsl(var(--text-secondary));">Fuente: ${escapeHTML(source)}</small>
-                </div>
-                ${!hasCellular ? `<button type="button" class="btn btn-secondary btn-sm proposal-update-client-contact" data-client-id="${escapeHTML(clientId)}" data-client-search="${escapeHTML(quote.numero_cliente || quote.cliente_nombre || "")}"><i class="fa-solid fa-user-pen"></i> ${escapeHTML(updateLabel)}</button>` : ""}
+        <section class="proposal-client-contact" style="margin-bottom:14px; padding:12px; border:1px solid rgba(59,130,246,.2); border-radius:10px; background:rgba(59,130,246,.04);">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;">
+                <strong><i class="fa-solid fa-address-card" style="color:#38bdf8;"></i> Contacto comercial</strong>
+                ${hasCellular && digits ? `<a href="https://wa.me/${digits}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" title="Abrir WhatsApp" aria-label="Abrir WhatsApp"><i class="fa-brands fa-whatsapp" style="color:#25d366;"></i> WhatsApp</a>` : ""}
             </div>
+            ${catalogClient
+                ? `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; align-items:end;">
+                    <label style="display:grid; gap:4px; font-size:12px; font-weight:700;">Nombre de contacto
+                        <input id="proposal-contact-name" class="form-control" value="${escapeHTML(nombreContacto)}" placeholder="Ej. Romana Pérez Iribe" autocomplete="name">
+                    </label>
+                    <label style="display:grid; gap:4px; font-size:12px; font-weight:700;">Celular
+                        <input id="proposal-contact-cell" class="form-control" value="${escapeHTML(celular)}" placeholder="Ej. 6671500942" inputmode="tel" autocomplete="tel">
+                    </label>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <button type="button" class="btn btn-primary btn-sm proposal-save-client-contact" data-client-id="${escapeHTML(clientId)}"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+                        <button type="button" class="btn btn-secondary btn-sm proposal-open-client-contact" title="Abrir ficha completa del cliente" aria-label="Abrir ficha completa del cliente" data-client-id="${escapeHTML(clientId)}" data-client-search="${escapeHTML(quote.numero_cliente || quote.cliente_nombre || "")}"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+                    </div>
+                </div>`
+                : `<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                    <span style="font-size:13px; color:hsl(var(--text-secondary));">Vincula este cliente para guardar su contacto y celular.</span>
+                    <button type="button" class="btn btn-secondary btn-sm proposal-update-client-contact proposal-open-client-contact" data-client-search="${escapeHTML(quote.numero_cliente || quote.cliente_nombre || "")}"><i class="fa-solid fa-user-plus"></i> Buscar en Clientes</button>
+                </div>`}
         </section>
     `;
+}
+
+function renderProposalModalContent(quote, catalogClient) {
+    const proposal = quote.texto_propuesta || "Esta cotización no contiene propuesta detallada.";
+    DOM.modalProposalBody.innerHTML = `${renderProposalClientContact(quote, catalogClient)}<div style="white-space:pre-wrap;">${escapeHTML(proposal)}</div>`;
+    DOM.modalProposalBody.querySelector(".proposal-open-client-contact")?.addEventListener("click", () => {
+        openClientContactMaintenance(catalogClient?.id, quote.numero_cliente || quote.cliente_nombre);
+    });
+    DOM.modalProposalBody.querySelector(".proposal-save-client-contact")?.addEventListener("click", event => {
+        saveProposalClientContact(quote, catalogClient, event.currentTarget);
+    });
+}
+
+async function saveProposalClientContact(quote, catalogClient, button) {
+    if (!catalogClient?.id) return;
+    const contactName = DOM.modalProposalBody.querySelector("#proposal-contact-name")?.value.trim() || "";
+    const celular = DOM.modalProposalBody.querySelector("#proposal-contact-cell")?.value.trim() || "";
+    button.disabled = true;
+    try {
+        const savedClient = await apiRequest(`/api/v1/clientes/${catalogClient.id}`, {
+            method: "PUT",
+            body: JSON.stringify({ nombre_contacto: contactName, celular }),
+        });
+        const updatedQuote = {
+            ...quote,
+            datos_contacto: { ...(quote.datos_contacto || {}), nombre_contacto: contactName, celular },
+        };
+        const index = state.cotizaciones.findIndex(item => item.id === updatedQuote.id);
+        if (index >= 0) state.cotizaciones[index] = updatedQuote;
+        showToast("Contacto actualizado en Clientes.", "success");
+        renderProposalModalContent(updatedQuote, savedClient);
+    } catch (error) {
+        showToast(error.message, "error");
+        button.disabled = false;
+    }
 }
 
 async function openClientContactMaintenance(clientId, clientSearch) {
@@ -4426,11 +4466,7 @@ async function showProposalModal(quote) {
             if (index >= 0) state.cotizaciones[index] = quote;
         }
         const catalogClient = await findCatalogClientForQuote(quote);
-        const proposal = quote.texto_propuesta || "Esta cotización no contiene propuesta detallada.";
-        DOM.modalProposalBody.innerHTML = `${renderProposalClientContact(quote, catalogClient)}<div style="white-space:pre-wrap;">${escapeHTML(proposal)}</div>`;
-        DOM.modalProposalBody.querySelector(".proposal-update-client-contact")?.addEventListener("click", () => {
-            openClientContactMaintenance(catalogClient?.id, quote.numero_cliente || quote.cliente_nombre);
-        });
+        renderProposalModalContent(quote, catalogClient);
     } catch (error) {
         DOM.modalProposalBody.textContent = "No fue posible cargar la propuesta.";
         showToast(error.message, "error");
@@ -9246,6 +9282,7 @@ async function openModalCliente(clienteId = null) {
             const cliente = await apiRequest(`/api/v1/clientes/${clienteId}`);
             document.getElementById("cliente-id-input").value = cliente.id || "";
             document.getElementById("cliente-nombre-input").value = cliente.nombre || "";
+            document.getElementById("cliente-contacto-input").value = cliente.nombre_contacto || "";
             document.getElementById("cliente-num-input").value = cliente.numero_cliente || "";
             document.getElementById("cliente-rfc-input").value = cliente.rfc || "";
             document.getElementById("cliente-persona-input").value = cliente.tipo_persona || "Persona física";
@@ -9287,6 +9324,7 @@ async function saveClienteForm(e) {
         sociedad: document.getElementById("cliente-sociedad-input")?.value.trim() || "MKS",
         numero_cliente: document.getElementById("cliente-num-input")?.value.trim() || "",
         nombre: nombre,
+        nombre_contacto: document.getElementById("cliente-contacto-input")?.value.trim() || "",
         rfc: document.getElementById("cliente-rfc-input")?.value.trim() || "",
         tipo_persona: document.getElementById("cliente-persona-input")?.value || "Persona física",
         calle: document.getElementById("cliente-calle-input")?.value.trim() || "",

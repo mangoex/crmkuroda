@@ -9,6 +9,7 @@ class Cliente(Base):
     sociedad = Column(String(50), nullable=True)
     numero_cliente = Column(String(50), nullable=True, index=True)
     nombre = Column(String(255), nullable=False, index=True)
+    nombre_contacto = Column(String(255), nullable=True)
     rfc = Column(String(20), nullable=True, index=True)
     tipo_persona = Column(String(50), nullable=True, index=True)
     calle = Column(String(255), nullable=True)
@@ -30,6 +31,7 @@ class Cliente(Base):
             "sociedad": self.sociedad or "",
             "numero_cliente": self.numero_cliente or "",
             "nombre": self.nombre or "",
+            "nombre_contacto": self.nombre_contacto or "",
             "rfc": self.rfc or "",
             "tipo_persona": self.tipo_persona or "",
             "calle": self.calle or "",

@@ -6,6 +6,7 @@ class ClienteBase(BaseModel):
     sociedad: Optional[str] = "MKS"
     numero_cliente: Optional[str] = None
     nombre: str
+    nombre_contacto: Optional[str] = None
     rfc: Optional[str] = None
     tipo_persona: Optional[str] = "Persona física"
     calle: Optional[str] = None
@@ -26,6 +27,7 @@ class ClienteUpdate(BaseModel):
     sociedad: Optional[str] = None
     numero_cliente: Optional[str] = None
     nombre: Optional[str] = None
+    nombre_contacto: Optional[str] = None
     rfc: Optional[str] = None
     tipo_persona: Optional[str] = None
     calle: Optional[str] = None
