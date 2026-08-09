@@ -68,6 +68,12 @@ class CommercialFrontendContractTest(unittest.TestCase):
         self.assertIn("populateCommercialGoalSellerFilter", self.javascript)
         self.assertIn("metasSellerFilter?.addEventListener", self.javascript)
 
+    def test_access_activity_list_has_its_own_scroll_area(self):
+        stylesheet = (ROOT / "static" / "style.css").read_text(encoding="utf-8")
+        self.assertIn("#admin-today-access-log", stylesheet)
+        self.assertIn("max-height: 390px", stylesheet)
+        self.assertIn("overflow-y: auto", stylesheet)
+
     def test_management_filters_and_unlinked_seller_exist(self):
         self.assertIn('id="coordinator-performance-start"', self.html)
         self.assertIn('id="coordinator-performance-end"', self.html)
