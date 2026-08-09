@@ -288,6 +288,7 @@ const DOM = {
 
     // Metas comerciales de gerencia
     metasMonth: document.getElementById("metas-month"),
+    metasSellerFilter: document.getElementById("metas-seller-filter"),
     metasPeriod: document.getElementById("metas-period"),
     metasReferenceDate: document.getElementById("metas-reference-date"),
     btnLoadMetas: document.getElementById("btn-load-metas"),
@@ -304,10 +305,13 @@ const DOM = {
     btnSubmitMetas: document.getElementById("btn-submit-metas"),
     btnCancelMetasEdit: document.getElementById("btn-cancel-metas-edit"),
     metasGeneralTarget: document.getElementById("metas-general-target"),
+    metasGeneralTargetLabel: document.getElementById("metas-general-target-label"),
     metasGeneralSales: document.getElementById("metas-general-sales"),
     metasGeneralProgress: document.getElementById("metas-general-progress"),
     tableMetasComerciales: document.getElementById("table-metas-comerciales"),
     metasSellersDashboard: document.getElementById("metas-sellers-dashboard"),
+    metasSellersTitle: document.getElementById("metas-sellers-title"),
+    metasBranchesCard: document.getElementById("metas-branches-card"),
     metasBranchesDashboard: document.getElementById("metas-branches-dashboard"),
     
     // Metas Section
@@ -1092,14 +1096,19 @@ function resetCommercialGoalForm() {
 }
 
 function renderCommercialGoalsDashboard(data) {
-    const general = data?.general || {};
-    if (DOM.metasGeneralTarget) DOM.metasGeneralTarget.textContent = formatSellerMoney(general.meta);
-    if (DOM.metasGeneralSales) DOM.metasGeneralSales.textContent = formatSellerMoney(general.venta_facturada);
-    if (DOM.metasGeneralProgress) DOM.metasGeneralProgress.textContent = `${Number(general.cumplimiento || 0).toFixed(1)}%`;
+    const selectedSellerId = DOM.metasSellerFilter?.value || "";
+    const selectedSeller = (data?.vendedores || []).find(row => row.vendedor_id === selectedSellerId);
+    const overview = selectedSeller || data?.general || {};
+    if (DOM.metasGeneralTarget) DOM.metasGeneralTarget.textContent = formatSellerMoney(overview.meta);
+    if (DOM.metasGeneralSales) DOM.metasGeneralSales.textContent = formatSellerMoney(overview.venta_facturada);
+    if (DOM.metasGeneralProgress) DOM.metasGeneralProgress.textContent = `${Number(overview.cumplimiento || 0).toFixed(1)}%`;
+    if (DOM.metasGeneralTargetLabel) DOM.metasGeneralTargetLabel.textContent = selectedSeller ? "Meta del vendedor" : "Meta general";
+    if (DOM.metasSellersTitle) DOM.metasSellersTitle.textContent = selectedSeller ? "Avance del vendedor" : "Avance por vendedor";
+    DOM.metasBranchesCard?.classList.toggle("hidden", Boolean(selectedSeller));
 
     const progressCell = row => `${Number(row.cumplimiento || 0).toFixed(1)}%`;
     if (DOM.metasSellersDashboard) {
-        const rows = data?.vendedores || [];
+        const rows = selectedSeller ? [selectedSeller] : data?.vendedores || [];
         DOM.metasSellersDashboard.innerHTML = rows.length ? rows.map(row => `
             <tr><td>${escapeHTML(row.vendedor)}</td><td>${formatSellerMoney(row.meta)}</td><td>${formatSellerMoney(row.venta_facturada)}</td><td>${progressCell(row)}</td></tr>
         `).join("") : '<tr><td colspan="4" class="text-muted">No hay vendedores para el periodo.</td></tr>';
@@ -1120,11 +1129,15 @@ function renderCommercialGoalsDashboard(data) {
 function renderCommercialGoalsTable() {
     if (!DOM.tableMetasComerciales) return;
     const sellerNames = new Map((state.commercialGoalsDashboard?.vendedores || []).map(row => [row.vendedor_id, row.vendedor]));
-    if (!state.commercialGoals.length) {
-        DOM.tableMetasComerciales.innerHTML = '<tr><td colspan="5" class="text-muted">No hay metas configuradas para este mes.</td></tr>';
+    const selectedSellerId = DOM.metasSellerFilter?.value || "";
+    const visibleGoals = selectedSellerId
+        ? state.commercialGoals.filter(goal => goal.tipo === "vendedor" && goal.vendedor_id === selectedSellerId)
+        : state.commercialGoals;
+    if (!visibleGoals.length) {
+        DOM.tableMetasComerciales.innerHTML = `<tr><td colspan="5" class="text-muted">${selectedSellerId ? "No hay meta configurada para este vendedor en este mes." : "No hay metas configuradas para este mes."}</td></tr>`;
         return;
     }
-    DOM.tableMetasComerciales.innerHTML = state.commercialGoals.map(goal => {
+    DOM.tableMetasComerciales.innerHTML = visibleGoals.map(goal => {
         const scope = goal.tipo === "general" ? "General" : goal.tipo === "vendedor" ? "Vendedor" : "Sucursal";
         const subject = goal.tipo === "general" ? "Empresa" : goal.tipo === "vendedor" ? (sellerNames.get(goal.vendedor_id) || "Vendedor") : goal.sucursal;
         return `<tr>
@@ -1149,6 +1162,17 @@ function populateCommercialGoalSellers(rows) {
     if (selected) DOM.metasVendedor.value = selected;
 }
 
+function populateCommercialGoalSellerFilter(rows) {
+    if (!DOM.metasSellerFilter) return;
+    const selected = DOM.metasSellerFilter.value;
+    DOM.metasSellerFilter.innerHTML = '<option value="">Todos los vendedores</option>' + (rows || []).map(row =>
+        `<option value="${row.vendedor_id}">${escapeHTML(row.vendedor)}</option>`
+    ).join("");
+    if ((rows || []).some(row => row.vendedor_id === selected)) {
+        DOM.metasSellerFilter.value = selected;
+    }
+}
+
 async function loadCommercialGoalsData() {
     if (!state.user || !["admin", "gerente"].includes(state.user.rol)) return;
     if (DOM.metasMonth && !DOM.metasMonth.value) DOM.metasMonth.value = getCurrentMonthValue();
@@ -1163,6 +1187,7 @@ async function loadCommercialGoalsData() {
     state.commercialGoals = goalsRes.data || [];
     state.commercialGoalsDashboard = dashboardRes.data || null;
     populateCommercialGoalSellers(state.commercialGoalsDashboard?.vendedores || []);
+    populateCommercialGoalSellerFilter(state.commercialGoalsDashboard?.vendedores || []);
     renderCommercialGoalsDashboard(state.commercialGoalsDashboard);
     renderCommercialGoalsTable();
     if (!state.editingCommercialGoalId) renderCommercialGoalScopeFields();
@@ -6658,6 +6683,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (DOM.metasMonth && !DOM.metasMonth.value) DOM.metasMonth.value = getCurrentMonthValue();
     if (DOM.metasReferenceDate && !DOM.metasReferenceDate.value) DOM.metasReferenceDate.value = currentDateValue();
     DOM.metasType?.addEventListener("change", renderCommercialGoalScopeFields);
+    DOM.metasSellerFilter?.addEventListener("change", () => {
+        renderCommercialGoalsDashboard(state.commercialGoalsDashboard);
+        renderCommercialGoalsTable();
+    });
     DOM.btnLoadMetas?.addEventListener("click", async () => {
         resetCommercialGoalForm();
         try {

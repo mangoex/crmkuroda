@@ -63,6 +63,11 @@ class CommercialFrontendContractTest(unittest.TestCase):
         self.assertIn("loadSummaryChannelSales", self.javascript)
         self.assertIn("resumen-principal/canales", self.javascript)
 
+    def test_commercial_goals_have_a_seller_filter(self):
+        self.assertIn('id="metas-seller-filter"', self.html)
+        self.assertIn("populateCommercialGoalSellerFilter", self.javascript)
+        self.assertIn("metasSellerFilter?.addEventListener", self.javascript)
+
     def test_management_filters_and_unlinked_seller_exist(self):
         self.assertIn('id="coordinator-performance-start"', self.html)
         self.assertIn('id="coordinator-performance-end"', self.html)

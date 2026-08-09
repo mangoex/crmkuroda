@@ -624,6 +624,10 @@
                                 <label for="metas-month">Mes de metas</label>
                                 <input id="metas-month" type="month" class="form-control">
                             </div>
+                            <div class="input-group" style="margin:0; min-width:190px;">
+                                <label for="metas-seller-filter">Vendedor</label>
+                                <select id="metas-seller-filter" class="form-control" aria-label="Filtrar metas por vendedor"><option value="">Todos los vendedores</option></select>
+                            </div>
                             <div class="input-group" style="margin:0; min-width:130px;"><label for="metas-period">Vista</label><select id="metas-period" class="form-control"><option value="dia">Día</option><option value="semana">Semana</option><option value="mes" selected>Mes</option></select></div>
                             <div class="input-group" style="margin:0; min-width:160px;"><label for="metas-reference-date">Fecha de corte</label><input id="metas-reference-date" type="date" class="form-control"></div>
                             <button id="btn-load-metas" class="btn btn-secondary"><i class="fa-solid fa-rotate"></i> Actualizar</button>
@@ -631,7 +635,7 @@
                     </div>
 
                     <div class="kpi-grid" style="margin:20px 0;">
-                        <div class="glass-card kpi-card"><div class="kpi-icon icon-purple"><i class="fa-solid fa-building"></i></div><div class="kpi-data"><h3>Meta general</h3><p id="metas-general-target">$0</p></div></div>
+                        <div class="glass-card kpi-card"><div class="kpi-icon icon-purple"><i class="fa-solid fa-building"></i></div><div class="kpi-data"><h3 id="metas-general-target-label">Meta general</h3><p id="metas-general-target">$0</p></div></div>
                         <div class="glass-card kpi-card"><div class="kpi-icon icon-green"><i class="fa-solid fa-hand-holding-dollar"></i></div><div class="kpi-data"><h3>Venta facturada</h3><p id="metas-general-sales">$0</p></div></div>
                         <div class="glass-card kpi-card"><div class="kpi-icon icon-blue"><i class="fa-solid fa-chart-line"></i></div><div class="kpi-data"><h3>Cumplimiento</h3><p id="metas-general-progress">0%</p></div></div>
                     </div>
@@ -656,8 +660,8 @@
                     </div>
 
                     <div class="charts-grid" style="grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));">
-                        <div class="glass-card table-container" style="overflow-x:auto;"><div class="card-header" style="padding:20px 20px 0;"><h3>Avance por vendedor</h3></div><table class="data-table"><thead><tr><th>Vendedor</th><th>Meta</th><th>Facturado</th><th>Avance</th></tr></thead><tbody id="metas-sellers-dashboard"></tbody></table></div>
-                        <div class="glass-card table-container" style="overflow-x:auto;"><div class="card-header" style="padding:20px 20px 0;"><h3>Avance por sucursal</h3></div><table class="data-table"><thead><tr><th>Sucursal</th><th>Meta</th><th>Facturado</th><th>Avance</th></tr></thead><tbody id="metas-branches-dashboard"></tbody></table></div>
+                        <div class="glass-card table-container" style="overflow-x:auto;"><div class="card-header" style="padding:20px 20px 0;"><h3 id="metas-sellers-title">Avance por vendedor</h3></div><table class="data-table"><thead><tr><th>Vendedor</th><th>Meta</th><th>Facturado</th><th>Avance</th></tr></thead><tbody id="metas-sellers-dashboard"></tbody></table></div>
+                        <div id="metas-branches-card" class="glass-card table-container" style="overflow-x:auto;"><div class="card-header" style="padding:20px 20px 0;"><h3>Avance por sucursal</h3></div><table class="data-table"><thead><tr><th>Sucursal</th><th>Meta</th><th>Facturado</th><th>Avance</th></tr></thead><tbody id="metas-branches-dashboard"></tbody></table></div>
                     </div>
                 </section>
 
