@@ -946,9 +946,20 @@
                 <!-- Section Sobrepedidos -->
                 <section id="section-sobrepedidos" class="dashboard-section hidden animate-fade-in">
                     <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                        <h2>Sobrepedidos SAP</h2>
-                        <div id="upload-sobrepedidos-wrapper" class="role-restricted role-admin role-gerente" style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
-                            <form id="upload-sobrepedidos-form" onsubmit="event.preventDefault();" style="display: flex; gap: 10px; align-items: center; margin: 0;">
+                        <h2 style="border-bottom: 3px solid #ef4444; padding-bottom: 4px; display: inline-block; font-size: 24px; font-weight: 800; color: #111;">Sobrepedidos SAP</h2>
+                        
+                        <!-- Topbar Actions -->
+                        <div style="display: flex; align-items: center; gap: 16px;">
+                            <button style="background: none; border: none; color: hsl(var(--text-secondary)); font-size: 18px; cursor: pointer;"><i class="fa-regular fa-bell"></i></button>
+                            <button style="background: none; border: none; color: hsl(var(--text-secondary)); font-size: 18px; cursor: pointer;"><i class="fa-solid fa-gear"></i></button>
+                            <span style="background: white; border: 1px solid hsl(var(--primary)); color: hsl(var(--primary)); padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px;">VENDEDOR</span>
+                            <div style="width: 36px; height: 36px; background: #e5e7eb; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer;">
+                                <i class="fa-solid fa-user" style="color: #6b7280;"></i>
+                            </div>
+                        </div>
+
+                        <div id="upload-sobrepedidos-wrapper" class="role-restricted role-admin role-gerente" style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end; width: 100%;">
+                            <form id="upload-sobrepedidos-form" onsubmit="event.preventDefault();" style="display: flex; gap: 10px; align-items: center; margin: 0; justify-content: flex-end; width: 100%;">
                                 <label for="file-sobrepedidos" class="btn btn-secondary btn-sm" style="cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 0; padding: 0.5rem 1rem;">
                                     <i class="fa-solid fa-file-excel"></i> <span id="file-sobrepedidos-name">Seleccionar Archivo</span>
                                 </label>
@@ -989,29 +1000,29 @@
                     </div>
 
                     <!-- Filters panel -->
-                    <div class="glass-card filters-card margin-bottom" style="padding: 20px;">
+                    <div class="glass-card margin-bottom" style="padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; align-items: end;">
                             <div class="input-group">
-                                <label for="filter-sobrepedidos-proveedor" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Proveedor</label>
-                                <select id="filter-sobrepedidos-proveedor" class="form-control" style="width: 100%;">
+                                <label for="filter-sobrepedidos-proveedor" style="font-size: 0.85rem; font-weight: 600; color: #333;">Proveedor</label>
+                                <select id="filter-sobrepedidos-proveedor" class="form-control" style="width: 100%; border-radius: 8px;">
                                     <option value="todos">Todos</option>
                                 </select>
                             </div>
                             <div id="filter-sobrepedidos-vendedor-wrapper" class="input-group">
-                                <label for="filter-sobrepedidos-vendedor" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Clave vendedor</label>
-                                <select id="filter-sobrepedidos-vendedor" class="form-control" style="width: 100%;">
+                                <label for="filter-sobrepedidos-vendedor" style="font-size: 0.85rem; font-weight: 600; color: #333;">Clave vendedor</label>
+                                <select id="filter-sobrepedidos-vendedor" class="form-control" style="width: 100%; border-radius: 8px;">
                                     <option value="todos">Todos</option>
                                 </select>
                             </div>
                             <div class="input-group">
-                                <label for="filter-sobrepedidos-grupo" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Grupo</label>
-                                <select id="filter-sobrepedidos-grupo" class="form-control" style="width: 100%;">
+                                <label for="filter-sobrepedidos-grupo" style="font-size: 0.85rem; font-weight: 600; color: #333;">Grupo</label>
+                                <select id="filter-sobrepedidos-grupo" class="form-control" style="width: 100%; border-radius: 8px;">
                                     <option value="todos">Todos</option>
                                 </select>
                             </div>
                             <div class="input-group">
-                                <label for="filter-sobrepedidos-estado" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Estatus CRM</label>
-                                <select id="filter-sobrepedidos-estado" class="form-control" style="width: 100%;">
+                                <label for="filter-sobrepedidos-estado" style="font-size: 0.85rem; font-weight: 600; color: #333;">Estatus CRM</label>
+                                <select id="filter-sobrepedidos-estado" class="form-control" style="width: 100%; border-radius: 8px;">
                                     <option value="todos">Todos</option>
                                     <option value="verde">Listo / Disponible (Verde)</option>
                                     <option value="amarillo">En Proceso (Amarillo)</option>
@@ -1019,10 +1030,10 @@
                                 </select>
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1;">
-                                <label for="filter-sobrepedidos-search" style="font-size: 0.85rem; color: hsl(var(--text-secondary));"><i class="fa-solid fa-magnifying-glass"></i> Buscar factura, cliente, SKU o descripción...</label>
+                                <label for="filter-sobrepedidos-search" style="font-size: 0.85rem; font-weight: 600; color: #333;"><i class="fa-solid fa-magnifying-glass"></i> Buscar factura, cliente, SKU o descripción...</label>
                                 <div style="display: flex; gap: 10px;">
-                                    <input type="text" id="filter-sobrepedidos-search" class="form-control" placeholder="Factura, cliente, vendedor, SKU, proveedor o descripción..." style="flex-grow: 1;">
-                                    <button type="button" id="btn-clear-sobrepedidos-filters" class="btn btn-secondary" title="Limpiar Filtros" style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="text" id="filter-sobrepedidos-search" class="form-control" placeholder="Factura, cliente, vendedor, SKU, proveedor o descripción..." style="flex-grow: 1; background: #e5e7eb; border: none; border-radius: 8px; padding: 10px 16px; font-size: 14px; font-weight: 600;">
+                                    <button type="button" id="btn-clear-sobrepedidos-filters" class="btn" title="Limpiar Filtros" style="display: flex; align-items: center; gap: 8px; background: white; border: 1px solid hsl(var(--primary)); color: hsl(var(--primary)); border-radius: 8px; padding: 0 16px; font-weight: 700; white-space: nowrap;">
                                         <i class="fa-solid fa-filter-circle-xmark"></i> Limpiar Filtros
                                     </button>
                                 </div>
@@ -1033,24 +1044,24 @@
                     <!-- Sobrepedidos Table -->
                     <div class="glass-card table-container" style="overflow-x: auto;">
                         <table class="data-table compact-extended-table" id="table-sobrepedidos" style="width: 100%;">
-                            <thead>
+                            <thead style="background-color: hsl(var(--primary)); color: white;">
                                 <tr>
-                                    <th id="th-sobrepedidos-pedido" style="cursor: pointer; user-select: none;">Factura <i class="fa-solid fa-sort" style="color: hsl(var(--text-secondary)); font-size: 11px; margin-left: 4px;"></i></th>
-                                    <th id="th-sobrepedidos-fecha" style="cursor: pointer; user-select: none;">Fecha Venta <i class="fa-solid fa-sort" style="color: hsl(var(--text-secondary)); font-size: 11px; margin-left: 4px;"></i></th>
-                                    <th>Cliente</th>
-                                    <th>Clave vendedor</th>
-                                    <th id="th-sobrepedidos-sku" style="cursor: pointer; user-select: none;">SKU <i class="fa-solid fa-sort" style="color: hsl(var(--text-secondary)); font-size: 11px; margin-left: 4px;"></i></th>
-                                    <th>Producto</th>
-                                    <th>Grupo</th>
-                                    <th id="th-sobrepedidos-cant" style="cursor: pointer; user-select: none;">Cant. Pendiente <i class="fa-solid fa-sort" style="color: hsl(var(--text-secondary)); font-size: 11px; margin-left: 4px;"></i></th>
-                                    <th>Disp. VL06O</th>
-                                    <th>Cant. Disp.</th>
-                                    <th>Fecha Disp.</th>
-                                    <th>Días Disp.</th>
-                                    <th>Proveedor</th>
-                                    <th>Comentarios SAP</th>
-                                    <th>Motivo</th>
-                                    <th>Estatus CRM</th>
+                                    <th id="th-sobrepedidos-pedido" style="cursor: pointer; user-select: none; color: white; border-bottom: none;">Factura <i class="fa-solid fa-sort" style="color: white; font-size: 11px; margin-left: 4px;"></i></th>
+                                    <th id="th-sobrepedidos-fecha" style="cursor: pointer; user-select: none; color: white; border-bottom: none;">Fecha Venta <i class="fa-solid fa-sort" style="color: white; font-size: 11px; margin-left: 4px;"></i></th>
+                                    <th style="color: white; border-bottom: none;">Cliente</th>
+                                    <th style="color: white; border-bottom: none;">Clave vendedor</th>
+                                    <th id="th-sobrepedidos-sku" style="cursor: pointer; user-select: none; color: white; border-bottom: none;">SKU <i class="fa-solid fa-sort" style="color: white; font-size: 11px; margin-left: 4px;"></i></th>
+                                    <th style="color: white; border-bottom: none;">Producto</th>
+                                    <th style="color: white; border-bottom: none;">Grupo</th>
+                                    <th id="th-sobrepedidos-cant" style="cursor: pointer; user-select: none; color: white; border-bottom: none;">Cant. Pendiente <i class="fa-solid fa-sort" style="color: white; font-size: 11px; margin-left: 4px;"></i></th>
+                                    <th style="color: white; border-bottom: none;">Disp. VL06O</th>
+                                    <th style="color: white; border-bottom: none;">Cant. Disp.</th>
+                                    <th style="color: white; border-bottom: none;">Fecha Disp.</th>
+                                    <th style="color: white; border-bottom: none;">Días Disp.</th>
+                                    <th style="color: white; border-bottom: none;">Proveedor</th>
+                                    <th style="color: white; border-bottom: none;">Comentarios SAP</th>
+                                    <th style="color: white; border-bottom: none;">Motivo</th>
+                                    <th style="color: white; border-bottom: none;">Estatus CRM</th>
                                 </tr>
                             </thead>
                             <tbody>
