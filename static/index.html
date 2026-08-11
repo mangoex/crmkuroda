@@ -1586,10 +1586,16 @@
 
                 <!-- Section 5: Seguimiento (Kanban) -->
                 <section id="section-seguimiento" class="dashboard-section hidden animate-fade-in">
-                    <div class="panel-header">
+                    <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <h2>Seguimiento de Cotizaciones (Kanban)</h2>
                             <p id="kanban-data-updated" class="section-data-updated">Datos de cotizaciones: sin registro de actualización</p>
+                        </div>
+                        <div class="kanban-header-actions" style="display: flex; align-items: center; gap: 12px;">
+                            <button class="kanban-action-icon" style="width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border-color); background: white; display: flex; justify-content: center; align-items: center; cursor: pointer; color: var(--text-primary); transition: all 0.2s;"><i class="fa-solid fa-bell"></i></button>
+                            <button class="kanban-action-icon" style="width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border-color); background: white; display: flex; justify-content: center; align-items: center; cursor: pointer; color: var(--text-primary); transition: all 0.2s;"><i class="fa-solid fa-gear"></i></button>
+                            <span class="kanban-role-badge" style="background: hsl(var(--primary)); color: white; padding: 6px 16px; border-radius: 8px; font-weight: 600; font-size: 14px;">Vendedor</span>
+                            <div class="kanban-user-avatar" style="width: 36px; height: 36px; border-radius: 8px; background: #e2e8f0; display: flex; justify-content: center; align-items: center; color: var(--text-muted); cursor: pointer;"><i class="fa-solid fa-user"></i></div>
                         </div>
                     </div>
 
@@ -1625,25 +1631,45 @@
                     <!-- Kanban Summary Row -->
                     <div class="kanban-summary-row" style="display: flex; gap: 15px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px;">
                         <!-- Summary Cards (populated dynamically via JS) -->
-                        <div class="summary-card glass-card" style="flex: 1; min-width: 150px; padding: 15px; text-align: center; border-top: 3px solid var(--accent-blue);">
-                            <h4 style="margin: 0 0 5px 0; font-size: 14px; color: var(--text-muted);">Cotizado</h4>
-                            <div id="summary-count-cotizado" style="font-size: 20px; font-weight: 700; color: hsl(var(--text-primary));">0</div>
-                            <div id="summary-total-cotizado" style="font-size: 13px; color: var(--accent-blue);">$0.00</div>
+                        <div class="summary-card kpi-card-white" style="flex: 1; min-width: 220px; display: flex; align-items: center; gap: 15px; padding: 15px 20px;">
+                            <div style="background: hsla(var(--primary), 0.1); color: hsl(var(--primary)); width: 48px; height: 48px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 20px;">
+                                <i class="fa-solid fa-file-lines"></i>
+                            </div>
+                            <div>
+                                <h4 style="margin: 0 0 2px 0; font-size: 13px; color: var(--text-muted); font-weight: 600;">Cotizado</h4>
+                                <div id="summary-count-cotizado" style="font-size: 24px; font-weight: 800; color: hsl(var(--text-primary)); line-height: 1.1;">0</div>
+                                <div id="summary-total-cotizado" style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-top: 2px;">$0.00</div>
+                            </div>
                         </div>
-                        <div class="summary-card glass-card" style="flex: 1; min-width: 150px; padding: 15px; text-align: center; border-top: 3px solid var(--accent-purple);">
-                            <h4 style="margin: 0 0 5px 0; font-size: 14px; color: var(--text-muted);">Promociones</h4>
-                            <div id="summary-count-promociones" style="font-size: 20px; font-weight: 700; color: hsl(var(--text-primary));">0</div>
-                            <div id="summary-total-promociones" style="font-size: 13px; color: var(--accent-purple);">$0.00</div>
+                        <div class="summary-card kpi-card-white" style="flex: 1; min-width: 220px; display: flex; align-items: center; gap: 15px; padding: 15px 20px;">
+                            <div style="background: hsla(var(--primary), 0.1); color: hsl(var(--primary)); width: 48px; height: 48px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 20px;">
+                                <i class="fa-solid fa-tags"></i>
+                            </div>
+                            <div>
+                                <h4 style="margin: 0 0 2px 0; font-size: 13px; color: var(--text-muted); font-weight: 600;">Promociones</h4>
+                                <div id="summary-count-promociones" style="font-size: 24px; font-weight: 800; color: hsl(var(--text-primary)); line-height: 1.1;">0</div>
+                                <div id="summary-total-promociones" style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-top: 2px;">$0.00</div>
+                            </div>
                         </div>
-                        <div class="summary-card glass-card" style="flex: 1; min-width: 150px; padding: 15px; text-align: center; border-top: 3px solid #10b981;">
-                            <h4 style="margin: 0 0 5px 0; font-size: 14px; color: var(--text-muted);">Vendido</h4>
-                            <div id="summary-count-vendido" style="font-size: 20px; font-weight: 700; color: hsl(var(--text-primary));">0</div>
-                            <div id="summary-total-vendido" style="font-size: 13px; color: #10b981;">$0.00</div>
+                        <div class="summary-card kpi-card-white" style="flex: 1; min-width: 220px; display: flex; align-items: center; gap: 15px; padding: 15px 20px;">
+                            <div style="background: hsla(var(--primary), 0.1); color: hsl(var(--primary)); width: 48px; height: 48px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 20px;">
+                                <i class="fa-solid fa-cart-shopping"></i>
+                            </div>
+                            <div>
+                                <h4 style="margin: 0 0 2px 0; font-size: 13px; color: var(--text-muted); font-weight: 600;">Vendido</h4>
+                                <div id="summary-count-vendido" style="font-size: 24px; font-weight: 800; color: hsl(var(--text-primary)); line-height: 1.1;">0</div>
+                                <div id="summary-total-vendido" style="font-size: 12px; color: #10b981; font-weight: 600; margin-top: 2px;">$0.00</div>
+                            </div>
                         </div>
-                        <div class="summary-card glass-card" style="flex: 1; min-width: 150px; padding: 15px; text-align: center; border-top: 3px solid #ef4444;">
-                            <h4 style="margin: 0 0 5px 0; font-size: 14px; color: var(--text-muted);">Vencido</h4>
-                            <div id="summary-count-vencido" style="font-size: 20px; font-weight: 700; color: hsl(var(--text-primary));">0</div>
-                            <div id="summary-total-vencido" style="font-size: 13px; color: #ef4444;">$0.00</div>
+                        <div class="summary-card kpi-card-white" style="flex: 1; min-width: 220px; display: flex; align-items: center; gap: 15px; padding: 15px 20px;">
+                            <div style="background: hsla(var(--primary), 0.1); color: hsl(var(--primary)); width: 48px; height: 48px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 20px;">
+                                <i class="fa-regular fa-calendar-xmark"></i>
+                            </div>
+                            <div>
+                                <h4 style="margin: 0 0 2px 0; font-size: 13px; color: var(--text-muted); font-weight: 600;">Vencido</h4>
+                                <div id="summary-count-vencido" style="font-size: 24px; font-weight: 800; color: hsl(var(--text-primary)); line-height: 1.1;">0</div>
+                                <div id="summary-total-vencido" style="font-size: 12px; color: #ef4444; font-weight: 600; margin-top: 2px;">$0.00</div>
+                            </div>
                         </div>
                     </div>
 
@@ -1654,7 +1680,7 @@
                             <div class="kanban-column-header">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <h3>Cotizado</h3>
-                                    <span class="badge badge-primary column-count" id="count-kanban-cotizado">0</span>
+                                    <span class="badge column-count" id="count-kanban-cotizado" style="background: hsl(var(--primary)); color: white; border-radius: 20px; padding: 2px 10px; font-weight: 700; font-size: 11px;">0</span>
                                 </div>
                                 <span class="sort-arrows-container">
                                     <i class="fa-solid fa-caret-up sort-arrow sort-kanban-column-asc" data-column="cotizado" title="Ordenar de menor a mayor total"></i>
@@ -1668,10 +1694,10 @@
 
                         <!-- Promociones -->
                         <div class="kanban-column" data-stage="promociones">
-                            <div class="kanban-column-header" style="border-bottom-color: rgba(168, 85, 247, 0.3);">
+                            <div class="kanban-column-header">
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <h3 style="color: var(--accent-purple);">Promociones</h3>
-                                    <span class="badge column-count" id="count-kanban-promociones" style="background: rgba(168, 85, 247, 0.15); color: var(--accent-purple); border: 1px solid rgba(168, 85, 247, 0.3);">0</span>
+                                    <h3>Promociones</h3>
+                                    <span class="badge column-count" id="count-kanban-promociones" style="background: hsl(var(--primary)); color: white; border-radius: 20px; padding: 2px 10px; font-weight: 700; font-size: 11px;">0</span>
                                 </div>
                                 <span class="sort-arrows-container">
                                     <i class="fa-solid fa-caret-up sort-arrow sort-kanban-column-asc" data-column="promociones" title="Ordenar de menor a mayor total"></i>
@@ -1688,7 +1714,7 @@
                             <div class="kanban-column-header">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <h3>Vendido</h3>
-                                    <span class="badge badge-primary column-count" id="count-kanban-vendido" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">0</span>
+                                    <span class="badge column-count" id="count-kanban-vendido" style="background: hsl(var(--primary)); color: white; border-radius: 20px; padding: 2px 10px; font-weight: 700; font-size: 11px;">0</span>
                                 </div>
                                 <span class="sort-arrows-container">
                                     <i class="fa-solid fa-caret-up sort-arrow sort-kanban-column-asc" data-column="vendido" title="Ordenar de menor a mayor total"></i>
@@ -1705,7 +1731,7 @@
                             <div class="kanban-column-header">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <h3>Vencido</h3>
-                                    <span class="badge badge-primary column-count" id="count-kanban-vencido" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">0</span>
+                                    <span class="badge column-count" id="count-kanban-vencido" style="background: hsl(var(--primary)); color: white; border-radius: 20px; padding: 2px 10px; font-weight: 700; font-size: 11px;">0</span>
                                 </div>
                                 <span class="sort-arrows-container">
                                     <i class="fa-solid fa-caret-up sort-arrow sort-kanban-column-asc" data-column="vencido" title="Ordenar de menor a mayor total"></i>

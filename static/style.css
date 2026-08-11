@@ -1204,9 +1204,9 @@ body.dark-mode .data-table th {
 /* Kanban Card */
 .kanban-card {
     background: #ffffff;
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(var(--glass-border));
-    border-radius: var(--border-radius-sm);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
     padding: 16px;
     cursor: grab;
     transition: var(--transition-fast);
