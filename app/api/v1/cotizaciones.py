@@ -297,6 +297,11 @@ async def list_cotizaciones(
     Lists all quotes. Salespeople can only list their own.
     Admins and Managers can list all or filter by seller.
     """
+    if str(estado).isdigit():
+        if edad_max_dias is None:
+            edad_max_dias = int(estado)
+        estado = "all"
+
     if estado not in VALID_QUOTE_STATES:
         raise HTTPException(status_code=422, detail="Estado de cotización inválido.")
     if vista not in VALID_QUOTE_VIEWS:
