@@ -226,19 +226,16 @@
                                 </div>
                             </article>
 
-                            <article class="seller-panel-card">
-                                <div class="seller-panel-head">
-                                    <h2><i class="fa-solid fa-tags"></i> Productos y Promociones</h2>
+                            <article class="seller-panel-card seller-activity-card">
+                                <div class="seller-panel-head" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                                    <h2 style="font-size: 15px; margin:0;"><i class="fa-solid fa-clock-rotate-left"></i> Actividad reciente</h2>
+                                    <button type="button" class="seller-text-action" style="font-size:12px; color:var(--primary); background:none; border:none; cursor:pointer;" data-seller-jump="slight-edge">Ver todas <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i></button>
                                 </div>
-                                <div id="seller-promo-list" class="seller-stack-list"></div>
-                                <div style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: auto;">
-                                    <button class="seller-link-button" style="margin-top: 0;" data-seller-jump="promociones">Ver detalles <i class="fa-solid fa-arrow-up-right-from-square"></i></button>
-                                    <button class="seller-link-button" style="margin-top: 0;" data-seller-jump="inventario-abcf"><i class="fa-solid fa-boxes-stacked"></i> Inventario D</button>
-                                </div>
+                                <div id="seller-recent-activity" class="seller-activity-list" style="flex-grow: 1; overflow-y: auto;"></div>
                             </article>
                         </div>
 
-                        <div class="seller-insight-grid">
+                        <div class="seller-insight-grid" style="grid-template-columns: 1fr;">
                             <section class="seller-insight-card seller-performance-card">
                                 <div class="seller-insight-heading">
                                     <div>
@@ -256,23 +253,8 @@
                                     </div>
                                 </div>
                             </section>
-
-                            <section class="seller-insight-card seller-activity-card">
-                                <div class="seller-insight-heading">
-                                    <div><h2>Actividad reciente</h2><span>Tu movimiento comercial</span></div>
-                                    <button type="button" class="seller-text-action" data-seller-jump="slight-edge">Ver todas</button>
-                                </div>
-                                <div id="seller-recent-activity" class="seller-activity-list"></div>
-                            </section>
                         </div>
 
-                        <div class="seller-quick-actions" aria-label="Acciones rápidas">
-                            <span>Acciones rápidas</span>
-                            <button type="button" data-seller-jump="cotizaciones"><i class="fa-regular fa-file-lines"></i> Ver cotizaciones</button>
-                            <button type="button" data-seller-jump="slight-edge"><i class="fa-solid fa-pen-to-square"></i> Registrar actividad</button>
-                            <button type="button" id="seller-quick-search"><i class="fa-solid fa-magnifying-glass"></i> Buscar cliente</button>
-                            <button type="button" data-seller-jump="seguimiento"><i class="fa-regular fa-calendar-days"></i> Ver seguimiento</button>
-                        </div>
                     </div>
 
                     <!-- Daily Follow-up Reminders Card -->
@@ -784,7 +766,12 @@
                 <!-- Section 3: Promociones -->
                 <section id="section-promociones" class="dashboard-section hidden animate-fade-in">
                     <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                        <h2>Promociones Activas</h2>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <button id="btn-promo-back" class="btn btn-secondary btn-sm" style="display: none; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-arrow-left"></i> Regresar a todas las categorías
+                            </button>
+                            <h2>Promociones Activas</h2>
+                        </div>
                         <div id="upload-promociones-wrapper" style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
                             <form id="upload-promociones-form" onsubmit="event.preventDefault();" style="display: flex; gap: 10px; align-items: center; margin: 0;">
                                 <label for="file-promociones" class="btn btn-secondary btn-sm" style="cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 0; padding: 0.5rem 1rem;">

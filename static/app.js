@@ -2127,7 +2127,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             const provColors = ['#38bdf8', '#22d3ee', '#34d399'];
 
             DOM.invKpiCategorias.innerHTML = topCats.map(([name, data], i) => `
-                <div class="glass-card kpi-card animate-fade-in" style="animation-delay: ${i * 0.1}s; border-radius: 12px; border-left: 4px solid ${catColors[i]}; cursor: pointer; transition: all 0.2s ease;"
+                <div class="kpi-card kpi-card-white animate-fade-in" style="animation-delay: ${i * 0.1}s; border-radius: 16px; border-left: 4px solid ${catColors[i]}; cursor: pointer; transition: all 0.2s ease;"
                     onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 6px 20px rgba(167,139,250,0.2)';"
                     onmouseout="this.style.transform='none'; this.style.boxShadow='none';"
                     onclick="(function(){
@@ -2145,7 +2145,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                 </div>`).join('');
 
             DOM.invKpiProveedores.innerHTML = topProvs.map(([name, data], i) => `
-                <div class="glass-card kpi-card animate-fade-in" style="animation-delay: ${(i + 3) * 0.1}s; border-radius: 12px; border-left: 4px solid ${provColors[i]}; cursor: pointer; transition: all 0.2s ease;"
+                <div class="kpi-card kpi-card-white animate-fade-in" style="animation-delay: ${(i + 3) * 0.1}s; border-radius: 16px; border-left: 4px solid ${provColors[i]}; cursor: pointer; transition: all 0.2s ease;"
                     onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 6px 20px rgba(56,189,248,0.2)';"
                     onmouseout="this.style.transform='none'; this.style.boxShadow='none';"
                     onclick="(function(){
@@ -2486,11 +2486,11 @@ async function loadSobrepedidosData(forceRefresh = false) {
             // Map CRM Status Pill
             let statusPill = "";
             if (item.estado_crm.includes("Verde")) {
-                statusPill = `<span class="status-pill status-completada">Listo en Almacén</span>`;
+                statusPill = `<span class="status-badge badge-success">Listo en Almacén</span>`;
             } else if (item.estado_crm.includes("Amarillo")) {
-                statusPill = `<span class="status-pill status-pendiente">En Proceso</span>`;
+                statusPill = `<span class="status-badge badge-warning">En Proceso</span>`;
             } else {
-                statusPill = `<span class="status-pill status-alerta">Alerta (Rojo)</span>`;
+                statusPill = `<span class="status-badge badge-error">Alerta (Rojo)</span>`;
             }
             
             const tr = document.createElement("tr");
@@ -2678,11 +2678,11 @@ async function loadSobrepedidosData(forceRefresh = false) {
 
             let statusPill = "";
             if (item.estado_crm.includes("Verde")) {
-                statusPill = `<span class="status-pill status-completada">Listo / Disponible</span>`;
+                statusPill = `<span class="status-badge badge-success">Listo / Disponible</span>`;
             } else if (item.estado_crm.includes("Amarillo")) {
-                statusPill = `<span class="status-pill status-pendiente">En Proceso</span>`;
+                statusPill = `<span class="status-badge badge-warning">En Proceso</span>`;
             } else {
-                statusPill = `<span class="status-pill status-alerta">Requiere Accion</span>`;
+                statusPill = `<span class="status-badge badge-error">Requiere Accion</span>`;
             }
 
             const facturaText = item.factura || item.id_pedido_erp || "";
@@ -2889,11 +2889,11 @@ async function loadPorEntregarData(forceRefresh = false) {
         pageItems.forEach(item => {
             let statusPill = "";
             if (item.estado_crm.includes("Verde")) {
-                statusPill = `<span class="status-pill status-completada">Verde</span>`;
+                statusPill = `<span class="status-badge badge-success">Verde</span>`;
             } else if (item.estado_crm.includes("Amarillo")) {
-                statusPill = `<span class="status-pill status-pendiente">Amarillo</span>`;
+                statusPill = `<span class="status-badge badge-warning">Amarillo</span>`;
             } else {
-                statusPill = `<span class="status-pill status-alerta">Rojo</span>`;
+                statusPill = `<span class="status-badge badge-error">Rojo</span>`;
             }
 
             const tr = document.createElement("tr");
@@ -3122,6 +3122,17 @@ async function loadPromocionesData(forceRefresh = false) {
             } else {
                 DOM.promoKpiProveedores.innerHTML = `<div class="glass-card kpi-card" style="grid-column: 1 / -1;"><div class="kpi-data" style="text-align: center; width: 100%;"><p>No hay proveedores disponibles</p></div></div>`;
             }
+        }
+
+        const promoKpisWrapper = document.querySelector('.promociones-kpis-wrapper');
+        const btnPromoBack = document.getElementById('btn-promo-back');
+        const hasFilters = searchTerm || familiaFilter !== "todos" || subfamiliaFilter !== "todas" || proveedorFilter !== "todos";
+        
+        if (promoKpisWrapper) {
+            promoKpisWrapper.style.display = hasFilters ? 'none' : 'block';
+        }
+        if (btnPromoBack) {
+            btnPromoBack.style.display = hasFilters ? 'inline-flex' : 'none';
         }
         // ----------------------------------------------------
         
@@ -4679,9 +4690,9 @@ function renderKanbanColumns() {
             
             let statusBadge = "";
             if (col === "vendido") {
-                statusBadge = `<span class="kanban-card-badge kanban-card-badge-sold" title="Factura: ${q.numero_factura || ''}">Vendido</span>`;
+                statusBadge = `<span class="kanban-card-badge status-badge badge-success" style="padding: 2px 8px; font-size: 10px;" title="Factura: ${q.numero_factura || ''}">Vendido</span>`;
             } else if (col === "vencido") {
-                statusBadge = `<span class="kanban-card-badge kanban-card-badge-lost">${isQuoteLost(q) ? 'Perdida' : 'Expirada'}</span>`;
+                statusBadge = `<span class="kanban-card-badge status-badge badge-error" style="padding: 2px 8px; font-size: 10px;">${isQuoteLost(q) ? 'Perdida' : 'Expirada'}</span>`;
             } else if (col === "promociones") {
                 const promoClass = q.nivel_prioridad === "alta" ? "#ef4444" : (q.nivel_prioridad === "media" ? "#f59e0b" : "#22c55e");
                 const expiry = q.promociones_coincidentes?.[0]?.valido_hasta || "";
@@ -5492,6 +5503,12 @@ DOM.btnClearPromoFilters?.addEventListener("click", () => {
     if (DOM.filterPromoFamilia) DOM.filterPromoFamilia.value = 'todos';
     if (DOM.filterPromoSubfamilia) DOM.filterPromoSubfamilia.value = 'todas';
     loadPromocionesData(false);
+});
+
+document.getElementById('btn-promo-back')?.addEventListener("click", () => {
+    if (DOM.btnClearPromoFilters) {
+        DOM.btnClearPromoFilters.click();
+    }
 });
 DOM.filterPromoStatus?.addEventListener("change", () => loadPromocionesData(false));
 DOM.filterPromoSort?.addEventListener("change", () => loadPromocionesData(false));
