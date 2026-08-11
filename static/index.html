@@ -651,8 +651,19 @@
                 <section id="section-inventario-abcf" class="dashboard-section hidden animate-fade-in">
                     <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                         <h2>Inventario D</h2>
-                        <div id="upload-inventario-abcf-wrapper" style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
-                            <form id="upload-inventario-abcf-form" onsubmit="event.preventDefault();" style="display: flex; gap: 10px; align-items: center; margin: 0;">
+                        
+                        <!-- Topbar Actions -->
+                        <div style="display: flex; align-items: center; gap: 16px;">
+                            <button style="background: none; border: none; color: hsl(var(--text-secondary)); font-size: 18px; cursor: pointer;"><i class="fa-regular fa-bell"></i></button>
+                            <button style="background: none; border: none; color: hsl(var(--text-secondary)); font-size: 18px; cursor: pointer;"><i class="fa-solid fa-gear"></i></button>
+                            <span style="background: white; border: 1px solid hsl(var(--primary)); color: hsl(var(--primary)); padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px;">VENDEDOR</span>
+                            <div style="width: 36px; height: 36px; background: #e5e7eb; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer;">
+                                <i class="fa-solid fa-user" style="color: #6b7280;"></i>
+                            </div>
+                        </div>
+
+                        <div id="upload-inventario-abcf-wrapper" style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end; width: 100%;">
+                            <form id="upload-inventario-abcf-form" onsubmit="event.preventDefault();" style="display: flex; gap: 10px; align-items: center; margin: 0; justify-content: flex-end; width: 100%;">
                                 <label for="file-inventario-abcf" class="btn btn-secondary btn-sm" style="cursor: pointer; display: flex; align-items: center; gap: 8px; margin: 0; padding: 0.5rem 1rem;">
                                     <i class="fa-solid fa-file-excel"></i> <span id="file-inv-name">Seleccionar Archivo</span>
                                 </label>
@@ -668,7 +679,7 @@
                         <!-- Por Categoría -->
                         <div style="margin-bottom: 14px;">
                             <h4 style="font-size: 0.9rem; color: hsl(var(--text-secondary)); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-                                <i class="fa-solid fa-layer-group" style="color: #a78bfa;"></i> Inventario por Categoría
+                                <i class="fa-solid fa-layer-group" style="color: hsl(var(--primary));"></i> Inventario por Categoría
                                 <span style="font-size: 0.75rem; font-weight: 400; color: hsl(var(--text-muted));">Top 3 por cantidad en stock. Clic para filtrar.</span>
                             </h4>
                             <div id="inv-kpi-categorias" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; max-width: 900px;"></div>
@@ -676,7 +687,7 @@
                         <!-- Por Proveedor -->
                         <div>
                             <h4 style="font-size: 0.9rem; color: hsl(var(--text-secondary)); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-                                <i class="fa-solid fa-truck" style="color: #38bdf8;"></i> Inventario por Proveedor
+                                <i class="fa-solid fa-truck" style="color: hsl(var(--primary));"></i> Inventario por Proveedor
                                 <span style="font-size: 0.75rem; font-weight: 400; color: hsl(var(--text-muted));">Top 3 proveedores. Clic para filtrar.</span>
                             </h4>
                             <div id="inv-kpi-proveedores" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; max-width: 900px;"></div>
@@ -684,29 +695,29 @@
                     </div>
 
                     <!-- Upload and Filter panel -->
-                    <div class="glass-card filters-card margin-bottom" style="padding: 20px;">
+                    <div class="glass-card margin-bottom" style="padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; align-items: end;">
                             <div class="input-group">
-                                <label for="filter-inv-sucursal" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Sucursal / Centro</label>
-                                <select id="filter-inv-sucursal" class="form-control" style="width: 100%;">
+                                <label for="filter-inv-sucursal" style="font-size: 0.85rem; font-weight: 600; color: #333;">Sucursal / Centro</label>
+                                <select id="filter-inv-sucursal" class="form-control" style="width: 100%; border-radius: 8px;">
                                     <option value="todos">Todos</option>
                                 </select>
                             </div>
                             <div class="input-group">
-                                <label for="filter-inv-abcf" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">D</label>
-                                <select id="filter-inv-abcf" class="form-control" style="width: 100%;">
+                                <label for="filter-inv-abcf" style="font-size: 0.85rem; font-weight: 600; color: #333;">D</label>
+                                <select id="filter-inv-abcf" class="form-control" style="width: 100%; border-radius: 8px;">
                                     <option value="todos">Todos</option>
                                 </select>
                             </div>
                             <div class="input-group">
-                                <label for="filter-inv-proveedor" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Proveedor</label>
-                                <select id="filter-inv-proveedor" class="form-control" style="width: 100%;">
+                                <label for="filter-inv-proveedor" style="font-size: 0.85rem; font-weight: 600; color: #333;">Proveedor</label>
+                                <select id="filter-inv-proveedor" class="form-control" style="width: 100%; border-radius: 8px;">
                                     <option value="todos">Todos</option>
                                 </select>
                             </div>
                             <div class="input-group">
-                                <label for="filter-inv-familia" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Familia</label>
-                                <select id="filter-inv-familia" class="form-control" style="width: 100%;">
+                                <label for="filter-inv-familia" style="font-size: 0.85rem; font-weight: 600; color: #333;">Familia</label>
+                                <select id="filter-inv-familia" class="form-control" style="width: 100%; border-radius: 8px;">
                                     <option value="todos">Todas</option>
                                     <option value="PLOMERIA CROMADA">PLOMERIA CROMADA</option>
                                     <option value="ARTICULOS DE PLOMERIA">ARTICULOS DE PLOMERIA</option>
@@ -717,16 +728,16 @@
                                 </select>
                             </div>
                             <div class="input-group">
-                                <label for="filter-inv-subfamilia" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Subfamilia</label>
-                                <select id="filter-inv-subfamilia" class="form-control" style="width: 100%;">
+                                <label for="filter-inv-subfamilia" style="font-size: 0.85rem; font-weight: 600; color: #333;">Subfamilia</label>
+                                <select id="filter-inv-subfamilia" class="form-control" style="width: 100%; border-radius: 8px;">
                                     <option value="todas">Todas</option>
                                 </select>
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1;">
-                                <label for="filter-inv-search" style="font-size: 0.85rem; color: hsl(var(--text-secondary));"><i class="fa-solid fa-magnifying-glass"></i> Buscar material o proveedor</label>
+                                <label for="filter-inv-search" style="font-size: 0.85rem; font-weight: 600; color: #333;"><i class="fa-solid fa-magnifying-glass"></i> Buscar material o proveedor</label>
                                 <div style="display: flex; gap: 10px;">
-                                    <input type="text" id="filter-inv-search" class="form-control" placeholder="Codigo, descripcion, proveedor o material..." style="flex-grow: 1;">
-                                    <button type="button" id="btn-clear-inv-filters" class="btn btn-secondary" title="Limpiar Filtros" style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="text" id="filter-inv-search" class="form-control" placeholder="Codigo, descripcion, proveedor o material..." style="flex-grow: 1; background: #e5e7eb; border: none; border-radius: 8px; padding: 10px 16px; font-size: 14px; font-weight: 600;">
+                                    <button type="button" id="btn-clear-inv-filters" class="btn" title="Limpiar Filtros" style="display: flex; align-items: center; gap: 8px; background: white; border: 1px solid hsl(var(--primary)); color: hsl(var(--primary)); border-radius: 8px; padding: 0 16px; font-weight: 700; white-space: nowrap;">
                                         <i class="fa-solid fa-filter-circle-xmark"></i> Limpiar Filtros
                                     </button>
                                 </div>
@@ -737,20 +748,20 @@
                     <!-- Inventario Table -->
                     <div class="glass-card table-container" style="overflow-x: auto;">
                         <table class="data-table" id="table-inventario-abcf" style="min-width: 1250px;">
-                            <thead>
+                            <thead style="background-color: hsl(var(--primary)); color: white;">
                                 <tr>
-                                    <th style="width: 48px;"></th>
-                                    <th>Centro</th>
-                                    <th>Almacén</th>
-                                    <th>Proveedor</th>
-                                    <th>D</th>
-                                    <th>Código material</th>
-                                    <th>Descripción</th>
-                                    <th id="th-inv-cant" style="cursor: pointer;">Cant Propia <i class="fa-solid fa-sort" style="color: #6b7280; font-size: 11px; margin-left: 4px;"></i></th>
-                                    <th id="th-inv-consig" style="cursor: pointer;">Inv. Consig. <i class="fa-solid fa-sort" style="color: #6b7280; font-size: 11px; margin-left: 4px;"></i></th>
-                                    <th id="th-inv-precio">Precio Prom.</th>
-                                    <th id="th-inv-importe">Importe Inv.</th>
-                                    <th>Ubicación</th>
+                                    <th style="width: 48px; border-bottom: none;"></th>
+                                    <th style="color: white; border-bottom: none;">Centro</th>
+                                    <th style="color: white; border-bottom: none;">Almacén</th>
+                                    <th style="color: white; border-bottom: none;">Proveedor</th>
+                                    <th style="color: white; border-bottom: none;">D</th>
+                                    <th style="color: white; border-bottom: none;">Código material</th>
+                                    <th style="color: white; border-bottom: none;">Descripción</th>
+                                    <th id="th-inv-cant" style="cursor: pointer; color: white; border-bottom: none;">Cant Propia <i class="fa-solid fa-sort" style="color: white; font-size: 11px; margin-left: 4px;"></i></th>
+                                    <th id="th-inv-consig" style="cursor: pointer; color: white; border-bottom: none;">Inv. Consig. <i class="fa-solid fa-sort" style="color: white; font-size: 11px; margin-left: 4px;"></i></th>
+                                    <th id="th-inv-precio" style="color: white; border-bottom: none;">Precio Prom.</th>
+                                    <th id="th-inv-importe" style="color: white; border-bottom: none;">Importe Inv.</th>
+                                    <th style="color: white; border-bottom: none;">Ubicación</th>
                                 </tr>
                             </thead>
                             <tbody>

@@ -2123,42 +2123,44 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                 .sort((a, b) => b[1].stock - a[1].stock)
                 .slice(0, 3);
 
-            const catColors = ['#a78bfa', '#818cf8', '#c084fc'];
-            const provColors = ['#38bdf8', '#22d3ee', '#34d399'];
+            const catColors = ['#3b82f6', '#10b981', '#8b5cf6'];
+            const catBgs = ['rgba(59,130,246,0.15)', 'rgba(16,185,129,0.15)', 'rgba(139,92,246,0.15)'];
+            const provColors = ['#ef4444', '#ef4444', '#ef4444'];
+            const provBgs = ['rgba(239,68,68,0.15)', 'rgba(239,68,68,0.15)', 'rgba(239,68,68,0.15)'];
 
             DOM.invKpiCategorias.innerHTML = topCats.map(([name, data], i) => `
-                <div class="kpi-card kpi-card-white animate-fade-in" style="animation-delay: ${i * 0.1}s; border-radius: 16px; border-left: 4px solid ${catColors[i]}; cursor: pointer; transition: all 0.2s ease;"
-                    onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 6px 20px rgba(167,139,250,0.2)';"
-                    onmouseout="this.style.transform='none'; this.style.boxShadow='none';"
+                <div class="kpi-card kpi-card-white animate-fade-in" style="animation-delay: ${i * 0.1}s; border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid ${catColors[i]}; background: white; cursor: pointer; transition: all 0.2s ease;"
+                    onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 6px 20px rgba(0,0,0,0.1)';"
+                    onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)';"
                     onclick="(function(){
                         const sel = document.getElementById('filter-inv-search');
                         if(sel){ sel.value = '${escapeHTML(name).replace(/'/g, "\\'").replace(/"/g, '&quot;')}'; sel.dispatchEvent(new Event('input')); }
                     })()" title="Filtrar por ${escapeHTML(name)}">
-                    <div class="kpi-icon" style="background: rgba(167,139,250,0.15); color: ${catColors[i]}; font-size: 1.2rem;">
+                    <div class="kpi-icon" style="background: ${catBgs[i]}; color: ${catColors[i]}; font-size: 1.2rem; border-radius: 12px;">
                         <i class="fa-solid fa-layer-group"></i>
                     </div>
                     <div class="kpi-data" style="width: calc(100% - 60px);">
-                        <h3 style="font-size: 12px; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;" title="${escapeHTML(name)}">${escapeHTML(name)}</h3>
-                        <p style="font-size: 20px; font-weight: 700; color: ${catColors[i]}; margin-bottom: 2px;">${data.stock.toLocaleString('es-MX')} <span style="font-size: 11px; color: hsl(var(--text-secondary)); font-weight: normal;">piezas</span></p>
-                        <span style="font-size: 11px; color: hsl(var(--text-muted));"><i class="fa-solid fa-box"></i> ${data.count} productos</span>
+                        <h3 style="font-size: 13px; font-weight: 700; color: #333; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;" title="${escapeHTML(name)}">${escapeHTML(name)}</h3>
+                        <p style="font-size: 20px; font-weight: 800; color: ${catColors[i]}; margin-bottom: 2px;">${data.stock.toLocaleString('es-MX')} <span style="font-size: 12px; color: #6b7280; font-weight: 600;">piezas</span></p>
+                        <span style="font-size: 11px; color: #6b7280; font-weight: 600;"><i class="fa-solid fa-box"></i> ${data.count} productos</span>
                     </div>
                 </div>`).join('');
 
             DOM.invKpiProveedores.innerHTML = topProvs.map(([name, data], i) => `
-                <div class="kpi-card kpi-card-white animate-fade-in" style="animation-delay: ${(i + 3) * 0.1}s; border-radius: 16px; border-left: 4px solid ${provColors[i]}; cursor: pointer; transition: all 0.2s ease;"
-                    onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 6px 20px rgba(56,189,248,0.2)';"
-                    onmouseout="this.style.transform='none'; this.style.boxShadow='none';"
+                <div class="kpi-card kpi-card-white animate-fade-in" style="animation-delay: ${(i + 3) * 0.1}s; border-radius: 12px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-left: 5px solid ${provColors[i]}; background: white; cursor: pointer; transition: all 0.2s ease;"
+                    onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 6px 20px rgba(0,0,0,0.1)';"
+                    onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)';"
                     onclick="(function(){
                         const sel = document.getElementById('filter-inv-proveedor');
                         if(sel){ sel.value = '${escapeHTML(name).replace(/'/g, "\\'").replace(/"/g, '&quot;')}'; sel.dispatchEvent(new Event('change')); }
                     })()" title="Filtrar por ${escapeHTML(name)}">
-                    <div class="kpi-icon" style="background: rgba(56,189,248,0.15); color: ${provColors[i]}; font-size: 1.2rem;">
+                    <div class="kpi-icon" style="background: ${provBgs[i]}; color: ${provColors[i]}; font-size: 1.2rem; border-radius: 12px;">
                         <i class="fa-solid fa-truck"></i>
                     </div>
                     <div class="kpi-data" style="width: calc(100% - 60px);">
-                        <h3 style="font-size: 12px; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;" title="${escapeHTML(name)}">${escapeHTML(name)}</h3>
-                        <p style="font-size: 20px; font-weight: 700; color: ${provColors[i]}; margin-bottom: 2px;">${data.stock.toLocaleString('es-MX')} <span style="font-size: 11px; color: hsl(var(--text-secondary)); font-weight: normal;">piezas</span></p>
-                        <span style="font-size: 11px; color: hsl(var(--text-muted));"><i class="fa-solid fa-cubes"></i> ${data.count} productos</span>
+                        <h3 style="font-size: 13px; font-weight: 700; color: #333; text-transform: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;" title="${escapeHTML(name)}">${escapeHTML(name)}</h3>
+                        <p style="font-size: 20px; font-weight: 800; color: ${provColors[i]}; margin-bottom: 2px;">${data.stock.toLocaleString('es-MX')} <span style="font-size: 12px; color: #6b7280; font-weight: 600;">piezas</span></p>
+                        <span style="font-size: 11px; color: #6b7280; font-weight: 600;"><i class="fa-solid fa-box"></i> ${data.count} productos</span>
                     </div>
                 </div>`).join('');
         }
@@ -2327,7 +2329,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                 <td><span class="badge badge-secondary">${escapeHTML(i.nombre_centro || "-")}</span></td>
                 <td>${escapeHTML(getInventoryWarehouse(i) || "-")}</td>
                 <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(getInventoryProviderName(i))}">${escapeHTML(getInventoryProviderName(i) || "-")}</td>
-                <td><strong>${escapeHTML(getInventoryDCode(i) || "-")}</strong></td>
+                <td style="color: #ef4444; font-weight: 800;">${escapeHTML(getInventoryDCode(i) || "-")}</td>
                 <td><code>${escapeHTML(getInventoryProductKey(i) || "-")}</code></td>
                 <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(getInventoryDescription(i))}">${escapeHTML(getInventoryDescription(i) || "-")}</td>
                 <td>${i.cantidad_propia !== null ? i.cantidad_propia.toLocaleString() : "-"}</td>
