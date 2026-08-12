@@ -830,6 +830,62 @@ def _excel_number(value) -> float:
         raise ValueError(f"valor numérico inválido: {value}")
 
 
+QUOTE_IMPORT_REQUIRED_HEADERS = {
+    "fecha_registro": "FECHA DE REGISTRO",
+    "organizacion_ventas": "ORGANIZACION DE VENTAS",
+    "numero_cotizacion": "NUMERO DE COTIZACION",
+    "vendedor_codigo": "VENDEDOR",
+    "vendedor_nombre": "NOMBRE DEL VENDEDOR",
+    "numero_cliente": "NUMERO DEL CLIENTE",
+    "cliente_nombre": "NOMBRE DEL CLIENTE",
+    "telefono": "NUMERO DE TELEFONO",
+    "celular": "NUMERO DE CELULAR",
+    "email": "DIRECCION CORREO ELECTRONICO",
+    "numero_factura": "NUMERO DE FACTURA",
+    "fecha_factura": "FECHA DE FACTURA",
+    "importe_cotizado": "IMPORTE COTIZADO C/IVA",
+    "importe_facturado": "IMPORTE FACTURADO C/IVA",
+    "porcentaje_importe": "PORCENTAJE DE IMPORTE",
+    "materiales_cotizados": "MATERIALES COTIZADOS",
+    "materiales_facturados": "MATERIALES FACTURADOS",
+    "porcentaje_materiales": "PORCENTAJE DE MATERIALES",
+}
+QUOTE_IMPORT_CHANNEL_HEADER = "TIPO DE ENTREGA"
+QUOTE_IMPORT_LEGACY_CHANNEL_HEADER = "CANAL"
+
+
+def _quote_import_column_indices(worksheet) -> dict[str, int]:
+    """Resuelve el layout por encabezado y prioriza el canal del formato nuevo."""
+    headers = {}
+    for index, cell in enumerate(worksheet[1]):
+        header = normalize_text(cell.value)
+        if header:
+            headers[header] = index
+    missing = [
+        label
+        for label in QUOTE_IMPORT_REQUIRED_HEADERS.values()
+        if label not in headers
+    ]
+    channel_header = (
+        QUOTE_IMPORT_CHANNEL_HEADER
+        if QUOTE_IMPORT_CHANNEL_HEADER in headers
+        else QUOTE_IMPORT_LEGACY_CHANNEL_HEADER
+    )
+    if channel_header not in headers:
+        missing.append(
+            f"{QUOTE_IMPORT_CHANNEL_HEADER} (o {QUOTE_IMPORT_LEGACY_CHANNEL_HEADER} legado)"
+        )
+    if missing:
+        raise ValueError("Faltan columnas requeridas: " + ", ".join(missing))
+
+    indices = {
+        field: headers[label]
+        for field, label in QUOTE_IMPORT_REQUIRED_HEADERS.items()
+    }
+    indices["canal"] = headers[channel_header]
+    return indices
+
+
 def _apply_imported_quote_values(cotizacion: Cotizacion, values: dict) -> Cotizacion:
     """Actualiza únicamente campos provenientes del Excel y conserva seguimiento."""
     for field, value in values.items():
@@ -1121,6 +1177,7 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
         try:
             wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
             ws = wb.active
+            column_indices = _quote_import_column_indices(ws)
             
             users_res = await db.execute(select(Usuario))
             users = users_res.scalars().all()
@@ -1167,32 +1224,58 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
             iter_rows = ws.iter_rows(min_row=2, values_only=True)
             
             for row in iter_rows:
-                if not row or not row[0]:
+                if not row:
                     continue
-                    
-                fecha_reg = safe_date(row[0])
-                org_ventas = str(row[1]).strip() if row[1] is not None else None
-                num_cot_val = str(row[2]).strip() if row[2] is not None else None
-                canal_val = str(row[3]).strip() if row[3] is not None else None
-                vend_codigo = str(row[4]).strip() if row[4] is not None else None
-                vend_nombre = str(row[5]).strip() if row[5] is not None else None
-                num_cliente = str(row[6]).strip() if row[6] is not None else None
-                cliente_nombre = str(row[7]).strip() if row[7] is not None else None
-                telefono = str(row[8]).strip() if row[8] is not None else None
-                celular = str(row[9]).strip() if row[9] is not None else None
-                email = str(row[10]).strip() if row[10] is not None else None
-                num_factura = str(row[11]).strip() if row[11] is not None else None
-                fecha_fac = safe_date(row[12])
-                
-                importe_cot = safe_float(row[13])
-                importe_fac = safe_float(row[14])
-                pct_importe = safe_float(row[15])
-                mat_cot = str(row[16]).strip() if row[16] is not None else None
-                mat_fac = str(row[17]).strip() if row[17] is not None else None
-                pct_mat = safe_float(row[18])
-                
+                num_cot_val = _excel_identifier(
+                    row[column_indices["numero_cotizacion"]]
+                )
                 if not num_cot_val:
                     continue
+
+                fecha_reg = safe_date(row[column_indices["fecha_registro"]])
+                org_ventas = _excel_identifier(
+                    row[column_indices["organizacion_ventas"]]
+                )
+                canal_val = _excel_identifier(row[column_indices["canal"]])
+                vend_codigo = _excel_identifier(
+                    row[column_indices["vendedor_codigo"]]
+                )
+                vend_nombre = _excel_identifier(
+                    row[column_indices["vendedor_nombre"]]
+                )
+                num_cliente = _excel_identifier(
+                    row[column_indices["numero_cliente"]]
+                )
+                cliente_nombre = _excel_identifier(
+                    row[column_indices["cliente_nombre"]]
+                )
+                telefono = _excel_identifier(row[column_indices["telefono"]])
+                celular = _excel_identifier(row[column_indices["celular"]])
+                email = _excel_identifier(row[column_indices["email"]])
+                num_factura = _excel_identifier(
+                    row[column_indices["numero_factura"]]
+                )
+                fecha_fac = safe_date(row[column_indices["fecha_factura"]])
+
+                importe_cot = safe_float(
+                    row[column_indices["importe_cotizado"]]
+                )
+                importe_fac = safe_float(
+                    row[column_indices["importe_facturado"]]
+                )
+                pct_importe = safe_float(
+                    row[column_indices["porcentaje_importe"]]
+                )
+                mat_cot = _excel_identifier(
+                    row[column_indices["materiales_cotizados"]]
+                )
+                mat_fac = _excel_identifier(
+                    row[column_indices["materiales_facturados"]]
+                )
+                pct_mat = safe_float(
+                    row[column_indices["porcentaje_materiales"]]
+                )
+
                 if num_cot_val in seen_numbers:
                     raise ValueError(
                         f"El número de cotización {num_cot_val} está duplicado en el Excel."

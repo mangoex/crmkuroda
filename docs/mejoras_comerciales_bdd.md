@@ -16,6 +16,16 @@
 **Dado** un código no configurado
 **Entonces** la operación aparece en `Sin clasificar`.
 
+**Dado** un layout de cotizaciones con las columnas `Canal` y
+`Tipo de Entrega`
+**Cuando** gerencia importa el archivo
+**Entonces** `cotizaciones.canal` conserva el valor de `Tipo de Entrega`
+**Y** la posición física de las columnas no altera el mapeo.
+
+**Dado** un layout legado sin `Tipo de Entrega` pero con `Canal`
+**Cuando** gerencia importa el archivo
+**Entonces** el sistema usa `Canal` como compatibilidad temporal.
+
 ## HU-03
 
 **Dado** cualquier rol autenticado
