@@ -1,8 +1,8 @@
 # PRD — Analítica y seguimiento comercial
 
 Estado: aprobado para desarrollo
-Versión: 1.2
-Fecha: 2026-08-06
+Versión: 1.3
+Fecha: 2026-08-11
 
 ## Objetivo
 
@@ -24,6 +24,10 @@ a sus cotizaciones.
   venta perdida.
 - Los canales se normalizan mediante un catálogo administrable. Un código sin
   relación explícita se reporta como `Sin clasificar`.
+- En el layout resumen de cotizaciones, `Tipo de Entrega` es la fuente
+  autoritativa de `cotizaciones.canal`. La columna `Canal` se acepta únicamente
+  como compatibilidad con archivos legados que todavía no incluyan
+  `Tipo de Entrega`.
 - Las coincidencias de promociones se realizan únicamente por código exacto de
   material y vigencia.
 - Ver todas las cotizaciones significa poder recorrer el universo autorizado
@@ -59,6 +63,11 @@ debe reconciliar con el total de partidas facturadas del mismo filtro.
 Gerencia y vendedores consultan importe facturado, operaciones, importe
 cotizado, conversión, ticket promedio y participación por canal. Los códigos
 desconocidos permanecen visibles como `Sin clasificar`.
+
+Al importar el layout nuevo, el canal bruto se toma de la columna
+`Tipo de Entrega`, aunque la columna legada `Canal` también esté presente. La
+normalización posterior conserva el catálogo administrable y no inventa
+equivalencias entre tipos de entrega y canales comerciales.
 
 ### HU-03 — Orden fijo del menú lateral y modo claro exclusivo
 
@@ -125,6 +134,9 @@ meta legada únicamente como respaldo cuando no hay una nueva configurada.
 - `NFR-DATA-001`: una reconciliación de Excel sólo puede eliminar cotizaciones
   importadas con número de cotización que no estén presentes en el archivo;
   nunca elimina cotizaciones manuales o generadas por agente sin folio.
+- `NFR-DATA-002`: el importador del resumen resuelve las columnas por encabezado
+  normalizado, no por posición. Si existe `Tipo de Entrega`, prevalece sobre
+  `Canal`; si faltan columnas requeridas, la carga falla antes de reconciliar.
 - `NFR-METAS-001`: una meta no puede mezclar alcances: general no admite
   vendedor ni sucursal; vendedor requiere vendedor válido; sucursal requiere
   `organizacion_ventas` explícita.

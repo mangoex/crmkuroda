@@ -2,6 +2,7 @@ import io
 import unittest
 from datetime import datetime
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import openpyxl
@@ -11,6 +12,7 @@ from app.api.v1.cotizaciones import (
     _apply_imported_quote_values,
     _get_authorized_quote,
     create_quote_comment,
+    process_excel_background,
     update_quote_comment,
     upload_quote_material_detail,
 )
@@ -38,6 +40,7 @@ class FakeDatabase:
         self.added = []
         self.added_many = []
         self.commits = 0
+        self.rollbacks = 0
         self.execute_calls = 0
 
     async def execute(self, _statement):
@@ -54,6 +57,9 @@ class FakeDatabase:
 
     async def commit(self):
         self.commits += 1
+
+    async def rollback(self):
+        self.rollbacks += 1
 
     async def refresh(self, item):
         if item.id is None:
@@ -86,7 +92,136 @@ def build_detail_workbook(rows):
     return buffer
 
 
+def build_summary_workbook(
+    *,
+    tipo_entrega="PIDE Y RECOGE",
+    reorder_columns=False,
+    omit_header=None,
+):
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    pairs = [
+        ("Fecha de Registro", datetime(2026, 8, 10)),
+        ("Organizacion de Ventas", "MK01"),
+        ("Numero de Cotizacion", "416662973"),
+        ("Canal", "01"),
+        ("Vendedor", "C01"),
+        ("Nombre del Vendedor", "LORENA PERAZA"),
+        ("Numero del Cliente", "400191"),
+        ("Nombre del Cliente", "JESUS JAIME HERNANDEZ CAM"),
+        ("Numero de Telefono", "1"),
+        ("Numero de Celular", None),
+        ("Direccion Correo Electronico", "cliente@example.com"),
+        ("Numero de Factura", "1325607139"),
+        ("Fecha de Factura", datetime(2026, 8, 10)),
+        ("Importe Cotizado c/IVA", 751.44),
+        ("Importe Facturado c/IVA", 751.44),
+        ("Porcentaje de Importe", 100),
+        ("Materiales Cotizados", 2),
+        ("Materiales Facturados", 2),
+        ("Porcentaje de Materiales", 100),
+    ]
+    if tipo_entrega is not None:
+        pairs.append(("Tipo de Entrega", tipo_entrega))
+    if omit_header is not None:
+        pairs = [pair for pair in pairs if pair[0] != omit_header]
+    if reorder_columns:
+        pairs = [pairs[-1], *pairs[:-1]]
+    sheet.append([header for header, _value in pairs])
+    sheet.append([value for _header, value in pairs])
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+class FakeSessionLocal:
+    def __init__(self, database):
+        self.database = database
+
+    async def __aenter__(self):
+        return self.database
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        return False
+
+
 class CommercialApiWorkflowTest(unittest.IsolatedAsyncioTestCase):
+    async def test_summary_import_uses_tipo_entrega_as_channel(self):
+        database = FakeDatabase(
+            [
+                FakeScalarResult([]),
+                FakeScalarResult([]),
+            ]
+        )
+        register_update = AsyncMock()
+
+        with (
+            patch(
+                "app.core.database.SessionLocal",
+                return_value=FakeSessionLocal(database),
+            ),
+            patch(
+                "app.services.actualizaciones_datos.registrar_actualizacion_datos",
+                new=register_update,
+            ),
+        ):
+            error = await process_excel_background(
+                build_summary_workbook(
+                    tipo_entrega="PIDE Y RECOGE",
+                    reorder_columns=True,
+                ),
+                uuid4(),
+            )
+
+        self.assertIsNone(error)
+        self.assertEqual(database.added_many[0].canal, "PIDE Y RECOGE")
+        self.assertEqual(database.added_many[0].numero_cotizacion, "416662973")
+        self.assertEqual(database.commits, 1)
+        register_update.assert_awaited_once()
+
+    async def test_summary_import_accepts_legacy_canal_column(self):
+        database = FakeDatabase(
+            [
+                FakeScalarResult([]),
+                FakeScalarResult([]),
+            ]
+        )
+
+        with (
+            patch(
+                "app.core.database.SessionLocal",
+                return_value=FakeSessionLocal(database),
+            ),
+            patch(
+                "app.services.actualizaciones_datos.registrar_actualizacion_datos",
+                new=AsyncMock(),
+            ),
+        ):
+            error = await process_excel_background(
+                build_summary_workbook(tipo_entrega=None),
+                uuid4(),
+            )
+
+        self.assertIsNone(error)
+        self.assertEqual(database.added_many[0].canal, "01")
+
+    async def test_summary_import_rejects_incomplete_layout_before_queries(self):
+        database = FakeDatabase([])
+
+        with patch(
+            "app.core.database.SessionLocal",
+            return_value=FakeSessionLocal(database),
+        ):
+            error = await process_excel_background(
+                build_summary_workbook(omit_header="Nombre del Cliente"),
+                uuid4(),
+            )
+
+        self.assertIn("Faltan columnas requeridas: NOMBRE DEL CLIENTE", error)
+        self.assertEqual(database.execute_calls, 0)
+        self.assertEqual(database.commits, 0)
+        self.assertEqual(database.rollbacks, 1)
+
     async def test_summary_reconciliation_preserves_followup_fields(self):
         quote_id = uuid4()
         quote = SimpleNamespace(
