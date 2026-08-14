@@ -8235,10 +8235,15 @@ async function loadManagerAsignacionView() {
             activeSellers.forEach(s => {
                 const item = document.createElement("div");
                 item.style = "display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 10px; border-radius: 6px;";
+                const codeBadge = s.codigo_vendedor 
+                    ? `<span style="background: rgba(167,139,250,0.15); color: #a78bfa; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; margin-right: 6px; border: 1px solid rgba(167,139,250,0.3);">${escapeHTML(s.codigo_vendedor)}</span>`
+                    : '';
+                const nameText = escapeHTML(s.nombre_completo || s.email);
                 item.innerHTML = `
                     <input type="checkbox" class="seller-checkbox" value="${s.id}">
                     <div>
-                        <strong style="font-size: 13px; color: #fff;">${s.codigo_vendedor ? s.codigo_vendedor + ' - ' : ''}${s.nombre_completo || s.email}</strong>
+                        <strong style="font-size: 13px; color: #fff;">${codeBadge}${nameText}</strong>
+                        ${s.email && s.nombre_completo ? `<span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">${escapeHTML(s.email)}</span>` : ''}
                     </div>
                 `;
                 listSellers.appendChild(item);
@@ -8598,8 +8603,13 @@ async function loadCatalogClients() {
     }
 }
 
+// Expose openCatalogModal globally
+window.openCatalogModal = openCatalogModal;
+window.loadCatalogClients = loadCatalogClients;
+
 // Register catalog modal listeners (script runs at bottom of body, DOM ready)
 (function() {
+    document.getElementById("btn-add-catalog-clients")?.addEventListener("click", openCatalogModal);
     document.getElementById("btn-close-catalog-modal")?.addEventListener("click", () => {
         document.getElementById("catalog-clients-modal")?.classList.add("hidden");
     });
