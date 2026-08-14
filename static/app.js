@@ -8523,141 +8523,121 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("bidding-modal").classList.add("hidden");
         });
     }
+});
 
-    // Catalog Clients Modal
-    let catalogPage = 1;
-    let catalogSearch = "";
-    let catalogSelected = new Set();
+// Catalog Clients Modal - global state & functions
+let catalogPage = 1;
+let catalogSearch = "";
+let catalogSelected = new Set();
 
-    const btnAddCatalog = document.getElementById("btn-add-catalog-clients");
-    const catalogModal = document.getElementById("catalog-clients-modal");
-    const btnCloseCatalog = document.getElementById("btn-close-catalog-modal");
-    const btnCancelCatalog = document.getElementById("btn-cancel-catalog");
-    const catalogSearchInput = document.getElementById("catalog-search-input");
+function openCatalogModal() {
+    catalogPage = 1;
+    catalogSearch = "";
+    catalogSelected.clear();
+    const input = document.getElementById("catalog-search-input");
+    if (input) input.value = "";
+    const modal = document.getElementById("catalog-clients-modal");
+    if (modal) modal.classList.remove("hidden");
+    loadCatalogClients();
+}
+
+async function loadCatalogClients() {
     const catalogList = document.getElementById("catalog-clients-list");
-    const catalogPagination = document.getElementById("catalog-pagination");
-    const btnConfirmAdd = document.getElementById("btn-confirm-add-clients");
+    if (!catalogList) return;
+    try {
+        const params = new URLSearchParams();
+        params.set("page", catalogPage);
+        params.set("limit", "30");
+        if (catalogSearch) params.set("search", catalogSearch);
 
-    if (btnAddCatalog && catalogModal) {
-        btnAddCatalog.addEventListener("click", () => {
-            catalogPage = 1;
-            catalogSearch = "";
-            catalogSelected.clear();
-            if (catalogSearchInput) catalogSearchInput.value = "";
-            catalogModal.classList.remove("hidden");
-            loadCatalogClients();
-        });
-    }
+        const res = await apiRequest("/api/v1/asignaciones/clientes-catalogo?" + params.toString());
+        const clientes = res.data || [];
+        const total = res.total || 0;
+        const pages = res.pages || 1;
 
-    if (btnCloseCatalog) {
-        btnCloseCatalog.addEventListener("click", () => catalogModal.classList.add("hidden"));
-    }
-    if (btnCancelCatalog) {
-        btnCancelCatalog.addEventListener("click", () => catalogModal.classList.add("hidden"));
-    }
+        if (clientes.length === 0) {
+            catalogList.innerHTML = `<p style="font-size: 13px; color: hsl(var(--text-secondary)); text-align: center; margin: 20px 0;">No se encontraron clientes en el cat&aacute;logo.</p>`;
+        } else {
+            catalogList.innerHTML = clientes.map(c => `
+                <div style="display: flex; align-items: flex-start; gap: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 10px; border-radius: 6px;">
+                    <input type="checkbox" class="catalog-client-checkbox" value="${c.id}" ${catalogSelected.has(c.id) ? 'checked' : ''} style="margin-top: 3px;">
+                    <div>
+                        <strong style="font-size: 13px; color: #fff;">${escapeHTML(c.nombre)}</strong>
+                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
+                            ${c.rfc ? 'RFC: ' + c.rfc + ' | ' : ''}${c.numero_cliente ? '# ' + c.numero_cliente : ''}
+                        </span>
+                    </div>
+                </div>
+            `).join("");
 
-    if (catalogSearchInput) {
-        let searchTimeout;
-        catalogSearchInput.addEventListener("input", () => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                catalogSearch = catalogSearchInput.value.trim();
+            catalogList.querySelectorAll(".catalog-client-checkbox").forEach(cb => {
+                cb.addEventListener("change", () => {
+                    const id = parseInt(cb.value);
+                    if (cb.checked) catalogSelected.add(id);
+                    else catalogSelected.delete(id);
+                });
+            });
+        }
+
+        const catalogPagination = document.getElementById("catalog-pagination");
+        if (catalogPagination) {
+            catalogPagination.innerHTML = `
+                <button class="btn btn-sm btn-secondary" ${catalogPage <= 1 ? 'disabled' : ''} id="catalog-prev-btn" style="padding: 2px 10px; font-size: 11px;">&laquo; Anterior</button>
+                <span style="color: hsl(var(--text-secondary));">P&aacute;g. ${catalogPage} de ${pages}</span>
+                <button class="btn btn-sm btn-secondary" ${catalogPage >= pages ? 'disabled' : ''} id="catalog-next-btn" style="padding: 2px 10px; font-size: 11px;">Siguiente &raquo;</button>
+            `;
+            document.getElementById("catalog-prev-btn")?.addEventListener("click", () => {
+                if (catalogPage > 1) { catalogPage--; loadCatalogClients(); }
+            });
+            document.getElementById("catalog-next-btn")?.addEventListener("click", () => {
+                if (catalogPage < pages) { catalogPage++; loadCatalogClients(); }
+            });
+        }
+    } catch (err) {
+        catalogList.innerHTML = `<p style="font-size: 13px; color: #ef4444; text-align: center;">Error al cargar cat&aacute;logo: ${escapeHTML(err.message)}</p>`;
+    }
+}
+
+// Register catalog modal listeners (script runs at bottom of body, DOM ready)
+(function() {
+    document.getElementById("btn-close-catalog-modal")?.addEventListener("click", () => {
+        document.getElementById("catalog-clients-modal")?.classList.add("hidden");
+    });
+    document.getElementById("btn-cancel-catalog")?.addEventListener("click", () => {
+        document.getElementById("catalog-clients-modal")?.classList.add("hidden");
+    });
+    const searchInput = document.getElementById("catalog-search-input");
+    if (searchInput) {
+        let timeout;
+        searchInput.addEventListener("input", () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                catalogSearch = searchInput.value.trim();
                 catalogPage = 1;
                 catalogSelected.clear();
                 loadCatalogClients();
             }, 350);
         });
     }
-
-    async function loadCatalogClients() {
-        if (!catalogList) return;
-        try {
-            const params = new URLSearchParams();
-            params.set("page", catalogPage);
-            params.set("limit", "30");
-            if (catalogSearch) params.set("search", catalogSearch);
-
-            const res = await apiRequest("/api/v1/asignaciones/clientes-catalogo?" + params.toString());
-            const clientes = res.data || [];
-            const total = res.total || 0;
-            const pages = res.pages || 1;
-
-            if (clientes.length === 0) {
-                catalogList.innerHTML = `<p style="font-size: 13px; color: hsl(var(--text-secondary)); text-align: center; margin: 20px 0;">No se encontraron clientes en el cat&aacute;logo.</p>`;
-            } else {
-                catalogList.innerHTML = clientes.map(c => `
-                    <div style="display: flex; align-items: flex-start; gap: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 10px; border-radius: 6px;">
-                        <input type="checkbox" class="catalog-client-checkbox" value="${c.id}" ${catalogSelected.has(c.id) ? 'checked' : ''} style="margin-top: 3px;">
-                        <div>
-                            <strong style="font-size: 13px; color: #fff;">${escapeHTML(c.nombre)}</strong>
-                            <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
-                                ${c.rfc ? 'RFC: ' + c.rfc + ' | ' : ''}${c.numero_cliente ? '# ' + c.numero_cliente : ''}
-                            </span>
-                        </div>
-                    </div>
-                `).join("");
-
-                catalogList.querySelectorAll(".catalog-client-checkbox").forEach(cb => {
-                    cb.addEventListener("change", () => {
-                        const id = parseInt(cb.value);
-                        if (cb.checked) {
-                            catalogSelected.add(id);
-                        } else {
-                            catalogSelected.delete(id);
-                        }
-                    });
-                });
-            }
-
-            if (catalogPagination) {
-                catalogPagination.innerHTML = `
-                    <button class="btn btn-sm btn-secondary" ${catalogPage <= 1 ? 'disabled' : ''} id="catalog-prev-btn" style="padding: 2px 10px; font-size: 11px;">&laquo; Anterior</button>
-                    <span style="color: hsl(var(--text-secondary));">P&aacute;g. ${catalogPage} de ${pages}</span>
-                    <button class="btn btn-sm btn-secondary" ${catalogPage >= pages ? 'disabled' : ''} id="catalog-next-btn" style="padding: 2px 10px; font-size: 11px;">Siguiente &raquo;</button>
-                `;
-
-                const prevBtn = document.getElementById("catalog-prev-btn");
-                const nextBtn = document.getElementById("catalog-next-btn");
-                if (prevBtn) {
-                    prevBtn.addEventListener("click", () => {
-                        if (catalogPage > 1) { catalogPage--; loadCatalogClients(); }
-                    });
-                }
-                if (nextBtn) {
-                    nextBtn.addEventListener("click", () => {
-                        if (catalogPage < pages) { catalogPage++; loadCatalogClients(); }
-                    });
-                }
-            }
-        } catch (err) {
-            if (catalogList) {
-                catalogList.innerHTML = `<p style="font-size: 13px; color: #ef4444; text-align: center;">Error al cargar cat&aacute;logo: ${escapeHTML(err.message)}</p>`;
-            }
+    document.getElementById("btn-confirm-add-clients")?.addEventListener("click", async () => {
+        if (catalogSelected.size === 0) {
+            showToast("Selecciona al menos un cliente para agregar.", "error");
+            return;
         }
-    }
-
-    if (btnConfirmAdd && catalogModal) {
-        btnConfirmAdd.addEventListener("click", async () => {
-            if (catalogSelected.size === 0) {
-                showToast("Selecciona al menos un cliente para agregar.", "error");
-                return;
-            }
-            try {
-                const ids = Array.from(catalogSelected);
-                const res = await apiRequest("/api/v1/asignaciones/agregar-clientes", {
-                    method: "POST",
-                    body: JSON.stringify(ids)
-                });
-                showToast(res.message);
-                catalogModal.classList.add("hidden");
-                loadManagerAsignacionView();
-            } catch (err) {
-                showToast("Error al agregar clientes: " + err.message, "error");
-            }
-        });
-    }
-});
-
+        try {
+            const ids = Array.from(catalogSelected);
+            const res = await apiRequest("/api/v1/asignaciones/agregar-clientes", {
+                method: "POST",
+                body: JSON.stringify(ids)
+            });
+            showToast(res.message);
+            document.getElementById("catalog-clients-modal")?.classList.add("hidden");
+            loadManagerAsignacionView();
+        } catch (err) {
+            showToast("Error al agregar clientes: " + err.message, "error");
+        }
+    });
+})();
 
 
 // --- COTIZACIONES UPLOAD LOGIC ---
