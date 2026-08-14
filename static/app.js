@@ -8207,19 +8207,19 @@ async function loadManagerAsignacionView() {
         listAvailable.innerHTML = "";
         const availableClients = clients.filter(c => c.estado === "disponible");
         if (availableClients.length === 0) {
-            listAvailable.innerHTML = `<p style="font-size: 13px; color: hsl(var(--text-secondary)); text-align: center; margin: 20px 0;">No hay clientes disponibles para asignación.</p>`;
+            listAvailable.innerHTML = `<p style="font-size: 13px; color: #64748b; text-align: center; margin: 20px 0;">No hay clientes disponibles para asignación.</p>`;
         } else {
             availableClients.forEach(c => {
                 const item = document.createElement("div");
-                item.style = "display: flex; align-items: flex-start; gap: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px; border-radius: 6px;";
+                item.style = "display: flex; align-items: flex-start; gap: 12px; background: #ffffff; border: 1px solid #e2e8f0; padding: 12px 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);";
                 item.innerHTML = `
-                    <input type="checkbox" class="client-checkbox" value="${c.id}" style="margin-top: 3px;">
-                    <div style="flex: 1;">
-                        <strong style="font-size: 14px; color: #fff;">${escapeHTML(c.nombre)}</strong>
-                        <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
+                    <input type="checkbox" class="client-checkbox" value="${c.id}" style="margin-top: 3px; cursor: pointer; width: 16px; height: 16px; accent-color: #ef4444;">
+                    <div style="flex: 1; min-width: 0;">
+                        <strong style="font-size: 14px; font-weight: 700; color: #0f172a; display: block; line-height: 1.3;">${escapeHTML(c.nombre)}</strong>
+                        <span style="font-size: 12px; color: #64748b; display: block; margin-top: 3px;">
                             ${buildContactHtml({ email: c.email, telefono: c.telefono })}
                         </span>
-                        ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: #38bdf8;">${c.comentarios}</p>` : ''}
+                        ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: #0369a1; background: #f0f9ff; padding: 4px 8px; border-radius: 4px; border: 1px solid #bae6fd;">${escapeHTML(c.comentarios)}</p>` : ''}
                     </div>
                 `;
                 listAvailable.appendChild(item);
@@ -8230,20 +8230,20 @@ async function loadManagerAsignacionView() {
         listSellers.innerHTML = "";
         const activeSellers = sellers.filter(s => s.rol === "vendedor");
         if (activeSellers.length === 0) {
-            listSellers.innerHTML = `<p style="font-size: 13px; color: hsl(var(--text-secondary)); text-align: center; margin: 20px 0;">No hay vendedores registrados.</p>`;
+            listSellers.innerHTML = `<p style="font-size: 13px; color: #64748b; text-align: center; margin: 20px 0;">No hay vendedores registrados.</p>`;
         } else {
             activeSellers.forEach(s => {
                 const item = document.createElement("div");
-                item.style = "display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 10px; border-radius: 6px;";
+                item.style = "display: flex; align-items: center; gap: 12px; background: #ffffff; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);";
                 const codeBadge = s.codigo_vendedor 
-                    ? `<span style="background: rgba(167,139,250,0.15); color: #a78bfa; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; margin-right: 6px; border: 1px solid rgba(167,139,250,0.3);">${escapeHTML(s.codigo_vendedor)}</span>`
+                    ? `<span style="background: #ede9fe; color: #6d28d9; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; border: 1px solid #ddd6fe; margin-right: 6px;">${escapeHTML(s.codigo_vendedor)}</span>`
                     : '';
                 const nameText = escapeHTML(s.nombre_completo || s.email);
                 item.innerHTML = `
-                    <input type="checkbox" class="seller-checkbox" value="${s.id}">
-                    <div>
-                        <strong style="font-size: 13px; color: #fff;">${codeBadge}${nameText}</strong>
-                        ${s.email && s.nombre_completo ? `<span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">${escapeHTML(s.email)}</span>` : ''}
+                    <input type="checkbox" class="seller-checkbox" value="${s.id}" style="cursor: pointer; width: 16px; height: 16px; accent-color: #ef4444;">
+                    <div style="flex: 1; min-width: 0;">
+                        <strong style="font-size: 13.5px; font-weight: 600; color: #0f172a;">${codeBadge}${nameText}</strong>
+                        ${s.email && s.nombre_completo ? `<span style="font-size: 11.5px; color: #64748b; display: block; margin-top: 1px;">${escapeHTML(s.email)}</span>` : ''}
                     </div>
                 `;
                 listSellers.appendChild(item);
@@ -8254,30 +8254,30 @@ async function loadManagerAsignacionView() {
         activeAuctions.innerHTML = "";
         const auctionClients = clients.filter(c => c.estado === "en_subasta");
         if (auctionClients.length === 0) {
-            activeAuctions.innerHTML = `<p style="font-size: 13px; color: hsl(var(--text-secondary)); text-align: center; margin: 20px 0;">No hay subastas activas en este momento.</p>`;
+            activeAuctions.innerHTML = `<p style="font-size: 13px; color: #64748b; text-align: center; margin: 20px 0;">No hay subastas activas en este momento.</p>`;
         } else {
             auctionClients.forEach(c => {
                 const item = document.createElement("div");
-                item.style = "background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 18px; border-radius: 8px; border-left: 4px solid #f59e0b; margin-bottom: 12px;";
+                item.style = "background: #ffffff; border: 1px solid #e2e8f0; padding: 18px; border-radius: 10px; border-left: 4px solid #f59e0b; box-shadow: 0 2px 4px rgba(0,0,0,0.04); margin-bottom: 14px;";
                 
                 let bidsHtml = "";
                 if (!c.pujas || c.pujas.length === 0) {
-                    bidsHtml = `<p style="font-size: 12px; color: hsl(var(--text-secondary)); margin: 10px 0 0 0; font-style: italic;">Esperando postulaciones de los vendedores...</p>`;
+                    bidsHtml = `<p style="font-size: 12px; color: #94a3b8; margin: 10px 0 0 0; font-style: italic;">Esperando postulaciones de los vendedores...</p>`;
                 } else {
                     bidsHtml = `
-                        <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 14px;">
-                            <h4 style="margin: 0 0 6px 0; font-size: 13px; color: #f59e0b;">Postulaciones Recibidas (${c.pujas.length}):</h4>
+                        <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #e2e8f0; padding-top: 14px;">
+                            <h4 style="margin: 0 0 6px 0; font-size: 13px; color: #d97706; font-weight: 700;">Postulaciones Recibidas (${c.pujas.length}):</h4>
                             ${c.pujas.map(p => `
-                                <div style="background: rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.03); padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: flex-start; gap: 14px;">
-                                    <div style="flex: 1;">
-                                        <span style="font-size: 12px; color: #a78bfa; font-weight: bold;">
-                                            ${p.vendedor ? (p.vendedor.nombre_completo || p.vendedor.email) : 'Vendedor'}
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: flex-start; gap: 14px;">
+                                    <div style="flex: 1; min-width: 0;">
+                                        <span style="font-size: 12px; color: #6d28d9; font-weight: 700;">
+                                            ${escapeHTML(p.vendedor ? (p.vendedor.nombre_completo || p.vendedor.email) : 'Vendedor')}
                                         </span>
-                                        <p style="margin: 6px 0 0 0; font-size: 13px; color: hsl(var(--text-primary)); line-height: 1.4;">
-                                            "${p.razon}"
+                                        <p style="margin: 6px 0 0 0; font-size: 13px; color: #1e293b; line-height: 1.4;">
+                                            "${escapeHTML(p.razon)}"
                                         </p>
                                     </div>
-                                    <button class="btn btn-primary btn-sm btn-approve-bid" data-client="${c.id}" data-bid="${p.id}" style="padding: 6px 12px; font-size: 11px;">
+                                    <button class="btn btn-primary btn-sm btn-approve-bid" data-client="${c.id}" data-bid="${p.id}" style="padding: 6px 14px; font-size: 12px; font-weight: 600; white-space: nowrap;">
                                         <i class="fa-solid fa-check"></i> Asignar
                                     </button>
                                 </div>
@@ -8287,15 +8287,15 @@ async function loadManagerAsignacionView() {
                 }
 
                 item.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                        <div>
-                            <strong style="font-size: 15px; color: #fff;">${escapeHTML(c.nombre)}</strong>
-                            <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+                        <div style="flex: 1; min-width: 0;">
+                            <strong style="font-size: 15px; font-weight: 700; color: #0f172a;">${escapeHTML(c.nombre)}</strong>
+                            <span style="font-size: 12px; color: #64748b; display: block; margin-top: 3px;">
                                 ${buildContactHtml({ email: c.email, telefono: c.telefono })}
                             </span>
-                            ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: hsl(var(--text-secondary));">${c.comentarios}</p>` : ''}
+                            ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: #64748b;">${escapeHTML(c.comentarios)}</p>` : ''}
                         </div>
-                        <span class="badge" style="background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); font-size: 11px;">En Subasta</span>
+                        <span class="badge" style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 4px;">En Subasta</span>
                     </div>
                     ${bidsHtml}
                 `;
@@ -8347,14 +8347,14 @@ async function loadSellerAsignacionView() {
         const assigned = clients.filter(c => c.estado === "asignado" && c.asignado_a === state.user.id);
         
         if (auctions.length === 0 && assigned.length === 0) {
-            listSellers.innerHTML = `<p style="font-size: 13px; color: hsl(var(--text-secondary)); text-align: center; margin: 20px 0;">No tienes subastas disponibles ni clientes asignados.</p>`;
+            listSellers.innerHTML = `<p style="font-size: 13px; color: #64748b; text-align: center; margin: 20px 0;">No tienes subastas disponibles ni clientes asignados.</p>`;
             return;
         }
 
         // Render Auctions
         if (auctions.length > 0) {
             const auctionTitle = document.createElement("h4");
-            auctionTitle.style = "margin: 10px 0; font-size: 14px; color: #f59e0b;";
+            auctionTitle.style = "margin: 10px 0; font-size: 14px; color: #d97706; font-weight: 700;";
             auctionTitle.textContent = "Subastas Activas:";
             listSellers.appendChild(auctionTitle);
 
@@ -8363,28 +8363,28 @@ async function loadSellerAsignacionView() {
                 const myBid = c.pujas ? c.pujas.find(p => p.vendedor_id === state.user.id) : null;
                 
                 const item = document.createElement("div");
-                item.style = "background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 18px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 12px;";
+                item.style = "background: #ffffff; border: 1px solid #e2e8f0; padding: 18px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);";
                 
                 let actionHtml = "";
                 if (myBid) {
                     actionHtml = `
                         <div style="text-align: right;">
-                            <span class="badge" style="background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); font-size: 11px; display: inline-block; margin-bottom: 4px;">Propuesta Enviada</span>
-                            <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block;">"${myBid.razon.substring(0, 30)}..."</span>
+                            <span class="badge" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-size: 11px; font-weight: 600; display: inline-block; margin-bottom: 4px; padding: 3px 8px; border-radius: 4px;">Propuesta Enviada</span>
+                            <span style="font-size: 11px; color: #64748b; display: block;">"${escapeHTML(myBid.razon.substring(0, 30))}..."</span>
                         </div>
                     `;
                 } else {
                     actionHtml = `
-                        <button class="btn btn-glow btn-sm btn-pujar-cliente" data-id="${c.id}" data-nombre="${escapeHTML(c.nombre)}" style="background: linear-gradient(135deg, #f59e0b, #d97706); border: none; font-weight: bold; color: #fff;">
+                        <button class="btn btn-sm btn-pujar-cliente" data-id="${c.id}" data-nombre="${escapeHTML(c.nombre)}" style="background: linear-gradient(135deg, #f59e0b, #d97706); border: none; font-weight: bold; color: #fff; padding: 8px 16px;">
                             <i class="fa-solid fa-gavel"></i> Pujar
                         </button>
                     `;
                 }
 
                 item.innerHTML = `
-                    <div style="flex: 1;">
-                        <strong style="font-size: 15px; color: #fff;">${escapeHTML(c.nombre)}</strong>
-                        ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: hsl(var(--text-secondary));">${c.comentarios}</p>` : ''}
+                    <div style="flex: 1; min-width: 0;">
+                        <strong style="font-size: 15px; font-weight: 700; color: #0f172a;">${escapeHTML(c.nombre)}</strong>
+                        ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: #64748b;">${escapeHTML(c.comentarios)}</p>` : ''}
                     </div>
                     ${actionHtml}
                 `;
@@ -8395,22 +8395,22 @@ async function loadSellerAsignacionView() {
         // Render Assigned Clientes
         if (assigned.length > 0) {
             const assignedTitle = document.createElement("h4");
-            assignedTitle.style = "margin: 20px 0 10px 0; font-size: 14px; color: #10b981;";
+            assignedTitle.style = "margin: 20px 0 10px 0; font-size: 14px; color: #059669; font-weight: 700;";
             assignedTitle.textContent = "Mis Clientes Asignados:";
             listSellers.appendChild(assignedTitle);
 
             assigned.forEach(c => {
                 const item = document.createElement("div");
-                item.style = "background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; border-left: 4px solid #10b981; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;";
+                item.style = "background: #ffffff; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; border-left: 4px solid #10b981; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);";
                 item.innerHTML = `
-                    <div>
-                        <strong style="font-size: 15px; color: #fff;">${escapeHTML(c.nombre)}</strong>
-                        <span style="font-size: 12px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
+                    <div style="flex: 1; min-width: 0;">
+                        <strong style="font-size: 15px; font-weight: 700; color: #0f172a;">${escapeHTML(c.nombre)}</strong>
+                        <span style="font-size: 12px; color: #64748b; display: block; margin-top: 3px;">
                             ${buildContactHtml({ email: c.email, telefono: c.telefono })}
                         </span>
-                        ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: hsl(var(--text-secondary));">${c.comentarios}</p>` : ''}
+                        ${c.comentarios ? `<p style="margin: 6px 0 0 0; font-size: 12px; color: #64748b;">${escapeHTML(c.comentarios)}</p>` : ''}
                     </div>
-                    <span class="badge" style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2); font-size: 11px;">Asignado</span>
+                    <span class="badge" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 4px;">Asignado</span>
                 `;
                 listSellers.appendChild(item);
             });
@@ -8561,16 +8561,18 @@ async function loadCatalogClients() {
         const pages = res.pages || 1;
 
         if (clientes.length === 0) {
-            catalogList.innerHTML = `<p style="font-size: 13px; color: hsl(var(--text-secondary)); text-align: center; margin: 20px 0;">No se encontraron clientes en el cat&aacute;logo.</p>`;
+            catalogList.innerHTML = `<p style="font-size: 13px; color: #64748b; text-align: center; margin: 24px 0;">No se encontraron clientes en el cat&aacute;logo.</p>`;
         } else {
             catalogList.innerHTML = clientes.map(c => `
-                <div style="display: flex; align-items: flex-start; gap: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 10px; border-radius: 6px;">
-                    <input type="checkbox" class="catalog-client-checkbox" value="${c.id}" ${catalogSelected.has(c.id) ? 'checked' : ''} style="margin-top: 3px;">
-                    <div>
-                        <strong style="font-size: 13px; color: #fff;">${escapeHTML(c.nombre)}</strong>
-                        <span style="font-size: 11px; color: hsl(var(--text-secondary)); display: block; margin-top: 2px;">
-                            ${c.rfc ? 'RFC: ' + c.rfc + ' | ' : ''}${c.numero_cliente ? '# ' + c.numero_cliente : ''}
-                        </span>
+                <div class="catalog-client-card" style="display: flex; align-items: flex-start; gap: 12px; background: #ffffff; border: 1px solid #e2e8f0; padding: 12px 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+                    <input type="checkbox" class="catalog-client-checkbox" value="${c.id}" ${catalogSelected.has(c.id) ? 'checked' : ''} style="margin-top: 3px; cursor: pointer; width: 16px; height: 16px; accent-color: #ef4444;">
+                    <div style="flex: 1; min-width: 0;">
+                        <strong style="font-size: 13.5px; font-weight: 700; color: #0f172a; display: block; word-break: break-word; line-height: 1.3;">${escapeHTML(c.nombre)}</strong>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px;">
+                            ${c.rfc ? `<span style="background: #f1f5f9; color: #334155; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; border: 1px solid #e2e8f0; font-family: monospace;">RFC: ${escapeHTML(c.rfc)}</span>` : ''}
+                            ${c.numero_cliente ? `<span style="background: #f1f5f9; color: #334155; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; border: 1px solid #e2e8f0;"># ${escapeHTML(c.numero_cliente)}</span>` : ''}
+                            ${c.poblacion || c.estado ? `<span style="font-size: 11px; color: #64748b;">${escapeHTML([c.poblacion, c.estado].filter(Boolean).join(', '))}</span>` : ''}
+                        </div>
                     </div>
                 </div>
             `).join("");
