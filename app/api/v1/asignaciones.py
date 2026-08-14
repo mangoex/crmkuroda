@@ -1,15 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import delete
+from sqlalchemy import delete, func, exists, not_
 from sqlalchemy.orm import selectinload
 from uuid import UUID
-from typing import List
+from typing import List, Optional
 
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.usuario import Usuario
 from app.models.cliente_asignacion import ClienteDisponible, PujaCliente
+from app.models.cliente import Cliente
 from app.schemas.asignacion import (
     AsignacionIniciar,
     PujaCrear,
@@ -313,4 +314,108 @@ async def resolver_subasta(
     return {
         "status": "success",
         "message": "Subasta resuelta. El cliente ha sido asignado al vendedor ganador."
+    }
+
+@router.get("/clientes-catalogo")
+async def list_clientes_catalogo(
+    search: Optional[str] = Query(None, description="Búsqueda por nombre, RFC o número de cliente"),
+    page: int = Query(1, ge=1, description="Número de página"),
+    limit: int = Query(30, ge=1, le=200, description="Registros por página"),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """Lista clientes del catálogo Cliente que NO están en clientes_disponibles."""
+    if current_user.rol not in ["admin", "gerente"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permiso para consultar el catálogo de clientes."
+        )
+
+    sub = select(ClienteDisponible.nombre).where(
+        ClienteDisponible.nombre == Cliente.nombre
+    )
+    query = select(Cliente).where(not_(exists(sub)))
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        from sqlalchemy import or_
+        query = query.where(
+            or_(
+                Cliente.nombre.ilike(term),
+                Cliente.rfc.ilike(term),
+                Cliente.numero_cliente.ilike(term),
+            )
+        )
+
+    count_query = select(func.count()).select_from(query.subquery())
+    count_res = await db.execute(count_query)
+    total = count_res.scalar() or 0
+
+    offset = (page - 1) * limit
+    pages = (total + limit - 1) // limit if total > 0 else 1
+
+    query = query.order_by(Cliente.nombre.asc()).offset(offset).limit(limit)
+    res = await db.execute(query)
+    clientes = res.scalars().all()
+
+    return {
+        "status": "success",
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "pages": pages,
+        "data": [c.to_dict() for c in clientes],
+    }
+
+@router.post("/agregar-clientes")
+async def agregar_clientes(
+    cliente_ids: List[int],
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """Agrega clientes del catálogo Cliente a la tabla clientes_disponibles."""
+    if current_user.rol not in ["admin", "gerente"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permiso para agregar clientes disponibles."
+        )
+
+    if not cliente_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Debes seleccionar al menos un cliente."
+        )
+
+    res = await db.execute(
+        select(Cliente).filter(Cliente.id.in_(cliente_ids))
+    )
+    clientes = res.scalars().all()
+
+    if len(clientes) != len(cliente_ids):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Uno o más clientes seleccionados no existen."
+        )
+
+    agregados = 0
+    for c in clientes:
+        existente = await db.execute(
+            select(ClienteDisponible).filter(ClienteDisponible.nombre == c.nombre)
+        )
+        if existente.scalars().first():
+            continue
+
+        nuevo = ClienteDisponible(
+            nombre=c.nombre,
+            email=c.email or None,
+            telefono=c.telefono or c.celular or None,
+            estado="disponible",
+        )
+        db.add(nuevo)
+        agregados += 1
+
+    await db.commit()
+    return {
+        "status": "success",
+        "message": f"Se agregaron {agregados} cliente(s) a la lista de disponibles."
     }

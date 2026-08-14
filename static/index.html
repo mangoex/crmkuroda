@@ -2173,7 +2173,10 @@
                             <div class="glass-card" style="padding: 24px; display: flex; flex-direction: column;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                                     <h3 style="margin: 0; font-size: 16px;"><i class="fa-solid fa-folder-open" style="color: #38bdf8; margin-right: 8px;"></i>Clientes Disponibles</h3>
-                                    <button id="btn-select-all-clients" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 12px;">Seleccionar Todos</button>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button id="btn-select-all-clients" class="btn btn-secondary btn-sm" style="padding: 4px 10px; font-size: 12px;">Seleccionar Todos</button>
+                                        <button id="btn-add-catalog-clients" class="btn btn-sm" style="padding: 4px 10px; font-size: 12px; background: rgba(56,189,248,0.15); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3);"><i class="fa-solid fa-plus"></i> Agregar Clientes</button>
+                                    </div>
                                 </div>
                                 
                                 <div style="max-height: 350px; overflow-y: auto; padding-right: 6px; display: flex; flex-direction: column; gap: 10px;" id="list-available-clients">
@@ -2445,6 +2448,29 @@
                     <button type="submit" class="btn btn-primary">Enviar Propuesta</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Add Catalog Clients Modal -->
+    <div id="catalog-clients-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>Agregar Clientes del Catálogo</h3>
+                <button id="btn-close-catalog-modal" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div class="input-group" style="margin-bottom: 16px;">
+                    <input type="text" id="catalog-search-input" placeholder="Buscar por nombre, RFC o n&uacute;mero de cliente..." style="height: 40px;">
+                </div>
+                <div id="catalog-clients-list" style="max-height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                    <p style="font-size: 13px; color: hsl(var(--text-secondary)); text-align: center;">Usa el buscador para encontrar clientes del cat&aacute;logo.</p>
+                </div>
+                <div id="catalog-pagination" style="display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 12px; font-size: 12px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-cancel-catalog" class="btn btn-secondary">Cancelar</button>
+                <button type="button" id="btn-confirm-add-clients" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Agregar Seleccionados</button>
+            </div>
         </div>
     </div>
 
