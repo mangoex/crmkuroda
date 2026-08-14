@@ -34,6 +34,13 @@ class InventarioAbcf(Base):
 
     def to_dict(self):
         fam, subfam = get_kuroda_familia_y_subfamilia(self.descrip_gpo_materiales, self.descripcion_material)
+        costo = float(self.costo_promedio_unitario) if self.costo_promedio_unitario is not None else 0.0
+        importe = float(self.importe_inventario_propio) if self.importe_inventario_propio is not None else 0.0
+        cant = float(self.cantidad_propia) if self.cantidad_propia is not None else 0.0
+        if importe == 0.0 and costo > 0.0 and cant > 0.0:
+            importe = round(costo * cant, 2)
+        elif costo == 0.0 and importe > 0.0 and cant > 0.0:
+            costo = round(importe / cant, 2)
         return {
             "id": self.id,
             "nombre_centro": self.nombre_centro,
@@ -50,8 +57,8 @@ class InventarioAbcf(Base):
             "existencia_bloqueada": self.existencia_bloqueada,
             "existencia_control_calidad": self.existencia_control_calidad,
             "umb": self.umb,
-            "costo_promedio_unitario": self.costo_promedio_unitario,
-            "importe_inventario_propio": self.importe_inventario_propio,
+            "costo_promedio_unitario": costo,
+            "importe_inventario_propio": importe,
             "valor_consignacion_proveedor": self.valor_consignacion_proveedor,
             "ubicacion": self.ubicacion,
             "grupo_materiales": self.grupo_materiales,

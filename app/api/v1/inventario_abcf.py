@@ -101,16 +101,16 @@ async def upload_inventario(
                 "existencia_transito": _header_index(headers, "existencia transito", "transito"),
                 "existencia_bloqueada": _header_index(headers, "existencia bloqueada", "bloqueada"),
                 "existencia_control_calidad": _header_index(headers, "existencia control calidad", "control calidad"),
-                "umb": _header_index(headers, "umb", "unidad medida"),
-                "costo_promedio_unitario": _header_index(headers, "costo promedio unitario", "precio promedio", "costo promedio"),
-                "importe_inventario_propio": _header_index(headers, "importe inventario propio", "importe inv", "importe de inventario propio"),
-                "valor_consignacion_proveedor": _header_index(headers, "valor consignacion proveedor"),
+                "umb": _header_index(headers, "umb", "unidad medida", "unidad de medida base"),
+                "costo_promedio_unitario": _header_index(headers, "costo promedio unitario", "costo promedio", "precio promedio", "costo prom unitario", "costo prom", "precio prom", "precio", "costo", "costo unitario", "precio unitario"),
+                "importe_inventario_propio": _header_index(headers, "importe de inventario propio", "importe inventario propio", "importe inv propio", "importe inv", "importe inventario", "importe propio", "importe total", "importe"),
+                "valor_consignacion_proveedor": _header_index(headers, "valor consignacion proveedor", "valor de consignacion proveedor"),
                 "ubicacion": _header_index(headers, "ubicacion", "localizacion"),
-                "grupo_materiales": _header_index(headers, "grupo materiales"),
-                "descrip_gpo_materiales": _header_index(headers, "descripcion grupo materiales", "descrip gpo materiales"),
-                "codigo_anterior_material": _header_index(headers, "codigo anterior material"),
-                "abc": _header_index(headers, "abc"),
-                "fecha_ultimo_inventario": _header_index(headers, "fecha ultimo inventario", "fecha del ultimo inventario ciclico"),
+                "grupo_materiales": _header_index(headers, "grupo materiales", "grupo de materiales"),
+                "descrip_gpo_materiales": _header_index(headers, "descripcion grupo materiales", "descrip gpo materiales", "descripcion de grupo materiales"),
+                "codigo_anterior_material": _header_index(headers, "codigo anterior material", "codigo anterior"),
+                "abc": _header_index(headers, "abc", "indicador abc"),
+                "fecha_ultimo_inventario": _header_index(headers, "fecha ultimo inventario", "fecha del ultimo inventario ciclico", "ultimo inventario"),
             }
 
             iter_rows = ws.iter_rows(min_row=2, values_only=True)
@@ -125,6 +125,14 @@ async def upload_inventario(
                     if c_propia == 0.0 and e_consig == 0.0:
                         continue
                         
+                    costo_unit = _as_float(_row_value(row, indices["costo_promedio_unitario"], 14), 0.0)
+                    importe_inv = _as_float(_row_value(row, indices["importe_inventario_propio"], 15), 0.0)
+                    
+                    if (importe_inv is None or importe_inv == 0.0) and (costo_unit and costo_unit > 0) and (c_propia and c_propia > 0):
+                        importe_inv = round(costo_unit * c_propia, 2)
+                    elif (costo_unit is None or costo_unit == 0.0) and (importe_inv and importe_inv > 0) and (c_propia and c_propia > 0):
+                        costo_unit = round(importe_inv / c_propia, 2)
+
                     inv = InventarioAbcf(
                         nombre_centro=str(_row_value(row, indices["centro"], 0)) if _row_value(row, indices["centro"], 0) is not None else None,
                         almacen=str(_row_value(row, indices["almacen"])) if _row_value(row, indices["almacen"]) is not None else None,
@@ -140,8 +148,8 @@ async def upload_inventario(
                         existencia_bloqueada=_as_float(_row_value(row, indices["existencia_bloqueada"], 11)),
                         existencia_control_calidad=_as_float(_row_value(row, indices["existencia_control_calidad"], 12)),
                         umb=str(_row_value(row, indices["umb"], 13)) if _row_value(row, indices["umb"], 13) is not None else None,
-                        costo_promedio_unitario=_as_float(_row_value(row, indices["costo_promedio_unitario"], 14)),
-                        importe_inventario_propio=_as_float(_row_value(row, indices["importe_inventario_propio"], 15)),
+                        costo_promedio_unitario=costo_unit,
+                        importe_inventario_propio=importe_inv,
                         valor_consignacion_proveedor=_as_float(_row_value(row, indices["valor_consignacion_proveedor"], 16)),
                         ubicacion=str(_row_value(row, indices["ubicacion"], 17)) if _row_value(row, indices["ubicacion"], 17) is not None else None,
                         grupo_materiales=str(_row_value(row, indices["grupo_materiales"], 18)) if _row_value(row, indices["grupo_materiales"], 18) is not None else None,

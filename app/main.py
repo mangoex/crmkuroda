@@ -137,6 +137,13 @@ async def on_startup():
     except Exception as e:
         print(f"Error al sembrar clientes en el arranque: {e}")
 
+    # Siembra automática de Inventario D con precios e importes si está vacío o en ceros
+    try:
+        from seed_inventario import seed_inventario_from_excel
+        await seed_inventario_from_excel(force=False)
+    except Exception as e:
+        print(f"Error al sembrar inventario en el arranque: {e}")
+
     # Iniciar el planificador de tareas en segundo plano
     start_scheduler()
 

@@ -2283,15 +2283,14 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         
         DOM.tableInventarioAbcf.innerHTML = "";
         if (inventario.length === 0) {
-            const inventoryColumns = canViewCosts ? 11 : 9;
-            DOM.tableInventarioAbcf.innerHTML = `<tr><td colspan="${inventoryColumns}" style="text-align: center;">No se encontraron registros de inventario.</td></tr>`;
+            DOM.tableInventarioAbcf.innerHTML = `<tr><td colspan="12" style="text-align: center;">No se encontraron registros de inventario.</td></tr>`;
             return;
         }
         
         const thPrecio = document.getElementById("th-inv-precio");
         const thImporte = document.getElementById("th-inv-importe");
-        if (thPrecio) thPrecio.style.display = canViewCosts ? "" : "none";
-        if (thImporte) thImporte.style.display = canViewCosts ? "" : "none";
+        if (thPrecio) thPrecio.style.display = "";
+        if (thImporte) thImporte.style.display = "";
         
         // --- SORTING LOGIC ---
         if (state.invSortField === undefined) state.invSortField = null;
@@ -2324,6 +2323,13 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                 descripcion_material: getInventoryDescription(i),
                 proveedor: getInventoryProviderName(i)
             });
+            const cantPropia = Number(i.cantidad_propia || 0);
+            const costoUnit = Number(i.costo_promedio_unitario || 0) || (cantPropia > 0 && Number(i.importe_inventario_propio || 0) > 0 ? Number(i.importe_inventario_propio) / cantPropia : 0);
+            const importeInv = Number(i.importe_inventario_propio || 0) || (costoUnit > 0 && cantPropia > 0 ? costoUnit * cantPropia : 0);
+
+            const precioFmt = `$${costoUnit.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const importeFmt = `$${importeInv.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
             tr.innerHTML = `
                 <td>
                     <a href="${imageSearchUrl}" target="_blank" rel="noopener" title="Buscar imagen del producto" class="btn btn-secondary btn-sm" style="min-width: 34px; padding: 7px 9px; display: inline-flex; align-items: center; justify-content: center;">
@@ -2336,10 +2342,10 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                 <td style="color: #ef4444; font-weight: 800;">${escapeHTML(getInventoryDCode(i) || "-")}</td>
                 <td><code>${escapeHTML(getInventoryProductKey(i) || "-")}</code></td>
                 <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(getInventoryDescription(i))}">${escapeHTML(getInventoryDescription(i) || "-")}</td>
-                <td>${i.cantidad_propia !== null ? i.cantidad_propia.toLocaleString() : "-"}</td>
-                <td>${i.existencia_consignacion !== null ? i.existencia_consignacion.toLocaleString() : "-"}</td>
-                ${canViewCosts ? `<td>$${i.costo_promedio_unitario !== null ? i.costo_promedio_unitario.toLocaleString(undefined, {minimumFractionDigits: 2}) : "0.00"}</td>` : ''}
-                ${canViewCosts ? `<td><strong style="color: #10b981;">$${i.importe_inventario_propio !== null ? i.importe_inventario_propio.toLocaleString(undefined, {minimumFractionDigits: 2}) : "0.00"}</strong></td>` : ''}
+                <td>${i.cantidad_propia !== null ? Number(i.cantidad_propia).toLocaleString("es-MX") : "-"}</td>
+                <td>${i.existencia_consignacion !== null ? Number(i.existencia_consignacion).toLocaleString("es-MX") : "-"}</td>
+                <td style="font-weight: 600; color: #1e293b;">${precioFmt}</td>
+                <td><strong style="color: #10b981;">${importeFmt}</strong></td>
                 <td>${escapeHTML(i.ubicacion || "-")}</td>
             `;
             DOM.tableInventarioAbcf.appendChild(tr);
