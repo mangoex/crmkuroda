@@ -13,7 +13,7 @@ CANONICAL_CHANNELS = (
     "Kuroda Turbo",
     "Material D",
     "Promociones",
-    "Marketplace",
+    "Market place",
 )
 
 
@@ -49,16 +49,40 @@ def normalize_channel(raw_value: Any, configured: Mapping[str, str] | None = Non
     deterministic_aliases = {
         "APARTADO": "Apartados",
         "APARTADOS": "Apartados",
+        "400260": "Apartados",
         "KURODA TURBO": "Kuroda Turbo",
         "TURBO": "Kuroda Turbo",
         "MATERIAL D": "Material D",
         "MATERIAL-D": "Material D",
         "PROMOCION": "Promociones",
         "PROMOCIONES": "Promociones",
-        "MARKETPLACE": "Marketplace",
-        "MARKET PLACE": "Marketplace",
+        "MARKETPLACE": "Market place",
+        "MARKET PLACE": "Market place",
+        "400550": "Market place",
     }
     return deterministic_aliases.get(normalized, "Sin clasificar")
+
+
+def resolve_quote_effective_channel(
+    quote: Any,
+    configured: Mapping[str, str] | None = None,
+) -> str:
+    """Resuelve el canal efectivo de una cotización.
+
+    Reglas de negocio prioritarias:
+      - Cliente 400550 -> 'Market place'
+      - Cliente 400260 -> 'Apartados'
+      - En caso contrario -> canal / tipo de entrega normalizado.
+    """
+    raw_client = str(getattr(quote, "numero_cliente", "") or "").strip()
+    clean_client_digits = raw_client.lstrip("0")
+    if clean_client_digits in ("400550", "400550.0") or raw_client == "400550":
+        return "Market place"
+    if clean_client_digits in ("400260", "400260.0") or raw_client == "400260":
+        return "Apartados"
+
+    raw_channel = getattr(quote, "canal", None)
+    return normalize_channel(raw_channel, configured)
 
 
 def decimal_value(value: Any) -> Decimal:
@@ -76,7 +100,7 @@ def aggregate_channels(
 ) -> list[dict[str, Any]]:
     groups: dict[str, dict[str, Any]] = {}
     for quote in quotes:
-        channel = normalize_channel(getattr(quote, "canal", None), configured)
+        channel = resolve_quote_effective_channel(quote, configured)
         group = groups.setdefault(
             channel,
             {
@@ -133,16 +157,26 @@ def aggregate_channel_summary_rows(
 
     for raw_code, quote_count, quoted_total, invoiced_operations, invoiced_total in rows:
         code = str(raw_code or "").strip()
-        business_name = normalize_channel(code, configured)
-        display_name = business_name if business_name != "Sin clasificar" else (
-            f"Canal {code}" if code else "Sin clave"
-        )
+        if code in ("400550", "Market place", "Marketplace", "MARKET PLACE"):
+            channel_code = "400550"
+            business_name = "Market place"
+            display_name = "Market place"
+        elif code in ("400260", "Apartados", "Apartado", "APARTADOS"):
+            channel_code = "400260"
+            business_name = "Apartados"
+            display_name = "Apartados"
+        else:
+            channel_code = code or None
+            business_name = normalize_channel(code, configured)
+            display_name = business_name if business_name != "Sin clasificar" else (
+                f"Canal {code}" if code else "Sin clave"
+            )
         quotes = int(quote_count or 0)
         operations = int(invoiced_operations or 0)
         invoiced = decimal_value(invoiced_total)
         result.append(
             {
-                "codigo_canal": code or None,
+                "codigo_canal": channel_code,
                 "canal": business_name,
                 "etiqueta": display_name,
                 "cotizaciones": quotes,

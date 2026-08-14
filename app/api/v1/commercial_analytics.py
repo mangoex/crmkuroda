@@ -141,8 +141,14 @@ async def main_dashboard_channel_summary(
         func.nullif(func.trim(Cotizacion.numero_factura), "").is_not(None),
         Cotizacion.importe_facturado > 0,
     )
+    clean_num_cli = func.coalesce(func.trim(Cotizacion.numero_cliente), "")
+    effective_channel = case(
+        (or_(clean_num_cli == "400550", clean_num_cli == "0000400550", clean_num_cli.like("%400550")), "Market place"),
+        (or_(clean_num_cli == "400260", clean_num_cli == "0000400260", clean_num_cli.like("%400260")), "Apartados"),
+        else_=func.coalesce(Cotizacion.canal, "Sin clave"),
+    )
     statement = select(
-        Cotizacion.canal,
+        effective_channel.label("canal"),
         func.count(Cotizacion.id),
         func.coalesce(func.sum(Cotizacion.total), 0),
         func.coalesce(func.sum(case((invoice_condition, 1), else_=0)), 0),
@@ -160,7 +166,7 @@ async def main_dashboard_channel_summary(
     if visible_ids is not None:
         statement = statement.where(await _seller_condition(db, visible_ids))
     rows = (
-        await db.execute(statement.group_by(Cotizacion.canal).order_by(Cotizacion.canal))
+        await db.execute(statement.group_by(effective_channel).order_by(effective_channel))
     ).all()
     data = aggregate_channel_summary_rows(rows, await _channel_map(db))
     return {

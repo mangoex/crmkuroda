@@ -65,6 +65,28 @@ class CommercialAnalyticsTest(unittest.TestCase):
         self.assertEqual(rows[0]["operaciones_facturadas"], 1)
         self.assertEqual(rows[0]["conversion"], 50.0)
 
+    def test_channel_resolution_prioritizes_special_client_numbers(self):
+        quotes = [
+            SimpleNamespace(
+                numero_cliente="400550",
+                canal="ENTREGA INMEDIATA",
+                total=Decimal("2000"),
+                importe_facturado=Decimal("2000"),
+                numero_factura="F-MP",
+            ),
+            SimpleNamespace(
+                numero_cliente="400260",
+                canal="ENVÍO A DOMICILIO",
+                total=Decimal("1500"),
+                importe_facturado=Decimal("1500"),
+                numero_factura="F-AP",
+            ),
+        ]
+        rows = aggregate_channels(quotes)
+        channel_names = {r["canal"] for r in rows}
+        self.assertIn("Market place", channel_names)
+        self.assertIn("Apartados", channel_names)
+
     def test_dashboard_channel_summary_preserves_numeric_source_code(self):
         rows = aggregate_channel_summary_rows(
             [("01", 4, Decimal("1200"), 2, Decimal("900"))]
@@ -74,6 +96,20 @@ class CommercialAnalyticsTest(unittest.TestCase):
         self.assertEqual(rows[0]["etiqueta"], "Canal 01")
         self.assertEqual(rows[0]["importe_facturado"], 900.0)
         self.assertEqual(rows[0]["conversion"], 50.0)
+
+    def test_dashboard_channel_summary_maps_marketplace_and_apartados_codes(self):
+        rows = aggregate_channel_summary_rows(
+            [
+                ("400550", 10, Decimal("5000"), 8, Decimal("4000")),
+                ("400260", 5, Decimal("3000"), 4, Decimal("2500")),
+            ]
+        )
+        self.assertEqual(rows[0]["codigo_canal"], "400550")
+        self.assertEqual(rows[0]["canal"], "Market place")
+        self.assertEqual(rows[0]["etiqueta"], "Market place")
+        self.assertEqual(rows[1]["codigo_canal"], "400260")
+        self.assertEqual(rows[1]["canal"], "Apartados")
+        self.assertEqual(rows[1]["etiqueta"], "Apartados")
 
     def test_material_detail_reconciles_by_seller_family_group_and_sku(self):
         quote = SimpleNamespace(vendedor_id="seller-1", vendedor_nombre="Ana")

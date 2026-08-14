@@ -1001,7 +1001,7 @@ function renderSummaryChannelSales(rows = []) {
 
     const selectedCode = DOM.summaryChannelFilter.value;
     const visibleRows = selectedCode
-        ? rows.filter(row => String(row.codigo_canal || "") === selectedCode)
+        ? rows.filter(row => String(row.codigo_canal || "") === selectedCode || String(row.canal || "") === selectedCode || String(row.etiqueta || "") === selectedCode)
         : rows;
     const totals = visibleRows.reduce((acc, row) => ({
         importe_facturado: acc.importe_facturado + Number(row.importe_facturado || 0),
@@ -1025,7 +1025,7 @@ function renderSummaryChannelSales(rows = []) {
     DOM.summaryChannelTable.innerHTML = visibleRows.length
         ? visibleRows.map(row => `<tr>
             <td><code>${escapeHTML(row.codigo_canal || "Sin clave")}</code></td>
-            <td>${escapeHTML(row.etiqueta || row.canal || "Sin clasificar")}</td>
+            <td><strong>${escapeHTML(row.etiqueta || row.canal || "Sin clasificar")}</strong></td>
             <td><strong>${formatChannelMoney(row.importe_facturado)}</strong></td>
             <td>${Number(row.operaciones_facturadas || 0).toLocaleString("es-MX")}</td>
             <td>${Number(row.conversion || 0).toFixed(1)}%</td>
@@ -1047,10 +1047,14 @@ async function loadSummaryChannelSales() {
         state.summaryChannelSales = rows;
         DOM.summaryChannelFilter.innerHTML = [
             '<option value="">Todos los canales</option>',
-            ...rows.map(row => `<option value="${escapeHTML(row.codigo_canal || "")}">${escapeHTML(row.etiqueta || row.codigo_canal || "Sin clave")}</option>`),
+            ...rows.map(row => {
+                const val = row.codigo_canal || row.canal || "";
+                const label = row.etiqueta || row.canal || row.codigo_canal || "Sin clave";
+                return `<option value="${escapeHTML(val)}">${escapeHTML(label)}</option>`;
+            }),
         ].join("");
         DOM.summaryChannelFilter.disabled = rows.length === 0;
-        if (rows.some(row => String(row.codigo_canal || "") === previouslySelected)) {
+        if (rows.some(row => String(row.codigo_canal || row.canal || "") === previouslySelected)) {
             DOM.summaryChannelFilter.value = previouslySelected;
         }
         renderSummaryChannelSales(rows);
