@@ -8,6 +8,22 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 VALID_PERIODS = {"dia", "semana", "mes"}
+PERIOD_MAP = {
+    "dia": "dia",
+    "day": "dia",
+    "diario": "dia",
+    "diaria": "dia",
+    "semana": "semana",
+    "week": "semana",
+    "semanal": "semana",
+    "mes": "mes",
+    "month": "mes",
+    "mensual": "mes",
+}
+
+
+def normalize_period(periodo: str) -> str:
+    return PERIOD_MAP.get(str(periodo or "").strip().lower(), str(periodo or "").strip().lower())
 
 
 def decimal_value(value: Any) -> Decimal:
@@ -32,6 +48,7 @@ def month_end(value: date) -> date:
 
 
 def period_bounds(reference: date, periodo: str) -> tuple[date, date]:
+    periodo = normalize_period(periodo)
     if periodo not in VALID_PERIODS:
         raise ValueError("Periodo inválido. Usa dia, semana o mes.")
     if periodo == "dia":
@@ -68,7 +85,7 @@ def _goal_matches(goal: Any, tipo: str, vendedor_id: Any = None, sucursal: str |
     if getattr(goal, "tipo", None) != tipo:
         return False
     if tipo == "vendedor":
-        return getattr(goal, "vendedor_id", None) == vendedor_id
+        return str(getattr(goal, "vendedor_id", None) or "") == str(vendedor_id or "")
     if tipo == "sucursal":
         return normalize_text(getattr(goal, "sucursal", None)) == normalize_text(sucursal)
     return True
@@ -100,7 +117,7 @@ def commercial_goal_amount(
 def legacy_goal_amount(goals: Iterable[Any], seller_id: Any, start: date, end: date) -> Decimal:
     total = Decimal("0")
     for goal in goals:
-        if getattr(goal, "vendedor_id", None) != seller_id:
+        if str(getattr(goal, "vendedor_id", None) or "") != str(seller_id or ""):
             continue
         goal_start = getattr(goal, "fecha_inicio", None)
         goal_end = getattr(goal, "fecha_limite", None)
@@ -145,23 +162,31 @@ def build_goals_dashboard(
     reference: date,
     periodo: str,
 ) -> dict[str, Any]:
-    start, end = period_bounds(reference, periodo)
+    norm_periodo = normalize_period(periodo)
+    start, end = period_bounds(reference, norm_periodo)
     sellers = list(sellers)
     quotes = list(quotes)
     commercial_goals = list(commercial_goals)
     legacy_goals = list(legacy_goals)
     seller_by_name = {
-        normalize_text(seller.nombre_completo): seller.id
+        normalize_text(seller.nombre_completo): str(seller.id)
         for seller in sellers
         if getattr(seller, "nombre_completo", None)
     }
-    grouped_quotes: dict[Any, list[Any]] = {seller.id: [] for seller in sellers}
+    seller_by_email = {
+        normalize_text(seller.email): str(seller.id)
+        for seller in sellers
+        if getattr(seller, "email", None)
+    }
+    grouped_quotes: dict[str, list[Any]] = {str(seller.id): [] for seller in sellers}
     branches: dict[str, list[Any]] = {}
     for quote in quotes:
-        resolved_id = getattr(quote, "vendedor_id", None) or seller_by_name.get(
-            normalize_text(getattr(quote, "vendedor_nombre", None))
+        raw_vid = getattr(quote, "vendedor_id", None)
+        resolved_id = str(raw_vid) if raw_vid else (
+            seller_by_name.get(normalize_text(getattr(quote, "vendedor_nombre", None)))
+            or seller_by_email.get(normalize_text(getattr(quote, "vendedor_nombre", None)))
         )
-        if resolved_id in grouped_quotes:
+        if resolved_id and resolved_id in grouped_quotes:
             grouped_quotes[resolved_id].append(quote)
         branch = str(getattr(quote, "organizacion_ventas", None) or "").strip()
         if branch:
@@ -172,15 +197,16 @@ def build_goals_dashboard(
     )
     seller_rows = []
     for seller in sellers:
+        sid_str = str(seller.id)
         target, configured = commercial_goal_amount(
-            commercial_goals, "vendedor", start, end, vendedor_id=seller.id
+            commercial_goals, "vendedor", start, end, vendedor_id=sid_str
         )
         if not configured:
-            target = legacy_goal_amount(legacy_goals, seller.id, start, end)
-        actual = sales_in_period(grouped_quotes.get(seller.id, []), start, end)
+            target = legacy_goal_amount(legacy_goals, sid_str, start, end)
+        actual = sales_in_period(grouped_quotes.get(sid_str, []), start, end)
         seller_rows.append(
             {
-                "vendedor_id": str(seller.id),
+                "vendedor_id": sid_str,
                 "vendedor": getattr(seller, "nombre_completo", None) or getattr(seller, "email", "Vendedor"),
                 "meta": float(target),
                 "venta_facturada": float(actual),
@@ -213,7 +239,7 @@ def build_goals_dashboard(
     general_actual = sales_in_period(quotes, start, end)
     return {
         "periodo": {
-            "tipo": periodo,
+            "tipo": norm_periodo,
             "fecha_referencia": reference.isoformat(),
             "fecha_inicio": start.isoformat(),
             "fecha_fin": end.isoformat(),

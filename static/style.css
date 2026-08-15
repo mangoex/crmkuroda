@@ -2786,13 +2786,13 @@ input:checked + .slider:before {
 .seller-progress-ring strong { font-size: 28px; }
 
 .seller-hero-main { gap: 8px; }
-.seller-hero-main span { font-size: 15px; color: #475569; }
-.seller-hero-main strong { font-size: clamp(34px, 4vw, 46px); }
-.seller-hero-main small { font-size: 15px; }
+.seller-hero-main span { font-size: 15px; color: rgba(255, 255, 255, 0.9); }
+.seller-hero-main strong { font-size: clamp(34px, 4vw, 46px); color: #ffffff; }
+.seller-hero-main small { font-size: 15px; color: rgba(255, 255, 255, 0.9); }
 
 .seller-period-selector {
     margin-top: 8px;
-    border-color: rgba(155, 170, 202, 0.2);
+    border-color: rgba(255, 255, 255, 0.2);
     background: #ffffff;
 }
 
@@ -2802,13 +2802,13 @@ input:checked + .slider:before {
 .seller-hero-days {
     min-width: 240px;
     padding-left: 36px;
-    border-left: 1px solid rgba(204, 212, 234, 0.35);
+    border-left: 1px solid rgba(255, 255, 255, 0.25);
     justify-content: center;
 }
 
-.seller-hero-days > i { color: #e60000; font-size: 27px; margin-bottom: 4px; }
-.seller-hero-days span { font-size: 14px; }
-.seller-hero-days strong { font-size: clamp(26px, 3vw, 34px); }
+.seller-hero-days > i { color: #ffffff; font-size: 27px; margin-bottom: 4px; }
+.seller-hero-days span { font-size: 14px; color: rgba(255, 255, 255, 0.85); }
+.seller-hero-days strong { font-size: clamp(26px, 3vw, 34px); color: #ffffff; }
 
 .seller-focus-grid { gap: 18px; margin-top: 18px; }
 

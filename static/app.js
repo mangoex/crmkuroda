@@ -1231,7 +1231,8 @@ async function deleteCommercialGoal(goalId) {
 async function refreshSellerGoalProgress() {
     if (state.user?.rol !== "vendedor") return;
     try {
-        const res = await apiRequest(`/api/v1/metas/comerciales/mis-avances?periodo=${state.sellerGoalPeriod}`);
+        const periodParam = state.sellerGoalPeriod === "day" ? "dia" : state.sellerGoalPeriod === "week" ? "semana" : "mes";
+        const res = await apiRequest(`/api/v1/metas/comerciales/mis-avances?periodo=${periodParam}`);
         state.sellerGoalProgress = res.data || null;
     } catch (error) {
         console.warn("No se pudo cargar el avance de meta comercial:", error);
@@ -1955,13 +1956,16 @@ async function loadVendedoresData() {
     if (state.user.rol === "vendedor") return;
     
     // Fetch sellers and their current goals so the manager can edit the commercial quota.
-    const [res, metasRes] = await Promise.all([
+    const monthDate = metasMonthAsDate();
+    const [res, metasRes, commGoalsRes] = await Promise.all([
         apiRequest("/api/v1/vendedores/?limit=100"),
         apiRequest("/api/v1/metas/?limit=100"),
+        apiRequest(`/api/v1/metas/comerciales?mes=${encodeURIComponent(monthDate)}`).catch(() => ({ data: [] })),
     ]);
     const sellers = res.data || [];
     state.vendedores = sellers;
     state.metas = metasRes.data || [];
+    const commGoals = commGoalsRes.data || [];
     
     // Fetch dashboard metrics
     let metricsMap = {};
@@ -1979,7 +1983,8 @@ async function loadVendedoresData() {
     // Enrich sellers
     sellers.forEach(v => {
         v.metrics = metricsMap[v.id] || { sales: 0, target: 0, conversion_rate: 0, roi: 0 };
-        v.monthlyGoal = getCurrentMonthlyGoal(state.metas.filter(meta => meta.vendedor_id === v.id));
+        const commGoal = commGoals.find(g => g.tipo === "vendedor" && String(g.vendedor_id) === String(v.id));
+        v.monthlyGoal = commGoal ? Number(commGoal.monto_objetivo) : getCurrentMonthlyGoal(state.metas.filter(meta => String(meta.vendedor_id) === String(v.id)));
     });
     
     // Sort sellers
