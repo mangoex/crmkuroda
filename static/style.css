@@ -3363,3 +3363,195 @@ body.dark-mode .table-row-hover:hover {
     color: #64748b !important;
 }
 
+/* ==========================================================================
+   SELLER ANALYTICS MODULES (Ventas por canal, Clientes, Materiales)
+   ========================================================================== */
+
+.seller-analytics-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.seller-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+    transition: box-shadow 0.2s ease;
+}
+
+.seller-card:hover {
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.07);
+}
+
+.seller-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.seller-header-purple {
+    background: #f5f3ff;
+    color: #4338ca;
+}
+
+.seller-header-green {
+    background: #f0fdf4;
+    color: #065f46;
+}
+
+.seller-header-orange {
+    background: #fff7ed;
+    color: #9a3412;
+}
+
+.seller-card-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.seller-card-title i {
+    font-size: 16px;
+}
+
+.seller-card-title h2 {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0;
+    color: inherit;
+}
+
+.seller-tag-real {
+    font-size: 11px;
+    font-weight: 600;
+    color: #b45309;
+    background: #fef3c7;
+    border: 1px solid rgba(217, 119, 6, 0.25);
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.2px;
+}
+
+.seller-card-body {
+    padding: 18px 20px;
+}
+
+/* Canales */
+.seller-channel-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.seller-channel-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 13px;
+}
+
+.seller-channel-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 140px;
+    min-width: 140px;
+    font-weight: 600;
+    color: #334155;
+}
+
+.seller-channel-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.seller-channel-bar-wrap {
+    flex: 1;
+    background: #f1f5f9;
+    height: 14px;
+    border-radius: 7px;
+    overflow: hidden;
+    position: relative;
+}
+
+.seller-channel-bar-fill {
+    height: 100%;
+    border-radius: 7px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.seller-channel-values {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    min-width: 150px;
+    text-align: right;
+}
+
+.seller-channel-amount {
+    font-weight: 600;
+    color: #0f172a;
+    min-width: 80px;
+}
+
+.seller-channel-pct {
+    font-weight: 500;
+    color: #64748b;
+    min-width: 45px;
+}
+
+.seller-channel-footnote {
+    margin: 14px 0 0;
+    font-size: 11.5px;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+/* Tablas Clientes y Materiales */
+.seller-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.seller-data-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fafafa;
+}
+
+.seller-data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1e293b;
+    vertical-align: middle;
+}
+
+.seller-data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.seller-data-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.seller-empty-row {
+    text-align: center;
+    color: #94a3b8;
+    padding: 20px !important;
+    font-style: italic;
+}
+

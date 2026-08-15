@@ -24,11 +24,18 @@ from app.services.commercial_analytics import (
     aggregate_channels,
     aggregate_channel_summary_rows,
     aggregate_material_items,
+    build_seller_dashboard_metrics,
     build_seller_performance,
     normalize_text,
 )
 from app.services.jerarquia import get_ids_vendedores_visibles
-from app.services.commercial_goals import commercial_goal_amount, month_starts_between
+from app.services.commercial_goals import (
+    VALID_PERIODS,
+    commercial_goal_amount,
+    month_starts_between,
+    normalize_period,
+    period_bounds,
+)
 
 
 router = APIRouter()
@@ -410,4 +417,61 @@ async def seller_performance(
         "status": "success",
         "filters": {"fecha_inicio": start, "fecha_fin": end},
         "data": data,
+    }
+
+
+@router.get("/vendedor/metricas")
+async def seller_dashboard_metrics(
+    periodo: str = Query(default="mes"),
+    fecha: Optional[date] = Query(default=None),
+    vendedor_id: Optional[UUID] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    _require_analytics_role(current_user)
+    norm_periodo = normalize_period(periodo)
+    if norm_periodo not in VALID_PERIODS:
+        raise HTTPException(status_code=422, detail="Periodo inválido. Usa dia, semana o mes.")
+
+    try:
+        today = datetime.now(ZoneInfo(settings.BUSINESS_TIMEZONE)).date()
+    except Exception:
+        today = date.today()
+
+    ref_date = fecha or today
+    start, end = period_bounds(ref_date, norm_periodo)
+
+    target_seller_id = current_user.id if current_user.rol == "vendedor" else (vendedor_id or current_user.id)
+
+    quotes = await _scope_quotes(
+        db,
+        current_user,
+        start,
+        end,
+        target_seller_id,
+        unlinked=False,
+    )
+
+    quote_ids = [quote.id for quote in quotes]
+    items = []
+    if quote_ids:
+        chunk_size = 500
+        for i in range(0, len(quote_ids), chunk_size):
+            chunk = quote_ids[i : i + chunk_size]
+            item_rows = (
+                await db.execute(
+                    select(CotizacionItem).where(CotizacionItem.cotizacion_id.in_(chunk))
+                )
+            ).scalars().all()
+            items.extend(item_rows)
+
+    channel_map = await _channel_map(db)
+    metrics = build_seller_dashboard_metrics(quotes, items, channel_map)
+
+    return {
+        "status": "success",
+        "periodo": norm_periodo,
+        "fecha_inicio": start.isoformat(),
+        "fecha_fin": end.isoformat(),
+        "data": metrics,
     }

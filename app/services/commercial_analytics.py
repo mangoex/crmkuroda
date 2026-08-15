@@ -496,3 +496,201 @@ def find_clients_for_promotion(
         })
 
     return sorted(result, key=lambda c: c["ultima_compra"] or "", reverse=True)
+
+
+def build_seller_dashboard_metrics(
+    quotes: Iterable[Any],
+    items: Iterable[Any] | None = None,
+    configured_channels: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    quotes = list(quotes)
+    items = list(items or [])
+
+    channel_colors = {
+        "Apartados": "#6366f1",
+        "Kuroda Turbo": "#10b981",
+        "Material D": "#ea580c",
+        "Promociones": "#ec4899",
+        "Market place": "#3b82f6",
+    }
+
+    channel_stats: dict[str, dict[str, Any]] = {
+        canonical: {
+            "canal": canonical,
+            "color": channel_colors.get(canonical, "#64748b"),
+            "monto": Decimal("0"),
+            "cotizaciones": 0,
+            "operaciones_facturadas": 0,
+        }
+        for canonical in CANONICAL_CHANNELS
+    }
+
+    total_sales = Decimal("0")
+    total_quotes_amount = Decimal("0")
+
+    for quote in quotes:
+        channel = resolve_quote_effective_channel(quote, configured_channels)
+        if channel not in channel_stats:
+            channel_stats[channel] = {
+                "canal": channel,
+                "color": channel_colors.get(channel, "#64748b"),
+                "monto": Decimal("0"),
+                "cotizaciones": 0,
+                "operaciones_facturadas": 0,
+            }
+
+        channel_stats[channel]["cotizaciones"] += 1
+        quote_total = decimal_value(getattr(quote, "total", 0))
+        total_quotes_amount += quote_total
+
+        invoice_amount = decimal_value(getattr(quote, "importe_facturado", 0))
+        is_inv = bool(getattr(quote, "numero_factura", None)) or invoice_amount > 0
+
+        if is_inv:
+            channel_stats[channel]["operaciones_facturadas"] += 1
+            channel_stats[channel]["monto"] += invoice_amount
+            total_sales += invoice_amount
+        else:
+            channel_stats[channel]["monto"] += quote_total
+            total_sales += quote_total
+
+    canales_list = []
+    ordered_channel_names = list(CANONICAL_CHANNELS) + [
+        c for c in channel_stats if c not in CANONICAL_CHANNELS
+    ]
+    for ch_name in ordered_channel_names:
+        stats = channel_stats.get(ch_name)
+        if not stats:
+            continue
+        monto_num = float(stats["monto"])
+        pct = round(float(stats["monto"] / total_sales * 100), 1) if total_sales > 0 else 0.0
+        canales_list.append({
+            "canal": stats["canal"],
+            "color": stats["color"],
+            "monto": monto_num,
+            "porcentaje": pct,
+            "cotizaciones": stats["cotizaciones"],
+            "operaciones_facturadas": stats["operaciones_facturadas"],
+        })
+
+    # Clientes Principales
+    items_by_quote: dict[str, list[Any]] = defaultdict(list)
+    for item in items:
+        qid = getattr(item, "cotizacion_id", None)
+        if qid:
+            items_by_quote[str(qid)].append(item)
+
+    client_groups: dict[str, dict[str, Any]] = {}
+    for quote in quotes:
+        client_name = (getattr(quote, "cliente_nombre", None) or "Cliente sin nombre").strip()
+        if not client_name:
+            client_name = "Cliente sin nombre"
+
+        if client_name not in client_groups:
+            client_groups[client_name] = {
+                "cliente": client_name,
+                "venta": Decimal("0"),
+                "groups_count": defaultdict(int),
+            }
+
+        inv_amt = decimal_value(getattr(quote, "importe_facturado", 0))
+        is_inv = bool(getattr(quote, "numero_factura", None)) or inv_amt > 0
+        amt = inv_amt if is_inv else decimal_value(getattr(quote, "total", 0))
+        client_groups[client_name]["venta"] += amt
+
+        q_items = items_by_quote.get(str(getattr(quote, "id", "")))
+        if q_items:
+            for it in q_items:
+                g = (
+                    getattr(it, "grupo_materiales", None)
+                    or getattr(it, "familia", None)
+                    or getattr(it, "descripcion", None)
+                )
+                if g:
+                    client_groups[client_name]["groups_count"][str(g).strip()] += 1
+        elif getattr(quote, "items", None) and isinstance(quote.items, list):
+            for it in quote.items:
+                if isinstance(it, dict):
+                    prod = it.get("producto") or it.get("descripcion") or it.get("grupo")
+                    if prod:
+                        client_groups[client_name]["groups_count"][str(prod).strip()] += 1
+
+    clientes_list = []
+    for cg in client_groups.values():
+        venta_num = float(cg["venta"])
+        pct = round(float(cg["venta"] / total_sales * 100), 1) if total_sales > 0 else 0.0
+        top_mat = "Material general"
+        if cg["groups_count"]:
+            top_mat = max(cg["groups_count"].items(), key=lambda x: x[1])[0]
+
+        clientes_list.append({
+            "cliente": cg["cliente"],
+            "venta": venta_num,
+            "porcentaje": pct,
+            "material_principal": top_mat,
+        })
+
+    clientes_list.sort(key=lambda c: c["venta"], reverse=True)
+
+    # Materiales que más vendo
+    materials_groups: dict[tuple[str, str], dict[str, Any]] = {}
+    if items:
+        for item in items:
+            desc = (getattr(item, "descripcion", None) or getattr(item, "codigo_material", None) or "Material").strip()
+            grp = (getattr(item, "grupo_materiales", None) or getattr(item, "familia", None) or "General").strip()
+            key = (desc, grp)
+            if key not in materials_groups:
+                materials_groups[key] = {
+                    "material": desc,
+                    "grupo": grp,
+                    "unidades": Decimal("0"),
+                    "monto": Decimal("0"),
+                }
+
+            qty_inv = decimal_value(getattr(item, "cantidad_facturada", 0))
+            amt_inv = decimal_value(getattr(item, "importe_facturado", 0))
+            qty_cot = decimal_value(getattr(item, "cantidad_cotizada", 0))
+            amt_cot = decimal_value(getattr(item, "importe_cotizado", 0))
+
+            materials_groups[key]["unidades"] += (qty_inv if qty_inv > 0 else qty_cot) or Decimal("1")
+            materials_groups[key]["monto"] += (amt_inv if amt_inv > 0 else amt_cot)
+    else:
+        for quote in quotes:
+            raw_items = getattr(quote, "items", None)
+            if isinstance(raw_items, list):
+                for it in raw_items:
+                    if isinstance(it, dict):
+                        desc = str(it.get("producto") or it.get("descripcion") or "Material").strip()
+                        grp = str(it.get("grupo") or it.get("familia") or "General").strip()
+                        key = (desc, grp)
+                        if key not in materials_groups:
+                            materials_groups[key] = {
+                                "material": desc,
+                                "grupo": grp,
+                                "unidades": Decimal("0"),
+                                "monto": Decimal("0"),
+                            }
+                        qty = decimal_value(it.get("cantidad", 1))
+                        price = decimal_value(it.get("precio_unitario", 0))
+                        materials_groups[key]["unidades"] += qty
+                        materials_groups[key]["monto"] += qty * price
+
+    materiales_list = []
+    for mg in materials_groups.values():
+        materiales_list.append({
+            "material": mg["material"],
+            "grupo": mg["grupo"],
+            "unidades": int(mg["unidades"]) if mg["unidades"] == int(mg["unidades"]) else float(mg["unidades"]),
+            "monto": float(mg["monto"]),
+        })
+    materiales_list.sort(key=lambda m: m["monto"], reverse=True)
+
+    return {
+        "totales": {
+            "venta_total": float(total_sales),
+            "cotizaciones": len(quotes),
+        },
+        "canales": canales_list,
+        "clientes": clientes_list[:10],
+        "materiales": materiales_list[:10],
+    }

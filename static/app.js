@@ -245,6 +245,9 @@ const DOM = {
     sellerMiniProgress: document.getElementById("seller-mini-progress"),
     sellerMiniProgressPercent: document.getElementById("seller-mini-progress-percent"),
     sellerRecentActivity: document.getElementById("seller-recent-activity"),
+    sellerChannelBars: document.getElementById("seller-channel-bars"),
+    sellerTopClientsTable: document.getElementById("seller-top-clients-table"),
+    sellerTopMaterialsTable: document.getElementById("seller-top-materials-table"),
     summaryAdminKpis: document.getElementById("summary-admin-kpis"),
     summaryAdminCharts: document.getElementById("summary-admin-charts"),
     summaryAdminHeatmap: document.getElementById("summary-admin-heatmap"),
@@ -1950,6 +1953,76 @@ async function renderSellerHomeDashboard({ metas, quotes, promociones, goalProgr
     renderSellerFollowups(quotes, plan, logToday, search);
     renderSellerPromos(promociones, search);
     renderSellerDashboardInsights(quotes, period, periodGoal, invoicedTotal, percent, logToday);
+    await loadAndRenderSellerAnalytics();
+}
+
+function renderSellerChannelMetrics(canales) {
+    if (!DOM.sellerChannelBars) return;
+    if (!canales || canales.length === 0) {
+        DOM.sellerChannelBars.innerHTML = '<div class="seller-empty-row">No hay ventas registradas por canal en este periodo.</div>';
+        return;
+    }
+    DOM.sellerChannelBars.innerHTML = canales.map(c => `
+        <div class="seller-channel-row">
+            <span class="seller-channel-label">
+                <span class="seller-channel-dot" style="background-color: ${c.color || '#6366f1'};"></span>
+                ${escapeHTML(c.canal)}
+            </span>
+            <div class="seller-channel-bar-wrap">
+                <div class="seller-channel-bar-fill" style="width: ${Math.min(100, Math.max(0, c.porcentaje))}%; background-color: ${c.color || '#6366f1'};"></div>
+            </div>
+            <div class="seller-channel-values">
+                <span class="seller-channel-amount">${formatSellerMoney(c.monto)}</span>
+                <span class="seller-channel-pct">${Number(c.porcentaje || 0).toFixed(1)}%</span>
+            </div>
+        </div>
+    `).join("");
+}
+
+function renderSellerTopClientsMetrics(clientes) {
+    if (!DOM.sellerTopClientsTable) return;
+    if (!clientes || clientes.length === 0) {
+        DOM.sellerTopClientsTable.innerHTML = '<tr><td colspan="4" class="seller-empty-row">No hay clientes con compras en este periodo.</td></tr>';
+        return;
+    }
+    DOM.sellerTopClientsTable.innerHTML = clientes.map(c => `
+        <tr>
+            <td><strong>${escapeHTML(c.cliente)}</strong></td>
+            <td style="text-align: right; font-weight: 600; color: #0f172a;">${formatSellerMoney(c.venta)}</td>
+            <td style="text-align: center; color: #64748b; font-weight: 600;">${Number(c.porcentaje || 0).toFixed(1)}%</td>
+            <td><span class="badge" style="background: #f1f5f9; color: #475569; font-weight: 500; padding: 4px 9px; border-radius: 6px; font-size: 12px;">${escapeHTML(c.material_principal || "General")}</span></td>
+        </tr>
+    `).join("");
+}
+
+function renderSellerTopMaterialsMetrics(materiales) {
+    if (!DOM.sellerTopMaterialsTable) return;
+    if (!materiales || materiales.length === 0) {
+        DOM.sellerTopMaterialsTable.innerHTML = '<tr><td colspan="4" class="seller-empty-row">No hay materiales vendidos en este periodo.</td></tr>';
+        return;
+    }
+    DOM.sellerTopMaterialsTable.innerHTML = materiales.map(m => `
+        <tr>
+            <td><strong>${escapeHTML(m.material)}</strong></td>
+            <td><span style="color: #64748b; font-weight: 500;">${escapeHTML(m.grupo || "General")}</span></td>
+            <td style="text-align: center; font-weight: 600; color: #334155;">${Number(m.unidades || 0).toLocaleString('es-MX')}</td>
+            <td style="text-align: right; font-weight: 700; color: #0f172a;">${formatSellerMoney(m.monto)}</td>
+        </tr>
+    `).join("");
+}
+
+async function loadAndRenderSellerAnalytics() {
+    if (state.user?.rol !== "vendedor") return;
+    try {
+        const periodParam = state.sellerGoalPeriod === "day" ? "dia" : state.sellerGoalPeriod === "week" ? "semana" : "mes";
+        const res = await apiRequest(`/api/v1/analitica/vendedor/metricas?periodo=${periodParam}`);
+        const data = res.data || {};
+        renderSellerChannelMetrics(data.canales || []);
+        renderSellerTopClientsMetrics(data.clientes || []);
+        renderSellerTopMaterialsMetrics(data.materiales || []);
+    } catch (err) {
+        console.warn("No se pudieron cargar las analíticas del vendedor:", err);
+    }
 }
 
 async function loadVendedoresData() {

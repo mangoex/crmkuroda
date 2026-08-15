@@ -8,6 +8,7 @@ from app.services.commercial_analytics import (
     aggregate_channels,
     aggregate_channel_summary_rows,
     aggregate_material_items,
+    build_seller_dashboard_metrics,
     build_seller_performance,
     find_clients_for_promotion,
     normalize_channel,
@@ -369,6 +370,90 @@ class CommercialAnalyticsTest(unittest.TestCase):
         promo = SimpleNamespace(codigo_material=None, descripcion_material="X", precio_promocion=10.0, valido_hasta=datetime(2026, 12, 31))
         result = find_clients_for_promotion(promo, [])
         self.assertEqual(result, [])
+
+    def test_build_seller_dashboard_metrics_generates_canonical_channels_clients_and_materials(self):
+        q_id = uuid4()
+        quotes = [
+            SimpleNamespace(
+                id=q_id,
+                canal="01",
+                numero_cliente="400260",  # Resolves to Apartados
+                cliente_nombre="Constructora Alpha",
+                total=Decimal("50000"),
+                importe_facturado=Decimal("50000"),
+                numero_factura="F-100",
+                vendedor_id=None,
+                vendedor_nombre="Vendedor 1",
+            ),
+            SimpleNamespace(
+                id=uuid4(),
+                canal="KURODA TURBO",
+                numero_cliente="1001",
+                cliente_nombre="Constructora Beta",
+                total=Decimal("30000"),
+                importe_facturado=Decimal("30000"),
+                numero_factura="F-101",
+                vendedor_id=None,
+                vendedor_nombre="Vendedor 1",
+            ),
+        ]
+        items = [
+            SimpleNamespace(
+                cotizacion_id=q_id,
+                codigo_material="TUB-01",
+                descripcion="Tubo PVC 4 pulg",
+                grupo_materiales="Tubería y conexiones",
+                familia="Plomería",
+                cantidad_facturada=Decimal("20"),
+                importe_facturado=Decimal("25000"),
+                cantidad_cotizada=Decimal("20"),
+                importe_cotizado=Decimal("25000"),
+            ),
+            SimpleNamespace(
+                cotizacion_id=q_id,
+                codigo_material="SAN-01",
+                descripcion="Inodoro Ecológico",
+                grupo_materiales="Sanitarios",
+                familia="Baños",
+                cantidad_facturada=Decimal("5"),
+                importe_facturado=Decimal("25000"),
+                cantidad_cotizada=Decimal("5"),
+                importe_cotizado=Decimal("25000"),
+            ),
+        ]
+
+        metrics = build_seller_dashboard_metrics(quotes, items)
+        
+        # 1. Check totals
+        self.assertEqual(metrics["totales"]["venta_total"], 80000.0)
+        self.assertEqual(metrics["totales"]["cotizaciones"], 2)
+
+        # 2. Check 5 canonical channels exist
+        channel_names = [c["canal"] for c in metrics["canales"]]
+        self.assertIn("Apartados", channel_names)
+        self.assertIn("Kuroda Turbo", channel_names)
+        self.assertIn("Material D", channel_names)
+        self.assertIn("Promociones", channel_names)
+        self.assertIn("Market place", channel_names)
+
+        apartados = next(c for c in metrics["canales"] if c["canal"] == "Apartados")
+        self.assertEqual(apartados["monto"], 50000.0)
+        self.assertEqual(apartados["porcentaje"], 62.5)
+
+        turbo = next(c for c in metrics["canales"] if c["canal"] == "Kuroda Turbo")
+        self.assertEqual(turbo["monto"], 30000.0)
+        self.assertEqual(turbo["porcentaje"], 37.5)
+
+        # 3. Check Top Clients
+        self.assertEqual(len(metrics["clientes"]), 2)
+        top_client = metrics["clientes"][0]
+        self.assertEqual(top_client["cliente"], "Constructora Alpha")
+        self.assertEqual(top_client["venta"], 50000.0)
+        self.assertEqual(top_client["porcentaje"], 62.5)
+
+        # 4. Check Top Materials
+        self.assertEqual(len(metrics["materiales"]), 2)
+        self.assertEqual(metrics["materiales"][0]["monto"], 25000.0)
 
 
 if __name__ == "__main__":
