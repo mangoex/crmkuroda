@@ -886,17 +886,6 @@ def _quote_import_column_indices(worksheet) -> dict[str, int]:
     return indices
 
 
-def _resolve_imported_channel(raw_channel: Optional[str], numero_cliente: Optional[str]) -> Optional[str]:
-    """Mapea número de cliente a canal de venta prioritario cuando aplique."""
-    clean_client = str(numero_cliente or "").strip()
-    clean_digits = clean_client.lstrip("0")
-    if clean_digits in ("400550", "400550.0") or clean_client == "400550":
-        return "Market place"
-    if clean_digits in ("400260", "400260.0") or clean_client == "400260":
-        return "Apartados"
-    return raw_channel
-
-
 def _apply_imported_quote_values(cotizacion: Cotizacion, values: dict) -> Cotizacion:
     """Actualiza únicamente campos provenientes del Excel y conserva seguimiento."""
     for field, value in values.items():
@@ -1247,18 +1236,15 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                 org_ventas = _excel_identifier(
                     row[column_indices["organizacion_ventas"]]
                 )
-                num_cliente = _excel_identifier(
-                    row[column_indices["numero_cliente"]]
-                )
-                canal_val = _resolve_imported_channel(
-                    _excel_identifier(row[column_indices["canal"]]),
-                    num_cliente
-                )
+                canal_val = _excel_identifier(row[column_indices["canal"]])
                 vend_codigo = _excel_identifier(
                     row[column_indices["vendedor_codigo"]]
                 )
                 vend_nombre = _excel_identifier(
                     row[column_indices["vendedor_nombre"]]
+                )
+                num_cliente = _excel_identifier(
+                    row[column_indices["numero_cliente"]]
                 )
                 cliente_nombre = _excel_identifier(
                     row[column_indices["cliente_nombre"]]

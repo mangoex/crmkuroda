@@ -11,7 +11,6 @@ from app.core.database import get_db
 from app.core.security import RoleChecker, get_current_user
 from app.models.usuario import Usuario
 from app.models.meta import Meta
-from app.models.meta_comercial import MetaComercial
 from app.models.cotizacion import Cotizacion
 from app.schemas.meta import MetaCreate, MetaUpdate, MetaMensualUpdate
 from app.models.promocion import Promocion
@@ -168,28 +167,6 @@ async def upsert_meta_mensual(
             estado="en_progreso",
         )
         db.add(meta)
-
-    # Sincronizar con MetaComercial
-    comm_meta_res = await db.execute(
-        select(MetaComercial).filter(
-            MetaComercial.vendedor_id == vendedor_id,
-            MetaComercial.tipo == "vendedor",
-            MetaComercial.mes == fecha_inicio,
-        )
-    )
-    comm_meta = comm_meta_res.scalars().first()
-    if comm_meta:
-        comm_meta.monto_objetivo = payload.monto_objetivo
-    else:
-        comm_meta = MetaComercial(
-            tipo="vendedor",
-            vendedor_id=vendedor_id,
-            mes=fecha_inicio,
-            monto_objetivo=payload.monto_objetivo,
-            descripcion="Meta mensual comercial",
-            creado_por_id=current_user.id,
-        )
-        db.add(comm_meta)
 
     await db.commit()
     await db.refresh(meta)

@@ -3,7 +3,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, or_, and_
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
@@ -23,7 +23,6 @@ from app.services.commercial_goals import (
     VALID_PERIODS,
     build_goals_dashboard,
     month_starts_between,
-    normalize_period,
     period_bounds,
 )
 from zoneinfo import ZoneInfo
@@ -60,8 +59,7 @@ def _serialize(meta: MetaComercial) -> dict:
 
 
 async def _load_dashboard_data(db: AsyncSession, reference: date, periodo: str) -> dict:
-    norm_periodo = normalize_period(periodo)
-    start, end = period_bounds(reference, norm_periodo)
+    start, end = period_bounds(reference, periodo)
     months = month_starts_between(start, end)
     sellers = (
         await db.execute(
@@ -82,16 +80,7 @@ async def _load_dashboard_data(db: AsyncSession, reference: date, periodo: str) 
                     Cotizacion.fecha_factura,
                 )
             )
-            .where(
-                or_(
-                    and_(Cotizacion.fecha_registro >= start, Cotizacion.fecha_registro <= end),
-                    and_(
-                        Cotizacion.fecha_registro.is_(None),
-                        Cotizacion.fecha_factura >= start,
-                        Cotizacion.fecha_factura <= end,
-                    ),
-                )
-            )
+            .where(Cotizacion.fecha_registro >= start, Cotizacion.fecha_registro <= end)
         )
     ).scalars().all()
     commercial_goals = (
@@ -108,7 +97,7 @@ async def _load_dashboard_data(db: AsyncSession, reference: date, periodo: str) 
         commercial_goals,
         legacy_goals,
         reference,
-        norm_periodo,
+        periodo,
     )
 
 
@@ -230,10 +219,9 @@ async def commercial_goals_dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(require_admin_or_gerente),
 ):
-    norm_periodo = normalize_period(periodo)
-    if norm_periodo not in VALID_PERIODS:
+    if periodo not in VALID_PERIODS:
         raise HTTPException(status_code=422, detail="Periodo inválido. Usa dia, semana o mes.")
-    data = await _load_dashboard_data(db, fecha or _business_today(), norm_periodo)
+    data = await _load_dashboard_data(db, fecha or _business_today(), periodo)
     return {"status": "success", "data": data}
 
 
@@ -246,10 +234,9 @@ async def my_commercial_goal_progress(
 ):
     if current_user.rol != "vendedor":
         raise HTTPException(status_code=403, detail="Este avance está disponible para vendedores.")
-    norm_periodo = normalize_period(periodo)
-    if norm_periodo not in VALID_PERIODS:
+    if periodo not in VALID_PERIODS:
         raise HTTPException(status_code=422, detail="Periodo inválido. Usa dia, semana o mes.")
-    dashboard = await _load_dashboard_data(db, fecha or _business_today(), norm_periodo)
+    dashboard = await _load_dashboard_data(db, fecha or _business_today(), periodo)
     seller = next(
         (row for row in dashboard["vendedores"] if row["vendedor_id"] == str(current_user.id)),
         None,
