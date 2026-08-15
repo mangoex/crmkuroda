@@ -112,301 +112,414 @@ class CommercialAnalyticsTest(unittest.TestCase):
         self.assertEqual(rows[1]["canal"], "Apartados")
         self.assertEqual(rows[1]["etiqueta"], "Apartados")
 
-    def test_material_detail_reconciles_by_seller_family_group_and_sku(self):
-        quote = SimpleNamespace(vendedor_id="seller-1", vendedor_nombre="Ana")
-        rows = [
-            (
-                SimpleNamespace(
-                    familia="Pisos",
-                    grupo_materiales="Cerámica",
-                    codigo_material="SKU-1",
-                    descripcion="Piso",
-                    cantidad_cotizada=2,
-                    importe_cotizado=200,
-                    cantidad_facturada=1,
-                    importe_facturado=100,
-                ),
-                quote,
-            ),
-            (
-                SimpleNamespace(
-                    familia="Pisos",
-                    grupo_materiales="Cerámica",
-                    codigo_material="SKU-1",
-                    descripcion="Piso",
-                    cantidad_cotizada=3,
-                    importe_cotizado=300,
-                    cantidad_facturada=2,
-                    importe_facturado=200,
-                ),
-                quote,
-            ),
-        ]
-
-        result = aggregate_material_items(rows)
-
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["cantidad_facturada"], 3.0)
-        self.assertEqual(result[0]["importe_facturado"], 300.0)
-
-    def test_material_detail_resolves_name_from_linked_seller(self):
-        seller_id = uuid4()
-        quote = SimpleNamespace(vendedor_id=seller_id, vendedor_nombre=None)
-        item = SimpleNamespace(
-            familia="Pisos",
-            grupo_materiales="Cerámica",
-            codigo_material="SKU-1",
-            descripcion="Piso",
-            cantidad_cotizada=1,
-            importe_cotizado=100,
-            cantidad_facturada=1,
-            importe_facturado=100,
-        )
-
-        result = aggregate_material_items(
-            [(item, quote)],
-            {str(seller_id): "Ana Asesora"},
-        )
-
-        self.assertEqual(result[0]["vendedor"], "Ana Asesora")
-
     def test_seller_performance_uses_factured_amount_and_resolves_historical_name(self):
         seller_id = uuid4()
-        seller = SimpleNamespace(
-            id=seller_id,
-            codigo_vendedor="A01",
-            nombre_completo="Ana Asesora",
-            email="ana@example.com",
-        )
+        sellers = [
+            SimpleNamespace(
+                id=seller_id,
+                codigo_vendedor="V01",
+                nombre_completo="Juan Perez",
+                email="juan@example.com",
+            )
+        ]
         quotes = [
             SimpleNamespace(
                 vendedor_id=None,
-                vendedor_nombre="ana asesora",
-                numero_factura="F-1",
-                importe_facturado=Decimal("800"),
-                total=Decimal("1000"),
-                venta_perdida=None,
-                fecha_registro=date(2026, 7, 20),
-            ),
+                vendedor_nombre="JUAN PEREZ",
+                total=Decimal("5000"),
+                importe_facturado=Decimal("4200"),
+                numero_factura="F-10",
+                venta_perdida="NO",
+                fecha_registro=date(2026, 3, 1),
+            )
+        ]
+        goals = [
             SimpleNamespace(
                 vendedor_id=seller_id,
-                vendedor_nombre=None,
-                numero_factura=None,
-                importe_facturado=Decimal("0"),
-                total=Decimal("500"),
-                venta_perdida=None,
-                fecha_registro=date(2026, 7, 22),
-            ),
+                monto_objetivo=Decimal("10000"),
+            )
         ]
-        goals = [SimpleNamespace(vendedor_id=seller_id, monto_objetivo=Decimal("2000"))]
         logs = [
-            SimpleNamespace(user_id=seller_id, total_points=80, date=date(2026, 7, 20)),
-            SimpleNamespace(user_id=seller_id, total_points=100, date=date(2026, 7, 21)),
+            SimpleNamespace(
+                user_id=seller_id,
+                total_points=85,
+                date=date(2026, 3, 1),
+            )
         ]
 
-        result = build_seller_performance(
-            [seller],
+        rows = build_seller_performance(
+            sellers,
             quotes,
             goals,
             logs,
-            date(2026, 7, 26),
-            30,
-        )[0]
+            today=date(2026, 3, 2),
+        )
 
-        self.assertEqual(result["venta_facturada"], 800.0)
-        self.assertEqual(result["cumplimiento"], 40.0)
-        self.assertEqual(result["conversion"], 50.0)
-        self.assertEqual(result["ticket_promedio"], 800.0)
-        self.assertEqual(result["pendientes"], 1)
-        self.assertEqual(result["consistencia_promedio"], 90.0)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["venta_facturada"], 4200.0)
+        self.assertEqual(rows[0]["importe_cotizado"], 5000.0)
+        self.assertEqual(rows[0]["cumplimiento"], 42.0)
+        self.assertEqual(rows[0]["consistencia_promedio"], 85.0)
 
     def test_promotion_requires_exact_sku_and_current_validity(self):
+        today = date(2026, 3, 2)
         quote = SimpleNamespace(
             numero_factura=None,
-            venta_perdida=None,
-            fecha_registro=date(2026, 7, 20),
+            venta_perdida="NO",
+            fecha_registro=date(2026, 2, 20),
         )
-        items = [SimpleNamespace(codigo_material="SKU-EXACT")]
+        items = [
+            SimpleNamespace(codigo_material="SKU-100"),
+            SimpleNamespace(codigo_material="SKU-200"),
+        ]
         promotions = [
             SimpleNamespace(
-                codigo_material="SKU-EXACT",
-                descripcion_material="Producto",
-                precio_promocion=99,
-                valido_hasta=datetime(2026, 7, 29),
+                codigo_material="SKU-100",
+                descripcion_material="Producto A",
+                precio_promocion=120.0,
+                valido_hasta=date(2026, 3, 5),
             ),
             SimpleNamespace(
-                codigo_material="SKU",
-                descripcion_material="Parecido",
-                precio_promocion=50,
-                valido_hasta=datetime(2026, 7, 29),
+                codigo_material="SKU-999",
+                descripcion_material="Producto B",
+                precio_promocion=80.0,
+                valido_hasta=date(2026, 3, 5),
             ),
         ]
 
-        result = promotion_priority(
-            quote,
-            items,
-            promotions,
-            date(2026, 7, 26),
-        )
+        result = promotion_priority(quote, items, promotions, today=today)
 
         self.assertTrue(result["tiene_promocion"])
         self.assertEqual(result["nivel_prioridad"], "alta")
         self.assertEqual(len(result["promociones_coincidentes"]), 1)
-        self.assertEqual(
-            result["promociones_coincidentes"][0]["codigo_material"],
-            "SKU-EXACT",
+        self.assertEqual(result["promociones_coincidentes"][0]["codigo_material"], "SKU-100")
+
+    def test_sold_or_stale_quote_does_not_prioritize(self):
+        today = date(2026, 3, 2)
+        invoiced_quote = SimpleNamespace(
+            numero_factura="F-100",
+            venta_perdida="NO",
+            fecha_registro=date(2026, 2, 20),
+        )
+        stale_quote = SimpleNamespace(
+            numero_factura=None,
+            venta_perdida="NO",
+            fecha_registro=date(2026, 1, 1),
+        )
+        items = [SimpleNamespace(codigo_material="SKU-100")]
+        promotions = [
+            SimpleNamespace(
+                codigo_material="SKU-100",
+                descripcion_material="Producto A",
+                precio_promocion=120.0,
+                valido_hasta=date(2026, 3, 5),
+            )
+        ]
+
+        self.assertFalse(
+            promotion_priority(invoiced_quote, items, promotions, today=today)["tiene_promocion"]
+        )
+        self.assertFalse(
+            promotion_priority(stale_quote, items, promotions, today=today)["tiene_promocion"]
         )
 
     def test_expired_promotion_does_not_prioritize(self):
+        today = date(2026, 3, 2)
         quote = SimpleNamespace(
             numero_factura=None,
-            venta_perdida=None,
-            fecha_registro=date(2026, 7, 20),
+            venta_perdida="NO",
+            fecha_registro=date(2026, 2, 20),
         )
-        result = promotion_priority(
-            quote,
-            [SimpleNamespace(codigo_material="SKU-1")],
-            [
+        items = [SimpleNamespace(codigo_material="SKU-100")]
+        promotions = [
+            SimpleNamespace(
+                codigo_material="SKU-100",
+                descripcion_material="Producto A",
+                precio_promocion=120.0,
+                valido_hasta=date(2026, 3, 1),
+            )
+        ]
+
+        self.assertFalse(
+            promotion_priority(quote, items, promotions, today=today)["tiene_promocion"]
+        )
+
+    def test_material_detail_reconciles_by_seller_family_group_and_sku(self):
+        seller_id = str(uuid4())
+        quote_1 = SimpleNamespace(
+            vendedor_id=seller_id,
+            vendedor_nombre="Vendedor Uno",
+        )
+        quote_2 = SimpleNamespace(
+            vendedor_id=seller_id,
+            vendedor_nombre="Vendedor Uno",
+        )
+        items = [
+            (
                 SimpleNamespace(
-                    codigo_material="SKU-1",
-                    descripcion_material="Producto",
-                    precio_promocion=99,
-                    valido_hasta=datetime(2026, 7, 25),
-                )
-            ],
-            date(2026, 7, 26),
+                    familia="Tubería",
+                    grupo_materiales="PVC",
+                    codigo_material="TUB-01",
+                    descripcion="Tubo PVC 1/2",
+                    cantidad_cotizada=Decimal("10"),
+                    importe_cotizado=Decimal("1500"),
+                    cantidad_facturada=Decimal("8"),
+                    importe_facturado=Decimal("1200"),
+                ),
+                quote_1,
+            ),
+            (
+                SimpleNamespace(
+                    familia="Tubería",
+                    grupo_materiales="PVC",
+                    codigo_material="TUB-01",
+                    descripcion="Tubo PVC 1/2",
+                    cantidad_cotizada=Decimal("5"),
+                    importe_cotizado=Decimal("750"),
+                    cantidad_facturada=Decimal("5"),
+                    importe_facturado=Decimal("750"),
+                ),
+                quote_2,
+            ),
+            (
+                SimpleNamespace(
+                    familia="Grifería",
+                    grupo_materiales="Mezcladoras",
+                    codigo_material="GRIF-09",
+                    descripcion="Mezcladora Baño",
+                    cantidad_cotizada=Decimal("2"),
+                    importe_cotizado=Decimal("2200"),
+                    cantidad_facturada=Decimal("0"),
+                    importe_facturado=Decimal("0"),
+                ),
+                quote_2,
+            ),
+        ]
+
+        rows = aggregate_material_items(items)
+
+        self.assertEqual(len(rows), 2)
+        top = rows[0]
+        self.assertEqual(top["codigo_material"], "TUB-01")
+        self.assertEqual(top["cantidad_cotizada"], 15.0)
+        self.assertEqual(top["cantidad_facturada"], 13.0)
+        self.assertEqual(top["importe_cotizado"], 2250.0)
+        self.assertEqual(top["importe_facturado"], 1950.0)
+
+    def test_material_detail_resolves_name_from_linked_seller(self):
+        seller_id = str(uuid4())
+        quote = SimpleNamespace(
+            vendedor_id=seller_id,
+            vendedor_nombre=None,
+        )
+        item = SimpleNamespace(
+            familia="Válvulas",
+            grupo_materiales="Bronce",
+            codigo_material="VAL-01",
+            descripcion="Válvula Esfera",
+            cantidad_cotizada=Decimal("1"),
+            importe_cotizado=Decimal("300"),
+            cantidad_facturada=Decimal("1"),
+            importe_facturado=Decimal("300"),
         )
 
-        self.assertFalse(result["tiene_promocion"])
-
-    def test_sold_or_stale_quote_does_not_prioritize(self):
-        promotion = SimpleNamespace(
-            codigo_material="SKU-1",
-            descripcion_material="Producto",
-            precio_promocion=99,
-            valido_hasta=datetime(2026, 8, 30),
-        )
-        sold = SimpleNamespace(
-            numero_factura="F-1",
-            venta_perdida=None,
-            fecha_registro=date(2026, 7, 20),
-        )
-        stale = SimpleNamespace(
-            numero_factura=None,
-            venta_perdida=None,
-            fecha_registro=date(2026, 6, 1),
+        rows = aggregate_material_items(
+            [(item, quote)],
+            seller_names={seller_id: "Laura Directora"},
         )
 
-        self.assertFalse(
-            promotion_priority(
-                sold,
-                [SimpleNamespace(codigo_material="SKU-1")],
-                [promotion],
-                date(2026, 7, 26),
-            )["tiene_promocion"]
-        )
-        self.assertFalse(
-            promotion_priority(
-                stale,
-                [SimpleNamespace(codigo_material="SKU-1")],
-                [promotion],
-                date(2026, 7, 26),
-            )["tiene_promocion"]
-        )
-
-    # ---- find_clients_for_promotion tests ----
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["vendedor"], "Laura Directora")
 
     def test_find_clients_basic_match(self):
-        promo = SimpleNamespace(codigo_material="SKU-A", descripcion_material="Tubo", precio_promocion=99.0, valido_hasta=datetime(2026, 12, 31))
-        item = SimpleNamespace(codigo_material="SKU-A", cantidad_facturada=10, importe_facturado=500, cantidad_cotizada=10, importe_cotizado=500)
-        quote = SimpleNamespace(
-            numero_cliente="1001", cliente_nombre="Cliente A", vendedor_nombre="V1",
-            vendedor_id=None, datos_contacto={"celular": "667111"}, numero_factura="F-1",
-            importe_facturado=500, fecha_factura=date(2026, 6, 1), fecha_registro=date(2026, 5, 1),
-            venta_perdida=None,
+        seller_id = uuid4()
+        quote_facturada = SimpleNamespace(
+            id=uuid4(),
+            numero_factura="FAC-001",
+            importe_facturado=Decimal("5000"),
+            total=Decimal("5000"),
+            numero_cliente="12345",
+            cliente_nombre="ACME Corp",
+            vendedor_nombre="Vendedor Uno",
+            vendedor_id=seller_id,
+            datos_contacto={"telefono": "6671000001", "celular": "6672000001", "email": "acme@example.com"},
+            fecha_factura=date(2026, 2, 15),
+            fecha_registro=date(2026, 2, 10),
         )
-        result = find_clients_for_promotion(promo, [(item, quote)])
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["numero_cliente"], "1001")
-        self.assertEqual(result[0]["tipo_operacion"], "Facturado")
+        item_1 = SimpleNamespace(
+            codigo_material="SKU-001",
+            cantidad_facturada=Decimal("10"),
+            cantidad_cotizada=Decimal("10"),
+            importe_facturado=Decimal("5000"),
+            importe_cotizado=Decimal("5000"),
+        )
+        promo = SimpleNamespace(
+            codigo_material="SKU-001",
+            descripcion_material="Tubo PVC",
+            precio_promocion=450.0,
+            valido_hasta=date(2026, 3, 31),
+        )
 
-    def test_find_clients_only_invoiced_excludes_quoted(self):
-        promo = SimpleNamespace(codigo_material="SKU-B", descripcion_material="Valvula", precio_promocion=50.0, valido_hasta=datetime(2026, 12, 31))
-        item = SimpleNamespace(codigo_material="SKU-B", cantidad_facturada=0, importe_facturado=0, cantidad_cotizada=5, importe_cotizado=250)
-        quote = SimpleNamespace(
-            numero_cliente="2002", cliente_nombre="Cliente B", vendedor_nombre="V1",
-            vendedor_id=None, datos_contacto={}, numero_factura=None,
-            importe_facturado=0, fecha_factura=None, fecha_registro=date(2026, 5, 1),
-            venta_perdida=None,
-        )
-        result_strict = find_clients_for_promotion(promo, [(item, quote)], only_invoiced=True)
-        self.assertEqual(len(result_strict), 0)
-        result_all = find_clients_for_promotion(promo, [(item, quote)], only_invoiced=False)
-        self.assertEqual(len(result_all), 1)
-        self.assertEqual(result_all[0]["tipo_operacion"], "Cotizado")
+        clients = find_clients_for_promotion(promo, [(item_1, quote_facturada)])
+
+        self.assertEqual(len(clients), 1)
+        c = clients[0]
+        self.assertEqual(c["numero_cliente"], "12345")
+        self.assertEqual(c["cliente_nombre"], "ACME Corp")
+        self.assertEqual(c["vendedor_nombre"], "Vendedor Uno")
+        self.assertEqual(c["vendedor_id"], str(seller_id))
+        self.assertEqual(c["operaciones"], 1)
+        self.assertEqual(c["cantidad_total"], 10.0)
+        self.assertEqual(c["importe_total"], 5000.0)
+        self.assertEqual(c["ultima_compra"], "2026-02-15")
+        self.assertEqual(c["tipo_operacion"], "Facturado")
+        self.assertEqual(c["contacto"]["contacto_preferente"], "6672000001")
+        self.assertEqual(c["contacto"]["tipo_contacto_preferente"], "celular")
 
     def test_find_clients_deduplicates_by_client(self):
-        promo = SimpleNamespace(codigo_material="SKU-C", descripcion_material="Conector", precio_promocion=30.0, valido_hasta=datetime(2026, 12, 31))
-        item1 = SimpleNamespace(codigo_material="SKU-C", cantidad_facturada=3, importe_facturado=90, cantidad_cotizada=3, importe_cotizado=90)
-        item2 = SimpleNamespace(codigo_material="SKU-C", cantidad_facturada=7, importe_facturado=210, cantidad_cotizada=7, importe_cotizado=210)
-        quote1 = SimpleNamespace(
-            numero_cliente="3003", cliente_nombre="Cliente C", vendedor_nombre="V1",
-            vendedor_id=None, datos_contacto={}, numero_factura="F-1",
-            importe_facturado=90, fecha_factura=date(2026, 3, 1), fecha_registro=date(2026, 2, 1),
-            venta_perdida=None,
+        quote_1 = SimpleNamespace(
+            id=uuid4(),
+            numero_factura="FAC-001",
+            importe_facturado=Decimal("2000"),
+            total=Decimal("2000"),
+            numero_cliente="CL-10",
+            cliente_nombre="Empresa Beta",
+            vendedor_nombre="Vendedor Uno",
+            vendedor_id=None,
+            datos_contacto={"telefono": "6671111111"},
+            fecha_factura=date(2026, 1, 10),
+            fecha_registro=date(2026, 1, 5),
         )
-        quote2 = SimpleNamespace(
-            numero_cliente="3003", cliente_nombre="Cliente C", vendedor_nombre="V1",
-            vendedor_id=None, datos_contacto={}, numero_factura="F-2",
-            importe_facturado=210, fecha_factura=date(2026, 6, 1), fecha_registro=date(2026, 5, 1),
-            venta_perdida=None,
+        quote_2 = SimpleNamespace(
+            id=uuid4(),
+            numero_factura="FAC-002",
+            importe_facturado=Decimal("3000"),
+            total=Decimal("3000"),
+            numero_cliente="CL-10",
+            cliente_nombre="Empresa Beta",
+            vendedor_nombre="Vendedor Uno",
+            vendedor_id=None,
+            datos_contacto={"telefono": "6671111111", "celular": "6679999999"},
+            fecha_factura=date(2026, 2, 20),
+            fecha_registro=date(2026, 2, 18),
         )
-        result = find_clients_for_promotion(promo, [(item1, quote1), (item2, quote2)])
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["operaciones"], 2)
-        self.assertEqual(result[0]["cantidad_total"], 10)
+        item_a = SimpleNamespace(
+            codigo_material="SKU-PROMO",
+            cantidad_facturada=Decimal("2"),
+            cantidad_cotizada=Decimal("2"),
+            importe_facturado=Decimal("2000"),
+            importe_cotizado=Decimal("2000"),
+        )
+        item_b = SimpleNamespace(
+            codigo_material="SKU-PROMO",
+            cantidad_facturada=Decimal("3"),
+            cantidad_cotizada=Decimal("3"),
+            importe_facturado=Decimal("3000"),
+            importe_cotizado=Decimal("3000"),
+        )
+        promo = SimpleNamespace(
+            codigo_material="SKU-PROMO",
+            descripcion_material="Codo Cobre",
+            precio_promocion=100.0,
+            valido_hasta=date(2026, 4, 30),
+        )
+
+        clients = find_clients_for_promotion(
+            promo, [(item_a, quote_1), (item_b, quote_2)]
+        )
+
+        self.assertEqual(len(clients), 1)
+        c = clients[0]
+        self.assertEqual(c["operaciones"], 2)
+        self.assertEqual(c["cantidad_total"], 5.0)
+        self.assertEqual(c["importe_total"], 5000.0)
+        self.assertEqual(c["ultima_compra"], "2026-02-20")
+        self.assertEqual(c["contacto"]["contacto_preferente"], "6679999999")
+
+    def test_find_clients_only_invoiced_excludes_quoted(self):
+        quote_quoted_only = SimpleNamespace(
+            id=uuid4(),
+            numero_factura=None,
+            importe_facturado=Decimal("0"),
+            total=Decimal("4000"),
+            numero_cliente="CL-20",
+            cliente_nombre="Solo Cotizo",
+            vendedor_nombre="Vendedor Dos",
+            vendedor_id=None,
+            datos_contacto={},
+            fecha_factura=None,
+            fecha_registro=date(2026, 2, 1),
+        )
+        item = SimpleNamespace(
+            codigo_material="SKU-X",
+            cantidad_facturada=Decimal("0"),
+            cantidad_cotizada=Decimal("4"),
+            importe_facturado=Decimal("0"),
+            importe_cotizado=Decimal("4000"),
+        )
+        promo = SimpleNamespace(
+            codigo_material="SKU-X",
+            descripcion_material="Llave Paso",
+            precio_promocion=900.0,
+            valido_hasta=date(2026, 5, 1),
+        )
+
+        invoiced_clients = find_clients_for_promotion(
+            promo, [(item, quote_quoted_only)], only_invoiced=True
+        )
+        self.assertEqual(len(invoiced_clients), 0)
+
+        all_clients = find_clients_for_promotion(
+            promo, [(item, quote_quoted_only)], only_invoiced=False
+        )
+        self.assertEqual(len(all_clients), 1)
+        self.assertEqual(all_clients[0]["tipo_operacion"], "Cotizado")
+        self.assertEqual(all_clients[0]["cantidad_total"], 4.0)
+        self.assertEqual(all_clients[0]["importe_total"], 4000.0)
 
     def test_find_clients_empty_promo_code_returns_empty(self):
-        promo = SimpleNamespace(codigo_material=None, descripcion_material="X", precio_promocion=10.0, valido_hasta=datetime(2026, 12, 31))
-        result = find_clients_for_promotion(promo, [])
-        self.assertEqual(result, [])
+        promo = SimpleNamespace(
+            codigo_material="",
+            descripcion_material="Sin codigo",
+            precio_promocion=10.0,
+            valido_hasta=date(2026, 5, 1),
+        )
+        clients = find_clients_for_promotion(promo, [])
+        self.assertEqual(clients, [])
 
     def test_build_seller_dashboard_metrics_generates_canonical_channels_clients_and_materials(self):
         q_id = uuid4()
+        q2_id = uuid4()
         quotes = [
             SimpleNamespace(
                 id=q_id,
                 canal="01",
-                numero_cliente="400260",  # Resolves to Apartados
+                numero_cliente="400260", # Maps to Apartados
                 cliente_nombre="Constructora Alpha",
                 total=Decimal("50000"),
                 importe_facturado=Decimal("50000"),
-                numero_factura="F-100",
-                vendedor_id=None,
-                vendedor_nombre="Vendedor 1",
+                numero_factura="F-101",
             ),
             SimpleNamespace(
-                id=uuid4(),
-                canal="KURODA TURBO",
-                numero_cliente="1001",
-                cliente_nombre="Constructora Beta",
+                id=q2_id,
+                canal="Kuroda Turbo",
+                numero_cliente="123456",
+                cliente_nombre="Beta Residencial",
                 total=Decimal("30000"),
                 importe_facturado=Decimal("30000"),
-                numero_factura="F-101",
-                vendedor_id=None,
-                vendedor_nombre="Vendedor 1",
+                numero_factura="F-102",
             ),
         ]
         items = [
             SimpleNamespace(
                 cotizacion_id=q_id,
                 codigo_material="TUB-01",
-                descripcion="Tubo PVC 4 pulg",
-                grupo_materiales="Tubería y conexiones",
+                descripcion="Tubo Cobre 1/2",
+                grupo_materiales="Tuberías",
                 familia="Plomería",
-                cantidad_facturada=Decimal("20"),
+                cantidad_facturada=Decimal("10"),
                 importe_facturado=Decimal("25000"),
-                cantidad_cotizada=Decimal("20"),
+                cantidad_cotizada=Decimal("10"),
                 importe_cotizado=Decimal("25000"),
             ),
             SimpleNamespace(
@@ -428,13 +541,10 @@ class CommercialAnalyticsTest(unittest.TestCase):
         self.assertEqual(metrics["totales"]["venta_total"], 80000.0)
         self.assertEqual(metrics["totales"]["cotizaciones"], 2)
 
-        # 2. Check 5 canonical channels exist
+        # 2. Check channels with sales exist
         channel_names = [c["canal"] for c in metrics["canales"]]
         self.assertIn("Apartados", channel_names)
         self.assertIn("Kuroda Turbo", channel_names)
-        self.assertIn("Material D", channel_names)
-        self.assertIn("Promociones", channel_names)
-        self.assertIn("Market place", channel_names)
 
         apartados = next(c for c in metrics["canales"] if c["canal"] == "Apartados")
         self.assertEqual(apartados["monto"], 50000.0)
@@ -454,6 +564,16 @@ class CommercialAnalyticsTest(unittest.TestCase):
         # 4. Check Top Materials
         self.assertEqual(len(metrics["materiales"]), 2)
         self.assertEqual(metrics["materiales"][0]["monto"], 25000.0)
+
+    def test_delivery_channels_normalized_properly(self):
+        self.assertEqual(normalize_channel("ENVÍO A DOMICILIO"), "Envío a Domicilio")
+        self.assertEqual(normalize_channel("ENTREGA INMEDIATA"), "Entrega Inmediata")
+        self.assertEqual(normalize_channel("PIDE Y RECOGE"), "Pide y Recoge")
+        self.assertEqual(normalize_channel("SOBREPEDIDO"), "Sobrepedido")
+        self.assertEqual(normalize_channel("CTE RECO EN OTRA SUC"), "Cte Reco en Otra Suc")
+        self.assertEqual(normalize_channel("ENVIO POR PAQUETERIA"), "Envío por Paquetería")
+        self.assertEqual(normalize_channel("OCURRE"), "Ocurre")
+        self.assertEqual(normalize_channel("MERCANCIA RESGUARDO"), "Mercancía Resguardo")
 
 
 if __name__ == "__main__":

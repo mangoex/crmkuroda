@@ -9,11 +9,19 @@ from typing import Any, Iterable, Mapping
 
 
 CANONICAL_CHANNELS = (
+    "Envío a Domicilio",
+    "Entrega Inmediata",
+    "Pide y Recoge",
+    "Sobrepedido",
+    "Cte Reco en Otra Suc",
+    "Envío por Paquetería",
     "Apartados",
+    "Ocurre",
+    "Market place",
+    "Mercancía Resguardo",
     "Kuroda Turbo",
     "Material D",
     "Promociones",
-    "Market place",
 )
 
 
@@ -40,27 +48,78 @@ def normalize_contact(datos_contacto: Mapping[str, Any] | None) -> dict[str, Any
 
 
 def normalize_channel(raw_value: Any, configured: Mapping[str, str] | None = None) -> str:
-    normalized = normalize_text(raw_value)
+    if raw_value is None:
+        return "Sin clasificar"
+    raw_str = str(raw_value).strip()
+    if not raw_str or raw_str.upper() in ("NONE", "NULL", "SIN CLAVE", "SIN CANAL"):
+        return "Sin clasificar"
+
+    normalized = normalize_text(raw_str)
     configured = configured or {}
     configured_lookup = {normalize_text(key): value for key, value in configured.items()}
     if normalized in configured_lookup:
         return configured_lookup[normalized]
 
     deterministic_aliases = {
+        # Envío a domicilio
+        "ENVIO A DOMICILIO": "Envío a Domicilio",
+        "ENVIO A DOMICILO": "Envío a Domicilio",
+        "ENVIO DOMICILIO": "Envío a Domicilio",
+        "ENTREGA A DOMICILIO": "Envío a Domicilio",
+        "DOMICILIO": "Envío a Domicilio",
+        # Entrega inmediata
+        "ENTREGA INMEDIATA": "Entrega Inmediata",
+        "ENTREGA-INMEDIATA": "Entrega Inmediata",
+        "INMEDIATA": "Entrega Inmediata",
+        # Pide y recoge
+        "PIDE Y RECOGE": "Pide y Recoge",
+        "PIDE Y RECOGE EN TIENDA": "Pide y Recoge",
+        "RECOGE EN TIENDA": "Pide y Recoge",
+        # Sobrepedido
+        "SOBREPEDIDO": "Sobrepedido",
+        "SOBREPEDIDOS": "Sobrepedido",
+        "SOBRE PEDIDO": "Sobrepedido",
+        # Cte reco en otra suc
+        "CTE RECO EN OTRA SUC": "Cte Reco en Otra Suc",
+        "CTE RECO EN OTRA SUCURSAL": "Cte Reco en Otra Suc",
+        "RECOGE EN OTRA SUC": "Cte Reco en Otra Suc",
+        # Envío por paquetería
+        "ENVIO POR PAQUETERIA": "Envío por Paquetería",
+        "ENVIO POR PAQUETERA": "Envío por Paquetería",
+        "PAQUETERIA": "Envío por Paquetería",
+        # Apartados
         "APARTADO": "Apartados",
         "APARTADOS": "Apartados",
         "400260": "Apartados",
-        "KURODA TURBO": "Kuroda Turbo",
-        "TURBO": "Kuroda Turbo",
-        "MATERIAL D": "Material D",
-        "MATERIAL-D": "Material D",
-        "PROMOCION": "Promociones",
-        "PROMOCIONES": "Promociones",
+        # Ocurre
+        "OCURRE": "Ocurre",
+        "OCURRE SUCURSAL": "Ocurre",
+        "ENTREGA OCURRE": "Ocurre",
+        # Market place
         "MARKETPLACE": "Market place",
         "MARKET PLACE": "Market place",
         "400550": "Market place",
+        # Mercancía resguardo
+        "MERCANCIA RESGUARDO": "Mercancía Resguardo",
+        "MERCANCIA EN RESGUARDO": "Mercancía Resguardo",
+        "RESGUARDO": "Mercancía Resguardo",
+        # Kuroda turbo
+        "KURODA TURBO": "Kuroda Turbo",
+        "TURBO": "Kuroda Turbo",
+        # Material D
+        "MATERIAL D": "Material D",
+        "MATERIAL-D": "Material D",
+        # Promociones
+        "PROMOCION": "Promociones",
+        "PROMOCIONES": "Promociones",
     }
-    return deterministic_aliases.get(normalized, "Sin clasificar")
+    if normalized in deterministic_aliases:
+        return deterministic_aliases[normalized]
+    # Si es un código numérico desconocido sin configurar, mantener Sin clasificar
+    if normalized.isdigit() or re.match(r"^\d+(\.\d+)?$", normalized):
+        return "Sin clasificar"
+    # Si es un nombre/texto descriptivo de canal, capitalizar limpiamente
+    return raw_str.title()
 
 
 def resolve_quote_effective_channel(
@@ -507,23 +566,28 @@ def build_seller_dashboard_metrics(
     items = list(items or [])
 
     channel_colors = {
+        "Envío a Domicilio": "#3b82f6",
+        "Entrega Inmediata": "#10b981",
+        "Pide y Recoge": "#8b5cf6",
+        "Sobrepedido": "#f59e0b",
+        "Cte Reco en Otra Suc": "#06b6d4",
+        "Envío por Paquetería": "#ec4899",
         "Apartados": "#6366f1",
-        "Kuroda Turbo": "#10b981",
+        "Ocurre": "#14b8a6",
+        "Market place": "#0ea5e9",
+        "Mercancía Resguardo": "#a855f7",
+        "Kuroda Turbo": "#22c55e",
         "Material D": "#ea580c",
-        "Promociones": "#ec4899",
-        "Market place": "#3b82f6",
+        "Promociones": "#f43f5e",
+        "Sin clasificar": "#64748b",
     }
+    fallback_palette = [
+        "#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#06b6d4",
+        "#ec4899", "#6366f1", "#14b8a6", "#ea580c", "#22c55e",
+        "#a855f7", "#0ea5e9", "#f43f5e", "#64748b",
+    ]
 
-    channel_stats: dict[str, dict[str, Any]] = {
-        canonical: {
-            "canal": canonical,
-            "color": channel_colors.get(canonical, "#64748b"),
-            "monto": Decimal("0"),
-            "cotizaciones": 0,
-            "operaciones_facturadas": 0,
-        }
-        for canonical in CANONICAL_CHANNELS
-    }
+    channel_stats: dict[str, dict[str, Any]] = {}
 
     total_sales = Decimal("0")
     total_quotes_amount = Decimal("0")
@@ -531,9 +595,10 @@ def build_seller_dashboard_metrics(
     for quote in quotes:
         channel = resolve_quote_effective_channel(quote, configured_channels)
         if channel not in channel_stats:
+            color = channel_colors.get(channel) or fallback_palette[len(channel_stats) % len(fallback_palette)]
             channel_stats[channel] = {
                 "canal": channel,
-                "color": channel_colors.get(channel, "#64748b"),
+                "color": color,
                 "monto": Decimal("0"),
                 "cotizaciones": 0,
                 "operaciones_facturadas": 0,
@@ -554,14 +619,24 @@ def build_seller_dashboard_metrics(
             channel_stats[channel]["monto"] += quote_total
             total_sales += quote_total
 
+    # Si hay canales con actividad, ordenarlos por monto facturado/cotizado descendente
+    active_channels = [s for s in channel_stats.values() if s["monto"] > 0 or s["cotizaciones"] > 0]
+    active_channels.sort(key=lambda s: (s["monto"], s["cotizaciones"]), reverse=True)
+
+    if not active_channels:
+        # Fallback a los primeros canales canónicos si no hay cotizaciones
+        for idx, canonical in enumerate(CANONICAL_CHANNELS[:5]):
+            color = channel_colors.get(canonical, fallback_palette[idx % len(fallback_palette)])
+            active_channels.append({
+                "canal": canonical,
+                "color": color,
+                "monto": Decimal("0"),
+                "cotizaciones": 0,
+                "operaciones_facturadas": 0,
+            })
+
     canales_list = []
-    ordered_channel_names = list(CANONICAL_CHANNELS) + [
-        c for c in channel_stats if c not in CANONICAL_CHANNELS
-    ]
-    for ch_name in ordered_channel_names:
-        stats = channel_stats.get(ch_name)
-        if not stats:
-            continue
+    for stats in active_channels:
         monto_num = float(stats["monto"])
         pct = round(float(stats["monto"] / total_sales * 100), 1) if total_sales > 0 else 0.0
         canales_list.append({

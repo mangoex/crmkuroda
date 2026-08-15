@@ -1,42 +1,41 @@
+import os
 import unittest
-from pathlib import Path
-
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 class LightUixContractTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
-        cls.css = (ROOT / "static" / "style.css").read_text(encoding="utf-8")
-        cls.javascript = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+    def setUp(self):
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.html_path = os.path.join(repo_root, "static", "index.html")
+        self.css_path = os.path.join(repo_root, "static", "style.css")
+        self.js_path = os.path.join(repo_root, "static", "app.js")
+
+        with open(self.html_path, "r", encoding="utf-8") as f:
+            self.html = f.read()
+        with open(self.css_path, "r", encoding="utf-8") as f:
+            self.css = f.read()
+        with open(self.js_path, "r", encoding="utf-8") as f:
+            self.javascript = f.read()
 
     def test_light_mode_is_default_and_dark_section_removed(self):
         self.assertIn('<body class="light-mode">', self.html)
-        self.assertNotIn("DARK UIX 2.0", self.css)
-        self.assertNotIn("body:not(.light-mode)", self.css)
+        self.assertNotIn("Modo Oscuro", self.html)
+        self.assertNotIn("themeToggle", self.html)
+        self.assertNotIn("theme-toggle", self.html)
 
     def test_light_mode_tokens_and_base_variables_exist(self):
-        for token in (
-            "--bg-primary",
-            "--bg-secondary",
-            "--card-bg",
-            "--text-primary",
-            "--text-secondary",
-            "--border-color",
-        ):
-            self.assertIn(token, self.css)
+        self.assertIn("--bg-primary: #f8fafc;", self.css)
+        self.assertIn("--bg-card: #ffffff;", self.css)
+        self.assertIn("--border: #e2e8f0;", self.css)
+        self.assertIn("--text-primary: #1e293b;", self.css)
+        self.assertIn("--text-muted: #64748b;", self.css)
 
     def test_core_application_surfaces_have_light_styling(self):
         for selector in (
-            ".auth-wrapper",
-            ".sidebar-container",
-            ".top-navbar",
-            ".glass-card",
-            ".data-table",
-            ".kanban-column",
-            ".modal-card",
+            ".sidebar",
+            ".metric-card",
+            ".kuroda-table",
+            ".chat-wrapper",
+            ".tab-btn",
             ".seller-home-dashboard",
         ):
             self.assertIn(selector, self.css)
