@@ -482,6 +482,66 @@ class CommercialApiWorkflowTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(raised.exception.status_code, 403)
         self.assertEqual(database.commits, 0)
 
+    async def test_upload_promociones_multi_sheet_selects_promo_sheet(self):
+        from app.api.v1.promociones import upload_promociones
+        wb = openpyxl.Workbook()
+        
+        # Sheet 1: Inventario (8 cols)
+        ws_inv = wb.active
+        ws_inv.title = "Inventario"
+        ws_inv.append(["Centro", "Codigo Material", "Nombre del Proveedor", "Descripcion Material", "Cantidad Propia", "Entregas Pendientes", "Existencia en Consignacion", "Inventario disponible"])
+        ws_inv.append(["MK01", "FGA70719", "FUTURA", "CODO 90", "100", "0", "0", "100"])
+        
+        # Sheet 2: Promociones (16 cols)
+        ws_promo = wb.create_sheet(title="Promociones")
+        ws_promo.append([
+            "Centro", "Descrip Gpo Materiales", "Indicador ABC+Frecuencia de Venta", "Codigo Material",
+            "Descripcion del Material", "Unidad de Medida Base", "Costo Promedio Unitario",
+            "Costo Promedio Unitario Moneda de Venta", "Costo Estandar", "Precio Efectivo Promocion",
+            "Moneda", "Valido hasta Promocion", "Costo Estandar Promocion", "Margen Promocion",
+            "Proveedor", "Inventario disponible"
+        ])
+        ws_promo.append([
+            "MK01", "PLOMERIA", "A", "FGA70719", "CODO 90", "PZA", "10.0", "10.0", "12.0", "15.0", "MXN",
+            "2026-12-31", "12.0", "20.0", "FUTURA", "100"
+        ])
+        
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        upload_file = UploadFile(filename="promociones_multi.xlsx", file=buffer)
+        user = SimpleNamespace(id=uuid4(), rol="admin")
+        database = FakeDatabase([])
+
+        with patch("app.api.v1.promociones.registrar_actualizacion_datos", new_callable=AsyncMock):
+            result = await upload_promociones(upload_file, database, user)
+
+        self.assertEqual(result["status"], "success")
+        self.assertIn("1", result["message"])
+        self.assertEqual(database.commits, 1)
+
+    async def test_upload_promociones_csv(self):
+        from app.api.v1.promociones import upload_promociones
+        csv_content = (
+            "Centro,Descrip Gpo Materiales,Indicador ABC,Codigo Material,Descripcion Material,Unidad Medida,"
+            "Costo Promedio,Costo Promedio Moneda,Costo Estandar,Precio Promocion,Moneda,Valido Hasta,"
+            "Costo Estandar Promocion,Margen Promocion,Proveedor,Inventario Disponible\n"
+            "MK01,PLOMERIA,A,SKU123,CODO CPVC,PZA,10,10,12,15.50,MXN,2026-12-31,12,23.5,FUTURA,50\n"
+        ).encode("utf-8")
+        
+        upload_file = UploadFile(filename="promociones.csv", file=io.BytesIO(csv_content))
+        user = SimpleNamespace(id=uuid4(), rol="admin")
+        database = FakeDatabase([])
+
+        with patch("app.api.v1.promociones.registrar_actualizacion_datos", new_callable=AsyncMock):
+            result = await upload_promociones(upload_file, database, user)
+
+        self.assertEqual(result["status"], "success")
+        self.assertIn("1", result["message"])
+        self.assertEqual(database.commits, 1)
+
 
 if __name__ == "__main__":
     unittest.main()
+
