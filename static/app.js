@@ -4596,32 +4596,23 @@ function renderProposalClientContact(quote, catalogClient) {
     const celular = quoteContact.celular || catalogClient?.celular || "";
     const nombreContacto = quoteContact.nombre_contacto || catalogClient?.nombre_contacto || "";
     const digits = String(celular).replace(/\D/g, "");
-    const hasCellular = Boolean(celular);
-    const clientId = catalogClient?.id || "";
+    const hasCellular = Boolean(celular && digits.length >= 7);
 
     return `
-        <section class="proposal-client-contact" style="margin-bottom:14px; padding:12px; border:1px solid rgba(59,130,246,.2); border-radius:10px; background:rgba(59,130,246,.04);">
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;">
-                <strong><i class="fa-solid fa-address-card" style="color:#38bdf8;"></i> Contacto comercial</strong>
-                ${hasCellular && digits ? `<a href="https://wa.me/${digits}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" title="Abrir WhatsApp" aria-label="Abrir WhatsApp"><i class="fa-brands fa-whatsapp" style="color:#25d366;"></i> WhatsApp</a>` : ""}
+        <section class="proposal-client-contact" style="margin-bottom:14px; padding:12px 14px; border:1px solid rgba(59,130,246,.2); border-radius:10px; background:rgba(59,130,246,.04); display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:36px; height:36px; border-radius:50%; background:rgba(59,130,246,0.12); display:flex; align-items:center; justify-content:center; color:hsl(var(--primary)); font-size:16px;">
+                    <i class="fa-solid fa-user-check"></i>
+                </div>
+                <div>
+                    <div style="font-weight:700; font-size:13px; color:hsl(var(--text-main));">${escapeHTML(nombreContacto || "Sin contacto registrado")}</div>
+                    <div style="font-size:12px; color:hsl(var(--text-secondary));">${celular ? `Cel: ${escapeHTML(celular)}` : "Celular no registrado en catálogo"}</div>
+                </div>
             </div>
-            ${catalogClient
-                ? `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; align-items:end;">
-                    <label style="display:grid; gap:4px; font-size:12px; font-weight:700;">Nombre de contacto
-                        <input id="proposal-contact-name" class="form-control" value="${escapeHTML(nombreContacto)}" placeholder="Ej. Romana Pérez Iribe" autocomplete="name">
-                    </label>
-                    <label style="display:grid; gap:4px; font-size:12px; font-weight:700;">Celular
-                        <input id="proposal-contact-cell" class="form-control" value="${escapeHTML(celular)}" placeholder="Ej. 6671500942" inputmode="tel" autocomplete="tel">
-                    </label>
-                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                        <button type="button" class="btn btn-primary btn-sm proposal-save-client-contact" data-client-id="${escapeHTML(clientId)}"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
-                        <button type="button" class="btn btn-secondary btn-sm proposal-open-client-contact" title="Abrir ficha completa del cliente" aria-label="Abrir ficha completa del cliente" data-client-id="${escapeHTML(clientId)}" data-client-search="${escapeHTML(quote.numero_cliente || quote.cliente_nombre || "")}"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
-                    </div>
-                </div>`
-                : `<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-                    <span style="font-size:13px; color:hsl(var(--text-secondary));">Vincula este cliente para guardar su contacto y celular.</span>
-                    <button type="button" class="btn btn-secondary btn-sm proposal-update-client-contact proposal-open-client-contact" data-client-search="${escapeHTML(quote.numero_cliente || quote.cliente_nombre || "")}"><i class="fa-solid fa-user-plus"></i> Buscar en Clientes</button>
-                </div>`}
+            <div style="display:flex; gap:8px; align-items:center;">
+                ${hasCellular ? `<a href="https://wa.me/${digits}" target="_blank" rel="noopener" class="btn btn-primary btn-sm" style="background:#25d366; border-color:#25d366; color:#fff;" title="Abrir WhatsApp" aria-label="Abrir WhatsApp"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>` : ""}
+                <button type="button" class="btn btn-secondary btn-sm proposal-open-client-contact" title="Gestionar cliente en Catálogo de Clientes" data-client-id="${escapeHTML(catalogClient?.id || '')}" data-client-search="${escapeHTML(quote.numero_cliente || quote.cliente_nombre || '')}"><i class="fa-solid fa-users"></i> Clientes</button>
+            </div>
         </section>
     `;
 }
@@ -4631,9 +4622,6 @@ function renderProposalModalContent(quote, catalogClient) {
     DOM.modalProposalBody.innerHTML = `${renderProposalClientContact(quote, catalogClient)}<div style="white-space:pre-wrap;">${escapeHTML(proposal)}</div>`;
     DOM.modalProposalBody.querySelector(".proposal-open-client-contact")?.addEventListener("click", () => {
         openClientContactMaintenance(catalogClient?.id, quote.numero_cliente || quote.cliente_nombre);
-    });
-    DOM.modalProposalBody.querySelector(".proposal-save-client-contact")?.addEventListener("click", event => {
-        saveProposalClientContact(quote, catalogClient, event.currentTarget);
     });
 }
 
@@ -4893,6 +4881,26 @@ function renderKanbanColumns() {
                 ? `<span class="kanban-card-reminder-indicator" title="Tiene recordatorio pendiente agendado"><i class="fa-regular fa-calendar-check"></i></span>`
                 : "";
 
+            const contactData = q.datos_contacto || {};
+            const contactName = contactData.nombre_contacto || q.nombre_contacto || "";
+            const phone = contactData.celular || contactData.telefono || contactData.contacto_preferente || q.celular || "";
+            const digits = String(phone || "").replace(/\D/g, "");
+            const hasWhatsApp = Boolean(digits && digits.length >= 7);
+
+            const whatsappBtnHtml = hasWhatsApp
+                ? `<a href="https://wa.me/${digits}" target="_blank" rel="noopener" class="kanban-whatsapp-btn" title="Enviar WhatsApp a ${escapeHTML(contactName || q.cliente_nombre)} (${escapeHTML(phone)})" onclick="event.stopPropagation();" style="display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:#25d366; color:#ffffff; font-size:13px; text-decoration:none; margin-left:auto; box-shadow:0 2px 4px rgba(37,211,102,0.35); flex-shrink:0; transition:transform 0.15s ease;"><i class="fa-brands fa-whatsapp"></i></a>`
+                : "";
+
+            const contactDisplayHtml = contactName || hasWhatsApp
+                ? `<div class="kanban-card-contact" style="display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:12px; margin:4px 0 6px; padding:3px 8px; background:rgba(15,23,42,0.03); border-radius:6px; border:1px solid rgba(15,23,42,0.06);">
+                    <div style="display:flex; align-items:center; gap:5px; overflow:hidden; min-width:0;">
+                        <i class="fa-solid fa-user-tag" style="font-size:11px; color:hsl(var(--primary)); flex-shrink:0;"></i>
+                        <span style="font-weight:600; color:hsl(var(--text-main)); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHTML(contactName || 'Contacto')}">${escapeHTML(contactName || 'Contacto')}</span>
+                    </div>
+                    ${whatsappBtnHtml}
+                  </div>`
+                : "";
+
             card.innerHTML = `
                 <div class="kanban-card-header">
                     <h4 class="kanban-card-client" style="display:flex; align-items:center; gap:6px;">
@@ -4901,6 +4909,7 @@ function renderKanbanColumns() {
                     <span class="kanban-card-num">${quoteNum !== '-' ? '#' + quoteNum : 'Sin #'}</span>
                 </div>
                 <div class="kanban-card-body">
+                    ${contactDisplayHtml}
                     <div class="kanban-card-date"><i class="fa-regular fa-calendar"></i> ${dateStr}</div>
                     <div class="kanban-card-seller" title="${sellerEmail}"><i class="fa-regular fa-user"></i> ${sellerEmail}</div>
                 </div>
@@ -4950,9 +4959,9 @@ function renderKanbanColumns() {
                 });
             }
 
-            // Open proposal modal on click (if they don't click action buttons or drag)
+            // Open proposal modal on click (if they don't click action buttons, whatsapp or drag)
             card.addEventListener("click", (e) => {
-                if (e.target.closest(".kanban-card-actions") || e.target.closest(".quote-comments-btn") || e.target.closest(".kanban-reminder-btn") || e.target.closest(".kanban-history-btn") || card.classList.contains("dragging")) return;
+                if (e.target.closest(".kanban-card-actions") || e.target.closest(".quote-comments-btn") || e.target.closest(".kanban-reminder-btn") || e.target.closest(".kanban-history-btn") || e.target.closest(".kanban-whatsapp-btn") || card.classList.contains("dragging")) return;
                 showProposalModal(q);
             });
             

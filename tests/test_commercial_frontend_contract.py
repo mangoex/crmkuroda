@@ -50,10 +50,8 @@ class CommercialFrontendContractTest(unittest.TestCase):
     def test_followup_proposal_dialog_shows_or_maintains_client_cellular(self):
         self.assertIn("renderProposalClientContact", self.javascript)
         self.assertIn("findCatalogClientForQuote", self.javascript)
-        self.assertIn("Nombre de contacto", self.javascript)
-        self.assertIn("proposal-save-client-contact", self.javascript)
-        self.assertIn("/api/v1/clientes/${catalogClient.id}", self.javascript)
-        self.assertIn("proposal-update-client-contact", self.javascript)
+        self.assertIn("kanban-whatsapp-btn", self.javascript)
+        self.assertIn("kanban-card-contact", self.javascript)
         self.assertIn('switchSection("clientes")', self.javascript)
         self.assertIn('document.getElementById("cliente-cel-input")?.focus()', self.javascript)
 

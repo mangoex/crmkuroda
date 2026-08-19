@@ -20,6 +20,7 @@ from app.models.cotizacion import Cotizacion
 from app.models.cotizacion_detalle import CotizacionComentario, CotizacionItem
 from app.models.recordatorio_seguimiento import RecordatorioSeguimiento
 from app.models.promocion import Promocion
+from app.models.cliente import Cliente
 from app.schemas.cotizacion import (
     CotizacionCreate,
     CotizacionCreateManual,
@@ -131,6 +132,7 @@ def serialize_cotizacion(
 ) -> dict:
     vendedor_id = c.vendedor_id or resolved_vendedor_id
     enrichment = enrichment or {}
+    contact_data = enrichment.get("datos_contacto") or normalize_contact(c.datos_contacto)
     data = {
         "id": str(c.id),
         "vendedor_id": str(vendedor_id) if vendedor_id else None,
@@ -138,7 +140,7 @@ def serialize_cotizacion(
         "vendedor_sin_vincular": vendedor_id is None,
         "cliente_nombre": c.cliente_nombre,
         "numero_cliente": c.numero_cliente,
-        "datos_contacto": normalize_contact(c.datos_contacto),
+        "datos_contacto": contact_data,
         "total": float(c.total),
         "numero_cotizacion": c.numero_cotizacion,
         "fecha_registro": c.fecha_registro.isoformat() if c.fecha_registro else None,
@@ -204,6 +206,25 @@ async def _load_quote_enrichment(
             )
         ).all()
     )
+
+    # Cargar contactos desde el catálogo de Clientes para enriquecer cotizaciones
+    client_numbers = {q.numero_cliente.strip() for q in quotes if q.numero_cliente and q.numero_cliente.strip()}
+    client_names = {q.cliente_nombre.strip() for q in quotes if q.cliente_nombre and q.cliente_nombre.strip()}
+    clients_by_number: dict[str, Cliente] = {}
+    clients_by_name: dict[str, Cliente] = {}
+    if client_numbers or client_names:
+        conditions = []
+        if client_numbers:
+            conditions.append(Cliente.numero_cliente.in_(client_numbers))
+        if client_names:
+            conditions.append(Cliente.nombre.in_(client_names))
+        catalog_clients = (await db.execute(select(Cliente).where(or_(*conditions)))).scalars().all()
+        for cl in catalog_clients:
+            if cl.numero_cliente and cl.numero_cliente.strip():
+                clients_by_number[cl.numero_cliente.strip()] = cl
+            if cl.nombre and cl.nombre.strip():
+                clients_by_name[cl.nombre.strip()] = cl
+
     try:
         today = datetime.now(ZoneInfo(settings.BUSINESS_TIMEZONE)).date()
     except Exception:
@@ -219,8 +240,23 @@ async def _load_quote_enrichment(
             today,
             settings.QUOTE_VALID_DAYS,
         )
+
+        # Enriquecer datos de contacto con el catálogo
+        client = clients_by_number.get(quote.numero_cliente.strip() if quote.numero_cliente else "") or clients_by_name.get(quote.cliente_nombre.strip() if quote.cliente_nombre else "")
+        enriched_contact = dict(quote.datos_contacto or {})
+        if client:
+            if not enriched_contact.get("nombre_contacto") and client.nombre_contacto:
+                enriched_contact["nombre_contacto"] = client.nombre_contacto
+            if not enriched_contact.get("celular") and client.celular:
+                enriched_contact["celular"] = client.celular
+            if not enriched_contact.get("telefono") and client.telefono:
+                enriched_contact["telefono"] = client.telefono
+            if not enriched_contact.get("email") and client.email:
+                enriched_contact["email"] = client.email
+
         result[quote.id] = {
             **promo,
+            "datos_contacto": normalize_contact(enriched_contact),
             "comentarios_seguimiento_count": comment_counts.get(quote.id, 0),
             "items_detalle": [
                 {
