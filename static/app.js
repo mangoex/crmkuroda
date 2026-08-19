@@ -303,6 +303,8 @@ const DOM = {
     metasSucursalGroup: document.getElementById("metas-sucursal-group"),
     metasSucursal: document.getElementById("metas-sucursal"),
     metasSucursalesList: document.getElementById("metas-sucursales-list"),
+    metasCanalGroup: document.getElementById("metas-canal-group"),
+    metasCanal: document.getElementById("metas-canal"),
     metasTarget: document.getElementById("metas-target"),
     metasDescription: document.getElementById("metas-description"),
     btnSubmitMetas: document.getElementById("btn-submit-metas"),
@@ -316,6 +318,9 @@ const DOM = {
     metasSellersTitle: document.getElementById("metas-sellers-title"),
     metasBranchesCard: document.getElementById("metas-branches-card"),
     metasBranchesDashboard: document.getElementById("metas-branches-dashboard"),
+    metasChannelsCard: document.getElementById("metas-channels-card"),
+    metasChannelsTitle: document.getElementById("metas-channels-title"),
+    metasChannelsDashboard: document.getElementById("metas-channels-dashboard"),
     
     // Metas Section
     btnGenerateGoalsModal: document.getElementById("btn-generate-goals-modal"),
@@ -1085,6 +1090,36 @@ function currentDateValue() {
     return `${getCurrentMonthValue()}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
+const CANONICAL_METAS_CHANNELS = [
+    "Envío a Domicilio",
+    "Entrega Inmediata",
+    "Pide y Recoge",
+    "Sobrepedido",
+    "Cte Reco en Otra Suc",
+    "Envío por Paquetería",
+    "Apartados",
+    "Ocurre",
+    "Market place",
+    "Mercancía Resguardo",
+    "Kuroda Turbo",
+    "Material D",
+    "Promociones"
+];
+
+function populateCommercialGoalChannels(channels) {
+    if (!DOM.metasCanal) return;
+    const currentVal = DOM.metasCanal.value;
+    const list = Array.from(new Set([
+        ...CANONICAL_METAS_CHANNELS,
+        ...(channels || []).map(c => typeof c === "string" ? c : (c.canal || c.nombre || "")).filter(Boolean)
+    ]));
+
+    DOM.metasCanal.innerHTML = '<option value="">Todos los canales (Global)</option>' + list.map(ch =>
+        `<option value="${escapeHTML(ch)}">${escapeHTML(ch)}</option>`
+    ).join("");
+    if (currentVal) DOM.metasCanal.value = currentVal;
+}
+
 function renderCommercialGoalScopeFields() {
     const type = DOM.metasType?.value || "general";
     DOM.metasVendedorGroup?.classList.toggle("hidden", type !== "vendedor");
@@ -1095,6 +1130,10 @@ function resetCommercialGoalForm() {
     state.editingCommercialGoalId = null;
     DOM.metasForm?.reset();
     if (DOM.metasType) DOM.metasType.value = "general";
+    if (DOM.metasCanal) {
+        DOM.metasCanal.value = "";
+        DOM.metasCanal.disabled = false;
+    }
     if (DOM.metasFormTitle) DOM.metasFormTitle.textContent = "Agregar meta mensual";
     if (DOM.btnSubmitMetas) DOM.btnSubmitMetas.innerHTML = '<i class="fa-solid fa-plus"></i> Guardar meta';
     DOM.btnCancelMetasEdit?.classList.add("hidden");
@@ -1128,6 +1167,24 @@ function renderCommercialGoalsDashboard(data) {
             <tr><td>${escapeHTML(row.sucursal)}</td><td>${formatSellerMoney(row.meta)}</td><td>${formatSellerMoney(row.venta_facturada)}</td><td>${progressCell(row)}</td></tr>
         `).join("") : '<tr><td colspan="4" class="text-muted">No hay sucursales en las cotizaciones ni metas configuradas.</td></tr>';
     }
+    if (DOM.metasChannelsDashboard) {
+        const rows = data?.canales || [];
+        if (!rows.length) {
+            DOM.metasChannelsDashboard.innerHTML = '<tr><td colspan="6" class="text-muted text-center" style="padding:16px;">No hay canales con facturación o metas en este periodo.</td></tr>';
+        } else {
+            DOM.metasChannelsDashboard.innerHTML = rows.map(row => {
+                const badgeClass = row.cumplimiento >= 100 ? "badge-success" : (row.cumplimiento >= 70 ? "badge-warning" : "badge-error");
+                return `<tr>
+                    <td><strong>${escapeHTML(row.canal)}</strong></td>
+                    <td style="font-weight:600;">${formatSellerMoney(row.meta)}</td>
+                    <td style="font-weight:700; color:hsl(var(--primary));">${formatSellerMoney(row.venta_facturada)}</td>
+                    <td><span class="status-badge ${badgeClass}">${Number(row.cumplimiento || 0).toFixed(1)}%</span></td>
+                    <td style="color:#64748b; font-weight:600;">${Number(row.pct_meta_total || 0).toFixed(1)}%</td>
+                    <td style="color:#64748b; font-weight:600;">${Number(row.pct_venta_total || 0).toFixed(1)}%</td>
+                </tr>`;
+            }).join("");
+        }
+    }
     if (DOM.metasSucursalesList) {
         DOM.metasSucursalesList.innerHTML = (data?.sucursales || []).map(row =>
             `<option value="${escapeHTML(row.sucursal)}"></option>`
@@ -1143,14 +1200,15 @@ function renderCommercialGoalsTable() {
         ? state.commercialGoals.filter(goal => goal.tipo === "vendedor" && goal.vendedor_id === selectedSellerId)
         : state.commercialGoals;
     if (!visibleGoals.length) {
-        DOM.tableMetasComerciales.innerHTML = `<tr><td colspan="5" class="text-muted">${selectedSellerId ? "No hay meta configurada para este vendedor en este mes." : "No hay metas configuradas para este mes."}</td></tr>`;
+        DOM.tableMetasComerciales.innerHTML = `<tr><td colspan="6" class="text-muted">${selectedSellerId ? "No hay meta configurada para este vendedor en este mes." : "No hay metas configuradas para este mes."}</td></tr>`;
         return;
     }
     DOM.tableMetasComerciales.innerHTML = visibleGoals.map(goal => {
         const scope = goal.tipo === "general" ? "General" : goal.tipo === "vendedor" ? "Vendedor" : "Sucursal";
         const subject = goal.tipo === "general" ? "Empresa" : goal.tipo === "vendedor" ? (sellerNames.get(goal.vendedor_id) || "Vendedor") : goal.sucursal;
+        const channelText = goal.canal || "Todos los canales";
         return `<tr>
-            <td>${scope}</td><td>${escapeHTML(subject)}</td><td>${formatSellerMoney(goal.monto_objetivo)}</td><td>${escapeHTML(goal.descripcion || "—")}</td>
+            <td>${scope}</td><td>${escapeHTML(subject)}</td><td><span class="badge-channel" style="font-size:12px; font-weight:600; background:rgba(37,99,235,0.08); color:hsl(var(--primary)); padding:3px 8px; border-radius:6px;">${escapeHTML(channelText)}</span></td><td>${formatSellerMoney(goal.monto_objetivo)}</td><td>${escapeHTML(goal.descripcion || "—")}</td>
             <td><button class="btn btn-secondary btn-sm edit-commercial-goal" data-id="${goal.id}"><i class="fa-solid fa-pen"></i></button> <button class="btn btn-danger btn-sm delete-commercial-goal" data-id="${goal.id}"><i class="fa-solid fa-trash"></i></button></td>
         </tr>`;
     }).join("");
@@ -1195,6 +1253,7 @@ async function loadCommercialGoalsData() {
     ]);
     state.commercialGoals = goalsRes.data || [];
     state.commercialGoalsDashboard = dashboardRes.data || null;
+    populateCommercialGoalChannels(state.commercialGoalsDashboard?.canales || []);
     populateCommercialGoalSellers(state.commercialGoalsDashboard?.vendedores || []);
     populateCommercialGoalSellerFilter(state.commercialGoalsDashboard?.vendedores || []);
     renderCommercialGoalsDashboard(state.commercialGoalsDashboard);
@@ -1209,6 +1268,10 @@ function startCommercialGoalEdit(goalId) {
     DOM.metasType.value = goal.tipo;
     DOM.metasVendedor.value = goal.vendedor_id || "";
     DOM.metasSucursal.value = goal.sucursal || "";
+    if (DOM.metasCanal) {
+        DOM.metasCanal.value = goal.canal || "";
+        DOM.metasCanal.disabled = true;
+    }
     DOM.metasTarget.value = goal.monto_objetivo;
     DOM.metasDescription.value = goal.descripcion || "";
     DOM.metasType.disabled = true;
@@ -6813,8 +6876,10 @@ document.addEventListener("DOMContentLoaded", () => {
     DOM.metasForm?.addEventListener("submit", async event => {
         event.preventDefault();
         const type = DOM.metasType.value;
+        const canalVal = DOM.metasCanal?.value?.trim() || null;
         const payload = {
             monto_objetivo: Number(DOM.metasTarget.value),
+            canal: canalVal,
             descripcion: DOM.metasDescription.value.trim() || null,
         };
         if (!payload.monto_objetivo || payload.monto_objetivo <= 0) {
@@ -6835,6 +6900,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     mes: metasMonthAsDate(),
                     vendedor_id: type === "vendedor" ? (DOM.metasVendedor.value || null) : null,
                     sucursal: type === "sucursal" ? (DOM.metasSucursal.value.trim() || null) : null,
+                    canal: canalVal,
                 };
                 await apiRequest("/api/v1/metas/comerciales", {
                     method: "POST",

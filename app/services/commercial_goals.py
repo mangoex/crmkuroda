@@ -81,13 +81,34 @@ def prorated_monthly_amount(amount: Any, month: date, start: date, end: date) ->
     return decimal_value(amount) * Decimal(days) / Decimal(monthrange(month.year, month.month)[1])
 
 
-def _goal_matches(goal: Any, tipo: str, vendedor_id: Any = None, sucursal: str | None = None) -> bool:
+from collections import defaultdict
+from app.services.commercial_analytics import (
+    CANONICAL_CHANNELS,
+    normalize_channel,
+    resolve_quote_effective_channel,
+)
+
+
+def _goal_matches(
+    goal: Any,
+    tipo: str,
+    vendedor_id: Any = None,
+    sucursal: str | None = None,
+    canal: str | None = None,
+) -> bool:
     if getattr(goal, "tipo", None) != tipo:
         return False
     if tipo == "vendedor":
-        return str(getattr(goal, "vendedor_id", None) or "") == str(vendedor_id or "")
+        if str(getattr(goal, "vendedor_id", None) or "") != str(vendedor_id or ""):
+            return False
     if tipo == "sucursal":
-        return normalize_text(getattr(goal, "sucursal", None)) == normalize_text(sucursal)
+        if normalize_text(getattr(goal, "sucursal", None)) != normalize_text(sucursal):
+            return False
+    if canal is not None:
+        goal_canal = getattr(goal, "canal", None)
+        if not canal:
+            return not goal_canal
+        return normalize_channel(goal_canal) == normalize_channel(canal)
     return True
 
 
@@ -99,12 +120,13 @@ def commercial_goal_amount(
     *,
     vendedor_id: Any = None,
     sucursal: str | None = None,
+    canal: str | None = None,
 ) -> tuple[Decimal, bool]:
     """Devuelve monto prorrateado y si existe una meta nueva para el alcance."""
     total = Decimal("0")
     found = False
     for goal in goals:
-        if not _goal_matches(goal, tipo, vendedor_id, sucursal):
+        if not _goal_matches(goal, tipo, vendedor_id, sucursal, canal):
             continue
         goal_month = month_start(getattr(goal, "mes"))
         amount = prorated_monthly_amount(getattr(goal, "monto_objetivo"), goal_month, start, end)
@@ -180,6 +202,8 @@ def build_goals_dashboard(
     }
     grouped_quotes: dict[str, list[Any]] = {str(seller.id): [] for seller in sellers}
     branches: dict[str, list[Any]] = {}
+    channel_quotes: dict[str, list[Any]] = defaultdict(list)
+
     for quote in quotes:
         raw_vid = getattr(quote, "vendedor_id", None)
         resolved_id = str(raw_vid) if raw_vid else (
@@ -191,10 +215,15 @@ def build_goals_dashboard(
         branch = str(getattr(quote, "organizacion_ventas", None) or "").strip()
         if branch:
             branches.setdefault(branch, []).append(quote)
+        channel = resolve_quote_effective_channel(quote)
+        if channel:
+            channel_quotes[channel].append(quote)
 
     general_target, general_configured = commercial_goal_amount(
         commercial_goals, "general", start, end
     )
+    general_actual = sales_in_period(quotes, start, end)
+
     seller_rows = []
     for seller in sellers:
         sid_str = str(seller.id)
@@ -236,7 +265,58 @@ def build_goals_dashboard(
             }
         )
 
-    general_actual = sales_in_period(quotes, start, end)
+    # Canales de ventas
+    goal_channels = {
+        normalize_channel(getattr(goal, "canal", None))
+        for goal in commercial_goals
+        if getattr(goal, "canal", None)
+    }
+    all_channels = sorted(set(channel_quotes.keys()) | goal_channels, key=normalize_text)
+    channel_rows = []
+    for ch in all_channels:
+        if not ch or ch == "Sin clasificar" and not channel_quotes.get(ch):
+            continue
+        target, configured = commercial_goal_amount(
+            commercial_goals, "general", start, end, canal=ch
+        )
+        # Si no hay meta general por canal, sumar metas de vendedores/sucursales de ese canal
+        if not configured:
+            ch_seller_target = sum(
+                (
+                    commercial_goal_amount(commercial_goals, "vendedor", start, end, vendedor_id=str(s.id), canal=ch)[0]
+                    for s in sellers
+                ),
+                Decimal("0"),
+            )
+            ch_branch_target = sum(
+                (
+                    commercial_goal_amount(commercial_goals, "sucursal", start, end, sucursal=b, canal=ch)[0]
+                    for b in branch_rows
+                ),
+                Decimal("0"),
+            )
+            target = ch_seller_target or ch_branch_target
+            configured = bool(target)
+
+        actual = sales_in_period(channel_quotes.get(ch, []), start, end)
+        pct_meta = round(float(target / general_target * 100), 2) if general_target else 0
+        pct_venta = round(float(actual / general_actual * 100), 2) if general_actual else 0
+        cumplimiento = round(float(actual / target * 100), 2) if target else 0
+
+        channel_rows.append(
+            {
+                "canal": ch,
+                "meta": float(target),
+                "venta_facturada": float(actual),
+                "cumplimiento": cumplimiento,
+                "pct_meta_total": pct_meta,
+                "pct_venta_total": pct_venta,
+                "origen_meta": "comercial" if configured else "sin_meta",
+            }
+        )
+
+    channel_rows.sort(key=lambda r: (r["venta_facturada"], r["meta"]), reverse=True)
+
     return {
         "periodo": {
             "tipo": norm_periodo,
@@ -252,4 +332,5 @@ def build_goals_dashboard(
         },
         "vendedores": sorted(seller_rows, key=lambda row: row["venta_facturada"], reverse=True),
         "sucursales": sorted(branch_rows, key=lambda row: row["venta_facturada"], reverse=True),
+        "canales": channel_rows,
     }

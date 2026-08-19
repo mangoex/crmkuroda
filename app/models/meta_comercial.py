@@ -20,6 +20,7 @@ class MetaComercial(Base):
         index=True,
     )
     sucursal = Column(String, nullable=True, index=True)
+    canal = Column(String, nullable=True, index=True)
     mes = Column(Date, nullable=False, index=True)  # Siempre el primer día del mes.
     monto_objetivo = Column(Numeric(precision=14, scale=2), nullable=False)
     descripcion = Column(Text, nullable=True)

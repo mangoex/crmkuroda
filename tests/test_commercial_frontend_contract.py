@@ -68,6 +68,11 @@ class CommercialFrontendContractTest(unittest.TestCase):
         self.assertIn("populateCommercialGoalSellerFilter", self.javascript)
         self.assertIn("metasSellerFilter?.addEventListener", self.javascript)
 
+    def test_commercial_goals_have_channel_selector_and_dashboard(self):
+        self.assertIn('id="metas-canal"', self.html)
+        self.assertIn('id="metas-channels-dashboard"', self.html)
+        self.assertIn("populateCommercialGoalChannels", self.javascript)
+
     def test_access_activity_list_has_its_own_scroll_area(self):
         stylesheet = (ROOT / "static" / "style.css").read_text(encoding="utf-8")
         self.assertIn("#admin-today-access-log", stylesheet)

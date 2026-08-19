@@ -13,6 +13,7 @@ class MetaComercialBase(BaseModel):
     tipo: TipoMetaComercial
     vendedor_id: Optional[UUID] = None
     sucursal: Optional[str] = Field(default=None, max_length=160)
+    canal: Optional[str] = Field(default=None, max_length=120)
     mes: date
     monto_objetivo: Decimal = Field(gt=0, max_digits=14, decimal_places=2)
     descripcion: Optional[str] = Field(default=None, max_length=1000)
@@ -38,6 +39,7 @@ class MetaComercialCreate(MetaComercialBase):
 
 class MetaComercialUpdate(BaseModel):
     monto_objetivo: Optional[Decimal] = Field(default=None, gt=0, max_digits=14, decimal_places=2)
+    canal: Optional[str] = Field(default=None, max_length=120)
     descripcion: Optional[str] = Field(default=None, max_length=1000)
 
 

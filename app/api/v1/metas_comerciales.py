@@ -49,6 +49,7 @@ def _serialize(meta: MetaComercial) -> dict:
         "tipo": meta.tipo,
         "vendedor_id": str(meta.vendedor_id) if meta.vendedor_id else None,
         "sucursal": meta.sucursal,
+        "canal": meta.canal,
         "mes": meta.mes.isoformat(),
         "monto_objetivo": float(meta.monto_objetivo),
         "descripcion": meta.descripcion,
@@ -74,6 +75,8 @@ async def _load_dashboard_data(db: AsyncSession, reference: date, periodo: str) 
                     Cotizacion.vendedor_id,
                     Cotizacion.vendedor_nombre,
                     Cotizacion.organizacion_ventas,
+                    Cotizacion.canal,
+                    Cotizacion.numero_cliente,
                     Cotizacion.numero_factura,
                     Cotizacion.importe_facturado,
                     Cotizacion.fecha_registro,
@@ -113,7 +116,7 @@ async def list_commercial_goals(
         await db.execute(
             select(MetaComercial)
             .where(MetaComercial.mes == selected_month)
-            .order_by(MetaComercial.tipo, MetaComercial.sucursal, MetaComercial.creado_en)
+            .order_by(MetaComercial.tipo, MetaComercial.sucursal, MetaComercial.canal, MetaComercial.creado_en)
         )
     ).scalars().all()
     return {
@@ -142,6 +145,8 @@ async def create_commercial_goal(
             raise HTTPException(status_code=404, detail="El vendedor seleccionado no existe.")
 
     selected_month = _normalize_month(payload.mes)
+    canal_clean = payload.canal.strip() if payload.canal and payload.canal.strip() else None
+
     existing_query = select(MetaComercial).where(
         MetaComercial.tipo == payload.tipo,
         MetaComercial.mes == selected_month,
@@ -150,17 +155,24 @@ async def create_commercial_goal(
         existing_query = existing_query.where(MetaComercial.vendedor_id == payload.vendedor_id)
     elif payload.tipo == "sucursal":
         existing_query = existing_query.where(MetaComercial.sucursal == payload.sucursal.strip())
+
+    if canal_clean:
+        existing_query = existing_query.where(MetaComercial.canal == canal_clean)
+    else:
+        existing_query = existing_query.where((MetaComercial.canal.is_(None)) | (MetaComercial.canal == ""))
+
     existing = (await db.execute(existing_query)).scalars().first()
     if existing:
         raise HTTPException(
             status_code=409,
-            detail="Ya existe una meta para ese alcance y mes. Edítala desde la tabla.",
+            detail="Ya existe una meta para ese alcance, canal y mes. Edítala desde la tabla.",
         )
 
     goal = MetaComercial(
         tipo=payload.tipo,
         vendedor_id=payload.vendedor_id,
         sucursal=payload.sucursal.strip() if payload.sucursal else None,
+        canal=canal_clean,
         mes=selected_month,
         monto_objetivo=payload.monto_objetivo,
         descripcion=payload.descripcion.strip() if payload.descripcion else None,
@@ -173,7 +185,7 @@ async def create_commercial_goal(
         await db.rollback()
         raise HTTPException(
             status_code=409,
-            detail="Ya existe una meta para ese alcance y mes. Edítala desde la tabla.",
+            detail="Ya existe una meta para ese alcance, canal y mes. Edítala desde la tabla.",
         )
     await db.refresh(goal)
     return {"status": "success", "message": "Meta comercial creada.", "data": _serialize(goal)}
@@ -191,6 +203,8 @@ async def update_commercial_goal(
         raise HTTPException(status_code=404, detail="La meta comercial no existe.")
     if payload.monto_objetivo is not None:
         goal.monto_objetivo = payload.monto_objetivo
+    if payload.canal is not None:
+        goal.canal = payload.canal.strip() or None
     if payload.descripcion is not None:
         goal.descripcion = payload.descripcion.strip() or None
     await db.commit()
