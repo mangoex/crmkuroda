@@ -1169,18 +1169,29 @@ function renderCommercialGoalsDashboard(data) {
         DOM.metasFormMonthBadge.textContent = `Mes asignación: ${monthLabel}`;
     }
 
-    const progressCell = row => `${Number(row.cumplimiento || 0).toFixed(1)}%`;
     if (DOM.metasSellersDashboard) {
         const rows = selectedSeller ? [selectedSeller] : data?.vendedores || [];
-        DOM.metasSellersDashboard.innerHTML = rows.length ? rows.map(row => `
-            <tr><td>${escapeHTML(row.vendedor)}</td><td>${formatSellerMoney(row.meta)}</td><td>${formatSellerMoney(row.venta_facturada)}</td><td>${progressCell(row)}</td></tr>
-        `).join("") : '<tr><td colspan="4" class="text-muted">No hay vendedores para el periodo.</td></tr>';
+        DOM.metasSellersDashboard.innerHTML = rows.length ? rows.map(row => {
+            const badgeClass = row.cumplimiento >= 100 ? "badge-success" : (row.cumplimiento >= 70 ? "badge-warning" : "badge-error");
+            return `<tr>
+                <td><strong>${escapeHTML(row.vendedor)}</strong></td>
+                <td style="text-align:right; font-weight:600;">${formatSellerMoney(row.meta)}</td>
+                <td style="text-align:right; font-weight:700; color:hsl(var(--primary));">${formatSellerMoney(row.venta_facturada)}</td>
+                <td style="text-align:center;"><span class="status-badge ${badgeClass}">${Number(row.cumplimiento || 0).toFixed(1)}%</span></td>
+            </tr>`;
+        }).join("") : '<tr><td colspan="4" class="text-muted text-center" style="padding:16px;">No hay vendedores para el periodo.</td></tr>';
     }
     if (DOM.metasBranchesDashboard) {
         const rows = data?.sucursales || [];
-        DOM.metasBranchesDashboard.innerHTML = rows.length ? rows.map(row => `
-            <tr><td>${escapeHTML(row.sucursal)}</td><td>${formatSellerMoney(row.meta)}</td><td>${formatSellerMoney(row.venta_facturada)}</td><td>${progressCell(row)}</td></tr>
-        `).join("") : '<tr><td colspan="4" class="text-muted">No hay sucursales en las cotizaciones ni metas configuradas.</td></tr>';
+        DOM.metasBranchesDashboard.innerHTML = rows.length ? rows.map(row => {
+            const badgeClass = row.cumplimiento >= 100 ? "badge-success" : (row.cumplimiento >= 70 ? "badge-warning" : "badge-error");
+            return `<tr>
+                <td><strong>${escapeHTML(row.sucursal)}</strong></td>
+                <td style="text-align:right; font-weight:600;">${formatSellerMoney(row.meta)}</td>
+                <td style="text-align:right; font-weight:700; color:hsl(var(--primary));">${formatSellerMoney(row.venta_facturada)}</td>
+                <td style="text-align:center;"><span class="status-badge ${badgeClass}">${Number(row.cumplimiento || 0).toFixed(1)}%</span></td>
+            </tr>`;
+        }).join("") : '<tr><td colspan="4" class="text-muted text-center" style="padding:16px;">No hay sucursales en las cotizaciones ni metas configuradas.</td></tr>';
     }
     if (DOM.metasChannelsDashboard) {
         const rows = data?.canales || [];
@@ -1191,11 +1202,11 @@ function renderCommercialGoalsDashboard(data) {
                 const badgeClass = row.cumplimiento >= 100 ? "badge-success" : (row.cumplimiento >= 70 ? "badge-warning" : "badge-error");
                 return `<tr>
                     <td><strong>${escapeHTML(row.canal)}</strong></td>
-                    <td style="font-weight:600;">${formatSellerMoney(row.meta)}</td>
-                    <td style="font-weight:700; color:hsl(var(--primary));">${formatSellerMoney(row.venta_facturada)}</td>
-                    <td><span class="status-badge ${badgeClass}">${Number(row.cumplimiento || 0).toFixed(1)}%</span></td>
-                    <td style="color:#64748b; font-weight:600;">${Number(row.pct_meta_total || 0).toFixed(1)}%</td>
-                    <td style="color:#64748b; font-weight:600;">${Number(row.pct_venta_total || 0).toFixed(1)}%</td>
+                    <td style="text-align:right; font-weight:600;">${formatSellerMoney(row.meta)}</td>
+                    <td style="text-align:right; font-weight:700; color:hsl(var(--primary));">${formatSellerMoney(row.venta_facturada)}</td>
+                    <td style="text-align:center;"><span class="status-badge ${badgeClass}">${Number(row.cumplimiento || 0).toFixed(1)}%</span></td>
+                    <td style="text-align:center; color:#64748b; font-weight:600;">${Number(row.pct_meta_total || 0).toFixed(1)}%</td>
+                    <td style="text-align:center; color:#64748b; font-weight:600;">${Number(row.pct_venta_total || 0).toFixed(1)}%</td>
                 </tr>`;
             }).join("");
         }

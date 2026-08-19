@@ -711,15 +711,78 @@
                         </form>
                     </div>
 
-                    <div class="glass-card table-container margin-bottom" style="overflow-x:auto; width:100%;">
+                    <!-- Metas configuradas -->
+                    <div class="glass-card table-container margin-bottom" style="width:100%; overflow-x:auto;">
                         <div class="card-header" style="padding:20px 20px 0;"><h3>Metas configuradas</h3></div>
-                        <table class="data-table" style="width:100%; min-width:780px;"><thead><tr><th>Alcance</th><th>Responsable / sucursal</th><th>Canal</th><th>Meta mensual</th><th>Nota</th><th>Acciones</th></tr></thead><tbody id="table-metas-comerciales"></tbody></table>
+                        <table class="data-table" style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>Alcance</th>
+                                    <th>Responsable / sucursal</th>
+                                    <th>Canal</th>
+                                    <th style="text-align:right;">Meta mensual</th>
+                                    <th>Nota</th>
+                                    <th style="text-align:center;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-metas-comerciales"></tbody>
+                        </table>
                     </div>
 
-                    <div class="charts-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); gap:20px; margin-bottom:20px; width:100%;">
-                        <div id="metas-sellers-card" class="glass-card table-container" style="overflow-x:auto; width:100%;"><div class="card-header" style="padding:20px 20px 0;"><h3 id="metas-sellers-title">Avance por vendedor</h3></div><table class="data-table" style="width:100%; min-width:500px;"><thead><tr><th>Vendedor</th><th>Meta</th><th>Facturado</th><th>Avance</th></tr></thead><tbody id="metas-sellers-dashboard"></tbody></table></div>
-                        <div id="metas-branches-card" class="glass-card table-container" style="overflow-x:auto; width:100%;"><div class="card-header" style="padding:20px 20px 0;"><h3>Avance por sucursal</h3></div><table class="data-table" style="width:100%; min-width:500px;"><thead><tr><th>Sucursal</th><th>Meta</th><th>Facturado</th><th>Avance</th></tr></thead><tbody id="metas-branches-dashboard"></tbody></table></div>
-                        <div id="metas-channels-card" class="glass-card table-container" style="overflow-x:auto; grid-column:1 / -1; width:100%;"><div class="card-header" style="padding:20px 20px 0;"><h3 id="metas-channels-title"><i class="fa-solid fa-layer-group" style="margin-right:6px; color:hsl(var(--primary));"></i> Metas y Avance por Canal de Ventas</h3></div><table class="data-table" style="width:100%; min-width:700px;"><thead><tr><th>Canal de ventas</th><th>Meta ($)</th><th>Facturado ($)</th><th>Cumplimiento</th><th>% Meta Total</th><th>% Venta Total</th></tr></thead><tbody id="metas-channels-dashboard"></tbody></table></div>
+                    <!-- Avance por vendedor -->
+                    <div id="metas-sellers-card" class="glass-card table-container margin-bottom" style="width:100%; overflow-x:auto;">
+                        <div class="card-header" style="padding:20px 20px 0;">
+                            <h3 id="metas-sellers-title"><i class="fa-solid fa-user-tie" style="margin-right:6px; color:hsl(var(--primary));"></i> Avance por vendedor</h3>
+                        </div>
+                        <table class="data-table" style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>Vendedor</th>
+                                    <th style="text-align:right;">Meta mensual</th>
+                                    <th style="text-align:right;">Venta facturada</th>
+                                    <th style="text-align:center;">Cumplimiento</th>
+                                </tr>
+                            </thead>
+                            <tbody id="metas-sellers-dashboard"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- Avance por sucursal -->
+                    <div id="metas-branches-card" class="glass-card table-container margin-bottom" style="width:100%; overflow-x:auto;">
+                        <div class="card-header" style="padding:20px 20px 0;">
+                            <h3 id="metas-branches-title"><i class="fa-solid fa-store" style="margin-right:6px; color:hsl(var(--primary));"></i> Avance por sucursal</h3>
+                        </div>
+                        <table class="data-table" style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>Sucursal</th>
+                                    <th style="text-align:right;">Meta mensual</th>
+                                    <th style="text-align:right;">Venta facturada</th>
+                                    <th style="text-align:center;">Cumplimiento</th>
+                                </tr>
+                            </thead>
+                            <tbody id="metas-branches-dashboard"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- Metas y Avance por Canal de Ventas -->
+                    <div id="metas-channels-card" class="glass-card table-container margin-bottom" style="width:100%; overflow-x:auto;">
+                        <div class="card-header" style="padding:20px 20px 0;">
+                            <h3 id="metas-channels-title"><i class="fa-solid fa-layer-group" style="margin-right:6px; color:hsl(var(--primary));"></i> Metas y Avance por Canal de Ventas</h3>
+                        </div>
+                        <table class="data-table" style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>Canal de ventas</th>
+                                    <th style="text-align:right;">Meta ($)</th>
+                                    <th style="text-align:right;">Facturado ($)</th>
+                                    <th style="text-align:center;">Cumplimiento</th>
+                                    <th style="text-align:center;">% Meta Total</th>
+                                    <th style="text-align:center;">% Venta Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="metas-channels-dashboard"></tbody>
+                        </table>
                     </div>
                 </section>
 
