@@ -314,6 +314,7 @@ const DOM = {
     metasGeneralSales: document.getElementById("metas-general-sales"),
     metasGeneralProgress: document.getElementById("metas-general-progress"),
     tableMetasComerciales: document.getElementById("table-metas-comerciales"),
+    metasSellersCard: document.getElementById("metas-sellers-card"),
     metasSellersDashboard: document.getElementById("metas-sellers-dashboard"),
     metasSellersTitle: document.getElementById("metas-sellers-title"),
     metasBranchesCard: document.getElementById("metas-branches-card"),
@@ -321,6 +322,7 @@ const DOM = {
     metasChannelsCard: document.getElementById("metas-channels-card"),
     metasChannelsTitle: document.getElementById("metas-channels-title"),
     metasChannelsDashboard: document.getElementById("metas-channels-dashboard"),
+    metasFormMonthBadge: document.getElementById("metas-form-month-badge"),
     
     // Metas Section
     btnGenerateGoalsModal: document.getElementById("btn-generate-goals-modal"),
@@ -1152,7 +1154,20 @@ function renderCommercialGoalsDashboard(data) {
     if (DOM.metasGeneralProgress) DOM.metasGeneralProgress.textContent = `${Number(overview.cumplimiento || 0).toFixed(1)}%`;
     if (DOM.metasGeneralTargetLabel) DOM.metasGeneralTargetLabel.textContent = selectedSeller ? "Meta del vendedor" : "Meta general";
     if (DOM.metasSellersTitle) DOM.metasSellersTitle.textContent = selectedSeller ? "Avance del vendedor" : "Avance por vendedor";
-    DOM.metasBranchesCard?.classList.toggle("hidden", Boolean(selectedSeller));
+    
+    const isSellerFiltered = Boolean(selectedSeller);
+    DOM.metasBranchesCard?.classList.toggle("hidden", isSellerFiltered);
+    if (DOM.metasSellersCard) {
+        DOM.metasSellersCard.style.gridColumn = isSellerFiltered ? "1 / -1" : "auto";
+    }
+
+    if (DOM.metasFormMonthBadge) {
+        const [year, month] = (DOM.metasMonth?.value || getCurrentMonthValue()).split("-");
+        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const monthIndex = parseInt(month, 10) - 1;
+        const monthLabel = `${monthNames[monthIndex] || month} ${year}`;
+        DOM.metasFormMonthBadge.textContent = `Mes asignación: ${monthLabel}`;
+    }
 
     const progressCell = row => `${Number(row.cumplimiento || 0).toFixed(1)}%`;
     if (DOM.metasSellersDashboard) {
@@ -6859,6 +6874,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (DOM.metasMonth && !DOM.metasMonth.value) DOM.metasMonth.value = getCurrentMonthValue();
     if (DOM.metasReferenceDate && !DOM.metasReferenceDate.value) DOM.metasReferenceDate.value = currentDateValue();
+    
+    DOM.metasMonth?.addEventListener("change", async () => {
+        const monthVal = DOM.metasMonth.value;
+        if (monthVal && DOM.metasReferenceDate) {
+            const [y, m] = monthVal.split("-").map(Number);
+            const lastDay = new Date(y, m, 0).getDate();
+            DOM.metasReferenceDate.value = `${monthVal}-${String(lastDay).padStart(2, "0")}`;
+        }
+        resetCommercialGoalForm();
+        try {
+            await loadCommercialGoalsData();
+        } catch (error) {
+            showToast(error.message, "error");
+        }
+    });
+
+    DOM.metasPeriod?.addEventListener("change", () => loadCommercialGoalsData());
+    DOM.metasReferenceDate?.addEventListener("change", () => loadCommercialGoalsData());
     DOM.metasType?.addEventListener("change", renderCommercialGoalScopeFields);
     DOM.metasSellerFilter?.addEventListener("change", () => {
         renderCommercialGoalsDashboard(state.commercialGoalsDashboard);
