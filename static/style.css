@@ -3578,3 +3578,110 @@ body.dark-mode .table-row-hover:hover {
     font-style: italic;
 }
 
+/* ==========================================================================
+   INVOICE GROUPING (COLLAPSE & EXPAND) STYLES
+   ========================================================================== */
+
+.tr-invoice-group-header {
+    background-color: #f8fafc !important;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    border-top: 1px solid #cbd5e1 !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+}
+
+.tr-invoice-group-header:hover {
+    background-color: #f1f5f9 !important;
+}
+
+.tr-invoice-group-header td {
+    padding: 10px 12px !important;
+    vertical-align: middle;
+}
+
+.btn-invoice-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: white;
+    color: #475569;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-invoice-toggle:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+    border-color: #94a3b8;
+}
+
+.icon-invoice-toggle {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-block;
+}
+
+.icon-invoice-toggle.expanded {
+    transform: rotate(90deg);
+}
+
+.badge-invoice-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    margin-left: 6px;
+}
+
+.badge-invoice-count.single {
+    background: #f1f5f9;
+    color: #475569;
+    border-color: #e2e8f0;
+}
+
+.tr-invoice-child-row {
+    background-color: #ffffff;
+    transition: background-color 0.15s ease;
+}
+
+.tr-invoice-child-row.collapsed {
+    display: none !important;
+}
+
+.tr-invoice-child-row:hover {
+    background-color: #f8fafc;
+}
+
+.tr-invoice-child-row td:first-child {
+    padding-left: 32px !important;
+    position: relative;
+}
+
+.tr-invoice-child-row td:first-child::before {
+    content: "";
+    position: absolute;
+    left: 18px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #cbd5e1;
+}
+
+.invoice-group-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+

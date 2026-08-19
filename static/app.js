@@ -547,6 +547,7 @@ const DOM = {
 
     // Sobrepedidos Section
     tableSobrepedidos: document.querySelector("#table-sobrepedidos tbody"),
+    btnToggleAllSpInvoices: document.getElementById("btn-toggle-all-sp-invoices"),
     uploadSobrepedidosForm: document.getElementById("upload-sobrepedidos-form"),
     uploadSobrepedidosWrapper: document.getElementById("upload-sobrepedidos-wrapper"),
     filterSobrepedidosProveedor: document.getElementById("filter-sobrepedidos-proveedor"),
@@ -564,6 +565,7 @@ const DOM = {
 
     // Por Entregar Section
     tablePorEntregar: document.querySelector("#table-por-entregar tbody"),
+    btnToggleAllPeInvoices: document.getElementById("btn-toggle-all-pe-invoices"),
     filterPorEntregarVendedorWrapper: document.getElementById("filter-por-entregar-vendedor-wrapper"),
     filterPorEntregarVendedor: document.getElementById("filter-por-entregar-vendedor"),
     filterPorEntregarEstado: document.getElementById("filter-por-entregar-estado"),
@@ -2457,196 +2459,93 @@ async function loadInventarioAbcfData(forceRefresh = false) {
     }
 }
 
-async function loadSobrepedidosData(forceRefresh = false) {
-    const searchTerm = DOM.filterSobrepedidosSearch ? DOM.filterSobrepedidosSearch.value.toLowerCase() : "";
-    const proveedorFilter = DOM.filterSobrepedidosProveedor ? DOM.filterSobrepedidosProveedor.value : "todos";
-    const vendedorFilter = DOM.filterSobrepedidosVendedor ? DOM.filterSobrepedidosVendedor.value : "todos";
-    const grupoFilter = DOM.filterSobrepedidosGrupo ? DOM.filterSobrepedidosGrupo.value : "todos";
-    const estadoFilter = DOM.filterSobrepedidosEstado ? DOM.filterSobrepedidosEstado.value : "todos";
+/* ==========================================================================
+   INVOICE GROUPING & EXPAND/COLLAPSE UTILITIES
+   ========================================================================== */
+
+function groupRecordsByInvoice(records, getInvoiceFn) {
+    const groupsMap = new Map();
+    records.forEach(item => {
+        const rawKey = getInvoiceFn(item);
+        const key = rawKey !== undefined && rawKey !== null && String(rawKey).trim() !== ""
+            ? String(rawKey).trim()
+            : "Sin Información";
+        if (!groupsMap.has(key)) {
+            groupsMap.set(key, { invoice: key, items: [] });
+        }
+        groupsMap.get(key).items.push(item);
+    });
+    return Array.from(groupsMap.values());
+}
+
+function toggleInvoiceGroup(tableType, invoiceKey, tableElement) {
+    const mapKey = tableType === "pe" ? "peInvoiceExpanded" : (tableType === "sp" ? "spInvoiceExpanded" : "invoiceExpanded");
+    if (!state[mapKey]) state[mapKey] = {};
     
-    try {
-        if (forceRefresh || !state.sobrepedidos || state.sobrepedidos.length === 0) {
-            const res = await apiRequest("/api/v1/sobrepedidos/");
-            state.sobrepedidos = res.data || [];
+    state[mapKey][invoiceKey] = !state[mapKey][invoiceKey];
+    const isExpanded = Boolean(state[mapKey][invoiceKey]);
+    
+    const table = tableElement || document.querySelector(tableType === "pe" ? "#table-por-entregar" : (tableType === "sp" ? "#table-sobrepedidos" : "table"));
+    if (!table) return;
+    
+    const safeKey = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(invoiceKey) : invoiceKey.replace(/["\\]/g, '\\$&');
+    const childRows = table.querySelectorAll(`.tr-invoice-child-row[data-parent-invoice="${safeKey}"]`);
+    childRows.forEach(row => {
+        if (isExpanded) {
+            row.classList.remove("collapsed");
+        } else {
+            row.classList.add("collapsed");
         }
-        
-        let records = [...state.sobrepedidos];
-        
-        populateSobrepedidosSelect(DOM.filterSobrepedidosProveedor, records.map(r => r.proveedor));
-        populateSobrepedidosSelect(DOM.filterSobrepedidosVendedor, records.map(r => r.vendedor_codigo || r.vendedor_nombre));
-        populateSobrepedidosSelect(DOM.filterSobrepedidosGrupo, records.map(r => r.grupo));
-        
-        // Apply filters
-        if (proveedorFilter !== "todos") {
-            records = records.filter(r => r.proveedor === proveedorFilter);
-        }
-        if (vendedorFilter !== "todos") {
-            records = records.filter(r => (r.vendedor_codigo || r.vendedor_nombre) === vendedorFilter);
-        }
-        if (grupoFilter !== "todos") {
-            records = records.filter(r => r.grupo === grupoFilter);
-        }
-        if (estadoFilter !== "todos") {
-            records = records.filter(r => {
-                if (estadoFilter === "verde") return r.estado_crm.includes("Verde");
-                if (estadoFilter === "amarillo") return r.estado_crm.includes("Amarillo");
-                if (estadoFilter === "rojo") return r.estado_crm.includes("Rojo");
-                return true;
-            });
-        }
-        if (searchTerm) {
-            records = records.filter(r => {
-                const searchableFields = [
-                    r.factura || String(r.id_pedido_erp),
-                    r.fecha_venta,
-                    r.numero_cliente,
-                    r.cliente_nombre,
-                    r.vendedor_codigo,
-                    r.producto_sku,
-                    r.producto_desc,
-                    r.grupo,
-                    r.proveedor,
-                    r.vendedor_nombre,
-                    r.estatus_compras,
-                    r.disponibilidad_vl06o,
-                    r.motivo_estado
-                ];
-                return searchableFields.some(value =>
-                    value && String(value).toLowerCase().includes(searchTerm)
-                );
-            });
-        }
-        
-        DOM.tableSobrepedidos.innerHTML = "";
-        if (records.length === 0) {
-            DOM.tableSobrepedidos.innerHTML = `<tr><td colspan="16" style="text-align: center;">No se encontraron registros de sobrepedidos.</td></tr>`;
-            if (DOM.pagSobrepedidos) DOM.pagSobrepedidos.innerHTML = "";
-            return;
-        }
-        
-        // --- SORTING LOGIC ---
-        if (state.spSortField === undefined) state.spSortField = null;
-        if (state.spSortDir === undefined) state.spSortDir = 'desc';
-        if (state.spCurrentPage === undefined) state.spCurrentPage = 1;
-
-        if (state.spSortField === 'pedido') {
-            records.sort((a, b) => {
-                return state.spSortDir === 'asc' ? Number(a.id_pedido_erp || 0) - Number(b.id_pedido_erp || 0) : Number(b.id_pedido_erp || 0) - Number(a.id_pedido_erp || 0);
-            });
-        } else if (state.spSortField === 'sku') {
-            records.sort((a, b) => {
-                const va = String(a.producto_sku || "");
-                const vb = String(b.producto_sku || "");
-                return state.spSortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
-            });
-        } else if (state.spSortField === 'cant') {
-            records.sort((a, b) => {
-                return state.spSortDir === 'asc' ? a.cantidad_pendiente - b.cantidad_pendiente : b.cantidad_pendiente - a.cantidad_pendiente;
-            });
-        } else if (state.spSortField === 'fecha') {
-            records.sort((a, b) => {
-                const da = a.fecha_pedido ? new Date(a.fecha_pedido) : new Date(0);
-                const db = b.fecha_pedido ? new Date(b.fecha_pedido) : new Date(0);
-                return state.spSortDir === 'asc' ? da - db : db - da;
-            });
-        }
-
-        // --- PAGINATION ---
-        const totalItems = records.length;
-        const pag = createPaginationControls('spCurrentPage', totalItems, loadSobrepedidosData, 25);
-        const pageItems = records.slice(pag.startIndex, pag.endIndex);
-        
-        // Render rows
-        const today = new Date();
-        pageItems.forEach(item => {
-            let rowClass = "";
-            let isDelayed = false;
-            let daysDelay = 0;
-            
-            if (item.fecha_venta || item.fecha_pedido) {
-                const orderDate = new Date(item.fecha_venta || item.fecha_pedido);
-                const diffTime = today - orderDate;
-                daysDelay = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                if (item.estado_crm.includes("Rojo") && daysDelay > 15) {
-                    rowClass = "row-delayed-alert";
-                    isDelayed = true;
-                }
-            }
-            
-            // Map CRM Status Pill
-            let statusPill = "";
-            if (item.estado_crm.includes("Verde")) {
-                statusPill = `<span class="status-badge badge-success">Listo en Almacén</span>`;
-            } else if (item.estado_crm.includes("Amarillo")) {
-                statusPill = `<span class="status-badge badge-warning">En Proceso</span>`;
+    });
+    
+    const headerRow = table.querySelector(`.tr-invoice-group-header[data-invoice="${safeKey}"]`);
+    if (headerRow) {
+        const icon = headerRow.querySelector(".icon-invoice-toggle");
+        if (icon) {
+            if (isExpanded) {
+                icon.classList.add("expanded");
             } else {
-                statusPill = `<span class="status-badge badge-error">Alerta (Rojo)</span>`;
+                icon.classList.remove("expanded");
             }
-            
-            const tr = document.createElement("tr");
-            if (rowClass) tr.className = rowClass;
-            
-            const facturaText = item.factura || item.id_pedido_erp || "";
-            const dateText = item.fecha_venta || item.fecha_pedido || "Sin fecha";
-            const dateDisplay = isDelayed ? `<span class="cell-delayed-text" title="Retraso crítico: ${daysDelay} días">${dateText} (${daysDelay}d)</span>` : dateText;
-            const vendedorText = item.vendedor_codigo || item.vendedor_nombre || "";
-            const commentText = item.estatus_compras || "-";
-            const commentDisplay = isDelayed ? `<span class="cell-delayed-text" title="${escapeHTML(commentText)}">${escapeHTML(commentText)}</span>` : escapeHTML(commentText);
-            const motivoText = item.motivo_estado || item.motivo || "-";
-
-            tr.innerHTML = [
-                `<td style="white-space: nowrap;">${escapeHTML(facturaText)}</td>`,
-                `<td style="white-space: nowrap;">${dateDisplay}</td>`,
-                `<td class="col-truncate" title="${escapeHTML(item.cliente_nombre || '')}">${escapeHTML(item.cliente_nombre || '-')}</td>`,
-                `<td style="white-space: nowrap;">${escapeHTML(vendedorText)}</td>`,
-                `<td style="white-space: nowrap;"><code>${escapeHTML(item.producto_sku || '-')}</code></td>`,
-                `<td class="col-truncate-lg" title="${escapeHTML(item.producto_desc || '')}">${escapeHTML(item.producto_desc || '-')}</td>`,
-                `<td class="col-truncate-sm" title="${escapeHTML(item.grupo || '')}">${escapeHTML(item.grupo || '-')}</td>`,
-                `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_pendiente || 0)}</td>`,
-                `<td style="white-space: nowrap;">${escapeHTML(item.disponibilidad_vl06o || '-')}</td>`,
-                `<td style="text-align: right; white-space: nowrap;">${formatNumber(item.cantidad_disponible || 0)}</td>`,
-                `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
-                `<td style="text-align: right; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
-                `<td class="col-truncate" title="${escapeHTML(item.proveedor || '')}">${escapeHTML(item.proveedor || '-')}</td>`,
-                `<td class="col-truncate" title="${escapeHTML(commentText)}">${commentDisplay}</td>`,
-                `<td class="col-truncate" title="${escapeHTML(motivoText)}">${escapeHTML(motivoText)}</td>`,
-                `<td style="white-space: nowrap;">${statusPill}</td>`
-            ].join("");
-            DOM.tableSobrepedidos.appendChild(tr);
-        });
-
-        // Render Pagination UI
-        if (DOM.pagSobrepedidos) {
-            DOM.pagSobrepedidos.innerHTML = `<span style="display:block;margin-bottom:10px;">Mostrando ${pag.startIndex + 1} - ${Math.min(pag.endIndex, totalItems)} de ${totalItems} registros</span>` + pag.html;
-            DOM.pagSobrepedidos.style.display = 'block';
-            pag.bindEvents();
         }
-        
-        // Update header sorting icons
-        const thPedido = document.getElementById("th-sobrepedidos-pedido");
-        const thSku = document.getElementById("th-sobrepedidos-sku");
-        const thCant = document.getElementById("th-sobrepedidos-cant");
-        const thFecha = document.getElementById("th-sobrepedidos-fecha");
-        
-        [
-            { th: thPedido, field: 'pedido' },
-            { th: thSku, field: 'sku' },
-            { th: thCant, field: 'cant' },
-            { th: thFecha, field: 'fecha' }
-        ].forEach(item => {
-            if (item.th) {
-                const icon = item.th.querySelector('i');
-                if (icon) {
-                    icon.className = 'fa-solid ' + (state.spSortField === item.field ? (state.spSortDir === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort');
-                    icon.style.color = state.spSortField === item.field ? '#10b981' : '#6b7280';
-                }
-            }
-        });
-        
-    } catch (e) {
-        console.error("Error loading sobrepedidos:", e);
-        DOM.tableSobrepedidos.innerHTML = `<tr><td colspan="16" style="text-align: center; color: #ef4444;">Error al cargar datos</td></tr>`;
     }
+}
+
+function toggleAllInvoices(tableType) {
+    const isPE = tableType === "pe";
+    const expandedKey = isPE ? "peAllExpanded" : "spAllExpanded";
+    state[expandedKey] = !state[expandedKey];
+    const shouldExpand = Boolean(state[expandedKey]);
+    
+    const tableBody = isPE ? DOM.tablePorEntregar : DOM.tableSobrepedidos;
+    if (!tableBody) return;
+    
+    const childRows = tableBody.querySelectorAll(".tr-invoice-child-row");
+    const toggleIcons = tableBody.querySelectorAll(".icon-invoice-toggle");
+    
+    childRows.forEach(row => {
+        if (shouldExpand) {
+            row.classList.remove("collapsed");
+        } else {
+            row.classList.add("collapsed");
+        }
+    });
+    
+    toggleIcons.forEach(icon => {
+        if (shouldExpand) {
+            icon.classList.add("expanded");
+        } else {
+            icon.classList.remove("expanded");
+        }
+    });
+    
+    const mapKey = isPE ? "peInvoiceExpanded" : "spInvoiceExpanded";
+    if (!state[mapKey]) state[mapKey] = {};
+    const groupHeaders = tableBody.querySelectorAll(".tr-invoice-group-header");
+    groupHeaders.forEach(hdr => {
+        const inv = hdr.getAttribute("data-invoice");
+        if (inv) state[mapKey][inv] = shouldExpand;
+    });
 }
 
 function populateSobrepedidosSelect(select, values) {
@@ -2723,6 +2622,7 @@ async function loadSobrepedidosData(forceRefresh = false) {
         if (state.spSortField === undefined) state.spSortField = null;
         if (state.spSortDir === undefined) state.spSortDir = "desc";
         if (state.spCurrentPage === undefined) state.spCurrentPage = 1;
+        if (state.spInvoiceExpanded === undefined) state.spInvoiceExpanded = {};
 
         if (state.spSortField === "pedido") {
             records.sort((a, b) => state.spSortDir === "asc" ? Number(a.id_pedido_erp || 0) - Number(b.id_pedido_erp || 0) : Number(b.id_pedido_erp || 0) - Number(a.id_pedido_erp || 0));
@@ -2742,67 +2642,173 @@ async function loadSobrepedidosData(forceRefresh = false) {
             });
         }
 
+        const groups = groupRecordsByInvoice(records, r => r.factura || r.id_pedido_erp || 'Sin Información');
         const totalItems = records.length;
-        const itemsPerPage = 50;
-        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        const totalGroups = groups.length;
+        const itemsPerPage = 20;
+        const totalPages = Math.ceil(totalGroups / itemsPerPage);
         if (state.spCurrentPage > totalPages && totalPages > 0) state.spCurrentPage = totalPages;
         if (state.spCurrentPage < 1) state.spCurrentPage = 1;
 
         const startIdx = (state.spCurrentPage - 1) * itemsPerPage;
-        const pageItems = records.slice(startIdx, startIdx + itemsPerPage);
+        const pageGroups = groups.slice(startIdx, startIdx + itemsPerPage);
         const today = new Date();
 
-        pageItems.forEach(item => {
-            let rowClass = "";
-            let isDelayed = false;
-            let daysDelay = 0;
-            const orderDateText = item.fecha_venta || item.fecha_pedido;
-            if (orderDateText) {
-                const orderDate = new Date(orderDateText);
-                daysDelay = Math.floor((today - orderDate) / (1000 * 60 * 60 * 24));
-                if (item.estado_crm.includes("Rojo") && daysDelay > 15) {
-                    rowClass = "row-delayed-alert";
-                    isDelayed = true;
-                }
+        pageGroups.forEach(group => {
+            const hasMultiple = group.items.length > 1;
+            const isExpanded = Boolean(state.spInvoiceExpanded[group.invoice]);
+            const firstItem = group.items[0];
+            const totalCantPendiente = group.items.reduce((sum, item) => sum + Number(item.cantidad_pendiente || 0), 0);
+            const totalCantDisponible = group.items.reduce((sum, item) => sum + Number(item.cantidad_disponible || 0), 0);
+
+            let worstStatus = "Verde";
+            if (group.items.some(i => (i.estado_crm || "").includes("Rojo"))) {
+                worstStatus = "Rojo";
+            } else if (group.items.some(i => (i.estado_crm || "").includes("Amarillo"))) {
+                worstStatus = "Amarillo";
             }
 
-            let statusPill = "";
-            if (item.estado_crm.includes("Verde")) {
-                statusPill = `<span class="status-badge badge-success">Listo / Disponible</span>`;
-            } else if (item.estado_crm.includes("Amarillo")) {
-                statusPill = `<span class="status-badge badge-warning">En Proceso</span>`;
+            let groupStatusPill = `<span class="status-badge badge-success">Listo / Disponible</span>`;
+            if (worstStatus === "Amarillo") groupStatusPill = `<span class="status-badge badge-warning">En Proceso</span>`;
+            if (worstStatus === "Rojo") groupStatusPill = `<span class="status-badge badge-error">Requiere Acción</span>`;
+
+            const orderDateText = firstItem.fecha_venta || firstItem.fecha_pedido || "Sin fecha";
+            const vendedorText = firstItem.vendedor_codigo || firstItem.vendedor_nombre || "";
+
+            if (hasMultiple) {
+                const headerTr = document.createElement("tr");
+                headerTr.className = "tr-invoice-group-header";
+                headerTr.setAttribute("data-invoice", group.invoice);
+                headerTr.setAttribute("title", "Clic para expandir/contraer partidas de esta factura");
+
+                headerTr.innerHTML = [
+                    `<td style="white-space: nowrap;">
+                        <button type="button" class="btn-invoice-toggle" data-invoice="${escapeHTML(group.invoice)}" title="Expandir/contraer">
+                            <i class="fa-solid fa-chevron-right icon-invoice-toggle ${isExpanded ? 'expanded' : ''}"></i>
+                        </button>
+                        <strong>${escapeHTML(group.invoice)}</strong>
+                        <span class="badge-invoice-count">${group.items.length} partidas</span>
+                    </td>`,
+                    `<td style="white-space: nowrap;">${escapeHTML(orderDateText)}</td>`,
+                    `<td class="col-truncate" title="${escapeHTML(firstItem.cliente_nombre || '')}"><strong>${escapeHTML(firstItem.cliente_nombre || '-')}</strong></td>`,
+                    `<td style="white-space: nowrap;">${escapeHTML(vendedorText)}</td>`,
+                    `<td style="white-space: nowrap;"><span class="text-muted" style="font-size: 12px; font-weight: 600;">${group.items.length} SKUs</span></td>`,
+                    `<td class="col-truncate-lg" style="color: #475569; font-weight: 600;">Desglose de ${group.items.length} productos</td>`,
+                    `<td class="col-truncate-sm"><span class="text-muted">-</span></td>`,
+                    `<td style="text-align: right; font-weight: 700; color: hsl(var(--primary)); white-space: nowrap;">${formatNumber(totalCantPendiente)}</td>`,
+                    `<td style="white-space: nowrap;"><span class="text-muted">-</span></td>`,
+                    `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(totalCantDisponible)}</td>`,
+                    `<td style="white-space: nowrap;">${escapeHTML(firstItem.fecha_disponibilidad || "-")}</td>`,
+                    `<td style="text-align: right; white-space: nowrap;">${firstItem.dias_disponible ?? "-"}</td>`,
+                    `<td class="col-truncate" title="${escapeHTML(firstItem.proveedor || '')}">${escapeHTML(firstItem.proveedor || '-')}</td>`,
+                    `<td class="col-truncate"><span class="text-muted">-</span></td>`,
+                    `<td class="col-truncate"><span class="text-muted">-</span></td>`,
+                    `<td style="white-space: nowrap;">${groupStatusPill}</td>`
+                ].join("");
+                DOM.tableSobrepedidos.appendChild(headerTr);
+
+                group.items.forEach(item => {
+                    let rowClass = "";
+                    let isDelayed = false;
+                    let daysDelay = 0;
+                    const itemOrderDateText = item.fecha_venta || item.fecha_pedido;
+                    if (itemOrderDateText) {
+                        const orderDate = new Date(itemOrderDateText);
+                        daysDelay = Math.floor((today - orderDate) / (1000 * 60 * 60 * 24));
+                        if (item.estado_crm.includes("Rojo") && daysDelay > 15) {
+                            rowClass = "row-delayed-alert";
+                            isDelayed = true;
+                        }
+                    }
+
+                    let statusPill = "";
+                    if (item.estado_crm.includes("Verde")) {
+                        statusPill = `<span class="status-badge badge-success">Listo / Disponible</span>`;
+                    } else if (item.estado_crm.includes("Amarillo")) {
+                        statusPill = `<span class="status-badge badge-warning">En Proceso</span>`;
+                    } else {
+                        statusPill = `<span class="status-badge badge-error">Requiere Acción</span>`;
+                    }
+
+                    const itemDateText = escapeHTML(itemOrderDateText || "Sin fecha");
+                    const dateDisplay = isDelayed ? `<span class="cell-delayed-text" title="Retraso crítico: ${daysDelay} días">${itemDateText} (${daysDelay}d)</span>` : itemDateText;
+                    const safeComment = escapeHTML(item.estatus_compras || "");
+                    const commentDisplay = isDelayed ? `<span class="cell-delayed-text">${safeComment}</span>` : safeComment;
+
+                    const childTr = document.createElement("tr");
+                    childTr.className = `tr-invoice-child-row ${isExpanded ? '' : 'collapsed'}${rowClass ? ' ' + rowClass : ''}`;
+                    childTr.setAttribute("data-parent-invoice", group.invoice);
+                    childTr.innerHTML = [
+                        `<td style="white-space: nowrap;"><span style="font-size: 11px; color: #64748b;"><i class="fa-solid fa-turn-up" style="transform: rotate(90deg); margin-right: 4px;"></i> Partida</span></td>`,
+                        `<td style="white-space: nowrap;">${dateDisplay}</td>`,
+                        `<td class="col-truncate" title="${escapeHTML(item.cliente_nombre || '')}">${escapeHTML(item.cliente_nombre || '-')}</td>`,
+                        `<td style="white-space: nowrap;">${escapeHTML(item.vendedor_codigo || item.vendedor_nombre || "")}</td>`,
+                        `<td style="white-space: nowrap;"><code>${escapeHTML(item.producto_sku || '-')}</code></td>`,
+                        `<td class="col-truncate-lg" title="${escapeHTML(item.producto_desc || '')}">${escapeHTML(item.producto_desc || '-')}</td>`,
+                        `<td class="col-truncate-sm" title="${escapeHTML(item.grupo || '')}">${escapeHTML(item.grupo || '-')}</td>`,
+                        `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_pendiente || 0)}</td>`,
+                        `<td style="white-space: nowrap;">${escapeHTML(item.disponibilidad_vl06o || '-')}</td>`,
+                        `<td style="text-align: right; white-space: nowrap;">${formatNumber(item.cantidad_disponible || 0)}</td>`,
+                        `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
+                        `<td style="text-align: right; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
+                        `<td class="col-truncate" title="${escapeHTML(item.proveedor || '')}">${escapeHTML(item.proveedor || '-')}</td>`,
+                        `<td class="col-truncate" title="${escapeHTML(item.estatus_compras || '')}">${commentDisplay}</td>`,
+                        `<td class="col-truncate" title="${escapeHTML(item.motivo_estado || '')}">${escapeHTML(item.motivo_estado || '-')}</td>`,
+                        `<td style="white-space: nowrap;">${statusPill}</td>`
+                    ].join("");
+                    DOM.tableSobrepedidos.appendChild(childTr);
+                });
             } else {
-                statusPill = `<span class="status-badge badge-error">Requiere Accion</span>`;
+                const item = firstItem;
+                let rowClass = "";
+                let isDelayed = false;
+                let daysDelay = 0;
+                const itemOrderDateText = item.fecha_venta || item.fecha_pedido;
+                if (itemOrderDateText) {
+                    const orderDate = new Date(itemOrderDateText);
+                    daysDelay = Math.floor((today - orderDate) / (1000 * 60 * 60 * 24));
+                    if (item.estado_crm.includes("Rojo") && daysDelay > 15) {
+                        rowClass = "row-delayed-alert";
+                        isDelayed = true;
+                    }
+                }
+
+                let statusPill = "";
+                if (item.estado_crm.includes("Verde")) {
+                    statusPill = `<span class="status-badge badge-success">Listo / Disponible</span>`;
+                } else if (item.estado_crm.includes("Amarillo")) {
+                    statusPill = `<span class="status-badge badge-warning">En Proceso</span>`;
+                } else {
+                    statusPill = `<span class="status-badge badge-error">Requiere Acción</span>`;
+                }
+
+                const itemDateText = escapeHTML(itemOrderDateText || "Sin fecha");
+                const dateDisplay = isDelayed ? `<span class="cell-delayed-text" title="Retraso crítico: ${daysDelay} días">${itemDateText} (${daysDelay}d)</span>` : itemDateText;
+                const safeComment = escapeHTML(item.estatus_compras || "");
+                const commentDisplay = isDelayed ? `<span class="cell-delayed-text">${safeComment}</span>` : commentDisplay;
+
+                const tr = document.createElement("tr");
+                if (rowClass) tr.className = rowClass;
+                tr.innerHTML = [
+                    `<td style="white-space: nowrap;"><strong>${escapeHTML(group.invoice)}</strong> <span class="badge-invoice-count single">1 partida</span></td>`,
+                    `<td style="white-space: nowrap;">${dateDisplay}</td>`,
+                    `<td class="col-truncate" title="${escapeHTML(item.cliente_nombre || '')}">${escapeHTML(item.cliente_nombre || '-')}</td>`,
+                    `<td style="white-space: nowrap;">${escapeHTML(vendedorText)}</td>`,
+                    `<td style="white-space: nowrap;"><code>${escapeHTML(item.producto_sku || '-')}</code></td>`,
+                    `<td class="col-truncate-lg" title="${escapeHTML(item.producto_desc || '')}">${escapeHTML(item.producto_desc || '-')}</td>`,
+                    `<td class="col-truncate-sm" title="${escapeHTML(item.grupo || '')}">${escapeHTML(item.grupo || '-')}</td>`,
+                    `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_pendiente || 0)}</td>`,
+                    `<td style="white-space: nowrap;">${escapeHTML(item.disponibilidad_vl06o || '-')}</td>`,
+                    `<td style="text-align: right; white-space: nowrap;">${formatNumber(item.cantidad_disponible || 0)}</td>`,
+                    `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
+                    `<td style="text-align: right; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
+                    `<td class="col-truncate" title="${escapeHTML(item.proveedor || '')}">${escapeHTML(item.proveedor || '-')}</td>`,
+                    `<td class="col-truncate" title="${escapeHTML(item.estatus_compras || '')}">${commentDisplay}</td>`,
+                    `<td class="col-truncate" title="${escapeHTML(item.motivo_estado || '')}">${escapeHTML(item.motivo_estado || '-')}</td>`,
+                    `<td style="white-space: nowrap;">${statusPill}</td>`
+                ].join("");
+                DOM.tableSobrepedidos.appendChild(tr);
             }
-
-            const facturaText = item.factura || item.id_pedido_erp || "";
-            const vendedorText = item.vendedor_codigo || item.vendedor_nombre || "";
-            const safeDateText = escapeHTML(orderDateText || "Sin fecha");
-            const dateDisplay = isDelayed ? `<span class="cell-delayed-text" title="Retraso critico: ${daysDelay} dias">${safeDateText} (${daysDelay}d)</span>` : safeDateText;
-            const safeComment = escapeHTML(item.estatus_compras);
-            const commentDisplay = isDelayed ? `<span class="cell-delayed-text">${safeComment}</span>` : safeComment;
-
-            const tr = document.createElement("tr");
-            if (rowClass) tr.className = rowClass;
-            tr.innerHTML = [
-                `<td>${escapeHTML(facturaText)}</td>`,
-                `<td>${dateDisplay}</td>`,
-                `<td>${escapeHTML(item.cliente_nombre)}</td>`,
-                `<td>${escapeHTML(vendedorText)}</td>`,
-                `<td><code>${escapeHTML(item.producto_sku)}</code></td>`,
-                `<td>${escapeHTML(item.producto_desc)}</td>`,
-                `<td>${escapeHTML(item.grupo)}</td>`,
-                `<td style="text-align: right; font-weight: 600;">${formatNumber(item.cantidad_pendiente || 0)}</td>`,
-                `<td>${escapeHTML(item.disponibilidad_vl06o)}</td>`,
-                `<td style="text-align: right;">${formatNumber(item.cantidad_disponible || 0)}</td>`,
-                `<td>${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
-                `<td style="text-align: right;">${item.dias_disponible ?? "-"}</td>`,
-                `<td>${escapeHTML(item.proveedor)}</td>`,
-                `<td>${commentDisplay}</td>`,
-                `<td>${escapeHTML(item.motivo_estado)}</td>`,
-                `<td>${statusPill}</td>`
-            ].join("");
-            DOM.tableSobrepedidos.appendChild(tr);
         });
 
         if (DOM.pagSobrepedidos) {
@@ -2818,7 +2824,7 @@ async function loadSobrepedidosData(forceRefresh = false) {
                 });
 
                 const spanInfo = document.createElement("span");
-                spanInfo.textContent = ` Pagina ${state.spCurrentPage} de ${totalPages} (Total: ${totalItems}) `;
+                spanInfo.textContent = ` Página ${state.spCurrentPage} de ${totalPages} (${totalGroups} facturas/pedidos, ${totalItems} registros) `;
                 spanInfo.style.margin = "0 10px";
                 spanInfo.style.fontSize = "13px";
 
@@ -2835,7 +2841,7 @@ async function loadSobrepedidosData(forceRefresh = false) {
                 DOM.pagSobrepedidos.appendChild(spanInfo);
                 DOM.pagSobrepedidos.appendChild(btnNext);
             } else {
-                DOM.pagSobrepedidos.innerHTML = `<span style="font-size: 13px; color: hsl(var(--text-muted));">Mostrando todos los ${totalItems} registros</span>`;
+                DOM.pagSobrepedidos.innerHTML = `<span style="font-size: 13px; color: hsl(var(--text-muted));">Mostrando ${totalGroups} facturas/pedidos (${totalItems} registros en total)</span>`;
             }
         }
 
@@ -2964,6 +2970,7 @@ async function loadPorEntregarData(forceRefresh = false) {
 
         if (state.peCurrentPage === undefined) state.peCurrentPage = 1;
         if (state.peDiasSort === undefined) state.peDiasSort = 'desc';
+        if (state.peInvoiceExpanded === undefined) state.peInvoiceExpanded = {};
 
         // Sort by dias_disponible based on current state
         records.sort((a, b) => {
@@ -2972,35 +2979,117 @@ async function loadPorEntregarData(forceRefresh = false) {
             return state.peDiasSort === 'asc' ? va - vb : vb - va;
         });
 
+        const groups = groupRecordsByInvoice(records, r => r.factura || 'Sin Información');
         const totalItems = records.length;
-        const pag = createPaginationControls('peCurrentPage', totalItems, loadPorEntregarData, 25);
-        const pageItems = records.slice(pag.startIndex, pag.endIndex);
+        const totalGroups = groups.length;
 
-        pageItems.forEach(item => {
-            let statusPill = "";
-            if (item.estado_crm.includes("Verde")) {
-                statusPill = `<span class="status-badge badge-success">Verde</span>`;
-            } else if (item.estado_crm.includes("Amarillo")) {
-                statusPill = `<span class="status-badge badge-warning">Amarillo</span>`;
-            } else {
-                statusPill = `<span class="status-badge badge-error">Rojo</span>`;
+        const itemsPerPage = 20;
+        const totalPages = Math.ceil(totalGroups / itemsPerPage);
+        if (state.peCurrentPage > totalPages && totalPages > 0) state.peCurrentPage = totalPages;
+        if (state.peCurrentPage < 1) state.peCurrentPage = 1;
+
+        const startIdx = (state.peCurrentPage - 1) * itemsPerPage;
+        const pageGroups = groups.slice(startIdx, startIdx + itemsPerPage);
+
+        pageGroups.forEach(group => {
+            const hasMultiple = group.items.length > 1;
+            const isExpanded = Boolean(state.peInvoiceExpanded[group.invoice]);
+            const firstItem = group.items[0];
+            const totalQty = group.items.reduce((sum, item) => sum + Number(item.cantidad_entregar || 0), 0);
+
+            let worstStatus = "Verde";
+            if (group.items.some(i => (i.estado_crm || "").includes("Rojo"))) {
+                worstStatus = "Rojo";
+            } else if (group.items.some(i => (i.estado_crm || "").includes("Amarillo"))) {
+                worstStatus = "Amarillo";
             }
 
-            const tr = document.createElement("tr");
-            tr.innerHTML = [
-                `<td style="white-space: nowrap;">${escapeHTML(item.factura || 'Sin Información')}</td>`,
-                `<td style="white-space: nowrap;"><code>${escapeHTML(item.producto_sku || '-')}</code></td>`,
-                `<td class="col-truncate-lg" title="${escapeHTML(item.producto_desc || '')}">${escapeHTML(item.producto_desc || '-')}</td>`,
-                `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_entregar || 0)}</td>`,
-                `<td style="white-space: nowrap;">${escapeHTML(item.vendedor_codigo || item.vendedor_nombre || "")}</td>`,
-                `<td style="white-space: nowrap;">${escapeHTML(item.numero_cliente || '-')}</td>`,
-                `<td class="col-truncate" title="${escapeHTML(item.cliente_nombre || '')}">${escapeHTML(item.cliente_nombre || '-')}</td>`,
-                `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
-                `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
-                `<td class="col-truncate-lg" title="${escapeHTML(item.motivo_estado || '')}">${escapeHTML(item.motivo_estado || '-')}</td>`,
-                `<td style="white-space: nowrap;">${statusPill}</td>`
-            ].join("");
-            DOM.tablePorEntregar.appendChild(tr);
+            let groupStatusPill = `<span class="status-badge badge-success">Verde</span>`;
+            if (worstStatus === "Amarillo") groupStatusPill = `<span class="status-badge badge-warning">Amarillo</span>`;
+            if (worstStatus === "Rojo") groupStatusPill = `<span class="status-badge badge-error">Rojo</span>`;
+
+            if (hasMultiple) {
+                const headerTr = document.createElement("tr");
+                headerTr.className = "tr-invoice-group-header";
+                headerTr.setAttribute("data-invoice", group.invoice);
+                headerTr.setAttribute("title", "Clic para expandir/contraer partidas de esta factura");
+
+                headerTr.innerHTML = [
+                    `<td style="white-space: nowrap;">
+                        <button type="button" class="btn-invoice-toggle" data-invoice="${escapeHTML(group.invoice)}" title="Expandir/contraer">
+                            <i class="fa-solid fa-chevron-right icon-invoice-toggle ${isExpanded ? 'expanded' : ''}"></i>
+                        </button>
+                        <strong>${escapeHTML(group.invoice)}</strong>
+                        <span class="badge-invoice-count">${group.items.length} partidas</span>
+                    </td>`,
+                    `<td style="white-space: nowrap;"><span class="text-muted" style="font-size: 12px; font-weight: 600;">${group.items.length} SKUs</span></td>`,
+                    `<td class="col-truncate-lg" style="color: #475569; font-weight: 600;">Desglose de ${group.items.length} productos</td>`,
+                    `<td style="text-align: right; font-weight: 700; color: hsl(var(--primary)); white-space: nowrap;">${formatNumber(totalQty)}</td>`,
+                    `<td style="white-space: nowrap;">${escapeHTML(firstItem.vendedor_codigo || firstItem.vendedor_nombre || "")}</td>`,
+                    `<td style="white-space: nowrap;">${escapeHTML(firstItem.numero_cliente || '-')}</td>`,
+                    `<td class="col-truncate" title="${escapeHTML(firstItem.cliente_nombre || '')}"><strong>${escapeHTML(firstItem.cliente_nombre || '-')}</strong></td>`,
+                    `<td style="white-space: nowrap;">${escapeHTML(firstItem.fecha_disponibilidad || "-")}</td>`,
+                    `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${firstItem.dias_disponible ?? "-"}</td>`,
+                    `<td class="col-truncate-lg" style="color: #64748b; font-size: 12px;">${escapeHTML(group.items.map(i => i.motivo_estado).filter(Boolean).slice(0, 2).join(", ") || "-")}</td>`,
+                    `<td style="white-space: nowrap;">${groupStatusPill}</td>`
+                ].join("");
+                DOM.tablePorEntregar.appendChild(headerTr);
+
+                group.items.forEach(item => {
+                    let statusPill = "";
+                    if (item.estado_crm.includes("Verde")) {
+                        statusPill = `<span class="status-badge badge-success">Verde</span>`;
+                    } else if (item.estado_crm.includes("Amarillo")) {
+                        statusPill = `<span class="status-badge badge-warning">Amarillo</span>`;
+                    } else {
+                        statusPill = `<span class="status-badge badge-error">Rojo</span>`;
+                    }
+
+                    const childTr = document.createElement("tr");
+                    childTr.className = `tr-invoice-child-row ${isExpanded ? '' : 'collapsed'}`;
+                    childTr.setAttribute("data-parent-invoice", group.invoice);
+                    childTr.innerHTML = [
+                        `<td style="white-space: nowrap;"><span style="font-size: 11px; color: #64748b;"><i class="fa-solid fa-turn-up" style="transform: rotate(90deg); margin-right: 4px;"></i> Partida</span></td>`,
+                        `<td style="white-space: nowrap;"><code>${escapeHTML(item.producto_sku || '-')}</code></td>`,
+                        `<td class="col-truncate-lg" title="${escapeHTML(item.producto_desc || '')}">${escapeHTML(item.producto_desc || '-')}</td>`,
+                        `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_entregar || 0)}</td>`,
+                        `<td style="white-space: nowrap;">${escapeHTML(item.vendedor_codigo || item.vendedor_nombre || "")}</td>`,
+                        `<td style="white-space: nowrap;">${escapeHTML(item.numero_cliente || '-')}</td>`,
+                        `<td class="col-truncate" title="${escapeHTML(item.cliente_nombre || '')}">${escapeHTML(item.cliente_nombre || '-')}</td>`,
+                        `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
+                        `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
+                        `<td class="col-truncate-lg" title="${escapeHTML(item.motivo_estado || '')}">${escapeHTML(item.motivo_estado || '-')}</td>`,
+                        `<td style="white-space: nowrap;">${statusPill}</td>`
+                    ].join("");
+                    DOM.tablePorEntregar.appendChild(childTr);
+                });
+            } else {
+                const item = firstItem;
+                let statusPill = "";
+                if (item.estado_crm.includes("Verde")) {
+                    statusPill = `<span class="status-badge badge-success">Verde</span>`;
+                } else if (item.estado_crm.includes("Amarillo")) {
+                    statusPill = `<span class="status-badge badge-warning">Amarillo</span>`;
+                } else {
+                    statusPill = `<span class="status-badge badge-error">Rojo</span>`;
+                }
+
+                const tr = document.createElement("tr");
+                tr.innerHTML = [
+                    `<td style="white-space: nowrap;"><strong>${escapeHTML(item.factura || 'Sin Información')}</strong> <span class="badge-invoice-count single">1 partida</span></td>`,
+                    `<td style="white-space: nowrap;"><code>${escapeHTML(item.producto_sku || '-')}</code></td>`,
+                    `<td class="col-truncate-lg" title="${escapeHTML(item.producto_desc || '')}">${escapeHTML(item.producto_desc || '-')}</td>`,
+                    `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_entregar || 0)}</td>`,
+                    `<td style="white-space: nowrap;">${escapeHTML(item.vendedor_codigo || item.vendedor_nombre || "")}</td>`,
+                    `<td style="white-space: nowrap;">${escapeHTML(item.numero_cliente || '-')}</td>`,
+                    `<td class="col-truncate" title="${escapeHTML(item.cliente_nombre || '')}">${escapeHTML(item.cliente_nombre || '-')}</td>`,
+                    `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
+                    `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
+                    `<td class="col-truncate-lg" title="${escapeHTML(item.motivo_estado || '')}">${escapeHTML(item.motivo_estado || '-')}</td>`,
+                    `<td style="white-space: nowrap;">${statusPill}</td>`
+                ].join("");
+                DOM.tablePorEntregar.appendChild(tr);
+            }
         });
 
         // Update sort icon on Días disponible header
@@ -3011,9 +3100,37 @@ async function loadPorEntregarData(forceRefresh = false) {
         }
 
         if (DOM.pagPorEntregar) {
-            DOM.pagPorEntregar.innerHTML = `<span style="display:block;margin-bottom:10px;">Mostrando ${pag.startIndex + 1} - ${Math.min(pag.endIndex, totalItems)} de ${totalItems} registros</span>` + pag.html;
-            DOM.pagPorEntregar.style.display = 'block';
-            pag.bindEvents();
+            DOM.pagPorEntregar.innerHTML = "";
+            if (totalPages > 1) {
+                const btnPrev = document.createElement("button");
+                btnPrev.className = "btn btn-secondary btn-sm";
+                btnPrev.disabled = state.peCurrentPage === 1;
+                btnPrev.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+                btnPrev.addEventListener("click", () => {
+                    state.peCurrentPage--;
+                    loadPorEntregarData();
+                });
+
+                const spanInfo = document.createElement("span");
+                spanInfo.textContent = ` Página ${state.peCurrentPage} de ${totalPages} (${totalGroups} facturas, ${totalItems} registros) `;
+                spanInfo.style.margin = "0 10px";
+                spanInfo.style.fontSize = "13px";
+
+                const btnNext = document.createElement("button");
+                btnNext.className = "btn btn-secondary btn-sm";
+                btnNext.disabled = state.peCurrentPage === totalPages;
+                btnNext.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+                btnNext.addEventListener("click", () => {
+                    state.peCurrentPage++;
+                    loadPorEntregarData();
+                });
+
+                DOM.pagPorEntregar.appendChild(btnPrev);
+                DOM.pagPorEntregar.appendChild(spanInfo);
+                DOM.pagPorEntregar.appendChild(btnNext);
+            } else {
+                DOM.pagPorEntregar.innerHTML = `<span style="font-size: 13px; color: hsl(var(--text-muted));">Mostrando ${totalGroups} facturas (${totalItems} registros en total)</span>`;
+            }
         }
     } catch (e) {
         console.error("Error loading por entregar:", e);
@@ -9047,6 +9164,33 @@ document.addEventListener('DOMContentLoaded', () => {
         else { state.spSortDir = state.spSortDir === 'asc' ? 'desc' : 'asc'; }
         loadSobrepedidosData();
     });
+
+    // Invoice Group Collapse/Expand Master Controls
+    if (DOM.btnToggleAllPeInvoices) {
+        DOM.btnToggleAllPeInvoices.addEventListener("click", () => toggleAllInvoices("pe"));
+    }
+    if (DOM.btnToggleAllSpInvoices) {
+        DOM.btnToggleAllSpInvoices.addEventListener("click", () => toggleAllInvoices("sp"));
+    }
+});
+
+// Delegated click listener for invoice group header and chevron toggles
+document.addEventListener("click", (e) => {
+    const toggleBtn = e.target.closest(".btn-invoice-toggle");
+    const groupHeader = e.target.closest(".tr-invoice-group-header");
+
+    if (toggleBtn || groupHeader) {
+        const targetElement = toggleBtn || groupHeader;
+        const invoiceKey = targetElement.getAttribute("data-invoice");
+        const table = targetElement.closest("table");
+        if (!invoiceKey || !table) return;
+
+        const isPE = table.id === "table-por-entregar";
+        const isSP = table.id === "table-sobrepedidos";
+        const tableType = isPE ? "pe" : (isSP ? "sp" : "general");
+
+        toggleInvoiceGroup(tableType, invoiceKey, table);
+    }
 });
 
 /* ==========================================================================
