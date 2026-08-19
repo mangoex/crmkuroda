@@ -4686,6 +4686,45 @@ async function showProposalModal(quote) {
     }
 }
 
+async function openClientFromKanbanCard(quote) {
+    if (!quote) return;
+    try {
+        const catalogClient = await findCatalogClientForQuote(quote);
+        if (catalogClient && catalogClient.id) {
+            await openModalCliente(catalogClient.id);
+        } else {
+            await openModalCliente(null);
+            if (quote.cliente_nombre) {
+                const nombreInput = document.getElementById("cliente-nombre-input");
+                if (nombreInput) nombreInput.value = quote.cliente_nombre;
+            }
+            if (quote.numero_cliente) {
+                const numInput = document.getElementById("cliente-num-input");
+                if (numInput) numInput.value = quote.numero_cliente;
+            }
+            const contactData = quote.datos_contacto || {};
+            if (contactData.nombre_contacto) {
+                const contactInput = document.getElementById("cliente-contacto-input");
+                if (contactInput) contactInput.value = contactData.nombre_contacto;
+            }
+            if (contactData.celular) {
+                const celInput = document.getElementById("cliente-cel-input");
+                if (celInput) celInput.value = contactData.celular;
+            }
+            if (contactData.telefono) {
+                const telInput = document.getElementById("cliente-tel-input");
+                if (telInput) telInput.value = contactData.telefono;
+            }
+            if (contactData.email) {
+                const emailInput = document.getElementById("cliente-email-input");
+                if (emailInput) emailInput.value = contactData.email;
+            }
+        }
+    } catch (err) {
+        console.warn("Error al abrir cliente desde tarjeta:", err);
+    }
+}
+
 /* ==========================================================================
    KANBAN BOARD MODULE
    ========================================================================== */
@@ -4979,10 +5018,10 @@ function renderKanbanColumns() {
                 });
             }
 
-            // Open proposal modal on click (if they don't click action buttons, whatsapp or drag)
+            // Click en la tarjeta (fuera de botones) abre directamente el diálogo del cliente en el catálogo
             card.addEventListener("click", (e) => {
                 if (e.target.closest(".kanban-card-actions") || e.target.closest(".quote-comments-btn") || e.target.closest(".kanban-reminder-btn") || e.target.closest(".kanban-history-btn") || e.target.closest(".kanban-whatsapp-btn") || card.classList.contains("dragging")) return;
-                showProposalModal(q);
+                openClientFromKanbanCard(q);
             });
             
             container.appendChild(card);
