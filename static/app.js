@@ -4593,10 +4593,11 @@ async function findCatalogClientForQuote(quote) {
 
 function renderProposalClientContact(quote, catalogClient) {
     const quoteContact = quote.datos_contacto || {};
-    const celular = quoteContact.celular || catalogClient?.celular || "";
-    const nombreContacto = quoteContact.nombre_contacto || catalogClient?.nombre_contacto || "";
-    const digits = String(celular).replace(/\D/g, "");
-    const hasCellular = Boolean(celular && digits.length >= 7);
+    const celular = (quoteContact.celular || catalogClient?.celular || "").trim();
+    const nombreContacto = (quoteContact.nombre_contacto || catalogClient?.nombre_contacto || "").trim();
+    const telefono = (quoteContact.telefono || catalogClient?.telefono || "").trim();
+    const digits = celular.replace(/\D/g, "");
+    const hasCellular = Boolean(celular && digits.length >= 10);
 
     return `
         <section class="proposal-client-contact" style="margin-bottom:14px; padding:12px 14px; border:1px solid rgba(59,130,246,.2); border-radius:10px; background:rgba(59,130,246,.04); display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
@@ -4605,12 +4606,14 @@ function renderProposalClientContact(quote, catalogClient) {
                     <i class="fa-solid fa-user-check"></i>
                 </div>
                 <div>
-                    <div style="font-weight:700; font-size:13px; color:hsl(var(--text-main));">${escapeHTML(nombreContacto || "Sin contacto registrado")}</div>
-                    <div style="font-size:12px; color:hsl(var(--text-secondary));">${celular ? `Cel: ${escapeHTML(celular)}` : "Celular no registrado en catálogo"}</div>
+                    <div style="font-weight:700; font-size:13px; color:hsl(var(--text-main));">${escapeHTML(nombreContacto || "Sin nombre de contacto")}</div>
+                    <div style="font-size:12px; color:hsl(var(--text-secondary));">
+                        ${celular ? `Cel: ${escapeHTML(celular)}` : (telefono ? `Tel: ${escapeHTML(telefono)} (Fijo)` : "Celular no registrado")}
+                    </div>
                 </div>
             </div>
             <div style="display:flex; gap:8px; align-items:center;">
-                ${hasCellular ? `<a href="https://wa.me/${digits}" target="_blank" rel="noopener" class="btn btn-primary btn-sm" style="background:#25d366; border-color:#25d366; color:#fff;" title="Abrir WhatsApp" aria-label="Abrir WhatsApp"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>` : ""}
+                ${hasCellular ? `<a href="https://wa.me/${digits.length === 10 ? '52' + digits : digits}" target="_blank" rel="noopener" class="btn btn-primary btn-sm" style="background:#25d366; border-color:#25d366; color:#fff;" title="Abrir WhatsApp" aria-label="Abrir WhatsApp"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>` : ""}
                 <button type="button" class="btn btn-secondary btn-sm proposal-open-client-contact" title="Gestionar cliente en Catálogo de Clientes" data-client-id="${escapeHTML(catalogClient?.id || '')}" data-client-search="${escapeHTML(quote.numero_cliente || quote.cliente_nombre || '')}"><i class="fa-solid fa-users"></i> Clientes</button>
             </div>
         </section>
@@ -4882,24 +4885,41 @@ function renderKanbanColumns() {
                 : "";
 
             const contactData = q.datos_contacto || {};
-            const contactName = contactData.nombre_contacto || q.nombre_contacto || "";
-            const phone = contactData.celular || contactData.telefono || contactData.contacto_preferente || q.celular || "";
-            const digits = String(phone || "").replace(/\D/g, "");
-            const hasWhatsApp = Boolean(digits && digits.length >= 7);
+            const contactName = (contactData.nombre_contacto || q.nombre_contacto || "").trim();
+            const celular = (contactData.celular || q.celular || "").trim();
+            const digits = celular.replace(/\D/g, "");
+            const hasWhatsApp = Boolean(celular && digits.length >= 10);
 
             const whatsappBtnHtml = hasWhatsApp
-                ? `<a href="https://wa.me/${digits}" target="_blank" rel="noopener" class="kanban-whatsapp-btn" title="Enviar WhatsApp a ${escapeHTML(contactName || q.cliente_nombre)} (${escapeHTML(phone)})" onclick="event.stopPropagation();" style="display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:#25d366; color:#ffffff; font-size:13px; text-decoration:none; margin-left:auto; box-shadow:0 2px 4px rgba(37,211,102,0.35); flex-shrink:0; transition:transform 0.15s ease;"><i class="fa-brands fa-whatsapp"></i></a>`
+                ? `<a href="https://wa.me/${digits.length === 10 ? '52' + digits : digits}" target="_blank" rel="noopener" class="kanban-whatsapp-btn" title="WhatsApp: ${escapeHTML(celular)}" onclick="event.stopPropagation();" style="display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background:#25d366; color:#ffffff; font-size:13px; text-decoration:none; margin-left:auto; box-shadow:0 2px 4px rgba(37,211,102,0.35); flex-shrink:0; transition:transform 0.15s ease;"><i class="fa-brands fa-whatsapp"></i></a>`
                 : "";
 
-            const contactDisplayHtml = contactName || hasWhatsApp
-                ? `<div class="kanban-card-contact" style="display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:12px; margin:4px 0 6px; padding:3px 8px; background:rgba(15,23,42,0.03); border-radius:6px; border:1px solid rgba(15,23,42,0.06);">
-                    <div style="display:flex; align-items:center; gap:5px; overflow:hidden; min-width:0;">
+            let contactDisplayHtml = "";
+            if (contactName && hasWhatsApp) {
+                contactDisplayHtml = `
+                    <div class="kanban-card-contact" style="display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:12px; margin:4px 0 6px; padding:3px 8px; background:rgba(15,23,42,0.03); border-radius:6px; border:1px solid rgba(15,23,42,0.06);">
+                        <div style="display:flex; align-items:center; gap:5px; overflow:hidden; min-width:0;">
+                            <i class="fa-solid fa-user-tag" style="font-size:11px; color:hsl(var(--primary)); flex-shrink:0;"></i>
+                            <span style="font-weight:600; color:hsl(var(--text-main)); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHTML(contactName)}">${escapeHTML(contactName)}</span>
+                        </div>
+                        ${whatsappBtnHtml}
+                    </div>`;
+            } else if (contactName) {
+                contactDisplayHtml = `
+                    <div class="kanban-card-contact" style="display:flex; align-items:center; gap:5px; font-size:12px; margin:4px 0 6px; padding:3px 8px; background:rgba(15,23,42,0.03); border-radius:6px; border:1px solid rgba(15,23,42,0.06); overflow:hidden;">
                         <i class="fa-solid fa-user-tag" style="font-size:11px; color:hsl(var(--primary)); flex-shrink:0;"></i>
-                        <span style="font-weight:600; color:hsl(var(--text-main)); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHTML(contactName || 'Contacto')}">${escapeHTML(contactName || 'Contacto')}</span>
-                    </div>
-                    ${whatsappBtnHtml}
-                  </div>`
-                : "";
+                        <span style="font-weight:600; color:hsl(var(--text-main)); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHTML(contactName)}">${escapeHTML(contactName)}</span>
+                    </div>`;
+            } else if (hasWhatsApp) {
+                contactDisplayHtml = `
+                    <div class="kanban-card-contact" style="display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:12px; margin:4px 0 6px; padding:3px 8px; background:rgba(15,23,42,0.03); border-radius:6px; border:1px solid rgba(15,23,42,0.06);">
+                        <div style="display:flex; align-items:center; gap:5px; overflow:hidden; min-width:0;">
+                            <i class="fa-regular fa-user" style="font-size:11px; color:#94a3b8; flex-shrink:0;"></i>
+                            <span style="font-size:11px; color:#94a3b8; font-style:italic;">Sin nombre de contacto</span>
+                        </div>
+                        ${whatsappBtnHtml}
+                    </div>`;
+            }
 
             card.innerHTML = `
                 <div class="kanban-card-header">

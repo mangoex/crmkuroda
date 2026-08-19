@@ -241,18 +241,18 @@ async def _load_quote_enrichment(
             settings.QUOTE_VALID_DAYS,
         )
 
-        # Enriquecer datos de contacto con el catálogo
+        # Enriquecer datos de contacto con el catálogo (máxima prioridad)
         client = clients_by_number.get(quote.numero_cliente.strip() if quote.numero_cliente else "") or clients_by_name.get(quote.cliente_nombre.strip() if quote.cliente_nombre else "")
         enriched_contact = dict(quote.datos_contacto or {})
         if client:
-            if not enriched_contact.get("nombre_contacto") and client.nombre_contacto:
-                enriched_contact["nombre_contacto"] = client.nombre_contacto
-            if not enriched_contact.get("celular") and client.celular:
-                enriched_contact["celular"] = client.celular
-            if not enriched_contact.get("telefono") and client.telefono:
-                enriched_contact["telefono"] = client.telefono
-            if not enriched_contact.get("email") and client.email:
-                enriched_contact["email"] = client.email
+            if client.nombre_contacto and client.nombre_contacto.strip():
+                enriched_contact["nombre_contacto"] = client.nombre_contacto.strip()
+            if client.celular and client.celular.strip():
+                enriched_contact["celular"] = client.celular.strip()
+            if client.telefono and client.telefono.strip():
+                enriched_contact["telefono"] = client.telefono.strip()
+            if client.email and client.email.strip():
+                enriched_contact["email"] = client.email.strip()
 
         result[quote.id] = {
             **promo,
