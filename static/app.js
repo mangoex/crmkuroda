@@ -233,6 +233,11 @@ const DOM = {
     sellerMonthlyRemaining: document.getElementById("seller-monthly-remaining"),
     sellerMonthlyDaysLeft: document.getElementById("seller-monthly-days-left"),
     sellerPeriodButtons: document.querySelectorAll("[data-seller-period]"),
+    sellerMetricTotalQuotes: document.getElementById("seller-metric-total-quotes"),
+    sellerMetricTotalInvoicedCount: document.getElementById("seller-metric-total-invoiced-count"),
+    sellerMetricTotalQuoted: document.getElementById("seller-metric-total-quoted"),
+    sellerMetricTotalInvoiced: document.getElementById("seller-metric-total-invoiced"),
+    sellerMetricConversionRate: document.getElementById("seller-metric-conversion-rate"),
     sellerPendingCount: document.getElementById("seller-pending-count"),
     sellerPendingList: document.getElementById("seller-pending-list"),
     sellerFollowupAlert: document.getElementById("seller-followup-alert"),
@@ -934,6 +939,7 @@ async function loadSummaryData() {
     state.vendedores = sellers;
     state.metas = metas;
     state.cotizaciones = quotes;
+    state.quoteSummary = quoteSummary;
 
     await loadPendingReminders();
 
@@ -956,7 +962,7 @@ async function loadSummaryData() {
         }
 
         await refreshSellerGoalProgress();
-        await renderSellerHomeDashboard({ metas, quotes, promociones, goalProgress: state.sellerGoalProgress });
+        await renderSellerHomeDashboard({ metas, quotes, promociones, goalProgress: state.sellerGoalProgress, quoteSummary });
         return;
     }
 
@@ -1995,7 +2001,7 @@ function renderSellerDashboardInsights(quotes, period, periodGoal, invoicedTotal
     `).join("");
 }
 
-async function renderSellerHomeDashboard({ metas, quotes, promociones, goalProgress = null }) {
+async function renderSellerHomeDashboard({ metas, quotes, promociones, goalProgress = null, quoteSummary = null }) {
     const search = DOM.sellerDashboardSearch ? DOM.sellerDashboardSearch.value.trim() : "";
     const sellerName = state.user.nombre_completo || state.user.email || "Vendedor";
     const period = getSellerGoalPeriodConfig(state.sellerGoalPeriod);
@@ -2027,6 +2033,21 @@ async function renderSellerHomeDashboard({ metas, quotes, promociones, goalProgr
     DOM.sellerPeriodButtons.forEach(button => {
         button.classList.toggle("active", button.dataset.sellerPeriod === state.sellerGoalPeriod);
     });
+
+    // 5 Marcos de Métricas Personales del Vendedor
+    const summary = quoteSummary || state.quoteSummary;
+    const sellerQuotes = quotes || [];
+    const totalQuotesCount = summary?.total?.count ?? sellerQuotes.length;
+    const invoicedQuotesCount = summary?.concretadas?.count ?? sellerQuotes.filter(q => q.numero_factura).length;
+    const totalQuotedAmount = summary?.total?.amount ?? sellerQuotes.reduce((acc, q) => acc + Number(q.total || 0), 0);
+    const totalInvoicedAmount = summary?.concretadas?.invoiced_amount ?? summary?.total?.invoiced_amount ?? sellerQuotes.filter(q => q.numero_factura).reduce((acc, q) => acc + Number(q.importe_facturado || q.total || 0), 0);
+    const conversionRate = totalQuotesCount > 0 ? (invoicedQuotesCount / totalQuotesCount) * 100 : 0;
+
+    if (DOM.sellerMetricTotalQuotes) DOM.sellerMetricTotalQuotes.textContent = totalQuotesCount.toLocaleString("es-MX");
+    if (DOM.sellerMetricTotalInvoicedCount) DOM.sellerMetricTotalInvoicedCount.textContent = invoicedQuotesCount.toLocaleString("es-MX");
+    if (DOM.sellerMetricTotalQuoted) DOM.sellerMetricTotalQuoted.textContent = `$${Number(totalQuotedAmount || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (DOM.sellerMetricTotalInvoiced) DOM.sellerMetricTotalInvoiced.textContent = `$${Number(totalInvoicedAmount || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (DOM.sellerMetricConversionRate) DOM.sellerMetricConversionRate.textContent = `${conversionRate.toFixed(2)}%`;
 
     let plan = null;
     let logToday = null;
