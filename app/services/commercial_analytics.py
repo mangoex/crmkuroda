@@ -619,24 +619,31 @@ def build_seller_dashboard_metrics(
             channel_stats[channel]["monto"] += quote_total
             total_sales += quote_total
 
-    # Si hay canales con actividad, ordenarlos por monto facturado/cotizado descendente
-    active_channels = [s for s in channel_stats.values() if s["monto"] > 0 or s["cotizaciones"] > 0]
-    active_channels.sort(key=lambda s: (s["monto"], s["cotizaciones"]), reverse=True)
-
-    if not active_channels:
-        # Fallback a los primeros canales canónicos si no hay cotizaciones
-        for idx, canonical in enumerate(CANONICAL_CHANNELS[:5]):
+    # Asegurar que todos los canales canónicos existan en el reporte aunque estén en cero
+    for idx, canonical in enumerate(CANONICAL_CHANNELS):
+        if canonical not in channel_stats:
             color = channel_colors.get(canonical, fallback_palette[idx % len(fallback_palette)])
-            active_channels.append({
+            channel_stats[canonical] = {
                 "canal": canonical,
                 "color": color,
                 "monto": Decimal("0"),
                 "cotizaciones": 0,
                 "operaciones_facturadas": 0,
-            })
+            }
+
+    # Ordenar: primero los canales con ventas (> 0) descendente, seguidos de los canales en cero
+    sorted_channels = list(channel_stats.values())
+    sorted_channels.sort(
+        key=lambda s: (
+            1 if (s["monto"] > 0 or s["cotizaciones"] > 0) else 0,
+            s["monto"],
+            s["cotizaciones"],
+        ),
+        reverse=True,
+    )
 
     canales_list = []
-    for stats in active_channels:
+    for stats in sorted_channels:
         monto_num = float(stats["monto"])
         pct = round(float(stats["monto"] / total_sales * 100), 1) if total_sales > 0 else 0.0
         canales_list.append({

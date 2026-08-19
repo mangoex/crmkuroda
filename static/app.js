@@ -2071,24 +2071,30 @@ async function renderSellerHomeDashboard({ metas, quotes, promociones, goalProgr
 function renderSellerChannelMetrics(canales) {
     if (!DOM.sellerChannelBars) return;
     if (!canales || canales.length === 0) {
-        DOM.sellerChannelBars.innerHTML = '<div class="seller-empty-row">No hay ventas registradas por canal en este periodo.</div>';
+        DOM.sellerChannelBars.innerHTML = '<div class="seller-empty-row">No hay canales configurados en este periodo.</div>';
         return;
     }
-    DOM.sellerChannelBars.innerHTML = canales.map(c => `
-        <div class="seller-channel-row">
-            <span class="seller-channel-label">
-                <span class="seller-channel-dot" style="background-color: ${c.color || '#6366f1'};"></span>
-                ${escapeHTML(c.canal)}
-            </span>
-            <div class="seller-channel-bar-wrap">
-                <div class="seller-channel-bar-fill" style="width: ${Math.min(100, Math.max(0, c.porcentaje))}%; background-color: ${c.color || '#6366f1'};"></div>
+    DOM.sellerChannelBars.innerHTML = canales.map(c => {
+        const isZero = Number(c.monto || 0) === 0;
+        const textStyle = isZero ? 'color: #ef4444 !important; font-weight: 700;' : '';
+        const dotBg = isZero ? '#ef4444' : (c.color || '#6366f1');
+        const barFill = isZero ? 0 : Math.min(100, Math.max(0, c.porcentaje));
+        return `
+            <div class="seller-channel-row" style="${isZero ? 'opacity: 0.95;' : ''}">
+                <span class="seller-channel-label" style="${textStyle}">
+                    <span class="seller-channel-dot" style="background-color: ${dotBg};"></span>
+                    <span style="${textStyle}">${escapeHTML(c.canal)}</span>
+                </span>
+                <div class="seller-channel-bar-wrap">
+                    <div class="seller-channel-bar-fill" style="width: ${barFill}%; background-color: ${dotBg};"></div>
+                </div>
+                <div class="seller-channel-values" style="${textStyle}">
+                    <span class="seller-channel-amount" style="${textStyle}">${formatSellerMoney(c.monto)}</span>
+                    <span class="seller-channel-pct" style="${textStyle}">${Number(c.porcentaje || 0).toFixed(1)}%</span>
+                </div>
             </div>
-            <div class="seller-channel-values">
-                <span class="seller-channel-amount">${formatSellerMoney(c.monto)}</span>
-                <span class="seller-channel-pct">${Number(c.porcentaje || 0).toFixed(1)}%</span>
-            </div>
-        </div>
-    `).join("");
+        `;
+    }).join("");
 }
 
 function renderSellerTopClientsMetrics(clientes) {
