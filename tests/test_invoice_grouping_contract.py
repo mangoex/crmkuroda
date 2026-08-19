@@ -21,8 +21,9 @@ class InvoiceGroupingContractTest(unittest.TestCase):
         self.assertIn("groupRecordsByInvoice", self.javascript)
         self.assertIn("toggleInvoiceGroup", self.javascript)
 
-    def test_sobrepedidos_has_grouping_controls(self):
-        self.assertIn("btn-toggle-all-sp-invoices", self.html)
+    def test_sobrepedidos_table_structure_exists(self):
+        self.assertIn("table-sobrepedidos", self.html)
+        self.assertIn("loadSobrepedidosData", self.javascript)
 
     def test_material_analytics_has_grouping_support(self):
         self.assertIn("table-material-analytics", self.html)

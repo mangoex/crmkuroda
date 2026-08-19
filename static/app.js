@@ -2642,173 +2642,67 @@ async function loadSobrepedidosData(forceRefresh = false) {
             });
         }
 
-        const groups = groupRecordsByInvoice(records, r => r.factura || r.id_pedido_erp || 'Sin Información');
         const totalItems = records.length;
-        const totalGroups = groups.length;
-        const itemsPerPage = 20;
-        const totalPages = Math.ceil(totalGroups / itemsPerPage);
+        const itemsPerPage = 50;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
         if (state.spCurrentPage > totalPages && totalPages > 0) state.spCurrentPage = totalPages;
         if (state.spCurrentPage < 1) state.spCurrentPage = 1;
 
         const startIdx = (state.spCurrentPage - 1) * itemsPerPage;
-        const pageGroups = groups.slice(startIdx, startIdx + itemsPerPage);
+        const pageItems = records.slice(startIdx, startIdx + itemsPerPage);
         const today = new Date();
 
-        pageGroups.forEach(group => {
-            const hasMultiple = group.items.length > 1;
-            const isExpanded = Boolean(state.spInvoiceExpanded[group.invoice]);
-            const firstItem = group.items[0];
-            const totalCantPendiente = group.items.reduce((sum, item) => sum + Number(item.cantidad_pendiente || 0), 0);
-            const totalCantDisponible = group.items.reduce((sum, item) => sum + Number(item.cantidad_disponible || 0), 0);
-
-            let worstStatus = "Verde";
-            if (group.items.some(i => (i.estado_crm || "").includes("Rojo"))) {
-                worstStatus = "Rojo";
-            } else if (group.items.some(i => (i.estado_crm || "").includes("Amarillo"))) {
-                worstStatus = "Amarillo";
+        pageItems.forEach(item => {
+            let rowClass = "";
+            let isDelayed = false;
+            let daysDelay = 0;
+            const orderDateText = item.fecha_venta || item.fecha_pedido;
+            if (orderDateText) {
+                const orderDate = new Date(orderDateText);
+                daysDelay = Math.floor((today - orderDate) / (1000 * 60 * 60 * 24));
+                if (item.estado_crm.includes("Rojo") && daysDelay > 15) {
+                    rowClass = "row-delayed-alert";
+                    isDelayed = true;
+                }
             }
 
-            let groupStatusPill = `<span class="status-badge badge-success">Listo / Disponible</span>`;
-            if (worstStatus === "Amarillo") groupStatusPill = `<span class="status-badge badge-warning">En Proceso</span>`;
-            if (worstStatus === "Rojo") groupStatusPill = `<span class="status-badge badge-error">Requiere Acción</span>`;
-
-            const orderDateText = firstItem.fecha_venta || firstItem.fecha_pedido || "Sin fecha";
-            const vendedorText = firstItem.vendedor_codigo || firstItem.vendedor_nombre || "";
-
-            if (hasMultiple) {
-                const headerTr = document.createElement("tr");
-                headerTr.className = "tr-invoice-group-header";
-                headerTr.setAttribute("data-invoice", group.invoice);
-                headerTr.setAttribute("title", "Clic para expandir/contraer partidas de esta factura");
-
-                headerTr.innerHTML = [
-                    `<td style="white-space: nowrap;">
-                        <button type="button" class="btn-invoice-toggle" data-invoice="${escapeHTML(group.invoice)}" title="Expandir/contraer">
-                            <i class="fa-solid fa-chevron-right icon-invoice-toggle ${isExpanded ? 'expanded' : ''}"></i>
-                        </button>
-                        <strong>${escapeHTML(group.invoice)}</strong>
-                        <span class="badge-invoice-count">${group.items.length} partidas</span>
-                    </td>`,
-                    `<td style="white-space: nowrap;">${escapeHTML(orderDateText)}</td>`,
-                    `<td class="col-truncate" title="${escapeHTML(firstItem.cliente_nombre || '')}"><strong>${escapeHTML(firstItem.cliente_nombre || '-')}</strong></td>`,
-                    `<td style="white-space: nowrap;">${escapeHTML(vendedorText)}</td>`,
-                    `<td style="white-space: nowrap;"><span class="text-muted" style="font-size: 12px; font-weight: 600;">${group.items.length} SKUs</span></td>`,
-                    `<td class="col-truncate-lg" style="color: #475569; font-weight: 600;">Desglose de ${group.items.length} productos</td>`,
-                    `<td class="col-truncate-sm"><span class="text-muted">-</span></td>`,
-                    `<td style="text-align: right; font-weight: 700; color: hsl(var(--primary)); white-space: nowrap;">${formatNumber(totalCantPendiente)}</td>`,
-                    `<td style="white-space: nowrap;"><span class="text-muted">-</span></td>`,
-                    `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(totalCantDisponible)}</td>`,
-                    `<td style="white-space: nowrap;">${escapeHTML(firstItem.fecha_disponibilidad || "-")}</td>`,
-                    `<td style="text-align: right; white-space: nowrap;">${firstItem.dias_disponible ?? "-"}</td>`,
-                    `<td class="col-truncate" title="${escapeHTML(firstItem.proveedor || '')}">${escapeHTML(firstItem.proveedor || '-')}</td>`,
-                    `<td class="col-truncate"><span class="text-muted">-</span></td>`,
-                    `<td class="col-truncate"><span class="text-muted">-</span></td>`,
-                    `<td style="white-space: nowrap;">${groupStatusPill}</td>`
-                ].join("");
-                DOM.tableSobrepedidos.appendChild(headerTr);
-
-                group.items.forEach(item => {
-                    let rowClass = "";
-                    let isDelayed = false;
-                    let daysDelay = 0;
-                    const itemOrderDateText = item.fecha_venta || item.fecha_pedido;
-                    if (itemOrderDateText) {
-                        const orderDate = new Date(itemOrderDateText);
-                        daysDelay = Math.floor((today - orderDate) / (1000 * 60 * 60 * 24));
-                        if (item.estado_crm.includes("Rojo") && daysDelay > 15) {
-                            rowClass = "row-delayed-alert";
-                            isDelayed = true;
-                        }
-                    }
-
-                    let statusPill = "";
-                    if (item.estado_crm.includes("Verde")) {
-                        statusPill = `<span class="status-badge badge-success">Listo / Disponible</span>`;
-                    } else if (item.estado_crm.includes("Amarillo")) {
-                        statusPill = `<span class="status-badge badge-warning">En Proceso</span>`;
-                    } else {
-                        statusPill = `<span class="status-badge badge-error">Requiere Acción</span>`;
-                    }
-
-                    const itemDateText = escapeHTML(itemOrderDateText || "Sin fecha");
-                    const dateDisplay = isDelayed ? `<span class="cell-delayed-text" title="Retraso crítico: ${daysDelay} días">${itemDateText} (${daysDelay}d)</span>` : itemDateText;
-                    const safeComment = escapeHTML(item.estatus_compras || "");
-                    const commentDisplay = isDelayed ? `<span class="cell-delayed-text">${safeComment}</span>` : safeComment;
-
-                    const childTr = document.createElement("tr");
-                    childTr.className = `tr-invoice-child-row ${isExpanded ? '' : 'collapsed'}${rowClass ? ' ' + rowClass : ''}`;
-                    childTr.setAttribute("data-parent-invoice", group.invoice);
-                    childTr.innerHTML = [
-                        `<td style="white-space: nowrap;"><span style="font-size: 11px; color: #64748b;"><i class="fa-solid fa-turn-up" style="transform: rotate(90deg); margin-right: 4px;"></i> Partida</span></td>`,
-                        `<td style="white-space: nowrap;">${dateDisplay}</td>`,
-                        `<td class="col-truncate" title="${escapeHTML(item.cliente_nombre || '')}">${escapeHTML(item.cliente_nombre || '-')}</td>`,
-                        `<td style="white-space: nowrap;">${escapeHTML(item.vendedor_codigo || item.vendedor_nombre || "")}</td>`,
-                        `<td style="white-space: nowrap;"><code>${escapeHTML(item.producto_sku || '-')}</code></td>`,
-                        `<td class="col-truncate-lg" title="${escapeHTML(item.producto_desc || '')}">${escapeHTML(item.producto_desc || '-')}</td>`,
-                        `<td class="col-truncate-sm" title="${escapeHTML(item.grupo || '')}">${escapeHTML(item.grupo || '-')}</td>`,
-                        `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_pendiente || 0)}</td>`,
-                        `<td style="white-space: nowrap;">${escapeHTML(item.disponibilidad_vl06o || '-')}</td>`,
-                        `<td style="text-align: right; white-space: nowrap;">${formatNumber(item.cantidad_disponible || 0)}</td>`,
-                        `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
-                        `<td style="text-align: right; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
-                        `<td class="col-truncate" title="${escapeHTML(item.proveedor || '')}">${escapeHTML(item.proveedor || '-')}</td>`,
-                        `<td class="col-truncate" title="${escapeHTML(item.estatus_compras || '')}">${commentDisplay}</td>`,
-                        `<td class="col-truncate" title="${escapeHTML(item.motivo_estado || '')}">${escapeHTML(item.motivo_estado || '-')}</td>`,
-                        `<td style="white-space: nowrap;">${statusPill}</td>`
-                    ].join("");
-                    DOM.tableSobrepedidos.appendChild(childTr);
-                });
+            let statusPill = "";
+            if (item.estado_crm.includes("Verde")) {
+                statusPill = `<span class="status-badge badge-success">Listo / Disponible</span>`;
+            } else if (item.estado_crm.includes("Amarillo")) {
+                statusPill = `<span class="status-badge badge-warning">En Proceso</span>`;
             } else {
-                const item = firstItem;
-                let rowClass = "";
-                let isDelayed = false;
-                let daysDelay = 0;
-                const itemOrderDateText = item.fecha_venta || item.fecha_pedido;
-                if (itemOrderDateText) {
-                    const orderDate = new Date(itemOrderDateText);
-                    daysDelay = Math.floor((today - orderDate) / (1000 * 60 * 60 * 24));
-                    if (item.estado_crm.includes("Rojo") && daysDelay > 15) {
-                        rowClass = "row-delayed-alert";
-                        isDelayed = true;
-                    }
-                }
-
-                let statusPill = "";
-                if (item.estado_crm.includes("Verde")) {
-                    statusPill = `<span class="status-badge badge-success">Listo / Disponible</span>`;
-                } else if (item.estado_crm.includes("Amarillo")) {
-                    statusPill = `<span class="status-badge badge-warning">En Proceso</span>`;
-                } else {
-                    statusPill = `<span class="status-badge badge-error">Requiere Acción</span>`;
-                }
-
-                const itemDateText = escapeHTML(itemOrderDateText || "Sin fecha");
-                const dateDisplay = isDelayed ? `<span class="cell-delayed-text" title="Retraso crítico: ${daysDelay} días">${itemDateText} (${daysDelay}d)</span>` : itemDateText;
-                const safeComment = escapeHTML(item.estatus_compras || "");
-                const commentDisplay = isDelayed ? `<span class="cell-delayed-text">${safeComment}</span>` : commentDisplay;
-
-                const tr = document.createElement("tr");
-                if (rowClass) tr.className = rowClass;
-                tr.innerHTML = [
-                    `<td style="white-space: nowrap;"><strong>${escapeHTML(group.invoice)}</strong> <span class="badge-invoice-count single">1 partida</span></td>`,
-                    `<td style="white-space: nowrap;">${dateDisplay}</td>`,
-                    `<td class="col-truncate" title="${escapeHTML(item.cliente_nombre || '')}">${escapeHTML(item.cliente_nombre || '-')}</td>`,
-                    `<td style="white-space: nowrap;">${escapeHTML(vendedorText)}</td>`,
-                    `<td style="white-space: nowrap;"><code>${escapeHTML(item.producto_sku || '-')}</code></td>`,
-                    `<td class="col-truncate-lg" title="${escapeHTML(item.producto_desc || '')}">${escapeHTML(item.producto_desc || '-')}</td>`,
-                    `<td class="col-truncate-sm" title="${escapeHTML(item.grupo || '')}">${escapeHTML(item.grupo || '-')}</td>`,
-                    `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_pendiente || 0)}</td>`,
-                    `<td style="white-space: nowrap;">${escapeHTML(item.disponibilidad_vl06o || '-')}</td>`,
-                    `<td style="text-align: right; white-space: nowrap;">${formatNumber(item.cantidad_disponible || 0)}</td>`,
-                    `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
-                    `<td style="text-align: right; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
-                    `<td class="col-truncate" title="${escapeHTML(item.proveedor || '')}">${escapeHTML(item.proveedor || '-')}</td>`,
-                    `<td class="col-truncate" title="${escapeHTML(item.estatus_compras || '')}">${commentDisplay}</td>`,
-                    `<td class="col-truncate" title="${escapeHTML(item.motivo_estado || '')}">${escapeHTML(item.motivo_estado || '-')}</td>`,
-                    `<td style="white-space: nowrap;">${statusPill}</td>`
-                ].join("");
-                DOM.tableSobrepedidos.appendChild(tr);
+                statusPill = `<span class="status-badge badge-error">Requiere Acción</span>`;
             }
+
+            const facturaText = item.factura || item.id_pedido_erp || "";
+            const vendedorText = item.vendedor_codigo || item.vendedor_nombre || "";
+            const safeDateText = escapeHTML(orderDateText || "Sin fecha");
+            const dateDisplay = isDelayed ? `<span class="cell-delayed-text" title="Retraso crítico: ${daysDelay} días">${safeDateText} (${daysDelay}d)</span>` : safeDateText;
+            const safeComment = escapeHTML(item.estatus_compras || "-");
+            const commentDisplay = isDelayed ? `<span class="cell-delayed-text">${safeComment}</span>` : safeComment;
+
+            const tr = document.createElement("tr");
+            if (rowClass) tr.className = rowClass;
+            tr.innerHTML = [
+                `<td style="white-space: nowrap;">${escapeHTML(facturaText)}</td>`,
+                `<td style="white-space: nowrap;">${dateDisplay}</td>`,
+                `<td class="col-truncate" title="${escapeHTML(item.cliente_nombre || '')}">${escapeHTML(item.cliente_nombre || '-')}</td>`,
+                `<td style="white-space: nowrap;">${escapeHTML(vendedorText)}</td>`,
+                `<td style="white-space: nowrap;"><code>${escapeHTML(item.producto_sku || '-')}</code></td>`,
+                `<td class="col-truncate-lg" title="${escapeHTML(item.producto_desc || '')}">${escapeHTML(item.producto_desc || '-')}</td>`,
+                `<td class="col-truncate-sm" title="${escapeHTML(item.grupo || '')}">${escapeHTML(item.grupo || '-')}</td>`,
+                `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_pendiente || 0)}</td>`,
+                `<td style="white-space: nowrap;">${escapeHTML(item.disponibilidad_vl06o || '-')}</td>`,
+                `<td style="text-align: right; white-space: nowrap;">${formatNumber(item.cantidad_disponible || 0)}</td>`,
+                `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
+                `<td style="text-align: right; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
+                `<td class="col-truncate" title="${escapeHTML(item.proveedor || '')}">${escapeHTML(item.proveedor || '-')}</td>`,
+                `<td class="col-truncate" title="${escapeHTML(item.estatus_compras || '')}">${commentDisplay}</td>`,
+                `<td class="col-truncate" title="${escapeHTML(item.motivo_estado || '')}">${escapeHTML(item.motivo_estado || '-')}</td>`,
+                `<td style="white-space: nowrap;">${statusPill}</td>`
+            ].join("");
+            DOM.tableSobrepedidos.appendChild(tr);
         });
 
         if (DOM.pagSobrepedidos) {
@@ -2824,7 +2718,7 @@ async function loadSobrepedidosData(forceRefresh = false) {
                 });
 
                 const spanInfo = document.createElement("span");
-                spanInfo.textContent = ` Página ${state.spCurrentPage} de ${totalPages} (${totalGroups} facturas/pedidos, ${totalItems} registros) `;
+                spanInfo.textContent = ` Página ${state.spCurrentPage} de ${totalPages} (Total: ${totalItems}) `;
                 spanInfo.style.margin = "0 10px";
                 spanInfo.style.fontSize = "13px";
 
@@ -2841,7 +2735,7 @@ async function loadSobrepedidosData(forceRefresh = false) {
                 DOM.pagSobrepedidos.appendChild(spanInfo);
                 DOM.pagSobrepedidos.appendChild(btnNext);
             } else {
-                DOM.pagSobrepedidos.innerHTML = `<span style="font-size: 13px; color: hsl(var(--text-muted));">Mostrando ${totalGroups} facturas/pedidos (${totalItems} registros en total)</span>`;
+                DOM.pagSobrepedidos.innerHTML = `<span style="font-size: 13px; color: hsl(var(--text-muted));">Mostrando todos los ${totalItems} registros</span>`;
             }
         }
 
