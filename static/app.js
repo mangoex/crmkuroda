@@ -4218,10 +4218,6 @@ function renderQuotesTableFiltered() {
                         <button class="btn btn-secondary btn-sm lost-reason-btn" data-id="${c.id}" title="${noteTitle}" style="min-width: 38px; padding: 8px 10px; color: ${noteColor};">
                             <i class="fa-regular fa-note-sticky"></i>
                         </button>
-                        <button class="btn btn-secondary btn-sm quote-comments-btn" data-id="${c.id}" title="Historial de seguimiento" style="min-width:38px; padding:8px 10px; position:relative;">
-                            <i class="fa-regular fa-comments"></i>
-                            ${c.comentarios_seguimiento_count ? `<span style="position:absolute;top:-6px;right:-5px;background:#38bdf8;color:#08111f;border-radius:999px;font-size:9px;font-weight:900;min-width:16px;height:16px;line-height:16px;">${c.comentarios_seguimiento_count}</span>` : ""}
-                        </button>
                         <button class="btn btn-secondary btn-sm reminder-btn" data-id="${c.id}" title="Agendar recordatorio" style="min-width:38px; padding:8px 10px;">
                             <i class="fa-regular fa-bell"></i>
                         </button>
