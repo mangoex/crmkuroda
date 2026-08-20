@@ -8967,6 +8967,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const originalHtml = btnUpload.innerHTML;
             btnUpload.disabled = true;
             btnUpload.innerHTML = 'Cargando... <i class="fa-solid fa-spinner animate-spin"></i>';
+            showToast("Procesando archivo de cotizaciones (60k+ filas), esto puede tomar unos segundos...", "info");
 
             try {
                 const response = await fetch("/api/v1/cotizaciones/upload", {

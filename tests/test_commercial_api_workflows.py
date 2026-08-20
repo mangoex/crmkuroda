@@ -58,6 +58,9 @@ class FakeDatabase:
     async def commit(self):
         self.commits += 1
 
+    async def flush(self):
+        pass
+
     async def rollback(self):
         self.rollbacks += 1
 

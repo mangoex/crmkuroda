@@ -1385,8 +1385,19 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                     
             stale_ids = _stale_imported_quote_ids(existing_quotes, retained_ids)
             if stale_ids:
-                await db.execute(delete(Cotizacion).where(Cotizacion.id.in_(stale_ids)))
-            db.add_all(new_quotes)
+                stale_list = list(stale_ids)
+                for i in range(0, len(stale_list), 1000):
+                    chunk = stale_list[i : i + 1000]
+                    await db.execute(delete(Cotizacion).where(Cotizacion.id.in_(chunk)))
+
+            BATCH_SIZE = 1000
+            for i in range(0, len(new_quotes), BATCH_SIZE):
+                db.add_all(new_quotes[i : i + BATCH_SIZE])
+                if hasattr(db, "flush"):
+                    flush_res = db.flush()
+                    if hasattr(flush_res, "__await__"):
+                        await flush_res
+
             await registrar_actualizacion_datos(db, "cotizaciones", uploaded_by_id)
             await db.commit()
             print(
