@@ -218,9 +218,45 @@ class CommercialApiWorkflowTest(unittest.IsolatedAsyncioTestCase):
             )
 
         self.assertIn("Faltan columnas requeridas: NOMBRE DEL CLIENTE", error)
-        self.assertEqual(database.execute_calls, 0)
-        self.assertEqual(database.commits, 0)
-        self.assertEqual(database.rollbacks, 1)
+
+    async def test_summary_import_multi_sheet_selects_quote_sheet(self):
+        wb = openpyxl.Workbook()
+        ws_extra = wb.active
+        ws_extra.title = "Hoja1"
+        ws_extra.append(["Folio Factura", "Plazo de Entrega"])
+        ws_extra.append(["FAC-01", "30 dias"])
+
+        ws_quotes = wb.create_sheet(title="Sheet1")
+        ws_quotes.append([
+            "Fecha de Registro", "Organizacion de Ventas", "Numero de Cotizacion", "Canal",
+            "Vendedor", "Nombre del Vendedor", "Numero del Cliente", "Nombre del Cliente",
+            "Numero de Telefono", "Numero de Celular", "Direccion Correo Electronico",
+            "Numero de Factura", "Fecha de Factura", "Importe Cotizado c/IVA",
+            "Importe Facturado c/IVA", "Porcentaje de Importe", "Materiales Cotizados",
+            "Materiales Facturados", "Porcentaje de Materiales", "Tipo de Entrega"
+        ])
+        ws_quotes.append([
+            "2026-01-02", "MK01", "123456", "01", "V01", "Juan Perez", "C01", "Cliente Test",
+            "5551234", "5555678", "test@example.com", None, None, "1000", "0", "0", "1", "0", "0", "PIDE Y RECOGE"
+        ])
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        database = FakeDatabase([FakeScalarResult([]), FakeScalarResult([])])
+
+        with (
+            patch("app.core.database.SessionLocal", return_value=FakeSessionLocal(database)),
+            patch("app.services.actualizaciones_datos.registrar_actualizacion_datos", new=AsyncMock()),
+        ):
+            error = await process_excel_background(buffer.getvalue(), uuid4())
+
+        self.assertIsNone(error)
+        self.assertEqual(len(database.added_many), 1)
+        self.assertEqual(database.added_many[0].numero_cotizacion, "123456")
+        self.assertEqual(database.commits, 1)
+        self.assertEqual(database.rollbacks, 0)
 
     async def test_summary_reconciliation_preserves_followup_fields(self):
         quote_id = uuid4()

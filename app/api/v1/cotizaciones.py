@@ -889,12 +889,25 @@ QUOTE_IMPORT_REQUIRED_HEADERS = {
 QUOTE_IMPORT_CHANNEL_HEADER = "TIPO DE ENTREGA"
 QUOTE_IMPORT_LEGACY_CHANNEL_HEADER = "CANAL"
 
+DETAIL_IMPORT_REQUIRED_HEADERS = {
+    "numero_cotizacion": "NUMERO DE COTIZACION",
+    "codigo_material": "CODIGO MATERIAL",
+    "descripcion": "DESCRIPCION",
+    "familia": "FAMILIA",
+    "grupo_materiales": "GRUPO DE MATERIALES",
+    "cantidad_cotizada": "CANTIDAD COTIZADA",
+    "importe_cotizado": "IMPORTE COTIZADO",
+    "cantidad_facturada": "CANTIDAD FACTURADA",
+    "importe_facturado": "IMPORTE FACTURADO",
+}
+
 
 def _quote_import_column_indices(worksheet) -> dict[str, int]:
     """Resuelve el layout por encabezado y prioriza el canal del formato nuevo."""
     headers = {}
-    for index, cell in enumerate(worksheet[1]):
-        header = normalize_text(cell.value)
+    header_row = next(worksheet.iter_rows(min_row=1, max_row=1, values_only=True), ())
+    for index, val in enumerate(header_row):
+        header = normalize_text(val)
         if header:
             headers[header] = index
     missing = [
@@ -920,6 +933,43 @@ def _quote_import_column_indices(worksheet) -> dict[str, int]:
     }
     indices["canal"] = headers[channel_header]
     return indices
+
+
+def _find_quote_worksheet(workbook) -> tuple[any, dict[str, int]]:
+    """Busca automáticamente la hoja que contiene la estructura completa de cotizaciones."""
+    last_error = None
+    for ws in workbook.worksheets:
+        if ws.sheet_state == "hidden":
+            continue
+        try:
+            indices = _quote_import_column_indices(ws)
+            return ws, indices
+        except ValueError as err:
+            last_error = err
+
+    if last_error:
+        raise last_error
+    raise ValueError("No se encontraron hojas válidas en el archivo Excel.")
+
+
+def _find_detail_worksheet(workbook) -> tuple[any, dict[str, int]]:
+    """Busca automáticamente la hoja que contiene el detalle de materiales SKU."""
+    last_error = None
+    for ws in workbook.worksheets:
+        if ws.sheet_state == "hidden":
+            continue
+        header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), ())
+        headers = {
+            normalize_text(val): index
+            for index, val in enumerate(header_row)
+            if val is not None
+        }
+        missing = [label for label in DETAIL_IMPORT_REQUIRED_HEADERS.values() if label not in headers]
+        if not missing:
+            return ws, headers
+        last_error = f"Faltan columnas requeridas: {', '.join(missing)}"
+
+    raise ValueError(last_error or "No se encontraron hojas válidas para detalle de materiales.")
 
 
 def _apply_imported_quote_values(cotizacion: Cotizacion, values: dict) -> Cotizacion:
@@ -952,33 +1002,10 @@ async def upload_quote_material_detail(
         raise HTTPException(status_code=400, detail="El detalle debe ser un archivo .xlsx.")
     contents = await file.read()
     try:
-        workbook = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
-        worksheet = workbook.active
+        workbook = openpyxl.load_workbook(io.BytesIO(contents), data_only=True, read_only=True)
+        worksheet, headers = _find_detail_worksheet(workbook)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"No se pudo leer el Excel: {exc}")
-
-    headers = {
-        normalize_text(cell.value): index
-        for index, cell in enumerate(worksheet[1])
-        if cell.value is not None
-    }
-    required = {
-        "numero_cotizacion": "NUMERO DE COTIZACION",
-        "codigo_material": "CODIGO MATERIAL",
-        "descripcion": "DESCRIPCION",
-        "familia": "FAMILIA",
-        "grupo_materiales": "GRUPO DE MATERIALES",
-        "cantidad_cotizada": "CANTIDAD COTIZADA",
-        "importe_cotizado": "IMPORTE COTIZADO",
-        "cantidad_facturada": "CANTIDAD FACTURADA",
-        "importe_facturado": "IMPORTE FACTURADO",
-    }
-    missing = [label for label in required.values() if label not in headers]
-    if missing:
-        raise HTTPException(
-            status_code=400,
-            detail="Faltan columnas requeridas: " + ", ".join(missing),
-        )
 
     quote_rows = (await db.execute(select(Cotizacion))).scalars().all()
     quotes_by_number: dict[str, list[Cotizacion]] = defaultdict(list)
@@ -996,7 +1023,7 @@ async def upload_quote_material_detail(
         if not any(value not in (None, "") for value in row):
             continue
         try:
-            quote_number = _excel_identifier(row[headers[required["numero_cotizacion"]]])
+            quote_number = _excel_identifier(row[headers[DETAIL_IMPORT_REQUIRED_HEADERS["numero_cotizacion"]]])
             matches = quotes_by_number.get(quote_number or "", [])
             if len(matches) != 1:
                 reason = (
@@ -1006,7 +1033,7 @@ async def upload_quote_material_detail(
                 )
                 rejected.append({"fila": row_number, "cotizacion": quote_number, "motivo": reason})
                 continue
-            code = _excel_identifier(row[headers[required["codigo_material"]]])
+            code = _excel_identifier(row[headers[DETAIL_IMPORT_REQUIRED_HEADERS["codigo_material"]]])
             if not code:
                 rejected.append(
                     {"fila": row_number, "cotizacion": quote_number, "motivo": "SKU vacío"}
@@ -1016,22 +1043,22 @@ async def upload_quote_material_detail(
                 CotizacionItem(
                     cotizacion_id=matches[0].id,
                     codigo_material=code,
-                    descripcion=_excel_identifier(row[headers[required["descripcion"]]]),
-                    familia=_excel_identifier(row[headers[required["familia"]]]),
+                    descripcion=_excel_identifier(row[headers[DETAIL_IMPORT_REQUIRED_HEADERS["descripcion"]]]),
+                    familia=_excel_identifier(row[headers[DETAIL_IMPORT_REQUIRED_HEADERS["familia"]]]),
                     grupo_materiales=_excel_identifier(
-                        row[headers[required["grupo_materiales"]]]
+                        row[headers[DETAIL_IMPORT_REQUIRED_HEADERS["grupo_materiales"]]]
                     ),
                     cantidad_cotizada=_excel_number(
-                        row[headers[required["cantidad_cotizada"]]]
+                        row[headers[DETAIL_IMPORT_REQUIRED_HEADERS["cantidad_cotizada"]]]
                     ),
                     importe_cotizado=_excel_number(
-                        row[headers[required["importe_cotizado"]]]
+                        row[headers[DETAIL_IMPORT_REQUIRED_HEADERS["importe_cotizado"]]]
                     ),
                     cantidad_facturada=_excel_number(
-                        row[headers[required["cantidad_facturada"]]]
+                        row[headers[DETAIL_IMPORT_REQUIRED_HEADERS["cantidad_facturada"]]]
                     ),
                     importe_facturado=_excel_number(
-                        row[headers[required["importe_facturado"]]]
+                        row[headers[DETAIL_IMPORT_REQUIRED_HEADERS["importe_facturado"]]]
                     ),
                 )
             )
@@ -1211,9 +1238,8 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
     
     async with SessionLocal() as db:
         try:
-            wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
-            ws = wb.active
-            column_indices = _quote_import_column_indices(ws)
+            wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True, read_only=True)
+            ws, column_indices = _find_quote_worksheet(wb)
             
             users_res = await db.execute(select(Usuario))
             users = users_res.scalars().all()
