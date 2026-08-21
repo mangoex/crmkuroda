@@ -22,6 +22,8 @@ def categorize_activity(name: str) -> str:
         return "venta"
     return "otra"
 
+from app.agents.llm import call_llm_chat, call_gemini
+
 async def run_coaching_chat(messages_history: list) -> dict:
     """
     Runs the Slight Edge coaching chat logic. Accepts messages_history in OpenAI format.
@@ -29,19 +31,6 @@ async def run_coaching_chat(messages_history: list) -> dict:
     - response: str (the text assistant message)
     - tool_call: dict or None (if tool was invoked, with parameters)
     """
-    if not settings.OPENROUTER_API_KEY:
-         raise HTTPException(
-             status_code=500,
-             detail="OPENROUTER_API_KEY no está configurado en las variables de entorno."
-         )
-         
-    url = "https://openrouter.ai/api/v1/chat/completions"
-    
-    headers = {
-        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    
     system_instruction = (
         "Eres un coach de ventas experto y empático. Estás iniciando una sesión estructurada para diseñar el plan de "
         "\"La Ligera Ventaja\" (Slight Edge) del vendedor.\n\n"
@@ -65,9 +54,6 @@ async def run_coaching_chat(messages_history: list) -> dict:
         "Una vez que el vendedor esté conforme con las actividades y los puntos, debes llamar obligatoriamente a la "
         "función 'save_slight_edge_plan' enviándole los parámetros estructurados correspondientes para guardar su configuración de forma permanente."
     )
-    
-    # Construct complete message payload
-    messages = [{"role": "system", "content": system_instruction}] + messages_history
     
     tools = [
         {
@@ -101,55 +87,29 @@ async def run_coaching_chat(messages_history: list) -> dict:
         }
     ]
     
-    payload = {
-        "model": settings.OPENROUTER_MODEL,
-        "messages": messages,
-        "tools": tools,
-        "tool_choice": "auto"
-    }
+    msg = await call_llm_chat(
+        messages_history=messages_history,
+        system_instruction=system_instruction,
+        tools=tools
+    )
     
-    async with httpx.AsyncClient(timeout=45.0) as client:
-        try:
-            response = await client.post(url, json=payload, headers=headers)
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"Error al llamar a OpenRouter API en Coaching Chat (Status: {response.status_code}): {response.text}"
-                )
-            
-            data = response.json()
-            choices = data.get("choices", [])
-            if not choices:
-                raise HTTPException(
-                    status_code=502,
-                    detail="La API de OpenRouter no devolvió opciones en el chat de coaching."
-                )
-            
-            msg = choices[0].get("message", {})
-            content = msg.get("content", "")
-            tool_calls = msg.get("tool_calls", [])
-            
-            tool_call_data = None
-            if tool_calls:
-                # Get the first tool call
-                tc = tool_calls[0]
-                if tc.get("function", {}).get("name") == "save_slight_edge_plan":
-                    try:
-                        args = json.loads(tc.get("function", {}).get("arguments", "{}"))
-                        tool_call_data = args
-                    except Exception as parse_err:
-                        print("Error parsing tool call arguments:", parse_err)
-            
-            return {
-                "response": content or "¡Entendido! Vamos a registrar tu plan de La Ventaja.",
-                "tool_call": tool_call_data
-            }
-            
-        except httpx.HTTPError as e:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Fallo de comunicación con OpenRouter API en Coaching Chat: {str(e)}"
-            )
+    content = msg.get("content", "")
+    tool_calls = msg.get("tool_calls", [])
+    
+    tool_call_data = None
+    if tool_calls:
+        tc = tool_calls[0]
+        if tc.get("function", {}).get("name") == "save_slight_edge_plan":
+            try:
+                args = json.loads(tc.get("function", {}).get("arguments", "{}"))
+                tool_call_data = args
+            except Exception as parse_err:
+                print("Error parsing tool call arguments:", parse_err)
+    
+    return {
+        "response": content or "¡Entendido! Vamos a registrar tu plan de La Ventaja.",
+        "tool_call": tool_call_data
+    }
 
 async def generate_coordination_ai_goals(
     company_name: str,

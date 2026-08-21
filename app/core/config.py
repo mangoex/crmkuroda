@@ -18,12 +18,19 @@ class Settings(BaseSettings):
     # Meta / WhatsApp Integration API
     META_WHATSAPP_TOKEN: str = ""
     META_PHONE_NUMBER_ID: str = ""
+    META_APP_SECRET: str = ""
     WHATSAPP_WEBHOOK_VERIFY_TOKEN: str = "kuroda_verify_token"
     
     # OpenRouter and Gemini LLM API Configuration
+    LLM_PROVIDER: str = "openrouter"  # "openrouter" o "gemini"
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_MODEL: str = "openai/gpt-4o-mini" # Modelo rápido y confiable por defecto
     GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-1.5-flash"
+    
+    # Environment & Seeding
+    ENVIRONMENT: str = "development"
+    AUTO_SEED_DATA: bool = True
 
     # Commercial reporting
     BUSINESS_TIMEZONE: str = "America/Mazatlan"

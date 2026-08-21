@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID
 from typing import List, Optional
 from datetime import datetime
@@ -21,8 +21,7 @@ class UsuarioSimpleSchema(BaseModel):
     nombre_completo: Optional[str] = None
     rol: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PujaResponse(BaseModel):
     id: UUID
@@ -33,8 +32,7 @@ class PujaResponse(BaseModel):
     creado_en: datetime
     vendedor: Optional[UsuarioSimpleSchema] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ClienteDisponibleResponse(BaseModel):
     id: UUID
@@ -49,5 +47,4 @@ class ClienteDisponibleResponse(BaseModel):
     asignado_vendedor: Optional[UsuarioSimpleSchema] = None
     pujas: List[PujaResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

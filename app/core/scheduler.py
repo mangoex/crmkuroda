@@ -1,10 +1,12 @@
 import logging
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models.usuario import Usuario
 from app.models.meta import Meta
@@ -16,12 +18,18 @@ logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
 
+def _business_today() -> date:
+    try:
+        return datetime.now(ZoneInfo(settings.BUSINESS_TIMEZONE)).date()
+    except Exception:
+        return date.today()
+
 async def job_generar_seguimientos_diarios():
     """
     Tarea programada para generar los enlaces de WhatsApp diariamente para todos los vendedores.
     """
     logger.info("Iniciando generación de seguimientos diarios...")
-    hoy = date.today()
+    hoy = _business_today()
 
     async with SessionLocal() as session:
         # Obtener todos los vendedores
@@ -83,12 +91,18 @@ async def job_generar_seguimientos_diarios():
         logger.info("Generación de seguimientos diarios finalizada.")
 
 def start_scheduler():
-    """Inicia el planificador de tareas en segundo plano"""
+    """Inicia el planificador de tareas en segundo plano con la zona horaria del negocio"""
+    try:
+        tz = ZoneInfo(settings.BUSINESS_TIMEZONE)
+    except Exception:
+        tz = None
+
     scheduler.add_job(
         job_generar_seguimientos_diarios,
-        trigger=CronTrigger(hour=8, minute=0), # Todos los días a las 8:00 AM
+        trigger=CronTrigger(hour=8, minute=0, timezone=tz), # 8:00 AM hora comercial
         id="generar_seguimientos_8am",
         replace_existing=True
     )
-    scheduler.start()
-    logger.info("Scheduler iniciado correctamente.")
+    if not scheduler.running:
+        scheduler.start()
+    logger.info("Scheduler iniciado correctamente en zona horaria %s.", settings.BUSINESS_TIMEZONE)

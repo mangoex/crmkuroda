@@ -53,17 +53,54 @@ def generate_whatsapp_link(to_number: str, message: str) -> str:
     """
     # Standardize recipient phone format (remove symbols if present)
     clean_number = "".join(char for char in to_number if char.isdigit())
-    
     encoded_message = urllib.parse.quote(message)
     wa_link = f"https://wa.me/{clean_number}?text={encoded_message}"
-    
     logger.info(f"Enlace de WhatsApp generado para {clean_number}")
     return wa_link
 
+async def send_whatsapp_message_direct(to_number: str, message: str) -> bool:
+    """
+    Sends an automated WhatsApp text message using Meta Cloud API.
+    Returns True if successfully sent, False otherwise.
+    """
+    if not settings.META_WHATSAPP_TOKEN or not settings.META_PHONE_NUMBER_ID:
+        logger.info("Meta WhatsApp API no está configurada; operando en modo enlace manual.")
+        return False
+        
+    clean_number = "".join(char for char in to_number if char.isdigit())
+    url = f"https://graph.facebook.com/v19.0/{settings.META_PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {settings.META_WHATSAPP_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": clean_number,
+        "type": "text",
+        "text": {"preview_url": False, "body": message}
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            if resp.status_code in (200, 201):
+                logger.info(f"Mensaje de WhatsApp enviado exitosamente vía Meta Cloud API a {clean_number}")
+                return True
+            else:
+                logger.error(f"Error al enviar mensaje vía Meta WhatsApp API ({resp.status_code}): {resp.text}")
+                return False
+    except Exception as exc:
+        logger.error(f"Fallo al conectar con Meta WhatsApp API: {exc}")
+        return False
+
 async def send_whatsapp_message(to_number: str, message: str) -> str:
     """
-    Alias to generate a wa.me link. The frontend or caller should use this URL to redirect the user.
+    Intenta enviar el mensaje vía Meta Cloud API si está configurada;
+    retorna siempre el enlace wa.me correspondiente como referencia/fallback.
     """
+    if settings.META_WHATSAPP_TOKEN and settings.META_PHONE_NUMBER_ID:
+        await send_whatsapp_message_direct(to_number, message)
     return generate_whatsapp_link(to_number, message)
 
 async def process_incoming_whatsapp_message(

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 import io
 import unicodedata
 from zoneinfo import ZoneInfo
@@ -711,7 +711,7 @@ async def update_reminder(
         reminder.nota = payload.nota.strip() if payload.nota else None
     if payload.completado is not None:
         reminder.completado = payload.completado
-        reminder.completado_en = datetime.utcnow() if payload.completado else None
+        reminder.completado_en = datetime.now(timezone.utc).replace(tzinfo=None) if payload.completado else None
 
     await db.commit()
     await db.refresh(reminder)
@@ -835,7 +835,7 @@ async def update_quote_comment(
     if not text:
         raise HTTPException(status_code=400, detail="El comentario no puede estar vacío.")
     comment.comentario = text
-    comment.editado_en = datetime.utcnow()
+    comment.editado_en = datetime.now(timezone.utc).replace(tzinfo=None)
     await db.commit()
     await db.refresh(comment)
     author = (

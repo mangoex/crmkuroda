@@ -1,6 +1,6 @@
 import io
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
@@ -68,7 +68,7 @@ class FakeDatabase:
         if item.id is None:
             item.id = uuid4()
         if getattr(item, "creado_en", None) is None:
-            item.creado_en = datetime.utcnow()
+            item.creado_en = datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def build_detail_workbook(rows):
@@ -453,7 +453,7 @@ class CommercialApiWorkflowTest(unittest.IsolatedAsyncioTestCase):
             cotizacion_id=quote.id,
             autor_id=user_id,
             comentario="Llamar",
-            creado_en=datetime.utcnow(),
+            creado_en=datetime.now(timezone.utc).replace(tzinfo=None),
             editado_en=None,
         )
         user = SimpleNamespace(

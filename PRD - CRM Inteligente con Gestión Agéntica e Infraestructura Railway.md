@@ -1,113 +1,81 @@
-Documento de Requerimientos del Producto (PRD) - CRM Inteligente con Gestión Agéntica
+# Documento de Requerimientos del Producto (PRD) - CRM Inteligente con Gestión Agéntica
 
-Versión: 1.0
+**Versión:** 2.0 (Actualizada post-auditoría integral)  
+**Metodología:** Spec-Driven Development (SDD / SBD) & Test-Driven Development (TDD)  
+**Framework de Dirección:** Humanio CEO (*Contexto, Ecosistema, Orquestación*)  
+**Estado:** Producción Activa / Arquitectura Consolidada
 
-Metodología: Spec-Driven Development (SDD)
+---
 
-Estado: Inicial / Definición de Especificación
+## 1. Introducción y Visión General
 
-1. Introducción y Visión General
+El Sistema de Gestión de Relaciones con el Cliente (**CRM Kuroda**) es una plataforma comercial inteligente de alto rendimiento diseñada para potenciar la fuerza de ventas mediante automatización agéntica, integración de datos transaccionales del ERP SAP (reportes `VA05`, `VL06O`), control de inventario estratificado (`ABC+F`), sobrepedidos, promociones vigentes, analítica comercial y acompañamiento conductual basado en la metodología *La Ligera Ventaja* (The Slight Edge).
 
-Este documento establece los requerimientos funcionales, técnicos y de arquitectura para el desarrollo de un Sistema de Gestión de Relaciones con el Cliente (CRM) de nueva generación. El sistema está diseñado para optimizar el rendimiento de los equipos de ventas mediante el seguimiento automatizado y puntual de los vendedores, potenciando sus capacidades a través de la integración de tres agentes de Inteligencia Artificial especializados. La codificación e implementación se realizarán utilizando el modelo 3.5 Flash a través del entorno Antigravity, gestionando todo el ciclo de vida bajo un enfoque guiado por especificaciones (SDD).
+---
 
-2. Objetivos Principales del Sistema
+## 2. Objetivos Principales del Sistema
 
-Automatización del Acompañamiento: Proveer un seguimiento diario y personalizado a cada vendedor sin requerir intervención constante de la gerencia.
+1. **Acompañamiento y Coaching Agéntico:** Proveer seguimiento diario automatizado a cada vendedor, planificador de disciplinas constantes y retroalimentación inteligente de metas.
+2. **Eficiencia en Cotizaciones y Facturación:** Acelerar el ciclo de presupuestos, sincronización de facturas emitidas y análisis de causas raíz de ventas perdidas.
+3. **Control Comercial Integral (Inventario y Sobrepedidos):** Visibilidad transparente de inventario disponible por sucursal (`ABC+F`), clasificación operativa de pedidos sobre demanda y entregas pendientes.
+4. **Gobierno de Datos y Seguridad (RBAC):** Control estricto de accesos por roles (`admin`, `gerente`, `vendedor`, `soporte`), jerarquías comerciales padre-hijo y protección total de secretos.
 
-Optimización del Ciclo de Venta: Reducir los tiempos de respuesta en el diseño y envío de cotizaciones y propuestas comerciales de alta calidad.
+---
 
-Transparencia Operativa: Centralizar el control de usuarios, accesos y métricas de cumplimiento en una infraestructura escalable y segura.
+## 3. Arquitectura Tecnológica y Ecosistema
 
-3. Arquitectura Tecnológica e Infraestructura
+| Componente | Tecnología Seleccionada | Propósito / Rol |
+| :--- | :--- | :--- |
+| **Infraestructura VPS** | Railway VPS / Docker | Servidor de producción y ejecución de workers asíncronos. |
+| **Base de Datos** | PostgreSQL + SQLAlchemy Async + Alembic | Persistencia relacional, migraciones automáticas auditadas. |
+| **Backend REST** | Python 3.12+ / FastAPI | Endpoints REST asíncronos, validación Pydantic v2 y seguridad JWT. |
+| **Ecosistema LLM** | OpenRouter (GPT-4o mini) & Google Gemini Flash | Orquestación agéntica multi-proveedor con reintentos exponenciales. |
+| **Canal de Mensajería** | WhatsApp Cloud API (Meta) & Enlaces Directos `wa.me` | Notificaciones de supervisión, webhooks bidireccionales y enlaces rápidos. |
+| **Frontend** | HTML5, CSS Nativo (Dark UIX), JavaScript Vanilla | Dashboard responsivo, filtros dinámicos, vista ejecutiva y de vendedor. |
 
-El sistema se desplegará sobre un entorno moderno, priorizando la velocidad de ejecución, la seguridad y la facilidad de despliegue continuo (CI/CD):
+---
 
-Componente
+## 4. Especificación Funcional de los Agentes de IA
 
-Tecnología Seleccionada
+### Agente 1: Definición y Análisis de Metas Comerciales
+* **Rol:** Estructura cuotas comerciales mensuales y estratégicas por vendedor, sucursal y canal.
+* **Entradas:** Historial de ventas, promociones activas y directrices corporativas.
+* **Salidas:** JSON estructurado con `monto_objetivo`, `descripcion` y `kpis_clave`.
 
-Propósito / Rol
+### Agente 2: Supervisor Virtual y Seguimiento WhatsApp
+* **Rol:** Genera y despacha seguimientos matutinos personalizados con base en metas vigentes y cotizaciones abiertas.
+* **Entradas:** Pipeline activo del vendedor y métricas diarias.
+* **Salidas:** Mensajes profesionales enviados vía Meta Cloud API o enlaces formateados `wa.me`.
 
- 
+### Agente 3: Redactor de Propuestas Comerciales y Cotizaciones
+* **Rol:** Redacta cotizaciones corporativas persuasivas garantizando exactitud matemática.
+* **Regla Inmutable:** El total monetario se calcula determinísticamente en Python antes de invocar la redacción del LLM.
 
-Servidor de Producción
+### Agente 4: Analista de Inteligencia de Negocios (Business Insights)
+* **Rol:** Analiza cotizaciones ganadas, perdidas y pendientes para generar resúmenes ejecutivos mensuales y detección de causas raíz de pérdida.
 
-VPS en Railway
+### Agente 5: Coach de La Ligera Ventaja (Slight Edge)
+* **Rol:** Conversación estructurada para calcular el embudo inverso de ventas, asignar puntos a disciplinas diarias e invocar herramientas estructuradas (`save_slight_edge_plan`).
 
-Alojamiento de la API y ejecución de procesos en segundo plano.
+---
 
-Base de Datos
+## 5. Módulos Operativos del Ecosistema CRM Kuroda
 
-PostgreSQL
+1. **Autenticación y Seguridad:** JWT, hashing bcrypt y control de roles RBAC.
+2. **Jerarquía Comercial:** Supervisión de vendedores padre sobre carteras de vendedores hijos.
+3. **Cotizaciones y Facturación SAP:** Carga masiva de Excels, conciliación de facturas y venta perdida.
+4. **Catálogo de Clientes:** Maestro unificado de más de 22,000 clientes con búsqueda por RFC, tipo de persona y filtros geográficos.
+5. **Inventario ABC+F:** Control multi-sucursal y visibilidad configurada para vendedores.
+6. **Sobrepedidos & Por Entregar:** Clasificación operativa de pedidos especiales y entregas pendientes.
+7. **Promociones Activas:** Catálogo de precios promocionales vinculado al generador de metas.
+8. **Asignaciones y Subastas:** Distribución equitativa de prospectos entre la fuerza de ventas.
+9. **Analítica Comercial:** KPIs de cierre, ticket promedio, mapa de calor y tiempos de respuesta.
+10. **La Ligera Ventaja:** Bitácora diaria de puntos, consistencia y dashboard de coordinación.
 
-Almacenamiento relacional de usuarios, roles, logs de agentes, metas y cotizaciones.
+---
 
-Framework Backend
+## 6. Políticas de Calidad, SBD y TDD
 
-Python + FastAPI
-
-Construcción de endpoints REST rápidos, asíncronos y con validación automática de tipos.
-
-Motor de IA
-
-3.5 Flash vía Antigravity
-
-Orquestación y ejecución de lógica agéntica mediante codificación asistida estructurada.
-
-Canal de Comunicación
-
-WhatsApp (Meta Tech Provider)
-
-Interfaz de interacción directa con los vendedores y envío de alertas/notificaciones.
-
-Control de Versiones y CD
-
-GitHub Repository
-
-Respaldo del código fuente y puente de automatización para el despliegue automático en Railway.
-
- 
-
-4. Especificación Funcional de los Agentes de IA
-
-La inteligencia del CRM se divide en tres agentes independientes que operan de manera coordinada dentro del flujo de trabajo:
-
-Agente 1: Definición de Metas y Objetivos
-
-Este agente se encarga de estructurar el plan de desempeño para el equipo de ventas. Analiza la capacidad operativa y las directrices comerciales para proponer metas alcanzables y medibles (KPIs).
-
-Entradas: Historial de ventas, parámetros del negocio, objetivos anuales/mensuales fijados por la administración.
-
-Salidas: Cuotas de venta mensuales o semanales por vendedor redactadas de forma clara y almacenadas de forma estructurada.
-
-Agente 2: Seguimiento Puntual e Interacción Diaria
-
-Este agente actúa como un asistente de gestión activo para cada vendedor. Mantiene una comunicación constante utilizando canales de mensajería automatizados integrados directamente.
-
-Funciones Clave: Envío de alertas de avances, recordatorios matutinos, solicitudes de estatus sobre prospectos calificados y detección proactiva de cuellos de botella en el pipeline de ventas.
-
-Tono de Comunicación: Profesional, habilitador, enfocado en resultados y de soporte constante.
-
-Agente 3: Generador de Propuestas y Cotizaciones
-
-Diseñado para acelerar el cierre de tratos comerciales eliminando la fricción administrativa en el día a día de la fuerza de ventas.
-
-Flujo Operativo: El vendedor ingresa los datos esenciales del prospecto y del producto o servicio. El agente procesa los parámetros de precios, aplica las reglas lógicas del negocio y genera un formato formal de propuesta comercial.
-
-Acción Automatizada: Despacha la cotización estructurada al cliente final o al vendedor correspondiente para su validación inmediata.
-
-5. Seguridad, Control de Accesos y Configuración
-
-Para garantizar la integridad del ecosistema informático, el desarrollo debe ceñirse a las siguientes directrices arquitectónicas:
-
-Control de Usuarios y Accesos: Implementación de autenticación centralizada en FastAPI basada en roles y permisos específicos (RBAC) para proteger las rutas y endpoints del CRM.
-
-Gestión de Variables de Entorno: Exclusión absoluta de credenciales y tokens dentro del repositorio de código fuente. Se inyectarán de forma segura a través del panel de configuración de Railway todas las variables críticas de producción (ej. cadenas de conexión a PostgreSQL, tokens del Tech Provider de Meta, etc.).
-
-6. Estrategia de Implementación bajo Spec-Driven Development (SDD)
-
-Siguiendo los estándares del desarrollo guiado por especificaciones, este PRD servirá como la base inmutable para la creación de planes y arquitecturas técnicas automatizadas:
-
-Fase de Diseño: Fragmentación de este PRD en tareas atómicas estructuradas.
-
-Fase de Codificación: El entorno de desarrollo Antigravity procesará estas especificaciones de manera estricta para generar código limpio, modular y libre de alucinaciones conceptuales con 3.5 Flash.
+* **TDD Estricto:** Toda nueva regla o cálculo comercial debe respaldarse con pruebas unitarias en `pytest`.
+* **Cero Secretos:** Credenciales inyectadas exclusivamente vía variables de entorno.
+* **Zona Horaria Oficial:** Todas las métricas diarias y tareas programadas operan bajo `America/Mazatlan`.

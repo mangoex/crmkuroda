@@ -25,120 +25,124 @@ from app.api.v1.actualizaciones_datos import router as actualizaciones_datos_rou
 from app.api.v1.commercial_analytics import router as commercial_analytics_router
 from app.api.v1.clientes import router as clientes_router
 
+from contextlib import asynccontextmanager
+from app.core.scheduler import start_scheduler, scheduler
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Ejecutar migraciones de Alembic de forma automática para mantener la BD siempre al día
+    import asyncio
+    try:
+        proc = await asyncio.create_subprocess_shell("python -m alembic upgrade head")
+        await proc.communicate()
+    except Exception as exc:
+        print(f"Advertencia al ejecutar migraciones Alembic: {exc}")
+
+    try:
+        async with engine.begin() as conn:
+            # Create all tables defined in models
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as exc:
+        print(f"Advertencia al sincronizar metadatos de BD: {exc}")
+
+    # Sembrado inicial condicionado por configuración
+    if settings.AUTO_SEED_DATA:
+        from app.core.database import SessionLocal
+        from app.models.usuario import Usuario
+        from app.models.company import Company
+        from app.core.security import get_password_hash
+        from sqlalchemy.future import select
+        
+        async with SessionLocal() as session:
+            try:
+                # Seed company
+                res_comp = await session.execute(select(Company).filter(Company.code == "kuroda"))
+                company = res_comp.scalars().first()
+                if not company:
+                    default_company = Company(
+                        code="kuroda",
+                        name="Kuroda Inteligente",
+                        global_sales_target=0.0,
+                        global_goals="Directrices estratégicas predeterminadas de la empresa."
+                    )
+                    session.add(default_company)
+
+                # Seed admin
+                res_admin = await session.execute(select(Usuario).filter(Usuario.email == "admin@kuroda.com"))
+                admin_user = res_admin.scalars().first()
+                if not admin_user:
+                    nuevo_admin = Usuario(
+                        email="admin@kuroda.com",
+                        hashed_password=get_password_hash("admin123"),
+                        rol="admin",
+                        nombre_completo="Administrador General"
+                    )
+                    session.add(nuevo_admin)
+
+                # Seed available clients if empty
+                from app.models.cliente_asignacion import ClienteDisponible
+                cli_count_res = await session.execute(select(ClienteDisponible))
+                if not cli_count_res.scalars().first():
+                    dummy_clients = [
+                        ClienteDisponible(
+                            nombre="Agropecuaria del Noroeste S.A.",
+                            email="contacto@agronoroeste.com",
+                            telefono="6677123456",
+                            comentarios="Cliente interesado en tuberías de alta presión para riego.",
+                            estado="disponible"
+                        ),
+                        ClienteDisponible(
+                            nombre="Construcciones y Proyectos del Pacífico S.A.",
+                            email="licitaciones@conspacifico.mx",
+                            telefono="6699876543",
+                            comentarios="Solicita cotización de válvulas industriales y conexiones de PVC.",
+                            estado="disponible"
+                        ),
+                        ClienteDisponible(
+                            nombre="Desarrolladora de Vivienda del Valle",
+                            email="compras@viviendavalle.com",
+                            telefono="6688112233",
+                            comentarios="Proyecto habitacional en Los Mochis. Busca grifería y medidores.",
+                            estado="disponible"
+                        ),
+                        ClienteDisponible(
+                            nombre="Distribuidora Hidráulica del Golfo",
+                            email="ventas@hidrogolfo.com",
+                            telefono="6671098765",
+                            comentarios="Mayorista local. Busca acuerdo de distribución de refacciones.",
+                            estado="disponible"
+                        )
+                    ]
+                    for dc in dummy_clients:
+                        session.add(dc)
+
+                await session.commit()
+            except Exception as e:
+                await session.rollback()
+                print(f"Error en sembrado inicial: {e}")
+
+        # Siembra automática del catálogo de clientes si está vacío
+        try:
+            from seed_clientes import seed_clientes_from_csv
+            await seed_clientes_from_csv(force=False)
+        except Exception as e:
+            print(f"Error al sembrar clientes en el arranque: {e}")
+
+    # Iniciar el planificador de tareas en segundo plano
+    start_scheduler()
+    
+    yield
+    
+    # Shutdown clean up
+    if scheduler.running:
+        scheduler.shutdown()
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Backend del CRM Inteligente con Gestión Agéntica",
     version="1.0.0",
+    lifespan=lifespan,
 )
-
-# CORS Middlewares
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Adjust for production if needed
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-from sqlalchemy import text
-
-# Auto create database tables on startup (convenient for Railway zero-config)
-from app.core.scheduler import start_scheduler
-
-@app.on_event("startup")
-async def on_startup():
-    # Ejecutar migraciones de Alembic de forma automática para mantener la BD siempre al día
-    import asyncio
-    proc = await asyncio.create_subprocess_shell("python -m alembic upgrade head")
-    await proc.communicate()
-
-    async with engine.begin() as conn:
-        # Create all tables defined in models
-        await conn.run_sync(Base.metadata.create_all)
-        
-        # Note: Database migrations and schema updates are now managed by Alembic.
-
-    # Crear administrador por defecto y empresa por defecto si no existen
-    from app.core.database import SessionLocal
-    from app.models.usuario import Usuario
-    from app.models.company import Company
-    from app.core.security import get_password_hash
-    from sqlalchemy.future import select
-    
-    async with SessionLocal() as session:
-        # Seed company
-        res_comp = await session.execute(select(Company).filter(Company.code == "kuroda"))
-        company = res_comp.scalars().first()
-        if not company:
-            default_company = Company(
-                code="kuroda",
-                name="Kuroda Inteligente",
-                global_sales_target=0.0,
-                global_goals="Directrices estratégicas predeterminadas de la empresa."
-            )
-            session.add(default_company)
-
-        # Seed admin
-        res_admin = await session.execute(select(Usuario).filter(Usuario.email == "admin@kuroda.com"))
-        admin_user = res_admin.scalars().first()
-        if not admin_user:
-            nuevo_admin = Usuario(
-                email="admin@kuroda.com",
-                hashed_password=get_password_hash("admin123"),
-                rol="admin",
-                nombre_completo="Administrador General"
-            )
-            session.add(nuevo_admin)
-            
-
-        # Seed available clients if empty
-        from app.models.cliente_asignacion import ClienteDisponible
-        cli_count_res = await session.execute(select(ClienteDisponible))
-        if not cli_count_res.scalars().first():
-            dummy_clients = [
-                ClienteDisponible(
-                    nombre="Agropecuaria del Noroeste S.A.",
-                    email="contacto@agronoroeste.com",
-                    telefono="6677123456",
-                    comentarios="Cliente interesado en tuberías de alta presión para riego.",
-                    estado="disponible"
-                ),
-                ClienteDisponible(
-                    nombre="Construcciones y Proyectos del Pacífico S.A.",
-                    email="licitaciones@conspacifico.mx",
-                    telefono="6699876543",
-                    comentarios="Solicita cotización de válvulas industriales y conexiones de PVC.",
-                    estado="disponible"
-                ),
-                ClienteDisponible(
-                    nombre="Desarrolladora de Vivienda del Valle",
-                    email="compras@viviendavalle.com",
-                    telefono="6688112233",
-                    comentarios="Proyecto habitacional en Los Mochis. Busca grifería y medidores.",
-                    estado="disponible"
-                ),
-                ClienteDisponible(
-                    nombre="Distribuidora Hidráulica del Golfo",
-                    email="ventas@hidrogolfo.com",
-                    telefono="6671098765",
-                    comentarios="Mayorista local. Busca acuerdo de distribución de refacciones.",
-                    estado="disponible"
-                )
-            ]
-            for dc in dummy_clients:
-                session.add(dc)
-
-        await session.commit()
-
-    # Siembra automática del catálogo de clientes si está vacío
-    try:
-        from seed_clientes import seed_clientes_from_csv
-        await seed_clientes_from_csv(force=False)
-    except Exception as e:
-        print(f"Error al sembrar clientes en el arranque: {e}")
-
-    # Iniciar el planificador de tareas en segundo plano
-    start_scheduler()
 
 # Standardized Error Handling
 @app.exception_handler(HTTPException)

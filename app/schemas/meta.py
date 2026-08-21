@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import date
 from typing import Optional
 from decimal import Decimal
@@ -34,8 +34,7 @@ class MetaResponse(MetaBase):
     id: UUID
     vendedor_id: UUID
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class MetasAgentResponse(BaseModel):
     monto_objetivo: Decimal

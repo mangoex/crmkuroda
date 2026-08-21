@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, ConfigDict
 
 
 TipoMetaComercial = Literal["general", "vendedor", "sucursal"]
@@ -47,5 +47,4 @@ class MetaComercialResponse(MetaComercialBase):
     id: UUID
     creado_por_id: Optional[UUID] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

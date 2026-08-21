@@ -1,95 +1,86 @@
-Plan de Arquitectura Técnica y Constitución del Proyecto (SDD)
+# Plan de Arquitectura Técnica y Constitución del Proyecto (SBD / TDD)
 
-Este documento formaliza la arquitectura del sistema, la configuración de la infraestructura y el diseño técnico modular para el nuevo CRM Inteligente Agéntico. Actúa como el mapa técnico de ingeniería inmutable (System Constitution) para guiar la codificación automática con el modelo 3.5 Flash dentro del entorno Antigravity de manera precisa y determinista.
+**Versión:** 2.0 (Consolidada post-auditoría)  
+**Metodología:** Spec-Based Development (SBD) & Test-Driven Development (TDD)  
+**Marco Rector:** Humanio CEO (*Contexto, Ecosistema, Orquestación*)  
+**Estado:** Arquitectura Técnica de Referencia Inmutable
 
-1. Constitución del Proyecto (Reglas Inamovibles de Codificación)
+---
 
-El Agente de IA (3.5 Flash) debe adherirse estrictamente a los siguientes principios técnicos de desarrollo durante las etapas de generación de código:
+## 1. Constitución del Proyecto (Reglas Inamovibles de Ingeniería)
 
-Inyección Segura de Dependencias: Queda estrictamente prohibido escribir credenciales de base de datos, API tokens de Meta o llaves de cifrado en texto plano. Se debe emplear de manera exclusiva la librería pydantic-settings para leer la configuración desde las variables de entorno inyectadas por Railway.
+1. **Inyección Segura y Cero Secretos:** Las credenciales de base de datos (`DATABASE_URL`), claves JWT (`SECRET_KEY`), tokens de Meta (`META_WHATSAPP_TOKEN`, `META_APP_SECRET`) y llaves LLM (`OPENROUTER_API_KEY`, `GEMINI_API_KEY`) se cargan exclusivamente mediante `pydantic-settings` desde variables de entorno.
+2. **Tipado Estricto & Pydantic v2:** Todas las firmas de función, controladores y servicios deben utilizar Type Hints y modelos de Pydantic v2 con `ConfigDict(from_attributes=True)`.
+3. **Cálculos Comerciales Deterministas:** Ningún cálculo aritmético de importes, subtotales, cuotas o porcentajes de cumplimiento se delega al LLM; todo cálculo se ejecuta de forma determinista en Python antes de invocar la redacción agéntica.
+4. **Resiliencia Agéntica:** El servicio central de LLM (`app/agents/llm.py`) implementa reintentos con *exponential backoff* ante errores transitorios y soporte multi-proveedor desacoplado.
+5. **Zona Horaria del Negocio:** Todas las fechas operativas, métricas comerciales y tareas de segundo plano se sincronizan con `settings.BUSINESS_TIMEZONE` (`America/Mazatlan`).
 
-Tipado Estricto de Datos: Todas las firmas de funciones y controladores de ruta (endpoints) en FastAPI deben utilizar Type Hints de Python y esquemas de validación basados en Pydantic v2.
+---
 
-Aislamiento de Agentes: Los 3 agentes de IA deben ser diseñados como servicios desacoplados e independientes (patrón Service Layer). Ningún agente debe depender directamente del estado de memoria de otro; toda comunicación e intercambio de datos debe realizarse a través de la base de datos PostgreSQL.
+## 2. Estructura Modular del Proyecto
 
+```text
+crmkuroda/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                     # Ciclo de vida lifespan y registro de routers
+│   ├── core/
+│   │   ├── config.py               # Settings Pydantic v2 y variables de entorno
+│   │   ├── database.py             # Engine SQLAlchemy async y SessionLocal
+│   │   ├── security.py             # JWT, bcrypt y dependencias RBAC (RoleChecker)
+│   │   └── scheduler.py            # Tareas programadas en background (APScheduler)
+│   ├── models/                     # Modelos ORM SQLAlchemy
+│   │   ├── usuario.py              # Usuarios y jerarquía padre-hijo
+│   │   ├── cotizacion.py           # Cotizaciones y datos importados SAP
+│   │   ├── cotizacion_detalle.py   # Items y comentarios de seguimiento
+│   │   ├── meta.py                 # Metas operativas de agente
+│   │   ├── meta_comercial.py       # Metas mensuales por vendedor/sucursal/canal
+│   │   ├── cliente.py              # Catálogo maestro de clientes (22k+)
+│   │   ├── cliente_asignacion.py   # Asignaciones y subastas comerciales
+│   │   ├── inventario_abcf.py      # Inventario estratificado multi-sucursal
+│   │   ├── sobrepedido.py          # Pedidos sobre demanda VA05/VL06O
+│   │   ├── por_entregar.py         # Entregas pendientes
+│   │   ├── promocion.py            # Promociones vigentes
+│   │   ├── slight_edge.py          # Planes y bitácora de La Ligera Ventaja
+│   │   ├── commercial_analytics.py # Snapshots y analítica de ventas
+│   │   └── log_agente.py           # Trazabilidad y auditoría de IA
+│   ├── schemas/                    # Contratos Pydantic v2
+│   ├── services/                   # Lógica de negocio determinista (Jerarquías, Analytics, SAP)
+│   ├── agents/                     # Servicios agénticos (Metas, Cotizaciones, WhatsApp, Slight Edge)
+│   └── api/                        # Controladores REST FastAPI
+│       ├── auth.py
+│       └── v1/
+├── static/                         # Frontend Web responsivo (Dark UIX, JS, CSS)
+├── tests/                          # Suite de pruebas automatizadas con pytest (117+ tests)
+├── alembic/                        # Migraciones versionadas de base de datos
+├── requirements.txt                # Dependencias fijadas
+└── Procfile                        # Comando de arranque para Railway VPS
+```
 
+---
 
-2. Estructura de Directorios del Proyecto
+## 3. Arquitectura del Modelo de Datos (PostgreSQL)
 
-Para garantizar la modularidad y el correcto puente de despliegue continuo desde GitHub hacia Railway, se implementará la siguiente estructura de archivos estándar de FastAPI:
+| Tabla | Clave Primaria | Propósito y Relaciones Clave |
+| :--- | :---: | :--- |
+| `usuarios` | UUID v4 | Usuarios, roles RBAC, código de vendedor y relación padre-hijo (`vendedor_padre_id`). |
+| `clientes` | Integer | Catálogo general de clientes, RFC, razón social, contactos y geolocalización. |
+| `cotizaciones` | UUID v4 | Cabecera de cotizaciones, totales calculados, folios y trazabilidad de facturas SAP. |
+| `cotizaciones_items` | UUID v4 | Detalle de partidas cotizadas con subtotales deterministas. |
+| `cotizaciones_comentarios`| UUID v4 | Bitácora de seguimiento por vendedor/gerencia. |
+| `metas_comerciales` | UUID v4 | Metas mensuales auditables por tipo (`general`, `vendedor`, `sucursal`) y canal. |
+| `inventario_abcf` | Integer | Existencias por sucursal, proveedor, rotación ABC+F y visibilidad. |
+| `sobrepedidos` | Integer | Pedidos sobre demanda y seguimiento de documentos SAP. |
+| `por_entregar` | Integer | Pedidos con estatus de entrega y almacén de origen. |
+| `slight_edge_plans` | UUID v4 | Objetivos financieros, ticket promedio y disciplinas de consistencia diaria. |
+| `slight_edge_logs` | UUID v4 | Registro diario de actividades, puntos acumulados y reflexiones. |
+| `logs_agentes` | Integer | Auditoría de prompts y respuestas de IA. |
 
-crm_agentico/├── app/│   ├── __init__.py│   ├── main.py                 # Punto de entrada de la aplicación FastAPI│   ├── core/│   │   ├── config.py           # Configuración central y variables de entorno│   │   ├── database.py         # Conexión asíncrona a PostgreSQL (SQLAlchemy)│   │   └── security.py         # Autenticación, JWT y control de accesos (RBAC)│   ├── models/                 # Modelos ORM de SQLAlchemy│   │   ├── usuario.py│   │   ├── meta.py│   │   └── cotizacion.py│   ├── schemas/                # Esquemas de validación Pydantic│   │   ├── usuario.py│   │   ├── meta.py│   │   └── cotizacion.py│   ├── agents/                 # Lógica de prompts y orquestación de IA│   │   ├── metas_agent.py│   │   ├── seguimiento_agent.py│   │   └── cotizaciones_agent.py│   └── api/                    # Capa de controladores y rutas REST│       ├── auth.py             # Login, registro y validación de tokens│       └── v1/│           ├── vendedores.py│           ├── metas.py│           └── webhooks.py     # Integración con Meta Tech Provider (WhatsApp)├── requirements.txt            # Dependencias del proyecto└── Procfile                    # Comando de arranque para la VPS de Railway
+---
 
+## 4. Pipeline de Despliegue Continuo (CI/CD)
 
-
-3. Diseño y Modelado de la Base de Datos (PostgreSQL)
-
-A continuación se detalla el esquema relacional básico indispensable para soportar el control de accesos por roles (RBAC) y la persistencia de las actividades de los agentes:
-
-Tabla
-
-Campos Principales
-
-Tipo de Dato
-
-Descripción y Restricciones
-
- 
-
-usuarios
-
-id, email, hashed_password, rol, telefono_whatsapp
-
-UUID, VARCHAR, VARCHAR, VARCHAR, VARCHAR
-
-Soporta roles 'admin', 'gerente' y 'vendedor'. Telefono se usa para vinculación con WhatsApp.
-
-metas
-
-id, vendedor_id, descripcion, monto_objetivo, fecha_inicio, fecha_limite, estado
-
-UUID, UUID (FK), TEXT, NUMERIC, DATE, DATE, VARCHAR
-
-Almacena los objetivos definidos de manera automatizada por el Agente 1.
-
-cotizaciones
-
-id, vendedor_id, cliente_nombre, datos_contacto, items, total, texto_propuesta
-
-UUID, UUID (FK), VARCHAR, JSONB, JSONB, NUMERIC, TEXT
-
-Contiene los presupuestos generados estructuradamente por el Agente 3.
-
-
-
-4. Especificación Técnica de Orquestación Agéntica
-
-Cada uno de los tres agentes de Inteligencia Artificial que ejecutará 3.5 Flash se conectará a la capa del backend mediante funciones de servicio dedicadas:
-
-Agente 1: Analizador y Definidor de Metas
-
-Mecanismo de Activación: Evento de backend ejecutado al inicio de cada mes o por solicitud explícita del Administrador desde el panel de control.
-
-Estrategia de Prompting: System prompt estricto con formato JSON estructurado que evalúa el histórico del vendedor y genera un JSON con claves monto_objetivo, descripcion_metas y kpis_clave.
-
-Agente 2: Monitor de Seguimiento Activo vía WhatsApp
-
-Mecanismo de Activación: Tarea programada en segundo plano (Cron job o Background Tasks de FastAPI) ejecutada diariamente a horarios específicos.
-
-Integración de Red: Envía payloads a la API de WhatsApp del Tech Provider de Meta. Procesa las respuestas entrantes de los vendedores a través del endpoint /api/v1/webhooks/whatsapp para actualizar estados o guardar notas de seguimiento en la base de datos.
-
-Agente 3: Redactor de Propuestas Comerciales y Cotizaciones
-
-Mecanismo de Activación: Petición POST del vendedor con payload JSON conteniendo especificaciones del cliente y requerimientos específicos.
-
-Formato de Salida: Generación en texto plano o HTML limpio estructurado listo para enviarse por correo electrónico o convertirse en PDF, adjuntando un resumen formal de precios de manera matemática exacta.
-
-
-
-5. Infraestructura, Despliegue Continuo y Configuración
-
-El entorno operativo en Railway se configurará aislando el entorno productivo con las siguientes claves de entorno obligatorias que la aplicación requiere para arrancar:
-
-# Configuración del Entorno de Producción (Railway VPS)DATABASE_URL=postgresql+asyncpg://user:password@host:port/dbnameSECRET_KEY=clave_secreta_jwt_para_firmar_tokens_de_accesoACCESS_TOKEN_EXPIRE_MINUTES=60# Configuración de Integración con Meta APIMETA_WHATSAPP_TOKEN=token_proveedor_tecnologico_meta_whatsappMETA_PHONE_NUMBER_ID=identificador_de_linea_telefonica_comercialWHATSAPP_WEBHOOK_VERIFY_TOKEN=token_de_verificacion_para_registro# Configuración de Modelos de Inteligencia ArtificialLLM_API_KEY=credenciales_acceso_orquestador_antigravity
-
-El flujo de integración continua (CI/CD) se activará automáticamente con cada git push exitoso en la rama main del repositorio de GitHub conectado, donde Railway compilará el entorno virtual de Python, instalará las dependencias de requirements.txt y levantará la API de FastAPI de forma inmediata a través del servidor Uvicorn.
+1. **Validación Local / TDD:** Ejecución obligatoria de `pytest` (`117 passed`).
+2. **Push a GitHub (`main`):** Disparo de webhook de despliegue en Railway.
+3. **Compilación Railway:** Construcción de contenedor Docker / entorno virtual Python.
+4. **Lifespan Startup:** Ejecución automatizada de `alembic upgrade head`, sincronización DDL segura, siembra controlada condicional e inicio del scheduler en `America/Mazatlan`.

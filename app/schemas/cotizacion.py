@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Any
 from decimal import Decimal
 from uuid import UUID
@@ -61,8 +61,7 @@ class CotizacionResponse(CotizacionBase):
     id: UUID
     vendedor_id: UUID
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CotizacionesAgentResponse(BaseModel):
     total: Decimal
