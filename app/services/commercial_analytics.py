@@ -776,3 +776,48 @@ def build_seller_dashboard_metrics(
         "clientes": clientes_list[:10],
         "materiales": materiales_list[:10],
     }
+
+
+def calculate_seller_period_metrics(
+    quotes: Iterable[Any],
+    start_date: date,
+    end_date: date,
+) -> dict[str, Any]:
+    """Calcula determinísticamente las métricas personales del vendedor para un periodo [start_date, end_date]."""
+    total_quotes = 0
+    invoiced_quotes = 0
+    total_quoted = Decimal("0")
+    total_invoiced = Decimal("0")
+
+    for q in quotes:
+        quote_date = getattr(q, "fecha_registro", None) or getattr(q, "fecha_factura", None)
+        if not quote_date:
+            continue
+        if isinstance(quote_date, datetime):
+            quote_date = quote_date.date()
+        if start_date <= quote_date <= end_date:
+            total_quotes += 1
+            total_quoted += decimal_value(getattr(q, "total", 0))
+
+            has_invoice = bool(getattr(q, "numero_factura", None)) or decimal_value(getattr(q, "importe_facturado", 0)) > 0
+            if has_invoice:
+                invoiced_quotes += 1
+                inv_amt = decimal_value(getattr(q, "importe_facturado", 0))
+                if inv_amt == 0:
+                    inv_amt = decimal_value(getattr(q, "total", 0))
+                total_invoiced += inv_amt
+
+    conversion_rate = (
+        round(float((Decimal(invoiced_quotes) / Decimal(total_quotes)) * Decimal("100")), 2)
+        if total_quotes > 0
+        else 0.0
+    )
+
+    return {
+        "total_quotes": total_quotes,
+        "invoiced_quotes": invoiced_quotes,
+        "total_quoted": float(total_quoted),
+        "total_invoiced": float(total_invoiced),
+        "conversion_rate": conversion_rate,
+    }
+

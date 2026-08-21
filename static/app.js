@@ -2034,13 +2034,17 @@ async function renderSellerHomeDashboard({ metas, quotes, promociones, goalProgr
         button.classList.toggle("active", button.dataset.sellerPeriod === state.sellerGoalPeriod);
     });
 
-    // 5 Marcos de Métricas Personales del Vendedor
-    const summary = quoteSummary || state.quoteSummary;
-    const sellerQuotes = quotes || [];
-    const totalQuotesCount = summary?.total?.count ?? sellerQuotes.length;
-    const invoicedQuotesCount = summary?.concretadas?.count ?? sellerQuotes.filter(q => q.numero_factura).length;
-    const totalQuotedAmount = summary?.total?.amount ?? sellerQuotes.reduce((acc, q) => acc + Number(q.total || 0), 0);
-    const totalInvoicedAmount = summary?.concretadas?.invoiced_amount ?? summary?.total?.invoiced_amount ?? sellerQuotes.filter(q => q.numero_factura).reduce((acc, q) => acc + Number(q.importe_facturado || q.total || 0), 0);
+    // 5 Marcos de Métricas Personales del Vendedor (acotadas dinámicamente al periodo seleccionado: Mes / Semana / Día)
+    const periodQuotes = (quotes || []).filter(q => {
+        const quoteDate = parseLocalDate(q.fecha_registro || q.fecha_factura);
+        return quoteDate && quoteDate >= period.start && quoteDate <= period.end;
+    });
+    const periodInvoicedQuotes = periodQuotes.filter(q => q.numero_factura || Number(q.importe_facturado || 0) > 0);
+
+    const totalQuotesCount = periodQuotes.length;
+    const invoicedQuotesCount = periodInvoicedQuotes.length;
+    const totalQuotedAmount = periodQuotes.reduce((acc, q) => acc + Number(q.total || 0), 0);
+    const totalInvoicedAmount = periodInvoicedQuotes.reduce((acc, q) => acc + getInvoiceAmount(q), 0);
     const conversionRate = totalQuotesCount > 0 ? (invoicedQuotesCount / totalQuotesCount) * 100 : 0;
 
     if (DOM.sellerMetricTotalQuotes) DOM.sellerMetricTotalQuotes.textContent = totalQuotesCount.toLocaleString("es-MX");
