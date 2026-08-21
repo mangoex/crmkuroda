@@ -2571,22 +2571,22 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             const importeFmt = `$${importeInv.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
             tr.innerHTML = `
-                <td>
-                    <a href="${imageSearchUrl}" target="_blank" rel="noopener" title="Buscar imagen del producto" class="btn btn-secondary btn-sm" style="min-width: 34px; padding: 7px 9px; display: inline-flex; align-items: center; justify-content: center;">
+                <td style="text-align: center;">
+                    <a href="${imageSearchUrl}" target="_blank" rel="noopener" title="Buscar imagen del producto" class="btn btn-secondary btn-sm" style="min-width: 32px; padding: 6px 8px; display: inline-flex; align-items: center; justify-content: center;">
                         <i class="fa-regular fa-image"></i>
                     </a>
                 </td>
-                <td><span class="badge badge-secondary">${escapeHTML(i.nombre_centro || "-")}</span></td>
-                <td>${escapeHTML(getInventoryWarehouse(i) || "-")}</td>
-                <td style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(getInventoryProviderName(i))}">${escapeHTML(getInventoryProviderName(i) || "-")}</td>
-                <td style="color: #ef4444; font-weight: 800;">${escapeHTML(getInventoryDCode(i) || "-")}</td>
+                <td style="text-align: center;"><span class="badge badge-secondary">${escapeHTML(i.nombre_centro || "-")}</span></td>
+                <td style="text-align: center; font-weight: 500;">${escapeHTML(getInventoryWarehouse(i) || "-")}</td>
+                <td style="min-width: 180px; max-width: 240px; font-size: 13px; font-weight: 500;" title="${escapeHTML(getInventoryProviderName(i))}">${escapeHTML(getInventoryProviderName(i) || "-")}</td>
+                <td style="text-align: center; color: #ef4444; font-weight: 800;">${escapeHTML(getInventoryDCode(i) || "-")}</td>
                 <td><code>${escapeHTML(getInventoryProductKey(i) || "-")}</code></td>
-                <td style="max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(getInventoryDescription(i))}">${escapeHTML(getInventoryDescription(i) || "-")}</td>
-                <td>${i.cantidad_propia !== null ? Number(i.cantidad_propia).toLocaleString("es-MX") : "-"}</td>
-                <td>${i.existencia_consignacion !== null ? Number(i.existencia_consignacion).toLocaleString("es-MX") : "-"}</td>
-                <td style="font-weight: 600; color: #1e293b;">${precioFmt}</td>
-                <td><strong style="color: #10b981;">${importeFmt}</strong></td>
-                <td>${escapeHTML(i.ubicacion || "-")}</td>
+                <td style="min-width: 350px; font-size: 13px; font-weight: 600; color: #1e293b;" title="${escapeHTML(getInventoryDescription(i))}">${escapeHTML(getInventoryDescription(i) || "-")}</td>
+                <td style="text-align: right; font-weight: 600;">${i.cantidad_propia !== null ? Number(i.cantidad_propia).toLocaleString("es-MX") : "-"}</td>
+                <td style="text-align: right; color: #64748b;">${i.existencia_consignacion !== null ? Number(i.existencia_consignacion).toLocaleString("es-MX") : "-"}</td>
+                <td style="text-align: right; font-weight: 700; color: #0284c7; white-space: nowrap;">${precioFmt}</td>
+                <td style="text-align: right; font-weight: 700; color: #10b981; white-space: nowrap;">${importeFmt}</td>
+                <td style="text-align: center;"><span class="badge" style="background: #f1f5f9; color: #475569; font-weight: 600;">${escapeHTML(i.ubicacion || "-")}</span></td>
             `;
             DOM.tableInventarioAbcf.appendChild(tr);
         });

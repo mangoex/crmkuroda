@@ -102,7 +102,21 @@ async def upload_inventario(
                 "existencia_bloqueada": _header_index(headers, "existencia bloqueada", "bloqueada"),
                 "existencia_control_calidad": _header_index(headers, "existencia control calidad", "control calidad"),
                 "umb": _header_index(headers, "umb", "unidad medida"),
-                "costo_promedio_unitario": _header_index(headers, "costo promedio unitario", "precio promedio", "costo promedio"),
+                "costo_promedio_unitario": _header_index(
+                    headers,
+                    "precio venta",
+                    "precio de venta",
+                    "precio lista",
+                    "precio unitario",
+                    "precio comercial",
+                    "precio",
+                    "pvp",
+                    "costo promedio unitario",
+                    "precio promedio",
+                    "costo promedio",
+                    "precio prom",
+                    "precio promocion",
+                ),
                 "importe_inventario_propio": _header_index(headers, "importe inventario propio", "importe inv", "importe de inventario propio"),
                 "valor_consignacion_proveedor": _header_index(headers, "valor consignacion proveedor"),
                 "ubicacion": _header_index(headers, "ubicacion", "localizacion"),
@@ -124,6 +138,11 @@ async def upload_inventario(
                     
                     if c_propia == 0.0 and e_consig == 0.0:
                         continue
+
+                    c_unitario = _as_float(_row_value(row, indices["costo_promedio_unitario"], 14))
+                    imp_propio = _as_float(_row_value(row, indices["importe_inventario_propio"], 15))
+                    if (c_unitario is None or c_unitario == 0.0) and imp_propio and imp_propio > 0 and c_propia > 0:
+                        c_unitario = round(imp_propio / c_propia, 2)
                         
                     inv = InventarioAbcf(
                         nombre_centro=str(_row_value(row, indices["centro"], 0)) if _row_value(row, indices["centro"], 0) is not None else None,
@@ -140,8 +159,8 @@ async def upload_inventario(
                         existencia_bloqueada=_as_float(_row_value(row, indices["existencia_bloqueada"], 11)),
                         existencia_control_calidad=_as_float(_row_value(row, indices["existencia_control_calidad"], 12)),
                         umb=str(_row_value(row, indices["umb"], 13)) if _row_value(row, indices["umb"], 13) is not None else None,
-                        costo_promedio_unitario=_as_float(_row_value(row, indices["costo_promedio_unitario"], 14)),
-                        importe_inventario_propio=_as_float(_row_value(row, indices["importe_inventario_propio"], 15)),
+                        costo_promedio_unitario=c_unitario,
+                        importe_inventario_propio=imp_propio,
                         valor_consignacion_proveedor=_as_float(_row_value(row, indices["valor_consignacion_proveedor"], 16)),
                         ubicacion=str(_row_value(row, indices["ubicacion"], 17)) if _row_value(row, indices["ubicacion"], 17) is not None else None,
                         grupo_materiales=str(_row_value(row, indices["grupo_materiales"], 18)) if _row_value(row, indices["grupo_materiales"], 18) is not None else None,
