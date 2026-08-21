@@ -2086,6 +2086,8 @@ function renderSellerStrategicChannels(canales) {
         const textStyle = isZero ? 'color: #ef4444 !important; font-weight: 700;' : '';
         const dotBg = isZero ? '#ef4444' : (c.color || '#8b5cf6');
         const barFill = isZero ? 0 : Math.min(100, Math.max(0, c.porcentaje));
+        const metaTarget = Number(c.meta || c.meta_mensual || 0);
+        const metaTag = metaTarget > 0 ? `<span style="font-size: 11px; color: #94a3b8; font-weight: 600;">Meta: ${formatSellerMoney(metaTarget)}</span>` : '';
         return `
             <div class="seller-strategic-chip" style="background: rgba(255,255,255,0.03); border: 1px solid ${isZero ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255,255,255,0.08)'}; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -2098,8 +2100,8 @@ function renderSellerStrategicChannels(canales) {
                 <div class="seller-channel-bar-wrap" style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;">
                     <div class="seller-channel-bar-fill" style="width: ${barFill}%; height: 100%; background-color: ${dotBg}; border-radius: 4px;"></div>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-size: 12px;">
-                    <span style="color: var(--text-muted); font-size: 11px;">${Number(c.cotizaciones || 0)} cotiz.</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                    <span style="color: var(--text-muted); font-size: 11px;">${Number(c.cotizaciones || 0)} cotiz. ${metaTag}</span>
                     <span class="seller-channel-amount" style="font-weight: 700; ${textStyle}">${formatSellerMoney(c.monto)}</span>
                 </div>
             </div>
@@ -2528,9 +2530,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         }
         
         const thPrecio = document.getElementById("th-inv-precio");
-        const thImporte = document.getElementById("th-inv-importe");
         if (thPrecio) thPrecio.style.display = "";
-        if (thImporte) thImporte.style.display = "";
         
         // --- SORTING LOGIC ---
         if (state.invSortField === undefined) state.invSortField = null;
@@ -2565,10 +2565,8 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             });
             const cantPropia = Number(i.cantidad_propia || 0);
             const costoUnit = Number(i.costo_promedio_unitario || 0) || (cantPropia > 0 && Number(i.importe_inventario_propio || 0) > 0 ? Number(i.importe_inventario_propio) / cantPropia : 0);
-            const importeInv = Number(i.importe_inventario_propio || 0) || (costoUnit > 0 && cantPropia > 0 ? costoUnit * cantPropia : 0);
 
             const precioFmt = `$${costoUnit.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            const importeFmt = `$${importeInv.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
             tr.innerHTML = `
                 <td style="text-align: center;">
@@ -2585,7 +2583,6 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                 <td style="text-align: right; font-weight: 600;">${i.cantidad_propia !== null ? Number(i.cantidad_propia).toLocaleString("es-MX") : "-"}</td>
                 <td style="text-align: right; color: #64748b;">${i.existencia_consignacion !== null ? Number(i.existencia_consignacion).toLocaleString("es-MX") : "-"}</td>
                 <td style="text-align: right; font-weight: 700; color: #0284c7; white-space: nowrap;">${precioFmt}</td>
-                <td style="text-align: right; font-weight: 700; color: #10b981; white-space: nowrap;">${importeFmt}</td>
                 <td style="text-align: center;"><span class="badge" style="background: #f1f5f9; color: #475569; font-weight: 600;">${escapeHTML(i.ubicacion || "-")}</span></td>
             `;
             DOM.tableInventarioAbcf.appendChild(tr);

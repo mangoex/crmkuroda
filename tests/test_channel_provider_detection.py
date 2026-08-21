@@ -1,0 +1,35 @@
+"""TDD Unit test suite for channel resolution based on client AND provider numbers (400550 and 400260)."""
+
+import unittest
+from types import SimpleNamespace
+from app.services.commercial_analytics import resolve_quote_effective_channel
+
+
+class TestChannelProviderDetection(unittest.TestCase):
+    def test_marketplace_detected_via_provider_number(self):
+        """Punto 3: Verifica que 400550 en numero_proveedor o proveedor se resuelva como Market place."""
+        q1 = SimpleNamespace(numero_cliente="12345", numero_proveedor="400550", canal="Normal")
+        self.assertEqual(resolve_quote_effective_channel(q1), "Market place")
+
+        q2 = SimpleNamespace(numero_cliente="", proveedor="000400550", canal="General")
+        self.assertEqual(resolve_quote_effective_channel(q2), "Market place")
+
+    def test_apartados_detected_via_provider_number(self):
+        """Punto 3: Verifica que 400260 en numero_proveedor o proveedor se resuelva como Apartados."""
+        q1 = SimpleNamespace(numero_cliente="9999", numero_proveedor="400260", canal="Normal")
+        self.assertEqual(resolve_quote_effective_channel(q1), "Apartados")
+
+        q2 = SimpleNamespace(numero_cliente=None, proveedor="400260.0", canal=None)
+        self.assertEqual(resolve_quote_effective_channel(q2), "Apartados")
+
+    def test_client_detection_still_works_deterministically(self):
+        """Mantiene compatibilidad con detección por numero_cliente."""
+        q1 = SimpleNamespace(numero_cliente="400550", numero_proveedor=None, canal="Entrega Inmediata")
+        self.assertEqual(resolve_quote_effective_channel(q1), "Market place")
+
+        q2 = SimpleNamespace(numero_cliente="400260", numero_proveedor=None, canal="Envío a Domicilio")
+        self.assertEqual(resolve_quote_effective_channel(q2), "Apartados")
+
+
+if __name__ == "__main__":
+    unittest.main()

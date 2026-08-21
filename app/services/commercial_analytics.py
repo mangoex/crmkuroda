@@ -148,15 +148,32 @@ def resolve_quote_effective_channel(
     """Resuelve el canal efectivo de una cotización.
 
     Reglas de negocio prioritarias:
-      - Cliente 400550 -> 'Market place'
-      - Cliente 400260 -> 'Apartados'
+      - Cliente o Proveedor 400550 -> 'Market place'
+      - Cliente o Proveedor 400260 -> 'Apartados'
       - En caso contrario -> canal / tipo de entrega normalizado.
     """
     raw_client = str(getattr(quote, "numero_cliente", "") or "").strip()
     clean_client_digits = raw_client.lstrip("0")
-    if clean_client_digits in ("400550", "400550.0") or raw_client == "400550":
+
+    raw_provider = str(getattr(quote, "numero_proveedor", "") or getattr(quote, "proveedor", "") or "").strip()
+    clean_provider_digits = raw_provider.lstrip("0")
+
+    if (
+        clean_client_digits in ("400550", "400550.0")
+        or raw_client == "400550"
+        or clean_provider_digits in ("400550", "400550.0")
+        or raw_provider == "400550"
+        or "400550" in raw_provider
+    ):
         return "Market place"
-    if clean_client_digits in ("400260", "400260.0") or raw_client == "400260":
+
+    if (
+        clean_client_digits in ("400260", "400260.0")
+        or raw_client == "400260"
+        or clean_provider_digits in ("400260", "400260.0")
+        or raw_provider == "400260"
+        or "400260" in raw_provider
+    ):
         return "Apartados"
 
     raw_channel = getattr(quote, "canal", None)

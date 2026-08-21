@@ -936,7 +936,6 @@
                                     <th id="th-inv-cant" style="cursor: pointer; color: white; border-bottom: none; text-align: right;">Cant Propia <i class="fa-solid fa-sort" style="color: white; font-size: 11px; margin-left: 4px;"></i></th>
                                     <th id="th-inv-consig" style="cursor: pointer; color: white; border-bottom: none; text-align: right;">Inv. Consig. <i class="fa-solid fa-sort" style="color: white; font-size: 11px; margin-left: 4px;"></i></th>
                                     <th id="th-inv-precio" style="color: white; border-bottom: none; text-align: right;">Precio Venta</th>
-                                    <th id="th-inv-importe" style="color: white; border-bottom: none; text-align: right;">Importe Inv.</th>
                                     <th style="color: white; border-bottom: none; text-align: center;">Ubicación</th>
                                 </tr>
                             </thead>
@@ -1219,25 +1218,25 @@
 
                     <!-- Sobrepedidos Table -->
                     <div class="glass-card table-container" style="overflow-x: auto;">
-                        <table class="data-table compact-extended-table" id="table-sobrepedidos" style="width: 100%;">
+                        <table class="data-table compact-extended-table" id="table-sobrepedidos" style="min-width: 1550px;">
                             <thead style="background-color: hsl(var(--primary)); color: white;">
                                 <tr>
                                     <th id="th-sobrepedidos-pedido" style="cursor: pointer; user-select: none; color: white; border-bottom: none;">Factura <i class="fa-solid fa-sort" style="color: white; font-size: 11px; margin-left: 4px;"></i></th>
                                     <th id="th-sobrepedidos-fecha" style="cursor: pointer; user-select: none; color: white; border-bottom: none;">Fecha Venta <i class="fa-solid fa-sort" style="color: white; font-size: 11px; margin-left: 4px;"></i></th>
-                                    <th style="color: white; border-bottom: none;">Cliente</th>
+                                    <th style="color: white; border-bottom: none; min-width: 200px;">Cliente</th>
                                     <th style="color: white; border-bottom: none;">Clave vendedor</th>
                                     <th id="th-sobrepedidos-sku" style="cursor: pointer; user-select: none; color: white; border-bottom: none;">SKU <i class="fa-solid fa-sort" style="color: white; font-size: 11px; margin-left: 4px;"></i></th>
-                                    <th style="color: white; border-bottom: none;">Producto</th>
+                                    <th style="color: white; border-bottom: none; min-width: 320px;">Producto</th>
                                     <th style="color: white; border-bottom: none;">Grupo</th>
-                                    <th id="th-sobrepedidos-cant" style="cursor: pointer; user-select: none; color: white; border-bottom: none;">Cant. Pendiente <i class="fa-solid fa-sort" style="color: white; font-size: 11px; margin-left: 4px;"></i></th>
+                                    <th id="th-sobrepedidos-cant" style="cursor: pointer; user-select: none; color: white; border-bottom: none; text-align: right;">Cant. Pendiente <i class="fa-solid fa-sort" style="color: white; font-size: 11px; margin-left: 4px;"></i></th>
                                     <th style="color: white; border-bottom: none;">Disp. VL06O</th>
-                                    <th style="color: white; border-bottom: none;">Cant. Disp.</th>
+                                    <th style="color: white; border-bottom: none; text-align: right;">Cant. Disp.</th>
                                     <th style="color: white; border-bottom: none;">Fecha Disp.</th>
-                                    <th style="color: white; border-bottom: none;">Días Disp.</th>
-                                    <th style="color: white; border-bottom: none;">Proveedor</th>
-                                    <th style="color: white; border-bottom: none;">Comentarios SAP</th>
-                                    <th style="color: white; border-bottom: none;">Motivo</th>
-                                    <th style="color: white; border-bottom: none;">Estatus CRM</th>
+                                    <th style="color: white; border-bottom: none; text-align: right;">Días Disp.</th>
+                                    <th style="color: white; border-bottom: none; min-width: 180px;">Proveedor</th>
+                                    <th style="color: white; border-bottom: none; min-width: 180px;">Comentarios SAP</th>
+                                    <th style="color: white; border-bottom: none; min-width: 150px;">Motivo</th>
+                                    <th style="color: white; border-bottom: none; text-align: center;">Estatus CRM</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1273,11 +1272,11 @@
                                     <option value="rojo">Rojo</option>
                                 </select>
                             </div>
-                            <div style="display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1;">
-                                <label for="filter-por-entregar-search" style="font-size: 0.85rem; color: hsl(var(--text-secondary));"><i class="fa-solid fa-magnifying-glass"></i> Buscar factura, cliente, código o producto...</label>
+                            <div class="input-group" style="grid-column: 1 / -1;">
+                                <label for="filter-por-entregar-search" style="font-size: 0.85rem; font-weight: 600; color: #333;"><i class="fa-solid fa-magnifying-glass"></i> Buscar por Factura, Cliente, SKU o Producto</label>
                                 <div style="display: flex; gap: 10px;">
-                                    <input type="text" id="filter-por-entregar-search" class="form-control" placeholder="Factura, cliente, código o producto..." style="flex-grow: 1;">
-                                    <button type="button" id="btn-clear-por-entregar-filters" class="btn btn-secondary" title="Limpiar Filtros" style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="text" id="filter-por-entregar-search" class="form-control" placeholder="Escribe aquí para buscar..." style="flex-grow: 1; background: #e5e7eb; border: none; border-radius: 8px; padding: 10px 16px; font-size: 14px; font-weight: 600;">
+                                    <button type="button" id="btn-clear-pe-filters" class="btn" title="Limpiar Filtros" style="display: flex; align-items: center; gap: 8px; background: white; border: 1px solid hsl(var(--primary)); color: hsl(var(--primary)); border-radius: 8px; padding: 0 16px; font-weight: 700; white-space: nowrap;">
                                         <i class="fa-solid fa-filter-circle-xmark"></i> Limpiar Filtros
                                     </button>
                                 </div>
@@ -1292,20 +1291,20 @@
                                 <i class="fa-solid fa-layer-group"></i> <span>Contraer / Expandir todo</span>
                             </button>
                         </div>
-                        <table class="data-table compact-extended-table" id="table-por-entregar" style="width: 100%;">
+                        <table class="data-table compact-extended-table" id="table-por-entregar" style="min-width: 1350px;">
                             <thead>
                                 <tr>
                                     <th>Factura</th>
                                     <th>Código</th>
-                                    <th>Producto</th>
-                                    <th>Cant. entregar</th>
+                                    <th style="min-width: 320px;">Producto</th>
+                                    <th style="text-align: right;">Cant. entregar</th>
                                     <th>Clave vendedor</th>
                                     <th>Num cliente</th>
-                                    <th>Cliente</th>
+                                    <th style="min-width: 200px;">Cliente</th>
                                     <th>Fecha disponibilidad</th>
-                                    <th id="th-pe-dias" style="cursor: pointer; user-select: none; white-space: nowrap;">Días disponible <i class="fa-solid fa-sort" id="icon-pe-dias" style="color: #6b7280; font-size: 11px; margin-left: 4px;"></i></th>
-                                    <th>Motivo</th>
-                                    <th>Estatus CRM</th>
+                                    <th id="th-pe-dias" style="cursor: pointer; user-select: none; white-space: nowrap; text-align: right;">Días disponible <i class="fa-solid fa-sort" id="icon-pe-dias" style="color: #6b7280; font-size: 11px; margin-left: 4px;"></i></th>
+                                    <th style="min-width: 180px;">Motivo</th>
+                                    <th style="text-align: center;">Estatus CRM</th>
                                 </tr>
                             </thead>
                             <tbody></tbody>
