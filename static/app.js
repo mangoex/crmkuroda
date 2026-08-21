@@ -250,6 +250,7 @@ const DOM = {
     sellerMiniProgress: document.getElementById("seller-mini-progress"),
     sellerMiniProgressPercent: document.getElementById("seller-mini-progress-percent"),
     sellerRecentActivity: document.getElementById("seller-recent-activity"),
+    sellerStrategicChannelsBars: document.getElementById("seller-strategic-channels-bars"),
     sellerChannelBars: document.getElementById("seller-channel-bars"),
     sellerTopClientsTable: document.getElementById("seller-top-clients-table"),
     sellerTopMaterialsTable: document.getElementById("seller-top-materials-table"),
@@ -2072,6 +2073,40 @@ async function renderSellerHomeDashboard({ metas, quotes, promociones, goalProgr
     await loadAndRenderSellerAnalytics();
 }
 
+const SELLER_STRATEGIC_CHANNELS = ["Apartados", "Kuroda Turbo", "Material D", "Promociones", "Market place"];
+
+function renderSellerStrategicChannels(canales) {
+    if (!DOM.sellerStrategicChannelsBars) return;
+    if (!canales || canales.length === 0) {
+        DOM.sellerStrategicChannelsBars.innerHTML = '<div class="seller-empty-row" style="grid-column: 1 / -1;">No hay focos comerciales configurados.</div>';
+        return;
+    }
+    DOM.sellerStrategicChannelsBars.innerHTML = canales.map(c => {
+        const isZero = Number(c.monto || 0) === 0;
+        const textStyle = isZero ? 'color: #ef4444 !important; font-weight: 700;' : '';
+        const dotBg = isZero ? '#ef4444' : (c.color || '#8b5cf6');
+        const barFill = isZero ? 0 : Math.min(100, Math.max(0, c.porcentaje));
+        return `
+            <div class="seller-strategic-chip" style="background: rgba(255,255,255,0.03); border: 1px solid ${isZero ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255,255,255,0.08)'}; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span class="seller-channel-label" style="font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; ${textStyle}">
+                        <span class="seller-channel-dot" style="background-color: ${dotBg}; width: 8px; height: 8px; border-radius: 50%; display: inline-block;"></span>
+                        <span style="${textStyle}">${escapeHTML(c.canal)}</span>
+                    </span>
+                    <span class="seller-channel-pct" style="font-size: 12px; font-weight: 700; ${textStyle}">${Number(c.porcentaje || 0).toFixed(1)}%</span>
+                </div>
+                <div class="seller-channel-bar-wrap" style="height: 6px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;">
+                    <div class="seller-channel-bar-fill" style="width: ${barFill}%; height: 100%; background-color: ${dotBg}; border-radius: 4px;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                    <span style="color: var(--text-muted); font-size: 11px;">${Number(c.cotizaciones || 0)} cotiz.</span>
+                    <span class="seller-channel-amount" style="font-weight: 700; ${textStyle}">${formatSellerMoney(c.monto)}</span>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
 function renderSellerChannelMetrics(canales) {
     if (!DOM.sellerChannelBars) return;
     if (!canales || canales.length === 0) {
@@ -2139,7 +2174,12 @@ async function loadAndRenderSellerAnalytics() {
         const periodParam = state.sellerGoalPeriod === "day" ? "dia" : state.sellerGoalPeriod === "week" ? "semana" : "mes";
         const res = await apiRequest(`/api/v1/analitica/vendedor/metricas?periodo=${periodParam}`);
         const data = res.data || {};
-        renderSellerChannelMetrics(data.canales || []);
+        
+        const strategic = data.canales_estrategicos || (data.canales || []).filter(c => SELLER_STRATEGIC_CHANNELS.includes(c.canal));
+        const logistic = data.canales_logisticos || (data.canales || []).filter(c => !SELLER_STRATEGIC_CHANNELS.includes(c.canal));
+        
+        renderSellerStrategicChannels(strategic);
+        renderSellerChannelMetrics(logistic);
         renderSellerTopClientsMetrics(data.clientes || []);
         renderSellerTopMaterialsMetrics(data.materiales || []);
     } catch (err) {

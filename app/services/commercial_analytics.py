@@ -24,6 +24,25 @@ CANONICAL_CHANNELS = (
     "Promociones",
 )
 
+STRATEGIC_CHANNELS = (
+    "Apartados",
+    "Kuroda Turbo",
+    "Material D",
+    "Promociones",
+    "Market place",
+)
+
+LOGISTIC_CHANNELS = (
+    "Envío a Domicilio",
+    "Entrega Inmediata",
+    "Pide y Recoge",
+    "Sobrepedido",
+    "Cte Reco en Otra Suc",
+    "Envío por Paquetería",
+    "Ocurre",
+    "Mercancía Resguardo",
+)
+
 
 def normalize_text(value: Any) -> str:
     text = unicodedata.normalize("NFKD", str(value or ""))
@@ -767,12 +786,17 @@ def build_seller_dashboard_metrics(
         })
     materiales_list.sort(key=lambda m: m["monto"], reverse=True)
 
+    canales_estrategicos = [c for c in canales_list if c["canal"] in STRATEGIC_CHANNELS]
+    canales_logisticos = [c for c in canales_list if c["canal"] in LOGISTIC_CHANNELS]
+
     return {
         "totales": {
             "venta_total": float(total_sales),
             "cotizaciones": len(quotes),
         },
         "canales": canales_list,
+        "canales_estrategicos": canales_estrategicos,
+        "canales_logisticos": canales_logisticos,
         "clientes": clientes_list[:10],
         "materiales": materiales_list[:10],
     }
