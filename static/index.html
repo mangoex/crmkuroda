@@ -1763,6 +1763,11 @@
                                         </button>
                                     </div>
                                 </div>
+                                <div style="display: flex; align-items: flex-end; margin-bottom: 2px;">
+                                    <button type="button" id="btn-filter-quotes-promo" class="btn btn-secondary" title="Filtrar cotizaciones con promociones activas" style="white-space: nowrap; padding: 10px 16px; font-weight: 700; border: 1px solid #f97316; color: #ea580c; background: #fff7ed;">
+                                        <i class="fa-solid fa-fire"></i> <span id="btn-filter-quotes-promo-label">Solo con Promoción</span>
+                                    </button>
+                                </div>
                             </div>
                             <div class="table-container" style="margin-top: 10px;">
                                 <table class="data-table" id="table-cotizaciones">
@@ -2842,6 +2847,40 @@
             </div>
             <div class="modal-footer">
                 <button type="button" id="btn-cancel-promo-clients" class="btn btn-secondary">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quote Promotion Detail Modal (Punto 9) -->
+    <div id="quote-promo-detail-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 800px; width: 95%;">
+            <div class="modal-header">
+                <div>
+                    <h3 style="margin: 0; font-size: 18px; color: #ea580c;"><i class="fa-solid fa-fire" style="margin-right: 8px;"></i>Materiales de Promoción en esta Cotización</h3>
+                    <div id="quote-promo-modal-subtitle" style="font-size: 13px; color: hsl(var(--text-secondary)); margin-top: 4px;">Detalle de ofertas activas para priorizar cierre</div>
+                </div>
+                <button id="btn-close-quote-promo-detail" class="btn-icon" type="button"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div class="table-container" style="max-height: 380px; overflow-y: auto;">
+                    <table class="data-table" id="quote-promo-detail-table">
+                        <thead>
+                            <tr>
+                                <th>Código Material</th>
+                                <th>Descripción</th>
+                                <th style="text-align: right;">Precio Promoción</th>
+                                <th>Vigencia</th>
+                                <th style="text-align: center;">Prioridad</th>
+                            </tr>
+                        </thead>
+                        <tbody id="quote-promo-detail-tbody">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-cancel-quote-promo-detail" class="btn btn-secondary">Cerrar</button>
             </div>
         </div>
     </div>

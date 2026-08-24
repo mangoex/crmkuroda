@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 import io
+import re
 import unicodedata
 from zoneinfo import ZoneInfo
 
@@ -188,6 +189,23 @@ async def _load_quote_enrichment(
         for item in detail_rows
         if normalize_text(item.codigo_material)
     }
+    if not item_codes:
+        for q in quotes:
+            raw_mat = str(getattr(q, "materiales_cotizados", "") or "")
+            if raw_mat:
+                for token in re.split(r"[,;\s/]+", raw_mat):
+                    cleaned = normalize_text(token)
+                    if cleaned:
+                        item_codes.add(cleaned)
+            raw_items = getattr(q, "items", None)
+            if isinstance(raw_items, list):
+                for it in raw_items:
+                    if isinstance(it, dict):
+                        prod = it.get("codigo_material") or it.get("producto") or it.get("sku") or it.get("descripcion")
+                        cleaned = normalize_text(prod)
+                        if cleaned:
+                            item_codes.add(cleaned)
+
     promotions = (
         (await db.execute(select(Promocion))).scalars().all()
         if item_codes
@@ -320,6 +338,7 @@ async def list_cotizaciones(
     edad_min_dias: Optional[int] = Query(default=None, ge=0),
     edad_max_dias: Optional[int] = Query(default=None, ge=0),
     sin_vincular: bool = Query(default=False),
+    solo_promociones: bool = Query(default=False),
     estado: str = Query(default="all"),
     vista: str = Query(default="completa"),
     orden: str = Query(default="desc"),
@@ -516,6 +535,10 @@ async def list_cotizaciones(
         )
         for c in cotizaciones
     ]
+
+    if solo_promociones:
+        data = [d for d in data if d.get("tiene_promocion") is True]
+        total = len(data)
 
     payload = {
         "status": "success",

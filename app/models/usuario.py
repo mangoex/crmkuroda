@@ -10,7 +10,7 @@ class Usuario(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    rol = Column(String, nullable=False)  # 'admin', 'gerente', 'vendedor', 'soporte'
+    rol = Column(String, nullable=False)  # 'admin', 'gerente', 'vendedor', 'soporte', 'compras', 'logistica', 'marketing'
     telefono_whatsapp = Column(String, unique=False, index=True, nullable=True)
     codigo_vendedor = Column(String, unique=True, index=True, nullable=True)  # e.g., 'C01'
     nombre_completo = Column(String, nullable=True)

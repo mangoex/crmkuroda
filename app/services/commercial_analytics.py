@@ -458,6 +458,23 @@ def promotion_priority(
         for item in items
         if normalize_text(getattr(item, "codigo_material", None))
     }
+
+    # Fallback to materials text or JSON items if item_codes is empty
+    if not item_codes:
+        raw_mat = str(getattr(quote, "materiales_cotizados", "") or "")
+        if raw_mat:
+            for token in re.split(r"[,;\s/]+", raw_mat):
+                cleaned = normalize_text(token)
+                if cleaned:
+                    item_codes.add(cleaned)
+        raw_items = getattr(quote, "items", None)
+        if isinstance(raw_items, list):
+            for it in raw_items:
+                if isinstance(it, dict):
+                    prod = it.get("codigo_material") or it.get("producto") or it.get("sku") or it.get("descripcion")
+                    cleaned = normalize_text(prod)
+                    if cleaned:
+                        item_codes.add(cleaned)
     matches = []
     minimum_days = None
     for promotion in promotions:

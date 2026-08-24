@@ -199,6 +199,9 @@ const state = {
 // Se usa tanto en initSession() (visibilidad) como en switchSection() (guard).
 const ALLOWED_SECTIONS_BY_ROLE = {
     soporte: ["summary", "promociones", "inventario-abcf", "sobrepedidos", "por-entregar"],
+    compras: ["inventario-abcf", "sobrepedidos", "por-entregar"],
+    logistica: ["sobrepedidos", "por-entregar", "inventario-abcf"],
+    marketing: ["promociones", "summary"],
 };
 
 // UI Selectors
@@ -606,6 +609,12 @@ const DOM = {
     promoClientsInfo: document.getElementById("promo-clients-info"),
     promoClientsTable: document.querySelector("#promo-clients-table tbody"),
 
+    btnFilterQuotesPromo: document.getElementById("btn-filter-quotes-promo"),
+    btnFilterQuotesPromoLabel: document.getElementById("btn-filter-quotes-promo-label"),
+    quotePromoDetailModal: document.getElementById("quote-promo-detail-modal"),
+    btnCloseQuotePromoDetail: document.getElementById("btn-close-quote-promo-detail"),
+    btnCancelQuotePromoDetail: document.getElementById("btn-cancel-quote-promo-detail"),
+
     addReminderModal: document.getElementById("add-reminder-modal"),
     btnCloseAddReminder: document.getElementById("btn-close-add-reminder"),
     btnCancelAddReminder: document.getElementById("btn-cancel-add-reminder"),
@@ -758,8 +767,9 @@ async function initSession() {
         // Always load the main dashboard and wait for its data before
         // considering the session ready. This prevents stale data from the
         // previously viewed user/section from remaining visible.
-        state.currentSection = "summary";
-        await switchSection("summary");
+        const initialSec = (allowedSections && !allowedSections.includes("summary")) ? allowedSections[0] : "summary";
+        state.currentSection = initialSec;
+        await switchSection(initialSec);
         await loadPendingReminders();
     } else {
         DOM.authContainer?.classList.remove("hidden");
@@ -842,7 +852,7 @@ async function switchSection(sectionId) {
     // que también aplique si ALLOWED_SECTIONS_BY_ROLE cambia en el futuro).
     const _allowedForRole = ALLOWED_SECTIONS_BY_ROLE && ALLOWED_SECTIONS_BY_ROLE[state.user && state.user.rol];
     if (_allowedForRole && !_allowedForRole.includes(sectionId)) {
-        sectionId = "summary";
+        sectionId = _allowedForRole[0] || "summary";
     }
 
     state.currentSection = sectionId;
@@ -2718,6 +2728,37 @@ function populateSobrepedidosSelect(select, values) {
     select.value = currentValue;
 }
 
+function buildCustomerContactDisplay(item, contextType = "pedido") {
+    const clientName = escapeHTML(item.cliente_nombre || "-");
+    const numDisplay = item.numero_cliente ? `<small class="text-muted" style="display:block; font-size:11px;"># ${escapeHTML(item.numero_cliente)}</small>` : "";
+    let actionsHtml = "";
+
+    const contact = item.contacto || {};
+    const phone = contact.celular || contact.telefono;
+    if (phone) {
+        const cleanPhone = String(phone).replace(/[^\d+]/g, "");
+        const formattedPhone = cleanPhone.startsWith("+") ? cleanPhone.replace("+", "") : (cleanPhone.length === 10 ? `52${cleanPhone}` : cleanPhone);
+        const sku = item.producto_sku || "";
+        const desc = item.producto_desc || "";
+        const folio = item.factura || item.id_pedido_erp || "";
+        const message = `Hola ${item.cliente_nombre || 'Cliente'}, le saludo de Casa Kuroda respecto a su ${contextType} (${folio ? 'Folio: ' + folio : ''}) del producto ${sku} ${desc}. ¿En qué podemos apoyarle?`;
+        const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
+
+        actionsHtml = `
+            <div style="display:inline-flex; align-items:center; gap:4px; margin-top:2px;">
+                <a href="${waUrl}" target="_blank" rel="noopener" class="btn btn-sm" style="padding:1px 6px; font-size:10px; font-weight:700; background:#22c55e; color:white; border-radius:4px; text-decoration:none; display:inline-flex; align-items:center; gap:3px;" title="Enviar WhatsApp a ${escapeHTML(phone)}">
+                    <i class="fa-brands fa-whatsapp"></i> WA
+                </a>
+                <a href="tel:${cleanPhone}" class="text-muted" style="font-size:11px; text-decoration:none;" title="Llamar al cliente">
+                    <i class="fa-solid fa-phone"></i> ${escapeHTML(phone)}
+                </a>
+            </div>
+        `;
+    }
+
+    return `<div style="min-width:140px;"><strong>${clientName}</strong>${numDisplay}${actionsHtml}</div>`;
+}
+
 async function loadSobrepedidosData(forceRefresh = false) {
     const searchTerm = DOM.filterSobrepedidosSearch ? DOM.filterSobrepedidosSearch.value.toLowerCase() : "";
     const proveedorFilter = DOM.filterSobrepedidosProveedor ? DOM.filterSobrepedidosProveedor.value : "todos";
@@ -2844,7 +2885,7 @@ async function loadSobrepedidosData(forceRefresh = false) {
             tr.innerHTML = [
                 `<td style="white-space: nowrap;">${escapeHTML(facturaText)}</td>`,
                 `<td style="white-space: nowrap;">${dateDisplay}</td>`,
-                `<td class="col-truncate" title="${escapeHTML(item.cliente_nombre || '')}">${escapeHTML(item.cliente_nombre || '-')}</td>`,
+                `<td>${buildCustomerContactDisplay(item, "sobrepedido")}</td>`,
                 `<td style="white-space: nowrap;">${escapeHTML(vendedorText)}</td>`,
                 `<td style="white-space: nowrap;"><code>${escapeHTML(item.producto_sku || '-')}</code></td>`,
                 `<td class="col-truncate-lg" title="${escapeHTML(item.producto_desc || '')}">${escapeHTML(item.producto_desc || '-')}</td>`,
@@ -3078,7 +3119,7 @@ async function loadPorEntregarData(forceRefresh = false) {
                     `<td style="text-align: right; font-weight: 700; color: hsl(var(--primary)); white-space: nowrap;">${formatNumber(totalQty)}</td>`,
                     `<td style="white-space: nowrap;">${escapeHTML(firstItem.vendedor_codigo || firstItem.vendedor_nombre || "")}</td>`,
                     `<td style="white-space: nowrap;">${escapeHTML(firstItem.numero_cliente || '-')}</td>`,
-                    `<td class="col-truncate" title="${escapeHTML(firstItem.cliente_nombre || '')}"><strong>${escapeHTML(firstItem.cliente_nombre || '-')}</strong></td>`,
+                    `<td>${buildCustomerContactDisplay(firstItem, "entrega pendiente")}</td>`,
                     `<td style="white-space: nowrap;">${escapeHTML(firstItem.fecha_disponibilidad || "-")}</td>`,
                     `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${firstItem.dias_disponible ?? "-"}</td>`,
                     `<td class="col-truncate-lg" style="color: #64748b; font-size: 12px;">${escapeHTML(group.items.map(i => i.motivo_estado).filter(Boolean).slice(0, 2).join(", ") || "-")}</td>`,
@@ -3106,7 +3147,7 @@ async function loadPorEntregarData(forceRefresh = false) {
                         `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_entregar || 0)}</td>`,
                         `<td style="white-space: nowrap;">${escapeHTML(item.vendedor_codigo || item.vendedor_nombre || "")}</td>`,
                         `<td style="white-space: nowrap;">${escapeHTML(item.numero_cliente || '-')}</td>`,
-                        `<td class="col-truncate" title="${escapeHTML(item.cliente_nombre || '')}">${escapeHTML(item.cliente_nombre || '-')}</td>`,
+                        `<td>${buildCustomerContactDisplay(item, "entrega pendiente")}</td>`,
                         `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
                         `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
                         `<td class="col-truncate-lg" title="${escapeHTML(item.motivo_estado || '')}">${escapeHTML(item.motivo_estado || '-')}</td>`,
@@ -3133,7 +3174,7 @@ async function loadPorEntregarData(forceRefresh = false) {
                     `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_entregar || 0)}</td>`,
                     `<td style="white-space: nowrap;">${escapeHTML(item.vendedor_codigo || item.vendedor_nombre || "")}</td>`,
                     `<td style="white-space: nowrap;">${escapeHTML(item.numero_cliente || '-')}</td>`,
-                    `<td class="col-truncate" title="${escapeHTML(item.cliente_nombre || '')}">${escapeHTML(item.cliente_nombre || '-')}</td>`,
+                    `<td>${buildCustomerContactDisplay(item, "entrega pendiente")}</td>`,
                     `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
                     `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
                     `<td class="col-truncate-lg" title="${escapeHTML(item.motivo_estado || '')}">${escapeHTML(item.motivo_estado || '-')}</td>`,
@@ -3645,6 +3686,7 @@ async function loadCotizacionesData(forceRefresh = true) {
     }
     if (seller === "__unlinked__") params.set("sin_vincular", "true");
     if (seller && seller !== "__unlinked__") params.set("vendedor_id", seller);
+    if (state.quotePromoOnly) params.set("solo_promociones", "true");
 
     const endpoint = `/api/v1/cotizaciones/?${params.toString()}`;
     const res = await apiRequest(endpoint);
@@ -4370,9 +4412,18 @@ function renderQuotesTableFiltered() {
                 
             const clientDisplay = `<strong>${escapeHTML(c.cliente_nombre)}</strong>${c.numero_cliente ? `<br><a href="#" class="btn-client-history text-muted" style="font-size: 11px; text-decoration: underline;" data-cliente="${escapeHTML(c.numero_cliente)}"><i class="fa-solid fa-clock-rotate-left"></i> ${escapeHTML(c.numero_cliente)}</a>` : ''}`;
 
+            let promoBadgeHtml = "";
+            if (c.tiene_promocion === true) {
+                const priority = c.nivel_prioridad || "normal";
+                const badgeColor = priority === "alta" ? "#dc2626" : (priority === "media" ? "#ea580c" : "#0284c7");
+                const badgeBg = priority === "alta" ? "#fee2e2" : (priority === "media" ? "#ffedd5" : "#e0f2fe");
+                const label = priority === "alta" ? "Promo Urgente" : (priority === "media" ? "Promo Activa" : "Promoción");
+                promoBadgeHtml = `<br><button type="button" class="btn btn-sm btn-quote-promo-detail" data-id="${c.id}" style="padding: 2px 6px; font-size: 10px; font-weight: 700; background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeColor}; border-radius: 4px; margin-top: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Ver materiales en promoción"><i class="fa-solid fa-fire"></i> ${label}</button>`;
+            }
+
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td><code>${quoteNum}</code></td>
+                <td><code>${quoteNum}</code>${promoBadgeHtml}</td>
                 <td>${dateStr}</td>
                 <td>${clientDisplay}</td>
                 <td>${contactInfo}</td>
@@ -4398,6 +4449,16 @@ function renderQuotesTableFiltered() {
             DOM.tableCotizaciones.appendChild(tr);
         });
         
+        document.querySelectorAll(".btn-quote-promo-detail").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const id = btn.getAttribute("data-id");
+                const quote = (state.filteredQuotesForTable || state.cotizaciones || []).find(q => q.id === id);
+                if (quote) openQuotePromoDetailModal(quote);
+            });
+        });
+
         document.querySelectorAll(".lost-reason-btn").forEach(btn => {
             btn.addEventListener("click", () => {
                 const id = btn.getAttribute("data-id");
@@ -4423,6 +4484,44 @@ function renderQuotesTableFiltered() {
     }
     
     if (DOM.pagCotizaciones) { DOM.pagCotizaciones.innerHTML = pag.html; pag.bindEvents(); }
+}
+
+function openQuotePromoDetailModal(quote) {
+    const modal = document.getElementById("quote-promo-detail-modal");
+    const subtitle = document.getElementById("quote-promo-modal-subtitle");
+    const tbody = document.getElementById("quote-promo-detail-tbody");
+    if (!modal || !tbody) return;
+
+    const quoteNum = quote.numero_cotizacion || "Sin número";
+    const clientName = quote.cliente_nombre || "Cliente";
+    if (subtitle) {
+        subtitle.textContent = `Cotización: ${quoteNum} | Cliente: ${clientName}`;
+    }
+
+    const promos = quote.promociones_coincidentes || [];
+    tbody.innerHTML = "";
+    if (promos.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #64748b;">No se encontraron promociones coincidentes.</td></tr>`;
+    } else {
+        promos.forEach(p => {
+            const tr = document.createElement("tr");
+            const dias = p.dias_restantes !== undefined ? p.dias_restantes : "-";
+            const level = dias <= 3 ? "Urgente (≤3 días)" : (dias <= 7 ? "Media (≤7 días)" : "Normal");
+            const levelColor = dias <= 3 ? "#dc2626" : (dias <= 7 ? "#ea580c" : "#0284c7");
+            const price = p.precio_promocion ? `$${Number(p.precio_promocion).toLocaleString('es-MX', { minimumFractionDigits: 2 })}` : "-";
+
+            tr.innerHTML = `
+                <td><code>${escapeHTML(p.codigo_material || '-')}</code></td>
+                <td><strong>${escapeHTML(p.descripcion || '-')}</strong></td>
+                <td style="text-align: right; font-weight: 700; color: #16a34a;">${price}</td>
+                <td>${escapeHTML(p.valido_hasta || '-')} <small class="text-muted">(${dias}d restantes)</small></td>
+                <td style="text-align: center;"><span class="badge" style="background: ${levelColor}20; color: ${levelColor}; font-weight: 700;">${level}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    modal.classList.remove("hidden");
 }
 
 
@@ -6293,6 +6392,35 @@ if (DOM.searchClientHistoryInput) {
     });
 }
 
+
+function closeQuotePromoDetailModal() {
+    if (DOM.quotePromoDetailModal) DOM.quotePromoDetailModal.classList.add("hidden");
+}
+
+if (DOM.btnCloseQuotePromoDetail) DOM.btnCloseQuotePromoDetail.addEventListener("click", closeQuotePromoDetailModal);
+if (DOM.btnCancelQuotePromoDetail) DOM.btnCancelQuotePromoDetail.addEventListener("click", closeQuotePromoDetailModal);
+if (DOM.quotePromoDetailModal) {
+    DOM.quotePromoDetailModal.addEventListener("click", (e) => {
+        if (e.target === DOM.quotePromoDetailModal) closeQuotePromoDetailModal();
+    });
+}
+
+if (DOM.btnFilterQuotesPromo) {
+    DOM.btnFilterQuotesPromo.addEventListener("click", () => {
+        state.quotePromoOnly = !state.quotePromoOnly;
+        if (state.quotePromoOnly) {
+            DOM.btnFilterQuotesPromo.style.background = "#ea580c";
+            DOM.btnFilterQuotesPromo.style.color = "#ffffff";
+            if (DOM.btnFilterQuotesPromoLabel) DOM.btnFilterQuotesPromoLabel.textContent = "Mostrando Promociones (Filtro Activo)";
+        } else {
+            DOM.btnFilterQuotesPromo.style.background = "#fff7ed";
+            DOM.btnFilterQuotesPromo.style.color = "#ea580c";
+            if (DOM.btnFilterQuotesPromoLabel) DOM.btnFilterQuotesPromoLabel.textContent = "Solo con Promoción";
+        }
+        state.quotesCurrentPage = 1;
+        loadCotizacionesData(true);
+    });
+}
 
 // --- HU-3: POTENTIAL CLIENTS FOR PROMOTION MODAL ---
 async function openPromoClientsModal(promoId) {

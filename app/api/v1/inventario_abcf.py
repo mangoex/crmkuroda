@@ -14,7 +14,7 @@ from app.services.actualizaciones_datos import registrar_actualizacion_datos
 
 router = APIRouter()
 
-require_admin = RoleChecker(["admin", "gerente"])
+require_admin = RoleChecker(["admin", "gerente", "compras"])
 
 
 def _normalize_header(value) -> str:
