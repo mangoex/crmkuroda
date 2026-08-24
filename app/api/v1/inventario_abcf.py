@@ -94,14 +94,14 @@ async def upload_inventario(
                     "d",
                 ),
                 "codigo_material": _header_index(headers, "codigo material", "clave material", "codigo producto", "clave producto", "sku"),
-                "descripcion_material": _header_index(headers, "descripcion material", "descripcion producto", "descripcion", "producto"),
+                "descripcion_material": _header_index(headers, "descripcion del material", "descripcion material", "descripcion producto", "descripcion", "producto"),
                 "cantidad_propia": _header_index(headers, "cantidad propia", "cant propia", "inventario disponible", "existencia propia", "disponible"),
                 "existencia_consignacion": _header_index(headers, "existencia consignacion", "inv consig", "inventario consignacion", "existencia en consignacion de proveedore", "existencia en consignacion de proveedores"),
                 "entregas_pendientes": _header_index(headers, "entregas pendientes"),
                 "existencia_transito": _header_index(headers, "existencia transito", "transito"),
                 "existencia_bloqueada": _header_index(headers, "existencia bloqueada", "bloqueada"),
                 "existencia_control_calidad": _header_index(headers, "existencia control calidad", "control calidad"),
-                "umb": _header_index(headers, "umb", "unidad medida"),
+                "umb": _header_index(headers, "umb", "unidad medida", "unidad de medida base"),
                 "costo_promedio_unitario": _header_index(
                     headers,
                     "precio venta",
@@ -118,14 +118,17 @@ async def upload_inventario(
                     "precio promocion",
                 ),
                 "importe_inventario_propio": _header_index(headers, "importe inventario propio", "importe inv", "importe de inventario propio"),
-                "valor_consignacion_proveedor": _header_index(headers, "valor consignacion proveedor"),
+                "valor_consignacion_proveedor": _header_index(headers, "valor consignacion proveedor", "valor de consignacion proveedor"),
                 "ubicacion": _header_index(headers, "ubicacion", "localizacion"),
                 "grupo_materiales": _header_index(headers, "grupo materiales"),
                 "descrip_gpo_materiales": _header_index(headers, "descripcion grupo materiales", "descrip gpo materiales"),
                 "codigo_anterior_material": _header_index(headers, "codigo anterior material"),
-                "abc": _header_index(headers, "abc"),
+                "abc": _header_index(headers, "indicador abc", "abc"),
                 "fecha_ultimo_inventario": _header_index(headers, "fecha ultimo inventario", "fecha del ultimo inventario ciclico"),
             }
+
+            if indices["codigo_material"] is None or indices["centro"] is None:
+                continue
 
             iter_rows = ws.iter_rows(min_row=2, values_only=True)
             for row in iter_rows:

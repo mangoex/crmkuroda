@@ -48,6 +48,51 @@ class TestInventarioAbcfPricing(unittest.TestCase):
         resolved_price = costo_unitario_raw if costo_unitario_raw > 0 else (importe_propio / cant_propia if cant_propia > 0 else 0.0)
         self.assertEqual(resolved_price, 2733.30)
 
+    def test_parse_inventario_rows_extracts_prices_and_deduplicates(self):
+        """Verifica que el parser de libro openpyxl extraiga correctamente los precios y no duplique registros."""
+        from openpyxl import Workbook
+        from seed_inventario import parse_inventario_rows_from_workbook
+
+        wb = Workbook()
+        ws1 = wb.active
+        ws1.title = "Sheet1"
+        ws1.append([
+            "Nombre Centro", "Almacen", "Numero de Proveedor", "Nombre del Proveedor",
+            "ABC+F", "Codigo Material", "Descripcion Material", "Cantidad Propia",
+            "Existencia en Consignacion de Proveedore", "Entregas Pendientes", "Existencia en Transito",
+            "Existencia Bloqueada", "Existencia Control Calidad", "UMB", "Costo Promedio Unitario",
+            "Importe de Inventario Propio", "Valor de Consignacion Proveedor", "Ubicacion",
+            "Grupo Materiales", "Descrip Gpo Materiales", "Codigo Anterior Material", "ABC", "Fecha del Ultimo Inventario Ciclico"
+        ])
+        ws1.append([
+            "MKS CASA KURODA", "MA01", "100004", "MOEN DE MEXICO S.A DE C.V.",
+            "D6", "102565", "MANERAL P/MON MONTICELLO CROMO MOEN", 5,
+            0, 0, 0, 0, 0, "PZA", 450.87, 2254.35, 0, "C49", "22", "REFACCIONES", "DES", "D", None
+        ])
+
+        # Hoja duplicada (ej. Material D Ck Matriz)
+        ws2 = wb.create_sheet(title="Material D Ck Matriz.")
+        ws2.append([
+            "Nombre Centro", "Almacen", "Numero de Proveedor", "Nombre del Proveedor",
+            "ABC+F", "Codigo Material", "Descripcion Material", "Cantidad Propia",
+            "Existencia en Consignacion de Proveedore", "Entregas Pendientes", "Existencia en Transito",
+            "Existencia Bloqueada", "Existencia Control Calidad", "UMB", "Costo Promedio Unitario",
+            "Importe de Inventario Propio", "Valor de Consignacion Proveedor", "Ubicacion",
+            "Grupo Materiales", "Descrip Gpo Materiales", "Codigo Anterior Material", "ABC", "Fecha del Ultimo Inventario Ciclico"
+        ])
+        ws2.append([
+            "MKS CASA KURODA", "MA01", "100004", "MOEN DE MEXICO S.A DE C.V.",
+            "D6", "102565", "MANERAL P/MON MONTICELLO CROMO MOEN", 5,
+            0, 0, 0, 0, 0, "PZA", 450.87, 2254.35, 0, "C49", "22", "REFACCIONES", "DES", "D", None
+        ])
+
+        records = parse_inventario_rows_from_workbook(wb)
+        self.assertEqual(len(records), 1, "Debe deduplicar filas idénticas entre hojas")
+        self.assertEqual(records[0]["codigo_material"], "102565")
+        self.assertEqual(records[0]["costo_promedio_unitario"], 450.87)
+        self.assertEqual(records[0]["importe_inventario_propio"], 2254.35)
+        self.assertEqual(records[0]["ubicacion"], "C49")
+
 
 if __name__ == "__main__":
     unittest.main()
