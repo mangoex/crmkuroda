@@ -191,13 +191,13 @@ async def _load_quote_enrichment(
     }
     if not item_codes:
         for q in quotes:
-            raw_mat = str(getattr(q, "materiales_cotizados", "") or "")
+            raw_mat = str(q.__dict__.get("materiales_cotizados") or "") if hasattr(q, "__dict__") else str(getattr(q, "materiales_cotizados", "") or "")
             if raw_mat:
                 for token in re.split(r"[,;\s/]+", raw_mat):
                     cleaned = normalize_text(token)
                     if cleaned:
                         item_codes.add(cleaned)
-            raw_items = getattr(q, "items", None)
+            raw_items = q.__dict__.get("items") if hasattr(q, "__dict__") else getattr(q, "items", None)
             if isinstance(raw_items, list):
                 for it in raw_items:
                     if isinstance(it, dict):
@@ -500,6 +500,7 @@ async def list_cotizaciones(
                 Cotizacion.importe_facturado,
                 Cotizacion.venta_perdida,
                 Cotizacion.comentarios,
+                Cotizacion.materiales_cotizados,
             )
         )
     date_order = (

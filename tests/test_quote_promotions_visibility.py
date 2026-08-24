@@ -94,6 +94,20 @@ class TestQuotePromotionsVisibility(unittest.TestCase):
         res_exp = promotion_priority(expired_quote, items, promos, self.today, quote_valid_days=30)
         self.assertFalse(res_exp["tiene_promocion"])
 
+    def test_safe_attribute_access_without_lazy_load_error(self):
+        """Si el objeto de cotización no tiene items o materiales_cotizados cargados, no genera excepción."""
+        class RestrictedQuote:
+            def __init__(self, today):
+                self.__dict__ = {"fecha_registro": today}
+            def __getattr__(self, name):
+                raise RuntimeError(f"Lazy load triggered for {name}")
+
+        quote = RestrictedQuote(self.today)
+        items = []
+        promos = [self.valid_promo_high]
+        result = promotion_priority(quote, items, promos, self.today, quote_valid_days=30)
+        self.assertFalse(result["tiene_promocion"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -438,6 +438,12 @@ def build_seller_performance(
     return sorted(data, key=lambda row: row["venta_facturada"], reverse=True)
 
 
+def _safe_get(obj: Any, key: str, default: Any = None) -> Any:
+    if hasattr(obj, "__dict__"):
+        return obj.__dict__.get(key, default)
+    return getattr(obj, key, default)
+
+
 def promotion_priority(
     quote: Any,
     items: Iterable[Any],
@@ -445,29 +451,29 @@ def promotion_priority(
     today: date,
     quote_valid_days: int = 30,
 ) -> dict[str, Any]:
-    if getattr(quote, "numero_factura", None):
+    if _safe_get(quote, "numero_factura"):
         return {"tiene_promocion": False, "nivel_prioridad": None, "promociones_coincidentes": []}
-    if normalize_text(getattr(quote, "venta_perdida", None)) == "SI":
+    if normalize_text(_safe_get(quote, "venta_perdida")) == "SI":
         return {"tiene_promocion": False, "nivel_prioridad": None, "promociones_coincidentes": []}
-    registered = getattr(quote, "fecha_registro", None)
+    registered = _safe_get(quote, "fecha_registro")
     if registered and (today - registered).days > quote_valid_days:
         return {"tiene_promocion": False, "nivel_prioridad": None, "promociones_coincidentes": []}
 
     item_codes = {
-        normalize_text(getattr(item, "codigo_material", None))
+        normalize_text(_safe_get(item, "codigo_material"))
         for item in items
-        if normalize_text(getattr(item, "codigo_material", None))
+        if normalize_text(_safe_get(item, "codigo_material"))
     }
 
     # Fallback to materials text or JSON items if item_codes is empty
     if not item_codes:
-        raw_mat = str(getattr(quote, "materiales_cotizados", "") or "")
+        raw_mat = str(_safe_get(quote, "materiales_cotizados", "") or "")
         if raw_mat:
             for token in re.split(r"[,;\s/]+", raw_mat):
                 cleaned = normalize_text(token)
                 if cleaned:
                     item_codes.add(cleaned)
-        raw_items = getattr(quote, "items", None)
+        raw_items = _safe_get(quote, "items")
         if isinstance(raw_items, list):
             for it in raw_items:
                 if isinstance(it, dict):
