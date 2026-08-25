@@ -9,7 +9,7 @@ import openpyxl
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import and_, case, delete, func, or_
+from sqlalchemy import and_, case, delete, func, insert, or_
 from sqlalchemy.orm import load_only
 from uuid import UUID, uuid4
 from typing import Optional
@@ -1676,25 +1676,23 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                     for it_data in q_data["items_data"]:
                         it_fac_qty = Decimal("1.000") if v_info.get("numero_factura") else Decimal("0.000")
                         it_fac_amt = it_data["precio_venta"] if v_info.get("numero_factura") else Decimal("0.00")
-                        items_to_add.append(
-                            CotizacionItem(
-                                id=uuid4(),
-                                cotizacion_id=target_quote_id,
-                                codigo_material=it_data["codigo_material"],
-                                descripcion=it_data["descripcion"],
-                                indicador_abcf=it_data["indicador_abcf"],
-                                unidad_medida=it_data["unidad_medida"],
-                                precio_venta=it_data["precio_venta"],
-                                cantidad_cotizada=it_data["cantidad_cotizada"],
-                                importe_cotizado=it_data["importe_cotizado"],
-                                cantidad_facturada=it_fac_qty,
-                                importe_facturado=it_fac_amt,
-                                es_promocion=it_data["es_promocion"],
-                                precio_promocion=it_data["precio_promocion"],
-                            )
-                        )
+                        items_to_add.append({
+                            "id": uuid4(),
+                            "cotizacion_id": target_quote_id,
+                            "codigo_material": it_data["codigo_material"],
+                            "descripcion": it_data["descripcion"],
+                            "indicador_abcf": it_data["indicador_abcf"],
+                            "unidad_medida": it_data["unidad_medida"],
+                            "precio_venta": it_data["precio_venta"],
+                            "cantidad_cotizada": it_data["cantidad_cotizada"],
+                            "importe_cotizado": it_data["importe_cotizado"],
+                            "cantidad_facturada": it_fac_qty,
+                            "importe_facturado": it_fac_amt,
+                            "es_promocion": it_data["es_promocion"],
+                            "precio_promocion": it_data["precio_promocion"],
+                        })
 
-                # Flush quotes
+                # Flush quotes in batches
                 await db.flush()
 
                 # Reemplazar partidas anteriores de las cotizaciones procesadas
@@ -1704,11 +1702,11 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                         chunk = quote_id_list[i : i + 1000]
                         await db.execute(delete(CotizacionItem).where(CotizacionItem.cotizacion_id.in_(chunk)))
 
-                # Insertar partidas en lotes
-                BATCH_SIZE = 2000
+                # Insertar partidas en lotes ultra-eficientes mediante Core insert
+                BATCH_SIZE = 5000
                 for i in range(0, len(items_to_add), BATCH_SIZE):
-                    db.add_all(items_to_add[i : i + BATCH_SIZE])
-                    await db.flush()
+                    chunk = items_to_add[i : i + BATCH_SIZE]
+                    await db.execute(insert(CotizacionItem), chunk)
 
             else:
                 # -------------------------------------------------------------

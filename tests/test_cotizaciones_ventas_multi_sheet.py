@@ -151,7 +151,9 @@ class FakeAsyncSession:
         self.commits = 0
         self.flushes = 0
 
-    async def execute(self, statement):
+    async def execute(self, statement, params=None):
+        if params and isinstance(params, list):
+            self.added_all_list.extend([CotizacionItem(**p) if isinstance(p, dict) else p for p in params])
         str_stmt = str(statement).lower()
         if "from promociones" in str_stmt:
             return FakeScalarResult(self.promos)
