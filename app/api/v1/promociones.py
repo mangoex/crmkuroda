@@ -15,7 +15,11 @@ from app.models.promocion import Promocion
 from app.models.usuario import Usuario
 from app.models.cotizacion import Cotizacion
 from app.models.cotizacion_detalle import CotizacionItem
-from app.services.commercial_analytics import find_clients_for_promotion, safe_phone_href
+from app.services.commercial_analytics import (
+    find_clients_for_promotion,
+    get_promociones_intelligence_summary,
+    safe_phone_href,
+)
 from app.services.jerarquia import get_ids_vendedores_visibles
 from app.services.actualizaciones_datos import registrar_actualizacion_datos
 
@@ -86,6 +90,13 @@ async def list_promociones(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Promocion))
     promociones = result.scalars().all()
     return {"status": "success", "data": [p.to_dict() for p in promociones]}
+
+
+@router.get("/rendimiento", status_code=status.HTTP_200_OK)
+async def get_promociones_rendimiento(db: AsyncSession = Depends(get_db)):
+    """Retorna métricas consolidadas de ventas y cotizaciones de materiales de promoción."""
+    summary = await get_promociones_intelligence_summary(db)
+    return {"status": "success", "data": summary}
 
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)

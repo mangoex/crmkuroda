@@ -1015,6 +1015,29 @@ async function loadSummaryData() {
         loadAdminAccessLog(),
         loadSummaryChannelSales(),
     ]);
+
+    // Load Promotion Sales & Real Margin Intelligence
+    try {
+        const promoRes = await fetch("/api/v1/promociones/rendimiento", {
+            headers: { "Authorization": `Bearer ${localStorage.getItem("crm_token")}` }
+        });
+        if (promoRes.ok) {
+            const promoJson = await promoRes.json();
+            const pData = promoJson.data || {};
+            const kpiPromo = document.getElementById("kpi-promo-sales");
+            const kpiMargen = document.getElementById("kpi-real-margin");
+            if (kpiPromo) {
+                kpiPromo.textContent = `$${Number(pData.total_monto_facturado_promo || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+            }
+            if (kpiMargen) {
+                const validMargenes = quotes.filter(q => q.margen != null && !isNaN(q.margen)).map(q => Number(q.margen));
+                const avgMargen = validMargenes.length > 0 ? (validMargenes.reduce((a, b) => a + b, 0) / validMargenes.length) : 0;
+                kpiMargen.textContent = `${avgMargen.toFixed(1)}%`;
+            }
+        }
+    } catch (promoErr) {
+        console.warn("Error cargando KPIs de promociones:", promoErr);
+    }
     
     // Load Slight Edge summary tracking card
     await loadSlightEdgeSummaryWidget();
@@ -9121,7 +9144,35 @@ window.loadCatalogClients = loadCatalogClients;
 })();
 
 
-// --- COTIZACIONES UPLOAD LOGIC ---
+// --- PLANTILLA Y COTIZACIONES UPLOAD LOGIC ---
+async function downloadPlantillaCotizaciones() {
+    try {
+        showToast("Generando plantilla oficial de Cotizaciones y Ventas (2 Hojas)...", "info");
+        const token = localStorage.getItem("crm_token");
+        const response = await fetch("/api/v1/cotizaciones/plantilla", {
+            headers: {
+                "Authorization": `Bearer ${token}`
+            }
+        });
+        if (!response.ok) {
+            throw new Error("No se pudo descargar la plantilla.");
+        }
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "Plantilla_Cotizaciones_Ventas_Kuroda.xlsx";
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+        showToast("Plantilla oficial descargada exitosamente.", "success");
+    } catch (err) {
+        showToast(err.message || "Error al descargar la plantilla.", "error");
+    }
+}
+window.downloadPlantillaCotizaciones = downloadPlantillaCotizaciones;
+
 document.addEventListener("DOMContentLoaded", () => {
     const fileUploadCotizaciones = document.getElementById("file-upload-cotizaciones");
     if (fileUploadCotizaciones) {
@@ -9133,10 +9184,12 @@ document.addEventListener("DOMContentLoaded", () => {
             formData.append("file", file);
 
             const btnUpload = document.getElementById("btn-upload-cotizaciones");
-            const originalHtml = btnUpload.innerHTML;
-            btnUpload.disabled = true;
-            btnUpload.innerHTML = 'Cargando... <i class="fa-solid fa-spinner animate-spin"></i>';
-            showToast("Procesando archivo de cotizaciones (60k+ filas), esto puede tomar unos segundos...", "info");
+            const originalHtml = btnUpload ? btnUpload.innerHTML : "";
+            if (btnUpload) {
+                btnUpload.disabled = true;
+                btnUpload.innerHTML = 'Cargando... <i class="fa-solid fa-spinner animate-spin"></i>';
+            }
+            showToast("Procesando archivo multi-hoja de Cotizaciones y Ventas (>200k registros), esto puede tomar unos momentos...", "info");
 
             try {
                 const response = await fetch("/api/v1/cotizaciones/upload", {

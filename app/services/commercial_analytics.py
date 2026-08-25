@@ -885,3 +885,127 @@ def calculate_seller_period_metrics(
         "conversion_rate": conversion_rate,
     }
 
+
+async def get_promociones_intelligence_summary(db: Any) -> dict[str, Any]:
+    """Calcula métricas de inteligencia comercial sobre productos en promoción cruzando cotizaciones y facturación."""
+    from sqlalchemy.future import select
+    from app.models.cotizacion import Cotizacion
+    from app.models.cotizacion_detalle import CotizacionItem
+    from app.models.promocion import Promocion
+
+    # Obtener partidas de promoción
+    promo_items_res = await db.execute(
+        select(CotizacionItem, Cotizacion)
+        .join(Cotizacion, CotizacionItem.cotizacion_id == Cotizacion.id)
+        .where(CotizacionItem.es_promocion == True)  # noqa: E712
+    )
+    promo_records = promo_items_res.all()
+
+    quotes_seen: set[Any] = set()
+    invoiced_quotes_seen: set[Any] = set()
+    total_quoted_promo = Decimal("0")
+    total_invoiced_promo = Decimal("0")
+
+    sku_stats: dict[str, dict[str, Any]] = {}
+    seller_stats: dict[str, dict[str, Any]] = {}
+
+    for item, quote in promo_records:
+        quote_id = quote.id
+        quotes_seen.add(quote_id)
+
+        item_quoted = decimal_value(item.importe_cotizado or (item.precio_venta * (item.cantidad_cotizada or 1)))
+        total_quoted_promo += item_quoted
+
+        has_invoice = bool(quote.numero_factura) or decimal_value(quote.importe_facturado or 0) > 0
+        item_invoiced = Decimal("0")
+        if has_invoice:
+            invoiced_quotes_seen.add(quote_id)
+            item_invoiced = decimal_value(item.importe_facturado or item_quoted)
+            total_invoiced_promo += item_invoiced
+
+        # SKU stats
+        sku = item.codigo_material
+        if sku not in sku_stats:
+            sku_stats[sku] = {
+                "codigo_material": sku,
+                "descripcion": item.descripcion or sku,
+                "cotizaciones": 0,
+                "facturadas": 0,
+                "monto_cotizado": Decimal("0"),
+                "monto_facturado": Decimal("0"),
+            }
+        sku_stats[sku]["cotizaciones"] += 1
+        sku_stats[sku]["monto_cotizado"] += item_quoted
+        if has_invoice:
+            sku_stats[sku]["facturadas"] += 1
+            sku_stats[sku]["monto_facturado"] += item_invoiced
+
+        # Seller stats
+        seller = quote.vendedor_nombre or "Sin Asignar"
+        if seller not in seller_stats:
+            seller_stats[seller] = {
+                "vendedor": seller,
+                "cotizaciones_promo": 0,
+                "facturadas_promo": 0,
+                "monto_promo_facturado": Decimal("0"),
+            }
+        seller_stats[seller]["cotizaciones_promo"] += 1
+        if has_invoice:
+            seller_stats[seller]["facturadas_promo"] += 1
+            seller_stats[seller]["monto_promo_facturado"] += item_invoiced
+
+    total_quotes_count = len(quotes_seen)
+    invoiced_quotes_count = len(invoiced_quotes_seen)
+    conversion = (
+        round(float((Decimal(invoiced_quotes_count) / Decimal(total_quotes_count)) * Decimal("100")), 2)
+        if total_quotes_count > 0
+        else 0.0
+    )
+
+    top_skus = sorted(
+        [
+            {
+                "codigo_material": s["codigo_material"],
+                "descripcion": s["descripcion"],
+                "cotizaciones": s["cotizaciones"],
+                "facturadas": s["facturadas"],
+                "monto_cotizado": float(s["monto_cotizado"]),
+                "monto_facturado": float(s["monto_facturado"]),
+                "conversion": round(
+                    float((Decimal(s["facturadas"]) / Decimal(s["cotizaciones"])) * Decimal("100")), 2
+                )
+                if s["cotizaciones"] > 0
+                else 0.0,
+            }
+            for s in sku_stats.values()
+        ],
+        key=lambda x: x["monto_facturado"],
+        reverse=True,
+    )
+
+    top_sellers = sorted(
+        [
+            {
+                "vendedor": v["vendedor"],
+                "cotizaciones_promo": v["cotizaciones_promo"],
+                "facturadas_promo": v["facturadas_promo"],
+                "monto_promo_facturado": float(v["monto_promo_facturado"]),
+            }
+            for v in seller_stats.values()
+        ],
+        key=lambda x: x["monto_promo_facturado"],
+        reverse=True,
+    )
+
+    return {
+        "total_cotizaciones_con_promo": total_quotes_count,
+        "total_cotizaciones_promo_facturadas": invoiced_quotes_count,
+        "total_partidas_promo": len(promo_records),
+        "total_monto_cotizado_promo": float(total_quoted_promo),
+        "total_monto_facturado_promo": float(total_invoiced_promo),
+        "tasa_efectividad_promo": conversion,
+        "top_skus_promo": top_skus[:20],
+        "top_vendedores_promo": top_sellers[:15],
+    }
+
+

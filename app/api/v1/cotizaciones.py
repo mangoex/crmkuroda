@@ -6,7 +6,7 @@ import unicodedata
 from zoneinfo import ZoneInfo
 
 import openpyxl
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import and_, case, delete, func, or_
@@ -134,23 +134,32 @@ def serialize_cotizacion(
     vendedor_id = c.vendedor_id or resolved_vendedor_id
     enrichment = enrichment or {}
     contact_data = enrichment.get("datos_contacto") or normalize_contact(c.datos_contacto)
+    margen_val = getattr(c, "margen", None)
+    imp_fac_val = getattr(c, "importe_facturado", None)
+    fecha_reg_val = getattr(c, "fecha_registro", None)
+    fecha_fac_val = getattr(c, "fecha_factura", None)
+
     data = {
         "id": str(c.id),
         "vendedor_id": str(vendedor_id) if vendedor_id else None,
-        "vendedor_nombre": c.vendedor_nombre,
+        "vendedor_nombre": getattr(c, "vendedor_nombre", None),
         "vendedor_sin_vincular": vendedor_id is None,
-        "cliente_nombre": c.cliente_nombre,
-        "numero_cliente": c.numero_cliente,
+        "cliente_nombre": getattr(c, "cliente_nombre", None),
+        "numero_cliente": getattr(c, "numero_cliente", None),
         "datos_contacto": contact_data,
-        "total": float(c.total),
-        "numero_cotizacion": c.numero_cotizacion,
-        "fecha_registro": c.fecha_registro.isoformat() if c.fecha_registro else None,
-        "canal": c.canal,
-        "numero_factura": c.numero_factura,
-        "fecha_factura": c.fecha_factura.isoformat() if c.fecha_factura else None,
-        "importe_facturado": float(c.importe_facturado) if c.importe_facturado is not None else None,
-        "venta_perdida": c.venta_perdida,
-        "comentarios": c.comentarios,
+        "total": float(c.total) if hasattr(c, "total") and c.total is not None else 0.0,
+        "numero_cotizacion": getattr(c, "numero_cotizacion", None),
+        "fecha_registro": fecha_reg_val.isoformat() if fecha_reg_val else None,
+        "canal": getattr(c, "canal", None),
+        "numero_factura": getattr(c, "numero_factura", None),
+        "fecha_factura": fecha_fac_val.isoformat() if fecha_fac_val else None,
+        "hora_facturacion": getattr(c, "hora_facturacion", None),
+        "margen": float(margen_val) if margen_val is not None else None,
+        "grupo_vendedores": getattr(c, "grupo_vendedores", None),
+        "plazo_entrega": getattr(c, "plazo_entrega", None),
+        "importe_facturado": float(imp_fac_val) if imp_fac_val is not None else None,
+        "venta_perdida": getattr(c, "venta_perdida", None),
+        "comentarios": getattr(c, "comentarios", None),
         "comentarios_seguimiento_count": enrichment.get("comentarios_seguimiento_count", 0),
         "tiene_promocion": enrichment.get("tiene_promocion", False),
         "nivel_prioridad": enrichment.get("nivel_prioridad"),
@@ -281,12 +290,17 @@ async def _load_quote_enrichment(
                     "id": str(item.id),
                     "codigo_material": item.codigo_material,
                     "descripcion": item.descripcion,
+                    "indicador_abcf": item.indicador_abcf,
+                    "unidad_medida": item.unidad_medida,
+                    "precio_venta": float(item.precio_venta) if item.precio_venta is not None else 0.0,
                     "familia": item.familia,
                     "grupo_materiales": item.grupo_materiales,
                     "cantidad_cotizada": float(item.cantidad_cotizada),
                     "importe_cotizado": float(item.importe_cotizado),
                     "cantidad_facturada": float(item.cantidad_facturada),
                     "importe_facturado": float(item.importe_facturado),
+                    "es_promocion": bool(item.es_promocion),
+                    "precio_promocion": float(item.precio_promocion) if item.precio_promocion is not None else None,
                 }
                 for item in items
             ] if include_items_detail else [],
@@ -925,6 +939,145 @@ DETAIL_IMPORT_REQUIRED_HEADERS = {
     "importe_facturado": "IMPORTE FACTURADO",
 }
 
+MULTISHEET_VENTAS_REQUIRED_HEADERS = {
+    "fecha_factura": "FECHA DE FACTURA",
+    "numero_cliente": "NUMERO DEL CLIENTE",
+    "plazo_entrega": "PLAZO DE ENTREGA",
+    "nombre_cliente": "NOMBRE DEL CLIENTE",
+    "folio_cotizacion": "FOLIO COTIZACION",
+    "folio_factura": "FOLIO FACTURA",
+    "hora_facturacion": "HORA DE FACTURACION",
+    "margen": "MARGEN",
+    "grupo_vendedores": "GRUPO DE VENDEDORES",
+    "nombre_vendedor": "NOMBRE DEL VENDEDOR",
+    "canal_distribucion": "CANAL DE DISTRIBUCION",
+}
+
+MULTISHEET_COTIZACIONES_REQUIRED_HEADERS = {
+    "fecha_registro": "FECHA DE REGISTRO",
+    "organizacion_ventas": "ORGANIZACION DE VENTAS",
+    "numero_cotizacion": "NUMERO DE COTIZACION",
+    "indicador_abcf": "INDICADOR ABC+FRECUENCIA DE VENTA",
+    "codigo_material": "CODIGO DE MATERIAL",
+    "descripcion_material": "DESCRIPCION DEL MATERIAL",
+    "unidad_medida": "UNIDAD DE MEDIDA",
+    "precio_venta": "PRECIO DE VENTA",
+}
+
+
+def is_multi_sheet_quote_format(workbook) -> bool:
+    """Verifica si el archivo contiene las dos hojas del nuevo formato multi-hoja (Ventas y Cotizaciones)."""
+    sheet_names = [normalize_text(s) for s in workbook.sheetnames]
+    has_ventas = any("VENTA" in s for s in sheet_names)
+    has_cotizaciones = any("COTIZACION" in s for s in sheet_names)
+    return has_ventas and has_cotizaciones
+
+
+def generate_excel_template_bytes() -> bytes:
+    """Genera la plantilla oficial descargable en Excel con pestañas Ventas, Cotizaciones e Instrucciones."""
+    wb = openpyxl.Workbook()
+
+    # Hoja 1: Ventas
+    ws_v = wb.active
+    ws_v.title = "Ventas"
+    ws_v.append([
+        "Fecha de Factura",
+        "Numero del Cliente",
+        "Plazo de Entrega",
+        "Nombre del Cliente",
+        "Folio Cotizacion",
+        "Folio Factura",
+        "Hora de Facturacion",
+        "Margen",
+        "Grupo de Vendedores",
+        "Nombre del Vendedor",
+        "Canal de Distribucion",
+    ])
+    ws_v.append([
+        "2026-01-15",
+        "400191",
+        "ENTREGA INMEDIATA",
+        "PRODIVERSO CASA KURODA",
+        "416662481",
+        "1325607092",
+        "09:52:16",
+        33.52,
+        "C82",
+        "Aaron Emigdio Lechuga",
+        "01",
+    ])
+    ws_v.append([
+        "2026-01-15",
+        "400200",
+        "SOBREPEDIDO",
+        "CONSTRUCTORA DEL NORTE SA DE CV",
+        "416662488",
+        "1325607094",
+        "10:03:44",
+        24.40,
+        "C94",
+        "Jesus Manuel Chavez",
+        "01",
+    ])
+
+    # Hoja 2: Cotizaciones
+    ws_c = wb.create_sheet(title="Cotizaciones")
+    ws_c.append([
+        "Fecha de Registro",
+        "Organizacion de Ventas",
+        "Numero de Cotizacion",
+        "Indicador ABC+Frecuencia de Venta",
+        "Codigo de Material",
+        "Descripcion del Material",
+        "Unidad de Medida",
+        "Precio de Venta",
+    ])
+    ws_c.append([
+        "2026-01-02",
+        "MK01",
+        "416662481",
+        "C6",
+        "VMVP25",
+        "VAL PIE PICHANCHA 25MM VAL-MEX",
+        "PZA",
+        136.21,
+    ])
+    ws_c.append([
+        "2026-01-02",
+        "MK01",
+        "416662481",
+        "A1",
+        "TUBOPVC2",
+        "TUBO PVC HIDRAULICO 2 PULG",
+        "TRAMO",
+        210.50,
+    ])
+    ws_c.append([
+        "2026-01-02",
+        "MK01",
+        "416662488",
+        "D6",
+        "CSIAZU23NAV32",
+        "INSERTO AZUCENA 20X30 NAVIA BEIGE PZA",
+        "PZA",
+        42.24,
+    ])
+
+    # Hoja 3: Instrucciones
+    ws_i = wb.create_sheet(title="Instrucciones")
+    ws_i.append(["ESTRUCTURA Y GUÍA DE IMPORTACIÓN MULTI-HOJA"])
+    ws_i.append(["1. El archivo debe contener dos hojas principales: 'Ventas' y 'Cotizaciones'."])
+    ws_i.append(["2. Pestaña 'Ventas': Almacena la facturación emitida, clientes, margen real y canal."])
+    ws_i.append(["3. Pestaña 'Cotizaciones': Almacena el desglose por partida / concepto (SKU, descripción, precio unitario)."])
+    ws_i.append(["4. La columna 'Folio Cotizacion' en Ventas enlaza automáticamente con 'Numero de Cotizacion' en Cotizaciones."])
+    ws_i.append(["5. Las cotizaciones sin factura en Ventas se registran como cotizaciones vivas / en seguimiento."])
+    ws_i.append(["6. Los SKUs que coincidan con el catálogo de Promociones se clasificarán como ventas de promoción."])
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
 
 def _quote_import_column_indices(worksheet) -> dict[str, int]:
     """Resuelve el layout por encabezado y prioriza el canal del formato nuevo."""
@@ -1116,6 +1269,19 @@ async def upload_quote_material_detail(
     }
 
 
+@router.get("/plantilla", status_code=status.HTTP_200_OK)
+async def download_quote_template():
+    """Descarga la plantilla oficial multi-hoja (.xlsx) para importación de Cotizaciones y Ventas."""
+    content = generate_excel_template_bytes()
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": "attachment; filename=Plantilla_Cotizaciones_Ventas_Kuroda.xlsx"
+        },
+    )
+
+
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_cotizaciones(
     file: UploadFile = File(...),
@@ -1255,48 +1421,25 @@ async def update_cotizacion(
 async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
     from app.core.database import SessionLocal
     from app.models.cotizacion import Cotizacion
+    from app.models.cotizacion_detalle import CotizacionItem
     from app.models.usuario import Usuario
+    from app.models.promocion import Promocion
+    from app.models.cliente import Cliente
     from app.services.actualizaciones_datos import registrar_actualizacion_datos
     from sqlalchemy.future import select
     from sqlalchemy import delete
-    
+    from decimal import Decimal
+
     async with SessionLocal() as db:
         try:
             wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True, read_only=True)
-            ws, column_indices = _find_quote_worksheet(wb)
-            
-            users_res = await db.execute(select(Usuario))
-            users = users_res.scalars().all()
-            users_by_code = {
-                _normalize_seller_text(user.codigo_vendedor): user.id
-                for user in users
-                if _normalize_seller_text(user.codigo_vendedor)
-            }
-            users_by_name = _seller_ids_by_name(users)
-            
-            existing_quotes = (await db.execute(select(Cotizacion))).scalars().all()
-            existing_by_number: dict[str, Cotizacion] = {}
-            for existing in existing_quotes:
-                number = _excel_identifier(existing.numero_cotizacion)
-                if not number:
-                    continue
-                if number in existing_by_number:
-                    raise ValueError(
-                        f"El número de cotización {number} está duplicado en la base actual."
-                    )
-                existing_by_number[number] = existing
-            
-            synced_count = 0
-            new_quotes = []
-            seen_numbers: set[str] = set()
-            retained_ids: set[UUID] = set()
             
             def safe_float(v):
                 try:
                     return float(v) if v is not None else 0.0
-                except ValueError:
+                except (ValueError, TypeError):
                     return 0.0
-                    
+
             def safe_date(v):
                 if hasattr(v, 'date'):
                     return v.date()
@@ -1307,106 +1450,336 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                         pass
                 return v
 
-            iter_rows = ws.iter_rows(min_row=2, values_only=True)
-            
-            for row in iter_rows:
-                if not row:
-                    continue
-                num_cot_val = _excel_identifier(
-                    row[column_indices["numero_cotizacion"]]
-                )
-                if not num_cot_val:
-                    continue
+            users_res = await db.execute(select(Usuario))
+            users = users_res.scalars().all()
+            users_by_code = {
+                _normalize_seller_text(user.codigo_vendedor): user.id
+                for user in users
+                if _normalize_seller_text(user.codigo_vendedor)
+            }
+            users_by_name = _seller_ids_by_name(users)
 
-                fecha_reg = safe_date(row[column_indices["fecha_registro"]])
-                org_ventas = _excel_identifier(
-                    row[column_indices["organizacion_ventas"]]
-                )
-                canal_val = _excel_identifier(row[column_indices["canal"]])
-                vend_codigo = _excel_identifier(
-                    row[column_indices["vendedor_codigo"]]
-                )
-                vend_nombre = _excel_identifier(
-                    row[column_indices["vendedor_nombre"]]
-                )
-                num_cliente = _excel_identifier(
-                    row[column_indices["numero_cliente"]]
-                )
-                cliente_nombre = _excel_identifier(
-                    row[column_indices["cliente_nombre"]]
-                )
-                telefono = _excel_identifier(row[column_indices["telefono"]])
-                celular = _excel_identifier(row[column_indices["celular"]])
-                email = _excel_identifier(row[column_indices["email"]])
-                num_factura = _excel_identifier(
-                    row[column_indices["numero_factura"]]
-                )
-                fecha_fac = safe_date(row[column_indices["fecha_factura"]])
+            existing_quotes = (await db.execute(select(Cotizacion))).scalars().all()
+            existing_by_number: dict[str, Cotizacion] = {}
+            for existing in existing_quotes:
+                number = _excel_identifier(existing.numero_cotizacion)
+                if number:
+                    existing_by_number[number] = existing
 
-                importe_cot = safe_float(
-                    row[column_indices["importe_cotizado"]]
-                )
-                importe_fac = safe_float(
-                    row[column_indices["importe_facturado"]]
-                )
-                pct_importe = safe_float(
-                    row[column_indices["porcentaje_importe"]]
-                )
-                mat_cot = _excel_identifier(
-                    row[column_indices["materiales_cotizados"]]
-                )
-                mat_fac = _excel_identifier(
-                    row[column_indices["materiales_facturados"]]
-                )
-                pct_mat = safe_float(
-                    row[column_indices["porcentaje_materiales"]]
-                )
+            retained_ids: set[UUID] = set()
 
-                if num_cot_val in seen_numbers:
-                    raise ValueError(
-                        f"El número de cotización {num_cot_val} está duplicado en el Excel."
+            if is_multi_sheet_quote_format(wb):
+                # -------------------------------------------------------------
+                # NUEVO FORMATO MULTI-HOJA: Pestaña Ventas + Pestaña Cotizaciones
+                # -------------------------------------------------------------
+                ws_ventas = None
+                ws_cot = None
+                for ws in wb.worksheets:
+                    s_norm = normalize_text(ws.title)
+                    if "VENTA" in s_norm:
+                        ws_ventas = ws
+                    elif "COTIZACION" in s_norm:
+                        ws_cot = ws
+
+                if not ws_ventas or not ws_cot:
+                    raise ValueError("El archivo multi-hoja debe contener las pestañas 'Ventas' y 'Cotizaciones'.")
+
+                # Cargar catálogo de promociones
+                promos_res = await db.execute(select(Promocion))
+                promos = promos_res.scalars().all()
+                promos_by_code = {
+                    normalize_text(p.codigo_material): p
+                    for p in promos
+                    if p.codigo_material and normalize_text(p.codigo_material)
+                }
+
+                # Cargar clientes existentes para enriquecer datos de contacto
+                clients_res = await db.execute(select(Cliente))
+                clients = clients_res.scalars().all()
+                clients_by_num = {c.numero_cliente.strip(): c for c in clients if c.numero_cliente and c.numero_cliente.strip()}
+                clients_by_nom = {c.nombre.strip(): c for c in clients if c.nombre and c.nombre.strip()}
+
+                # Headers Cotizaciones
+                c_header_row = next(ws_cot.iter_rows(min_row=1, max_row=1, values_only=True), ())
+                c_headers = {normalize_text(val): idx for idx, val in enumerate(c_header_row) if val is not None}
+                cot_idx_fec = c_headers.get("FECHA DE REGISTRO", 0)
+                cot_idx_org = c_headers.get("ORGANIZACION DE VENTAS", 1)
+                cot_idx_num = c_headers.get("NUMERO DE COTIZACION", 2)
+                cot_idx_abc = c_headers.get("INDICADOR ABC+FRECUENCIA DE VENTA", 3)
+                cot_idx_sku = c_headers.get("CODIGO DE MATERIAL", c_headers.get("CODIGO MATERIAL", 4))
+                cot_idx_des = c_headers.get("DESCRIPCION DEL MATERIAL", c_headers.get("DESCRIPCION", 5))
+                cot_idx_udm = c_headers.get("UNIDAD DE MEDIDA", 6)
+                cot_idx_prc = c_headers.get("PRECIO DE VENTA", 7)
+
+                # Agrupar cotizaciones y partidas
+                quotes_data: dict[str, dict[str, Any]] = {}
+                for row in ws_cot.iter_rows(min_row=2, values_only=True):
+                    if not row:
+                        continue
+                    num_cot = _excel_identifier(row[cot_idx_num])
+                    if not num_cot:
+                        continue
+
+                    sku = _excel_identifier(row[cot_idx_sku])
+                    if not sku:
+                        continue
+
+                    precio = safe_float(row[cot_idx_prc])
+                    fecha_reg = safe_date(row[cot_idx_fec])
+                    org_v = _excel_identifier(row[cot_idx_org])
+                    abc = _excel_identifier(row[cot_idx_abc])
+                    desc = _excel_identifier(row[cot_idx_des])
+                    udm = _excel_identifier(row[cot_idx_udm])
+
+                    if num_cot not in quotes_data:
+                        quotes_data[num_cot] = {
+                            "numero_cotizacion": num_cot,
+                            "fecha_registro": fecha_reg,
+                            "organizacion_ventas": org_v,
+                            "total": Decimal("0.00"),
+                            "items_data": [],
+                        }
+
+                    sku_norm = normalize_text(sku)
+                    promo_match = promos_by_code.get(sku_norm)
+                    es_promo = promo_match is not None
+                    prc_promo = Decimal(str(promo_match.precio_promocion)) if promo_match and promo_match.precio_promocion else None
+
+                    dec_price = Decimal(str(round(precio, 2)))
+                    quotes_data[num_cot]["total"] += dec_price
+                    quotes_data[num_cot]["items_data"].append({
+                        "codigo_material": sku,
+                        "descripcion": desc,
+                        "indicador_abcf": abc,
+                        "unidad_medida": udm,
+                        "precio_venta": dec_price,
+                        "cantidad_cotizada": Decimal("1.000"),
+                        "importe_cotizado": dec_price,
+                        "es_promocion": es_promo,
+                        "precio_promocion": prc_promo,
+                    })
+
+                # Headers Ventas
+                v_header_row = next(ws_ventas.iter_rows(min_row=1, max_row=1, values_only=True), ())
+                v_headers = {normalize_text(val): idx for idx, val in enumerate(v_header_row) if val is not None}
+                v_idx_fec = v_headers.get("FECHA DE FACTURA", 0)
+                v_idx_cli_num = v_headers.get("NUMERO DEL CLIENTE", 1)
+                v_idx_plazo = v_headers.get("PLAZO DE ENTREGA", 2)
+                v_idx_cli_nom = v_headers.get("NOMBRE DEL CLIENTE", 3)
+                v_idx_cot_fol = v_headers.get("FOLIO COTIZACION", 4)
+                v_idx_fac_fol = v_headers.get("FOLIO FACTURA", 5)
+                v_idx_hora = v_headers.get("HORA DE FACTURACION", 6)
+                v_idx_margen = v_headers.get("MARGEN", 7)
+                v_idx_grp_vend = v_headers.get("GRUPO DE VENDEDORES", 8)
+                v_idx_vend_nom = v_headers.get("NOMBRE DEL VENDEDOR", 9)
+                v_idx_canal = v_headers.get("CANAL DE DISTRIBUCION", v_headers.get("CANAL", 10))
+
+                ventas_by_cot: dict[str, dict[str, Any]] = {}
+                for row in ws_ventas.iter_rows(min_row=2, values_only=True):
+                    if not row:
+                        continue
+                    fac_fol = _excel_identifier(row[v_idx_fac_fol])
+                    cot_fol = _excel_identifier(row[v_idx_cot_fol])
+                    if not fac_fol and not cot_fol:
+                        continue
+
+                    fec_fac = safe_date(row[v_idx_fec])
+                    cli_num = _excel_identifier(row[v_idx_cli_num])
+                    plazo = _excel_identifier(row[v_idx_plazo])
+                    cli_nom = _excel_identifier(row[v_idx_cli_nom]) or "Cliente General"
+
+                    hora_val = row[v_idx_hora]
+                    hora_str = str(hora_val) if hora_val is not None else None
+                    margen_val = safe_float(row[v_idx_margen])
+                    grp_vend = _excel_identifier(row[v_idx_grp_vend])
+                    vend_nom = _excel_identifier(row[v_idx_vend_nom])
+                    canal_val = _excel_identifier(row[v_idx_canal])
+
+                    v_info = {
+                        "fecha_factura": fec_fac,
+                        "numero_cliente": cli_num,
+                        "cliente_nombre": cli_nom,
+                        "plazo_entrega": plazo,
+                        "numero_factura": fac_fol,
+                        "hora_facturacion": hora_str,
+                        "margen": Decimal(str(round(margen_val, 3))),
+                        "grupo_vendedores": grp_vend,
+                        "vendedor_nombre": vend_nom,
+                        "canal": canal_val,
+                    }
+
+                    if cot_fol:
+                        ventas_by_cot[cot_fol] = v_info
+
+                all_processed_quote_ids: set[UUID] = set()
+                items_to_add: list[CotizacionItem] = []
+
+                for num_cot, q_data in quotes_data.items():
+                    v_info = ventas_by_cot.get(num_cot) or {}
+
+                    cli_nom = v_info.get("cliente_nombre") or "Cliente Desconocido"
+                    cli_num = v_info.get("numero_cliente")
+                    vend_nom = v_info.get("vendedor_nombre")
+                    vend_id = (
+                        users_by_name.get(_normalize_seller_text(vend_nom))
+                        if vend_nom else None
                     )
-                seen_numbers.add(num_cot_val)
 
-                vendedor_id = (
-                    users_by_code.get(_normalize_seller_text(vend_codigo))
-                    or users_by_name.get(_normalize_seller_text(vend_nombre))
-                )
+                    cli_obj = clients_by_num.get(cli_num) or clients_by_nom.get(cli_nom) if (cli_num or cli_nom) else None
+                    contact_data = {
+                        "email": cli_obj.email if cli_obj else None,
+                        "telefono": cli_obj.telefono if cli_obj else None,
+                        "celular": cli_obj.celular if cli_obj else None,
+                    }
 
-                datos_contacto = {
-                    "email": email,
-                    "telefono": telefono,
-                    "celular": celular
-                }
+                    importe_fac = q_data["total"] if v_info.get("numero_factura") else None
 
-                imported_values = {
-                    "numero_cotizacion": num_cot_val,
-                    "fecha_registro": fecha_reg,
-                    "organizacion_ventas": org_ventas,
-                    "canal": canal_val,
-                    "vendedor_id": vendedor_id,
-                    "vendedor_nombre": vend_nombre,
-                    "numero_cliente": num_cliente,
-                    "cliente_nombre": cliente_nombre or "Cliente Desconocido",
-                    "datos_contacto": datos_contacto,
-                    "items": [],
-                    "numero_factura": num_factura,
-                    "fecha_factura": fecha_fac,
-                    "total": importe_cot,
-                    "importe_facturado": importe_fac,
-                    "porcentaje_importe": pct_importe,
-                    "materiales_cotizados": mat_cot,
-                    "materiales_facturados": mat_fac,
-                    "porcentaje_materiales": pct_mat,
-                }
-                existing_quote = existing_by_number.get(num_cot_val)
-                if existing_quote is not None:
-                    _apply_imported_quote_values(existing_quote, imported_values)
-                    retained_ids.add(existing_quote.id)
-                else:
-                    new_quotes.append(Cotizacion(**imported_values))
-                synced_count += 1
-                    
+                    quote_fields = {
+                        "numero_cotizacion": num_cot,
+                        "fecha_registro": q_data["fecha_registro"],
+                        "organizacion_ventas": q_data["organizacion_ventas"],
+                        "vendedor_id": vend_id,
+                        "vendedor_nombre": vend_nom,
+                        "numero_cliente": cli_num,
+                        "cliente_nombre": cli_nom,
+                        "datos_contacto": contact_data,
+                        "items": [],
+                        "total": q_data["total"],
+                        "numero_factura": v_info.get("numero_factura"),
+                        "fecha_factura": v_info.get("fecha_factura"),
+                        "hora_facturacion": v_info.get("hora_facturacion"),
+                        "margen": v_info.get("margen"),
+                        "grupo_vendedores": v_info.get("grupo_vendedores"),
+                        "plazo_entrega": v_info.get("plazo_entrega"),
+                        "canal": v_info.get("canal"),
+                        "importe_facturado": importe_fac,
+                    }
+
+                    existing = existing_by_number.get(num_cot)
+                    if existing:
+                        _apply_imported_quote_values(existing, quote_fields)
+                        target_quote_id = existing.id
+                        retained_ids.add(existing.id)
+                    else:
+                        new_q = Cotizacion(**quote_fields)
+                        db.add(new_q)
+                        target_quote_id = new_q.id
+
+                    all_processed_quote_ids.add(target_quote_id)
+
+                    for it_data in q_data["items_data"]:
+                        it_fac_qty = Decimal("1.000") if v_info.get("numero_factura") else Decimal("0.000")
+                        it_fac_amt = it_data["precio_venta"] if v_info.get("numero_factura") else Decimal("0.00")
+                        items_to_add.append(
+                            CotizacionItem(
+                                cotizacion_id=target_quote_id,
+                                codigo_material=it_data["codigo_material"],
+                                descripcion=it_data["descripcion"],
+                                indicador_abcf=it_data["indicador_abcf"],
+                                unidad_medida=it_data["unidad_medida"],
+                                precio_venta=it_data["precio_venta"],
+                                cantidad_cotizada=it_data["cantidad_cotizada"],
+                                importe_cotizado=it_data["importe_cotizado"],
+                                cantidad_facturada=it_fac_qty,
+                                importe_facturado=it_fac_amt,
+                                es_promocion=it_data["es_promocion"],
+                                precio_promocion=it_data["precio_promocion"],
+                            )
+                        )
+
+                # Flush quotes
+                await db.flush()
+
+                # Reemplazar partidas anteriores de las cotizaciones procesadas
+                if all_processed_quote_ids:
+                    quote_id_list = list(all_processed_quote_ids)
+                    for i in range(0, len(quote_id_list), 1000):
+                        chunk = quote_id_list[i : i + 1000]
+                        await db.execute(delete(CotizacionItem).where(CotizacionItem.cotizacion_id.in_(chunk)))
+
+                # Insertar partidas en lotes
+                BATCH_SIZE = 2000
+                for i in range(0, len(items_to_add), BATCH_SIZE):
+                    db.add_all(items_to_add[i : i + BATCH_SIZE])
+                    await db.flush()
+
+            else:
+                # -------------------------------------------------------------
+                # FORMATO LEGADO (HOJA ÚNICA)
+                # -------------------------------------------------------------
+                ws, column_indices = _find_quote_worksheet(wb)
+                seen_numbers: set[str] = set()
+                new_quotes = []
+
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    if not row:
+                        continue
+                    num_cot_val = _excel_identifier(row[column_indices["numero_cotizacion"]])
+                    if not num_cot_val:
+                        continue
+
+                    if num_cot_val in seen_numbers:
+                        raise ValueError(f"El número de cotización {num_cot_val} está duplicado en el Excel.")
+                    seen_numbers.add(num_cot_val)
+
+                    fecha_reg = safe_date(row[column_indices["fecha_registro"]])
+                    org_ventas = _excel_identifier(row[column_indices["organizacion_ventas"]])
+                    canal_val = _excel_identifier(row[column_indices["canal"]])
+                    vend_codigo = _excel_identifier(row[column_indices["vendedor_codigo"]])
+                    vend_nombre = _excel_identifier(row[column_indices["vendedor_nombre"]])
+                    num_cliente = _excel_identifier(row[column_indices["numero_cliente"]])
+                    cliente_nombre = _excel_identifier(row[column_indices["cliente_nombre"]])
+                    telefono = _excel_identifier(row[column_indices["telefono"]])
+                    celular = _excel_identifier(row[column_indices["celular"]])
+                    email = _excel_identifier(row[column_indices["email"]])
+                    num_factura = _excel_identifier(row[column_indices["numero_factura"]])
+                    fecha_fac = safe_date(row[column_indices["fecha_factura"]])
+
+                    importe_cot = safe_float(row[column_indices["importe_cotizado"]])
+                    importe_fac = safe_float(row[column_indices["importe_facturado"]])
+                    pct_importe = safe_float(row[column_indices["porcentaje_importe"]])
+                    mat_cot = _excel_identifier(row[column_indices["materiales_cotizados"]])
+                    mat_fac = _excel_identifier(row[column_indices["materiales_facturados"]])
+                    pct_mat = safe_float(row[column_indices["porcentaje_materiales"]])
+
+                    vendedor_id = (
+                        users_by_code.get(_normalize_seller_text(vend_codigo))
+                        or users_by_name.get(_normalize_seller_text(vend_nombre))
+                    )
+
+                    imported_values = {
+                        "numero_cotizacion": num_cot_val,
+                        "fecha_registro": fecha_reg,
+                        "organizacion_ventas": org_ventas,
+                        "canal": canal_val,
+                        "vendedor_id": vendedor_id,
+                        "vendedor_nombre": vend_nombre,
+                        "numero_cliente": num_cliente,
+                        "cliente_nombre": cliente_nombre or "Cliente Desconocido",
+                        "datos_contacto": {"email": email, "telefono": telefono, "celular": celular},
+                        "items": [],
+                        "numero_factura": num_factura,
+                        "fecha_factura": fecha_fac,
+                        "total": Decimal(str(round(importe_cot, 2))),
+                        "importe_facturado": Decimal(str(round(importe_fac, 2))) if importe_fac else None,
+                        "porcentaje_importe": Decimal(str(round(pct_importe, 2))) if pct_importe else None,
+                        "materiales_cotizados": mat_cot,
+                        "materiales_facturados": mat_fac,
+                        "porcentaje_materiales": Decimal(str(round(pct_mat, 2))) if pct_mat else None,
+                    }
+                    existing_quote = existing_by_number.get(num_cot_val)
+                    if existing_quote is not None:
+                        _apply_imported_quote_values(existing_quote, imported_values)
+                        retained_ids.add(existing_quote.id)
+                    else:
+                        new_quotes.append(Cotizacion(**imported_values))
+
+                BATCH_SIZE = 1000
+                for i in range(0, len(new_quotes), BATCH_SIZE):
+                    db.add_all(new_quotes[i : i + BATCH_SIZE])
+                    await db.flush()
+
+            # Limpieza de registros obsoletos
             stale_ids = _stale_imported_quote_ids(existing_quotes, retained_ids)
             if stale_ids:
                 stale_list = list(stale_ids)
@@ -1414,24 +1787,14 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                     chunk = stale_list[i : i + 1000]
                     await db.execute(delete(Cotizacion).where(Cotizacion.id.in_(chunk)))
 
-            BATCH_SIZE = 1000
-            for i in range(0, len(new_quotes), BATCH_SIZE):
-                db.add_all(new_quotes[i : i + BATCH_SIZE])
-                if hasattr(db, "flush"):
-                    flush_res = db.flush()
-                    if hasattr(flush_res, "__await__"):
-                        await flush_res
-
             await registrar_actualizacion_datos(db, "cotizaciones", uploaded_by_id)
             await db.commit()
-            print(
-                "Background upload finished. "
-                f"Reconciled {synced_count} cotizaciones and preserved existing follow-up history."
-            )
+            print("Background upload finished successfully.")
             return None
-            
+
         except Exception as e:
             await db.rollback()
             err = f"Error procesando cotizaciones: {str(e)}"
             print(err)
             return err
+

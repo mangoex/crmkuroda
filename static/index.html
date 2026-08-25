@@ -380,7 +380,7 @@
                     </div>
 
                     <!-- KPI Cards -->
-                    <div id="summary-admin-kpis" class="kpi-grid">
+                    <div id="summary-admin-kpis" class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
                         <div class="glass-card kpi-card">
                             <div class="kpi-icon icon-blue">
                                 <i class="fa-solid fa-hand-holding-dollar"></i>
@@ -415,6 +415,24 @@
                             <div class="kpi-data">
                                 <h3>Vendedores Activos</h3>
                                 <p id="kpi-total-sellers">0</p>
+                            </div>
+                        </div>
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon" style="background: rgba(249, 115, 22, 0.15); color: #f97316;">
+                                <i class="fa-solid fa-fire"></i>
+                            </div>
+                            <div class="kpi-data">
+                                <h3>Ventas Promociones</h3>
+                                <p id="kpi-promo-sales">$0.00</p>
+                            </div>
+                        </div>
+                        <div class="glass-card kpi-card">
+                            <div class="kpi-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                                <i class="fa-solid fa-percent"></i>
+                            </div>
+                            <div class="kpi-data">
+                                <h3>Margen Real SAP</h3>
+                                <p id="kpi-real-margin">0.0%</p>
                             </div>
                         </div>
                     </div>
@@ -1442,8 +1460,9 @@
                                 <input type="file" id="file-upload-cotizaciones" accept=".xlsx" style="display: none;">
                                 <input type="file" id="file-upload-cotizacion-items" accept=".xlsx" style="display: none;">
                                 <div style="display: flex; gap: 8px;">
-                                    <button id="btn-upload-cotizaciones" class="btn btn-secondary" onclick="document.getElementById('file-upload-cotizaciones').click()"><i class="fa-solid fa-file-excel"></i> Cargar Excel</button>
-                                    <button id="btn-upload-cotizacion-items" class="btn btn-secondary btn-sm" onclick="document.getElementById('file-upload-cotizacion-items').click()"><i class="fa-solid fa-list"></i> Cargar detalle SKU</button>
+                                    <button id="btn-download-plantilla-cotizaciones" type="button" class="btn btn-secondary btn-sm" onclick="downloadPlantillaCotizaciones()"><i class="fa-solid fa-download"></i> Descargar Plantilla (2 Hojas)</button>
+                                    <button id="btn-upload-cotizaciones" type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('file-upload-cotizaciones').click()"><i class="fa-solid fa-file-excel"></i> Cargar Excel</button>
+                                    <button id="btn-upload-cotizacion-items" type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('file-upload-cotizacion-items').click()"><i class="fa-solid fa-list"></i> Cargar detalle SKU</button>
                                 </div>
                                 <small id="last-upload-cotizaciones" style="color: hsl(var(--text-muted)); font-size: 11px;">Última carga: sin registro</small>
                             </div>

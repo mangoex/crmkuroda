@@ -17,6 +17,10 @@ class CotizacionBase(BaseModel):
     canal: Optional[str] = None
     numero_factura: Optional[str] = None
     fecha_factura: Optional[date] = None
+    hora_facturacion: Optional[str] = None
+    margen: Optional[Decimal] = None
+    grupo_vendedores: Optional[str] = None
+    plazo_entrega: Optional[str] = None
     venta_perdida: Optional[str] = None
     comentarios: Optional[str] = None
 

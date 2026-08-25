@@ -20,12 +20,17 @@ class CotizacionItem(Base):
     )
     codigo_material = Column(String, nullable=False, index=True)
     descripcion = Column(String, nullable=True)
+    indicador_abcf = Column(String, nullable=True, index=True)
+    unidad_medida = Column(String, nullable=True)
+    precio_venta = Column(Numeric(precision=14, scale=2), nullable=False, default=0)
     familia = Column(String, nullable=True, index=True)
     grupo_materiales = Column(String, nullable=True, index=True)
-    cantidad_cotizada = Column(Numeric(precision=14, scale=3), nullable=False, default=0)
+    cantidad_cotizada = Column(Numeric(precision=14, scale=3), nullable=False, default=1)
     importe_cotizado = Column(Numeric(precision=14, scale=2), nullable=False, default=0)
     cantidad_facturada = Column(Numeric(precision=14, scale=3), nullable=False, default=0)
     importe_facturado = Column(Numeric(precision=14, scale=2), nullable=False, default=0)
+    es_promocion = Column(Boolean, nullable=False, default=False, index=True)
+    precio_promocion = Column(Numeric(precision=14, scale=2), nullable=True)
 
     cotizacion = relationship("Cotizacion", back_populates="items_detalle")
 
