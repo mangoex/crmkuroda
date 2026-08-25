@@ -14,6 +14,7 @@ from app.api.v1.cotizaciones import (
     process_excel_background,
     generate_excel_template_bytes,
     is_multi_sheet_quote_format,
+    serialize_cotizacion,
 )
 from app.services.commercial_analytics import get_promociones_intelligence_summary
 
@@ -282,3 +283,32 @@ class TestCotizacionesVentasMultiSheet(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(metrics["tasa_efectividad_promo"], 50.0)
         self.assertEqual(len(metrics["top_skus_promo"]), 1)
         self.assertEqual(metrics["top_skus_promo"][0]["codigo_material"], "SKU-PROMO-1")
+
+    def test_serialize_cotizacion_resumen_contains_all_multisheet_fields(self):
+        quote = Cotizacion(
+            id=uuid4(),
+            cliente_nombre="Cliente Test",
+            numero_cliente="12345",
+            datos_contacto={"telefono": "6671234567"},
+            total=Decimal("1500.00"),
+            numero_cotizacion="COT-TEST",
+            fecha_registro=date(2026, 1, 15),
+            canal="01",
+            numero_factura="FAC-123",
+            fecha_factura=date(2026, 1, 16),
+            hora_facturacion="10:30:00",
+            margen=Decimal("35.500"),
+            grupo_vendedores="C82",
+            plazo_entrega="ENTREGA INMEDIATA",
+            importe_facturado=Decimal("1500.00"),
+            venta_perdida="No",
+            comentarios="Comentario de prueba",
+        )
+        serialized = serialize_cotizacion(quote, vista="resumen")
+        self.assertEqual(serialized["hora_facturacion"], "10:30:00")
+        self.assertEqual(serialized["margen"], 35.5)
+        self.assertEqual(serialized["grupo_vendedores"], "C82")
+        self.assertEqual(serialized["plazo_entrega"], "ENTREGA INMEDIATA")
+        self.assertEqual(serialized["numero_factura"], "FAC-123")
+        self.assertEqual(serialized["importe_facturado"], 1500.00)
+
