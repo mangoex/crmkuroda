@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import and_, case, delete, func, or_
 from sqlalchemy.orm import load_only
-from uuid import UUID
+from uuid import UUID, uuid4
 from typing import Optional
 
 from app.core.database import get_db
@@ -1665,9 +1665,11 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                         target_quote_id = existing.id
                         retained_ids.add(existing.id)
                     else:
-                        new_q = Cotizacion(**quote_fields)
+                        target_quote_id = uuid4()
+                        new_q = Cotizacion(id=target_quote_id, **quote_fields)
                         db.add(new_q)
-                        target_quote_id = new_q.id
+                        existing_by_number[num_cot] = new_q
+                        retained_ids.add(target_quote_id)
 
                     all_processed_quote_ids.add(target_quote_id)
 
@@ -1676,6 +1678,7 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                         it_fac_amt = it_data["precio_venta"] if v_info.get("numero_factura") else Decimal("0.00")
                         items_to_add.append(
                             CotizacionItem(
+                                id=uuid4(),
                                 cotizacion_id=target_quote_id,
                                 codigo_material=it_data["codigo_material"],
                                 descripcion=it_data["descripcion"],
@@ -1776,7 +1779,9 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                         _apply_imported_quote_values(existing_quote, imported_values)
                         retained_ids.add(existing_quote.id)
                     else:
-                        new_quotes.append(Cotizacion(**imported_values))
+                        new_id = uuid4()
+                        new_quotes.append(Cotizacion(id=new_id, **imported_values))
+                        retained_ids.add(new_id)
 
                 BATCH_SIZE = 1000
                 for i in range(0, len(new_quotes), BATCH_SIZE):
