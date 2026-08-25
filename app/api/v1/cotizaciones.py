@@ -1615,98 +1615,106 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                     if cot_fol:
                         ventas_by_cot[cot_fol] = v_info
 
-                all_processed_quote_ids: set[UUID] = set()
-                items_to_add: list[CotizacionItem] = []
+                BATCH_QUOTES = 2000
+                quote_keys = list(quotes_data.keys())
 
-                for num_cot, q_data in quotes_data.items():
-                    v_info = ventas_by_cot.get(num_cot) or {}
+                for q_start in range(0, len(quote_keys), BATCH_QUOTES):
+                    batch_keys = quote_keys[q_start : q_start + BATCH_QUOTES]
+                    batch_quote_ids: list[UUID] = []
+                    batch_items: list[dict[str, Any]] = []
 
-                    cli_nom = v_info.get("cliente_nombre") or "Cliente Desconocido"
-                    cli_num = v_info.get("numero_cliente")
-                    vend_nom = v_info.get("vendedor_nombre")
-                    vend_id = (
-                        users_by_name.get(_normalize_seller_text(vend_nom))
-                        if vend_nom else None
-                    )
+                    for num_cot in batch_keys:
+                        q_data = quotes_data[num_cot]
+                        v_info = ventas_by_cot.get(num_cot) or {}
 
-                    cli_obj = clients_by_num.get(cli_num) or clients_by_nom.get(cli_nom) if (cli_num or cli_nom) else None
-                    contact_data = {
-                        "email": cli_obj.email if cli_obj else None,
-                        "telefono": cli_obj.telefono if cli_obj else None,
-                        "celular": cli_obj.celular if cli_obj else None,
-                    }
+                        cli_nom = v_info.get("cliente_nombre") or "Cliente Desconocido"
+                        cli_num = v_info.get("numero_cliente")
+                        vend_nom = v_info.get("vendedor_nombre")
+                        vend_id = (
+                            users_by_name.get(_normalize_seller_text(vend_nom))
+                            if vend_nom else None
+                        )
 
-                    importe_fac = q_data["total"] if v_info.get("numero_factura") else None
+                        cli_obj = clients_by_num.get(cli_num) or clients_by_nom.get(cli_nom) if (cli_num or cli_nom) else None
+                        contact_data = {
+                            "email": cli_obj.email if cli_obj else None,
+                            "telefono": cli_obj.telefono if cli_obj else None,
+                            "celular": cli_obj.celular if cli_obj else None,
+                        }
 
-                    quote_fields = {
-                        "numero_cotizacion": num_cot,
-                        "fecha_registro": q_data["fecha_registro"],
-                        "organizacion_ventas": q_data["organizacion_ventas"],
-                        "vendedor_id": vend_id,
-                        "vendedor_nombre": vend_nom,
-                        "numero_cliente": cli_num,
-                        "cliente_nombre": cli_nom,
-                        "datos_contacto": contact_data,
-                        "items": [],
-                        "total": q_data["total"],
-                        "numero_factura": v_info.get("numero_factura"),
-                        "fecha_factura": v_info.get("fecha_factura"),
-                        "hora_facturacion": v_info.get("hora_facturacion"),
-                        "margen": v_info.get("margen"),
-                        "grupo_vendedores": v_info.get("grupo_vendedores"),
-                        "plazo_entrega": v_info.get("plazo_entrega"),
-                        "canal": v_info.get("canal"),
-                        "importe_facturado": importe_fac,
-                    }
+                        importe_fac = q_data["total"] if v_info.get("numero_factura") else None
 
-                    existing = existing_by_number.get(num_cot)
-                    if existing:
-                        _apply_imported_quote_values(existing, quote_fields)
-                        target_quote_id = existing.id
-                        retained_ids.add(existing.id)
-                    else:
-                        target_quote_id = uuid4()
-                        new_q = Cotizacion(id=target_quote_id, **quote_fields)
-                        db.add(new_q)
-                        existing_by_number[num_cot] = new_q
-                        retained_ids.add(target_quote_id)
+                        quote_fields = {
+                            "numero_cotizacion": num_cot,
+                            "fecha_registro": q_data["fecha_registro"],
+                            "organizacion_ventas": q_data["organizacion_ventas"],
+                            "vendedor_id": vend_id,
+                            "vendedor_nombre": vend_nom,
+                            "numero_cliente": cli_num,
+                            "cliente_nombre": cli_nom,
+                            "datos_contacto": contact_data,
+                            "items": [],
+                            "total": q_data["total"],
+                            "numero_factura": v_info.get("numero_factura"),
+                            "fecha_factura": v_info.get("fecha_factura"),
+                            "hora_facturacion": v_info.get("hora_facturacion"),
+                            "margen": v_info.get("margen"),
+                            "grupo_vendedores": v_info.get("grupo_vendedores"),
+                            "plazo_entrega": v_info.get("plazo_entrega"),
+                            "canal": v_info.get("canal"),
+                            "importe_facturado": importe_fac,
+                        }
 
-                    all_processed_quote_ids.add(target_quote_id)
+                        existing = existing_by_number.get(num_cot)
+                        if existing:
+                            _apply_imported_quote_values(existing, quote_fields)
+                            target_quote_id = existing.id
+                            retained_ids.add(existing.id)
+                        else:
+                            target_quote_id = uuid4()
+                            new_q = Cotizacion(id=target_quote_id, **quote_fields)
+                            db.add(new_q)
+                            existing_by_number[num_cot] = new_q
+                            retained_ids.add(target_quote_id)
 
-                    for it_data in q_data["items_data"]:
-                        it_fac_qty = Decimal("1.000") if v_info.get("numero_factura") else Decimal("0.000")
-                        it_fac_amt = it_data["precio_venta"] if v_info.get("numero_factura") else Decimal("0.00")
-                        items_to_add.append({
-                            "id": uuid4(),
-                            "cotizacion_id": target_quote_id,
-                            "codigo_material": it_data["codigo_material"],
-                            "descripcion": it_data["descripcion"],
-                            "indicador_abcf": it_data["indicador_abcf"],
-                            "unidad_medida": it_data["unidad_medida"],
-                            "precio_venta": it_data["precio_venta"],
-                            "cantidad_cotizada": it_data["cantidad_cotizada"],
-                            "importe_cotizado": it_data["importe_cotizado"],
-                            "cantidad_facturada": it_fac_qty,
-                            "importe_facturado": it_fac_amt,
-                            "es_promocion": it_data["es_promocion"],
-                            "precio_promocion": it_data["precio_promocion"],
-                        })
+                        batch_quote_ids.append(target_quote_id)
 
-                # Flush quotes in batches
-                await db.flush()
+                        for it_data in q_data["items_data"]:
+                            it_fac_qty = Decimal("1.000") if v_info.get("numero_factura") else Decimal("0.000")
+                            it_fac_amt = it_data["precio_venta"] if v_info.get("numero_factura") else Decimal("0.00")
+                            batch_items.append({
+                                "id": uuid4(),
+                                "cotizacion_id": target_quote_id,
+                                "codigo_material": it_data["codigo_material"],
+                                "descripcion": it_data["descripcion"],
+                                "indicador_abcf": it_data["indicador_abcf"],
+                                "unidad_medida": it_data["unidad_medida"],
+                                "precio_venta": it_data["precio_venta"],
+                                "cantidad_cotizada": it_data["cantidad_cotizada"],
+                                "importe_cotizado": it_data["importe_cotizado"],
+                                "cantidad_facturada": it_fac_qty,
+                                "importe_facturado": it_fac_amt,
+                                "es_promocion": it_data["es_promocion"],
+                                "precio_promocion": it_data["precio_promocion"],
+                            })
 
-                # Reemplazar partidas anteriores de las cotizaciones procesadas
-                if all_processed_quote_ids:
-                    quote_id_list = list(all_processed_quote_ids)
-                    for i in range(0, len(quote_id_list), 1000):
-                        chunk = quote_id_list[i : i + 1000]
-                        await db.execute(delete(CotizacionItem).where(CotizacionItem.cotizacion_id.in_(chunk)))
+                    # Flush cotizaciones del lote
+                    await db.flush()
 
-                # Insertar partidas en lotes ultra-eficientes mediante Core insert
-                BATCH_SIZE = 5000
-                for i in range(0, len(items_to_add), BATCH_SIZE):
-                    chunk = items_to_add[i : i + BATCH_SIZE]
-                    await db.execute(insert(CotizacionItem), chunk)
+                    # Eliminar partidas anteriores de este lote
+                    if batch_quote_ids:
+                        for i in range(0, len(batch_quote_ids), 1000):
+                            chunk_del = batch_quote_ids[i : i + 1000]
+                            await db.execute(delete(CotizacionItem).where(CotizacionItem.cotizacion_id.in_(chunk_del)))
+
+                    # Insertar partidas de este lote
+                    if batch_items:
+                        for i in range(0, len(batch_items), 5000):
+                            chunk_ins = batch_items[i : i + 5000]
+                            await db.execute(insert(CotizacionItem), chunk_ins)
+
+                    # Commit incremental para rotar logs WAL y liberar espacio de disco
+                    await db.commit()
 
             else:
                 # -------------------------------------------------------------
