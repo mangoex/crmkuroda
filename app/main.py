@@ -30,6 +30,15 @@ from app.core.scheduler import start_scheduler, scheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Diagnóstico de conexión a base de datos en arranque
+    from urllib.parse import urlparse
+    from app.core.database import database_url
+    try:
+        parsed = urlparse(database_url)
+        print(f"[Database Startup] Conectando a host='{parsed.hostname}', port={parsed.port}, db='{parsed.path.lstrip('/')}'")
+    except Exception as exc:
+        print(f"[Database Startup] Info URL: {exc}")
+
     # Ejecutar migraciones de Alembic de forma automática para mantener la BD siempre al día
     import asyncio
     try:
@@ -175,6 +184,19 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "status": "error",
             "message": "Fallo en la validación de los datos enviados.",
             "details": errors
+        }
+    )
+
+from sqlalchemy.exc import OperationalError, DBAPIError
+
+@app.exception_handler(OperationalError)
+@app.exception_handler(DBAPIError)
+async def database_error_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={
+            "status": "error",
+            "message": "El servicio de base de datos PostgreSQL no está disponible temporalmente o se está reiniciando. Por favor verifica el estado y almacenamiento del servicio Postgres en Railway."
         }
     )
 
