@@ -565,6 +565,27 @@ class TestCotizacionesVentasMultiSheet(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(q3.porcentaje_materiales)
             self.assertIsNone(q3.porcentaje_importe)
 
+    def test_serialize_cotizacion_resilience_to_missing_attributes(self):
+        # Simular una instancia con campos parciales (como ocurre con load_only)
+        q = Cotizacion(
+            id=uuid4(),
+            numero_cotizacion="COT-TEST-RESILIENCE",
+            cliente_nombre="CLIENTE PRUEBA",
+            total=Decimal("500.00"),
+        )
+        # Serializar en vista resumen y vista completa
+        data_resumen = serialize_cotizacion(q, vista="resumen")
+        self.assertEqual(data_resumen["numero_cotizacion"], "COT-TEST-RESILIENCE")
+        self.assertEqual(data_resumen["cliente_nombre"], "CLIENTE PRUEBA")
+        self.assertIsNone(data_resumen["materiales_facturados"])
+        self.assertIsNone(data_resumen["porcentaje_materiales"])
+        self.assertNotIn("items", data_resumen)
+
+        data_completa = serialize_cotizacion(q, vista="completa")
+        self.assertEqual(data_completa["numero_cotizacion"], "COT-TEST-RESILIENCE")
+        self.assertIn("items", data_completa)
+
+
 
 
 

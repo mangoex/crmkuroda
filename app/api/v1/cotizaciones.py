@@ -125,56 +125,78 @@ async def _quote_summary(db: AsyncSession, query, conditions: dict[str, object])
     }
 
 
+def _get_scalar_val(obj: Any, attr: str, default: Any = None) -> Any:
+    """Obtiene el valor de un atributo de forma segura sin disparar lazy loading síncrono."""
+    if obj is None:
+        return default
+    if hasattr(obj, "__dict__"):
+        if attr in obj.__dict__:
+            return obj.__dict__[attr]
+        try:
+            state = getattr(obj, "_sa_instance_state", None)
+            if state is not None and attr in state.unloaded:
+                return default
+        except Exception:
+            pass
+    try:
+        return getattr(obj, attr, default)
+    except Exception:
+        return default
+
+
 def serialize_cotizacion(
     c: Cotizacion,
     resolved_vendedor_id: Optional[UUID] = None,
     enrichment: Optional[dict] = None,
     vista: str = "completa",
 ) -> dict:
-    vendedor_id = c.vendedor_id or resolved_vendedor_id
+    vendedor_id = _get_scalar_val(c, "vendedor_id") or resolved_vendedor_id
     enrichment = enrichment or {}
-    contact_data = enrichment.get("datos_contacto") or normalize_contact(c.datos_contacto)
-    margen_val = getattr(c, "margen", None)
-    imp_fac_val = getattr(c, "importe_facturado", None)
-    fecha_reg_val = getattr(c, "fecha_registro", None)
-    fecha_fac_val = getattr(c, "fecha_factura", None)
+    contact_data = enrichment.get("datos_contacto") or normalize_contact(_get_scalar_val(c, "datos_contacto"))
+    margen_val = _get_scalar_val(c, "margen")
+    imp_fac_val = _get_scalar_val(c, "importe_facturado")
+    fecha_reg_val = _get_scalar_val(c, "fecha_registro")
+    fecha_fac_val = _get_scalar_val(c, "fecha_factura")
+    pct_mat_val = _get_scalar_val(c, "porcentaje_materiales")
+    pct_imp_val = _get_scalar_val(c, "porcentaje_importe")
+    total_val = _get_scalar_val(c, "total")
 
     data = {
-        "id": str(c.id),
+        "id": str(_get_scalar_val(c, "id")),
         "vendedor_id": str(vendedor_id) if vendedor_id else None,
-        "vendedor_nombre": getattr(c, "vendedor_nombre", None),
+        "vendedor_nombre": _get_scalar_val(c, "vendedor_nombre"),
         "vendedor_sin_vincular": vendedor_id is None,
-        "cliente_nombre": getattr(c, "cliente_nombre", None),
-        "numero_cliente": getattr(c, "numero_cliente", None),
+        "cliente_nombre": _get_scalar_val(c, "cliente_nombre"),
+        "numero_cliente": _get_scalar_val(c, "numero_cliente"),
         "datos_contacto": contact_data,
-        "total": float(c.total) if hasattr(c, "total") and c.total is not None else 0.0,
-        "numero_cotizacion": getattr(c, "numero_cotizacion", None),
-        "fecha_registro": fecha_reg_val.isoformat() if fecha_reg_val else None,
-        "canal": getattr(c, "canal", None),
-        "numero_factura": getattr(c, "numero_factura", None),
-        "fecha_factura": fecha_fac_val.isoformat() if fecha_fac_val else None,
-        "hora_facturacion": getattr(c, "hora_facturacion", None),
+        "total": float(total_val) if total_val is not None else 0.0,
+        "numero_cotizacion": _get_scalar_val(c, "numero_cotizacion"),
+        "fecha_registro": fecha_reg_val.isoformat() if hasattr(fecha_reg_val, "isoformat") else (str(fecha_reg_val) if fecha_reg_val else None),
+        "canal": _get_scalar_val(c, "canal"),
+        "numero_factura": _get_scalar_val(c, "numero_factura"),
+        "fecha_factura": fecha_fac_val.isoformat() if hasattr(fecha_fac_val, "isoformat") else (str(fecha_fac_val) if fecha_fac_val else None),
+        "hora_facturacion": _get_scalar_val(c, "hora_facturacion"),
         "margen": float(margen_val) if margen_val is not None else None,
-        "grupo_vendedores": getattr(c, "grupo_vendedores", None),
-        "plazo_entrega": getattr(c, "plazo_entrega", None),
+        "grupo_vendedores": _get_scalar_val(c, "grupo_vendedores"),
+        "plazo_entrega": _get_scalar_val(c, "plazo_entrega"),
         "importe_facturado": float(imp_fac_val) if imp_fac_val is not None else None,
-        "venta_perdida": getattr(c, "venta_perdida", None),
-        "comentarios": getattr(c, "comentarios", None),
+        "venta_perdida": _get_scalar_val(c, "venta_perdida"),
+        "comentarios": _get_scalar_val(c, "comentarios"),
         "comentarios_seguimiento_count": enrichment.get("comentarios_seguimiento_count", 0),
         "tiene_promocion": enrichment.get("tiene_promocion", False),
         "nivel_prioridad": enrichment.get("nivel_prioridad"),
         "promociones_coincidentes": enrichment.get("promociones_coincidentes", []),
-        "materiales_cotizados": getattr(c, "materiales_cotizados", None),
-        "materiales_facturados": getattr(c, "materiales_facturados", None),
-        "porcentaje_materiales": float(c.porcentaje_materiales) if getattr(c, "porcentaje_materiales", None) is not None else None,
-        "porcentaje_importe": float(c.porcentaje_importe) if getattr(c, "porcentaje_importe", None) is not None else None,
+        "materiales_cotizados": _get_scalar_val(c, "materiales_cotizados"),
+        "materiales_facturados": _get_scalar_val(c, "materiales_facturados"),
+        "porcentaje_materiales": float(pct_mat_val) if pct_mat_val is not None else None,
+        "porcentaje_importe": float(pct_imp_val) if pct_imp_val is not None else None,
     }
     if vista != "resumen":
         data.update(
             {
-                "items": c.items,
+                "items": _get_scalar_val(c, "items"),
                 "items_detalle": enrichment.get("items_detalle", []),
-                "texto_propuesta": c.texto_propuesta,
+                "texto_propuesta": _get_scalar_val(c, "texto_propuesta"),
             }
         )
     return data
@@ -525,6 +547,9 @@ async def list_cotizaciones(
                 Cotizacion.venta_perdida,
                 Cotizacion.comentarios,
                 Cotizacion.materiales_cotizados,
+                Cotizacion.materiales_facturados,
+                Cotizacion.porcentaje_materiales,
+                Cotizacion.porcentaje_importe,
             )
         )
     date_order = (
