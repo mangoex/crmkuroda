@@ -43,7 +43,7 @@ class FakeDatabase:
         self.rollbacks = 0
         self.execute_calls = 0
 
-    async def execute(self, _statement):
+    async def execute(self, _statement, *args, **kwargs):
         self.execute_calls += 1
         if self.execute_results:
             return self.execute_results.pop(0)

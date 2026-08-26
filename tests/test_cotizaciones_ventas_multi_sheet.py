@@ -394,4 +394,45 @@ class TestCotizacionesVentasMultiSheet(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(q.materiales_cotizados, "TUBO-PVC-4")
             self.assertEqual(len(q.items), 1)
 
+    async def test_multisheet_with_arbitrary_sheet_names_cotizaciones_and_detalle(self):
+        user_id = uuid4()
+        user = Usuario(id=user_id, nombre_completo="CARLOS VALENZUELA", codigo_vendedor="C50", rol="vendedor")
+
+        wb = openpyxl.Workbook()
+        # Hoja 1: Cotizaciones (cabecera con clientes y vendedores)
+        ws_cot = wb.active
+        ws_cot.title = "Cotizaciones"
+        ws_cot.append(["Fecha de Registro", "Numero de Cotizacion", "Nombre del Cliente", "Numero del Cliente", "Nombre del Vendedor", "Vendedor", "Canal"])
+        ws_cot.append([datetime(2026, 8, 25), "416787053", "DISTRIBUIDORA DEL PACIFICO", "400888", "CARLOS VALENZUELA", "C50", "01"])
+
+        # Hoja 2: Detalle de Cotizacion (renglones con productos)
+        ws_det = wb.create_sheet(title="Detalle de Cotizacion")
+        ws_det.append(["Numero de Cotizacion", "Codigo de Material", "Descripcion del Material", "Unidad de Medida", "Precio de Venta", "Indicador ABC+Frecuencia de Venta"])
+        ws_det.append(["416787053", "ST101", "TUBO PVC SANIT NORMA 101MM X 6MT", "TM8", 307.14, "A6"])
+        ws_det.append(["416787053", "ST152", "TUBO PVC SANIT NORMA 152MM X 6MT", "TM8", 877.20, "A6"])
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        excel_bytes = buf.getvalue()
+
+        fake_session = FakeAsyncSession(users=[user], promos=[], quotes=[])
+
+        with patch("app.core.database.SessionLocal", return_value=fake_session), \
+             patch("app.services.actualizaciones_datos.registrar_actualizacion_datos", new=AsyncMock()):
+            err = await process_excel_background(excel_bytes, user_id)
+            self.assertIsNone(err)
+
+            added_quotes = [item for item in fake_session.added if isinstance(item, Cotizacion)]
+            self.assertEqual(len(added_quotes), 1)
+            q = added_quotes[0]
+            self.assertEqual(q.numero_cotizacion, "416787053")
+            self.assertEqual(q.cliente_nombre, "DISTRIBUIDORA DEL PACIFICO")
+            self.assertEqual(q.numero_cliente, "400888")
+            self.assertEqual(q.vendedor_nombre, "CARLOS VALENZUELA")
+            self.assertEqual(q.vendedor_id, user_id)
+            self.assertEqual(q.total, Decimal("1184.34"))
+            self.assertEqual(q.materiales_cotizados, "ST101, ST152")
+            self.assertEqual(len(q.items), 2)
+
+
 

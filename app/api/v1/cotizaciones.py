@@ -972,12 +972,118 @@ MULTISHEET_COTIZACIONES_REQUIRED_HEADERS = {
 }
 
 
+def _resolve_sheet_columns(worksheet) -> tuple[dict[str, Optional[int]], str]:
+    """
+    Analiza una hoja de cálculo y determina si es una hoja de cabecera (HEADER),
+    una hoja de detalle de partidas (DETAIL) o mixta (BOTH), resolviendo los índices de columnas.
+    """
+    headers = {}
+    header_row = next(worksheet.iter_rows(min_row=1, max_row=1, values_only=True), ())
+    for idx, val in enumerate(header_row):
+        if val is not None:
+            norm = normalize_text(str(val))
+            if norm:
+                headers[norm] = idx
+
+    def find_idx(candidates: list[str]) -> Optional[int]:
+        # 1. Coincidencia exacta normalizada
+        for c in candidates:
+            c_norm = normalize_text(c)
+            if c_norm in headers:
+                return headers[c_norm]
+        # 2. Coincidencia por subcadena específica (mínimo 6 caracteres para evitar falsos positivos)
+        for c in candidates:
+            c_norm = normalize_text(c)
+            if len(c_norm) >= 6:
+                for h_name, h_idx in headers.items():
+                    if c_norm in h_name:
+                        return h_idx
+        return None
+
+    col_map = {
+        "numero_cotizacion": find_idx(["NUMERO DE COTIZACION", "NUMERO COTIZACION", "FOLIO COTIZACION", "COTIZACION", "NUMERO_COTIZACION"]),
+        "codigo_material": find_idx(["CODIGO DE MATERIAL", "CODIGO MATERIAL", "CODIGO DEL MATERIAL", "CODIGO_MATERIAL", "CODIGO", "SKU", "CLAVE MATERIAL"]),
+        "descripcion": find_idx(["DESCRIPCION DEL MATERIAL", "DESCRIPCION DE MATERIAL", "DESCRIPCION MATERIAL", "DESCRIPCION", "CONCEPTO"]),
+        "precio": find_idx(["PRECIO DE VENTA", "PRECIO UNITARIO", "PRECIO", "IMPORTE COTIZADO", "IMPORTE", "VALOR NETO", "TOTAL"]),
+        "unidad_medida": find_idx(["UNIDAD DE MEDIDA", "UNIDAD DE MEDIDA BASE", "UNIDAD MEDIDA", "UMB", "UDM", "UNIDAD"]),
+        "indicador_abcf": find_idx(["INDICADOR ABC+FRECUENCIA DE VENTA", "ABC+F", "ABCF", "INDICADOR ABC", "ABC"]),
+        "cliente_nombre": find_idx(["NOMBRE DEL CLIENTE", "NOMBRE DE CLIENTE", "CLIENTE NOMBRE", "NOMBRE CLIENTE", "CLIENTE", "RAZON SOCIAL"]),
+        "numero_cliente": find_idx(["NUMERO DEL CLIENTE", "NUMERO DE CLIENTE", "NUM CLIENTE", "CODIGO CLIENTE", "CLIENTE ID"]),
+        "vendedor_nombre": find_idx(["NOMBRE DEL VENDEDOR", "NOMBRE DE VENDEDOR", "VENDEDOR NOMBRE", "NOMBRE VENDEDOR", "ASESOR"]),
+        "vendedor_codigo": find_idx(["VENDEDOR", "CODIGO VENDEDOR", "CODIGO DE VENDEDOR", "NUMERO DE VENDEDOR", "CLAVE VENDEDOR"]),
+        "grupo_vendedores": find_idx(["GRUPO DE VENDEDORES", "GRUPO VENDEDORES", "GRUPO"]),
+        "canal": find_idx(["CANAL DE DISTRIBUCION", "CANAL"]),
+        "plazo_entrega": find_idx(["PLAZO DE ENTREGA", "TIPO DE ENTREGA", "ENTREGA"]),
+        "numero_factura": find_idx(["FOLIO FACTURA", "NUMERO DE FACTURA", "NUMERO FACTURA", "FACTURA", "FOLIO_FACTURA"]),
+        "fecha_factura": find_idx(["FECHA DE FACTURA", "FECHA FACTURA"]),
+        "hora_facturacion": find_idx(["HORA DE FACTURACION", "HORA FACTURACION", "HORA"]),
+        "margen": find_idx(["MARGEN"]),
+        "fecha_registro": find_idx(["FECHA DE REGISTRO", "FECHA REGISTRO", "FECHA"]),
+        "organizacion_ventas": find_idx(["ORGANIZACION DE VENTAS", "ORG VENTAS", "CENTRO", "SUCURSAL"]),
+        "telefono": find_idx(["NUMERO DE TELEFONO", "TELEFONO"]),
+        "celular": find_idx(["NUMERO DE CELULAR", "CELULAR"]),
+        "email": find_idx(["DIRECCION CORREO ELECTRONICO", "CORREO ELECTRONICO", "EMAIL", "CORREO"]),
+    }
+
+    has_quote_num = col_map["numero_cotizacion"] is not None
+    has_material = col_map["codigo_material"] is not None
+    has_client = col_map["cliente_nombre"] is not None or col_map["numero_cliente"] is not None
+    has_invoice = col_map["numero_factura"] is not None
+    has_seller = col_map["vendedor_nombre"] is not None
+
+    if has_quote_num and has_material and not has_client and not has_invoice and not has_seller:
+        sheet_type = "DETAIL"
+    elif has_quote_num and (has_client or has_invoice or has_seller) and not has_material:
+        sheet_type = "HEADER"
+    elif has_quote_num and has_material and (has_client or has_invoice or has_seller):
+        sheet_type = "BOTH"
+    else:
+        sheet_type = "UNKNOWN"
+
+    return col_map, sheet_type
+
+
+def _detect_multi_sheet_worksheets(workbook) -> Optional[tuple[any, dict[str, Optional[int]], any, dict[str, Optional[int]]]]:
+    """
+    Detecta automáticamente la hoja de cabecera/ventas y la hoja de detalle de materiales
+    analizando columnas y títulos de las hojas.
+    """
+    visible_sheets = [ws for ws in workbook.worksheets if ws.sheet_state != "hidden"]
+    if len(visible_sheets) < 2:
+        return None
+
+    header_candidates = []
+    detail_candidates = []
+
+    for ws in visible_sheets:
+        title_norm = normalize_text(ws.title)
+        if "INSTRUCCION" in title_norm or "GUIA" in title_norm or "INSTRUCTION" in title_norm:
+            continue
+
+        col_map, sheet_type = _resolve_sheet_columns(ws)
+        if col_map["numero_cotizacion"] is None:
+            continue
+
+        if sheet_type == "HEADER" or "VENTA" in title_norm:
+            header_candidates.append((ws, col_map))
+        elif sheet_type == "DETAIL" or any(k in title_norm for k in ("COTIZACION", "DETALLE", "PARTIDA", "DESCRIPCION", "MATERIAL", "PRODUCTO")):
+            detail_candidates.append((ws, col_map))
+        elif sheet_type == "BOTH":
+            # Puede fungir de cabecera si otra hoja es detalle, o de detalle si otra es cabecera
+            header_candidates.append((ws, col_map))
+            detail_candidates.append((ws, col_map))
+
+    for h_ws, h_cols in header_candidates:
+        for d_ws, d_cols in detail_candidates:
+            if h_ws != d_ws:
+                return h_ws, h_cols, d_ws, d_cols
+
+    return None
+
+
 def is_multi_sheet_quote_format(workbook) -> bool:
-    """Verifica si el archivo contiene las dos hojas del nuevo formato multi-hoja (Ventas y Cotizaciones)."""
-    sheet_names = [normalize_text(s) for s in workbook.sheetnames]
-    has_ventas = any("VENTA" in s for s in sheet_names)
-    has_cotizaciones = any("COTIZACION" in s for s in sheet_names)
-    return has_ventas and has_cotizaciones
+    """Verifica si el archivo contiene dos hojas estructuradas (cabecera/ventas y detalle/cotizaciones)."""
+    return _detect_multi_sheet_worksheets(workbook) is not None
 
 
 def generate_excel_template_bytes() -> bytes:
@@ -1555,21 +1661,12 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
 
             retained_ids: set[UUID] = set()
 
-            if is_multi_sheet_quote_format(wb):
+            multi_sheets = _detect_multi_sheet_worksheets(wb)
+            if multi_sheets is not None:
                 # -------------------------------------------------------------
-                # NUEVO FORMATO MULTI-HOJA: Pestaña Ventas + Pestaña Cotizaciones
+                # NUEVO FORMATO MULTI-HOJA DINÁMICO (Cabecera + Detalle)
                 # -------------------------------------------------------------
-                ws_ventas = None
-                ws_cot = None
-                for ws in wb.worksheets:
-                    s_norm = normalize_text(ws.title)
-                    if "VENTA" in s_norm:
-                        ws_ventas = ws
-                    elif "COTIZACION" in s_norm:
-                        ws_cot = ws
-
-                if not ws_ventas or not ws_cot:
-                    raise ValueError("El archivo multi-hoja debe contener las pestañas 'Ventas' y 'Cotizaciones'.")
+                ws_ventas, v_cols, ws_cot, c_cols = multi_sheets
 
                 # Cargar catálogo de promociones
                 promos_res = await db.execute(select(Promocion))
@@ -1586,47 +1683,44 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                 clients_by_num = {c.numero_cliente.strip(): c for c in clients if c.numero_cliente and c.numero_cliente.strip()}
                 clients_by_nom = {c.nombre.strip(): c for c in clients if c.nombre and c.nombre.strip()}
 
-                # Headers Cotizaciones
-                c_header_row = next(ws_cot.iter_rows(min_row=1, max_row=1, values_only=True), ())
-                c_headers = {normalize_text(val): idx for idx, val in enumerate(c_header_row) if val is not None}
-                cot_idx_fec = c_headers.get("FECHA DE REGISTRO", 0)
-                cot_idx_org = c_headers.get("ORGANIZACION DE VENTAS", 1)
-                cot_idx_num = c_headers.get("NUMERO DE COTIZACION", 2)
-                cot_idx_abc = c_headers.get("INDICADOR ABC+FRECUENCIA DE VENTA", 3)
-                cot_idx_sku = c_headers.get("CODIGO DE MATERIAL", c_headers.get("CODIGO MATERIAL", 4))
-                cot_idx_des = c_headers.get("DESCRIPCION DEL MATERIAL", c_headers.get("DESCRIPCION", 5))
-                cot_idx_udm = c_headers.get("UNIDAD DE MEDIDA", 6)
-                cot_idx_prc = c_headers.get("PRECIO DE VENTA", 7)
+                # Índices Hoja Detalle (ws_cot)
+                cot_idx_fec = c_cols.get("fecha_registro")
+                cot_idx_org = c_cols.get("organizacion_ventas")
+                cot_idx_num = c_cols.get("numero_cotizacion")
+                cot_idx_abc = c_cols.get("indicador_abcf")
+                cot_idx_sku = c_cols.get("codigo_material")
+                cot_idx_des = c_cols.get("descripcion")
+                cot_idx_udm = c_cols.get("unidad_medida")
+                cot_idx_prc = c_cols.get("precio")
 
-                # Columnas opcionales en pestaña Cotizaciones
-                cot_idx_cli_nom = c_headers.get("NOMBRE DEL CLIENTE", c_headers.get("CLIENTE NOMBRE", c_headers.get("CLIENTE", None)))
-                cot_idx_cli_num = c_headers.get("NUMERO DEL CLIENTE", c_headers.get("NUMERO DE CLIENTE", None))
-                cot_idx_vend_nom = c_headers.get("NOMBRE DEL VENDEDOR", c_headers.get("VENDEDOR NOMBRE", c_headers.get("ASESOR", None)))
-                cot_idx_vend_cod = c_headers.get("VENDEDOR", c_headers.get("CODIGO VENDEDOR", c_headers.get("NUMERO DE VENDEDOR", None)))
-                cot_idx_canal = c_headers.get("CANAL DE DISTRIBUCION", c_headers.get("CANAL", None))
-                cot_idx_tel = c_headers.get("NUMERO DE TELEFONO", c_headers.get("TELEFONO", None))
-                cot_idx_cel = c_headers.get("NUMERO DE CELULAR", c_headers.get("CELULAR", None))
-                cot_idx_email = c_headers.get("DIRECCION CORREO ELECTRONICO", c_headers.get("EMAIL", c_headers.get("CORREO", None)))
+                cot_idx_cli_nom = c_cols.get("cliente_nombre")
+                cot_idx_cli_num = c_cols.get("numero_cliente")
+                cot_idx_vend_nom = c_cols.get("vendedor_nombre")
+                cot_idx_vend_cod = c_cols.get("vendedor_codigo")
+                cot_idx_canal = c_cols.get("canal")
+                cot_idx_tel = c_cols.get("telefono")
+                cot_idx_cel = c_cols.get("celular")
+                cot_idx_email = c_cols.get("email")
 
-                # Agrupar cotizaciones y partidas
+                # Agrupar cotizaciones y partidas desde la hoja detalle
                 quotes_data: dict[str, dict[str, Any]] = {}
                 for row in ws_cot.iter_rows(min_row=2, values_only=True):
                     if not row:
                         continue
-                    num_cot = _excel_identifier(row[cot_idx_num])
+                    num_cot = _excel_identifier(row[cot_idx_num]) if cot_idx_num is not None else None
                     if not num_cot:
                         continue
 
-                    sku = _excel_identifier(row[cot_idx_sku])
+                    sku = _excel_identifier(row[cot_idx_sku]) if cot_idx_sku is not None else None
                     if not sku:
                         continue
 
-                    precio = safe_float(row[cot_idx_prc])
-                    fecha_reg = safe_date(row[cot_idx_fec])
-                    org_v = _excel_identifier(row[cot_idx_org])
-                    abc = _excel_identifier(row[cot_idx_abc])
-                    desc = _excel_identifier(row[cot_idx_des])
-                    udm = _excel_identifier(row[cot_idx_udm])
+                    precio = safe_float(row[cot_idx_prc]) if cot_idx_prc is not None else 0.0
+                    fecha_reg = safe_date(row[cot_idx_fec]) if cot_idx_fec is not None else None
+                    org_v = _excel_identifier(row[cot_idx_org]) if cot_idx_org is not None else None
+                    abc = _excel_identifier(row[cot_idx_abc]) if cot_idx_abc is not None else None
+                    desc = _excel_identifier(row[cot_idx_des]) if cot_idx_des is not None else None
+                    udm = _excel_identifier(row[cot_idx_udm]) if cot_idx_udm is not None else None
 
                     if num_cot not in quotes_data:
                         quotes_data[num_cot] = {
@@ -1637,7 +1731,7 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                             "items_data": [],
                         }
 
-                    # Extraer metadatos opcionales si vienen en la pestaña Cotizaciones
+                    # Extraer metadatos opcionales si vienen en la hoja detalle
                     if cot_idx_cli_nom is not None and not quotes_data[num_cot].get("cliente_nombre"):
                         c_cli = _excel_identifier(row[cot_idx_cli_nom])
                         if c_cli:
@@ -1691,60 +1785,85 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                         "precio_promocion": prc_promo,
                     })
 
-                # Headers Ventas
-                v_header_row = next(ws_ventas.iter_rows(min_row=1, max_row=1, values_only=True), ())
-                v_headers = {normalize_text(val): idx for idx, val in enumerate(v_header_row) if val is not None}
-                v_idx_fec = v_headers.get("FECHA DE FACTURA", 0)
-                v_idx_cli_num = v_headers.get("NUMERO DEL CLIENTE", 1)
-                v_idx_plazo = v_headers.get("PLAZO DE ENTREGA", 2)
-                v_idx_cli_nom = v_headers.get("NOMBRE DEL CLIENTE", 3)
-                v_idx_cot_fol = v_headers.get("FOLIO COTIZACION", 4)
-                v_idx_fac_fol = v_headers.get("FOLIO FACTURA", 5)
-                v_idx_hora = v_headers.get("HORA DE FACTURACION", 6)
-                v_idx_margen = v_headers.get("MARGEN", 7)
-                v_idx_grp_vend = v_headers.get("GRUPO DE VENDEDORES", 8)
-                v_idx_vend_nom = v_headers.get("NOMBRE DEL VENDEDOR", 9)
-                v_idx_canal = v_headers.get("CANAL DE DISTRIBUCION", v_headers.get("CANAL", 10))
+                # Índices Hoja Cabecera / Ventas (ws_ventas)
+                v_idx_cot_fol = v_cols.get("numero_cotizacion")
+                v_idx_fac_fol = v_cols.get("numero_factura")
+                v_idx_fec_fac = v_cols.get("fecha_factura")
+                v_idx_fec_reg = v_cols.get("fecha_registro")
+                v_idx_cli_num = v_cols.get("numero_cliente")
+                v_idx_cli_nom = v_cols.get("cliente_nombre")
+                v_idx_plazo = v_cols.get("plazo_entrega")
+                v_idx_hora = v_cols.get("hora_facturacion")
+                v_idx_margen = v_cols.get("margen")
+                v_idx_grp_vend = v_cols.get("grupo_vendedores")
+                v_idx_vend_nom = v_cols.get("vendedor_nombre")
+                v_idx_vend_cod = v_cols.get("vendedor_codigo")
+                v_idx_canal = v_cols.get("canal")
+                v_idx_org = v_cols.get("organizacion_ventas")
+                v_idx_tot = v_cols.get("precio")
+                v_idx_tel = v_cols.get("telefono")
+                v_idx_cel = v_cols.get("celular")
+                v_idx_email = v_cols.get("email")
 
                 ventas_by_cot: dict[str, dict[str, Any]] = {}
                 for row in ws_ventas.iter_rows(min_row=2, values_only=True):
                     if not row:
                         continue
-                    fac_fol = _excel_identifier(row[v_idx_fac_fol])
-                    cot_fol = _excel_identifier(row[v_idx_cot_fol])
+                    fac_fol = _excel_identifier(row[v_idx_fac_fol]) if v_idx_fac_fol is not None else None
+                    cot_fol = _excel_identifier(row[v_idx_cot_fol]) if v_idx_cot_fol is not None else None
                     if not fac_fol and not cot_fol:
                         continue
 
-                    fec_fac = safe_date(row[v_idx_fec])
-                    cli_num = _excel_identifier(row[v_idx_cli_num])
-                    plazo = _excel_identifier(row[v_idx_plazo])
-                    cli_nom = _excel_identifier(row[v_idx_cli_nom]) or "Cliente General"
+                    target_folio = cot_fol or fac_fol
 
-                    hora_val = row[v_idx_hora]
+                    fec_fac = safe_date(row[v_idx_fec_fac]) if v_idx_fec_fac is not None else None
+                    fec_reg = safe_date(row[v_idx_fec_reg]) if v_idx_fec_reg is not None else None
+                    cli_num = _excel_identifier(row[v_idx_cli_num]) if v_idx_cli_num is not None else None
+                    plazo = _excel_identifier(row[v_idx_plazo]) if v_idx_plazo is not None else None
+                    cli_nom = _excel_identifier(row[v_idx_cli_nom]) if v_idx_cli_nom is not None else None
+
+                    hora_val = row[v_idx_hora] if v_idx_hora is not None else None
                     hora_str = str(hora_val) if hora_val is not None else None
-                    margen_val = safe_float(row[v_idx_margen])
-                    grp_vend = _excel_identifier(row[v_idx_grp_vend])
-                    vend_nom = _excel_identifier(row[v_idx_vend_nom])
-                    canal_val = _excel_identifier(row[v_idx_canal])
+                    margen_val = safe_float(row[v_idx_margen]) if v_idx_margen is not None else None
+                    grp_vend = _excel_identifier(row[v_idx_grp_vend]) if v_idx_grp_vend is not None else None
+                    vend_nom = _excel_identifier(row[v_idx_vend_nom]) if v_idx_vend_nom is not None else None
+                    vend_cod = _excel_identifier(row[v_idx_vend_cod]) if v_idx_vend_cod is not None else None
+                    canal_val = _excel_identifier(row[v_idx_canal]) if v_idx_canal is not None else None
+                    org_val = _excel_identifier(row[v_idx_org]) if v_idx_org is not None else None
+                    tot_val = safe_float(row[v_idx_tot]) if v_idx_tot is not None else None
 
                     v_info = {
                         "fecha_factura": fec_fac,
+                        "fecha_registro": fec_reg,
                         "numero_cliente": cli_num,
                         "cliente_nombre": cli_nom,
                         "plazo_entrega": plazo,
                         "numero_factura": fac_fol,
                         "hora_facturacion": hora_str,
-                        "margen": Decimal(str(round(margen_val, 3))),
+                        "margen": Decimal(str(round(margen_val, 3))) if margen_val is not None else None,
                         "grupo_vendedores": grp_vend,
                         "vendedor_nombre": vend_nom,
+                        "vendedor_codigo": vend_cod,
                         "canal": canal_val,
+                        "organizacion_ventas": org_val,
+                        "total": Decimal(str(round(tot_val, 2))) if tot_val is not None else None,
                     }
 
-                    if cot_fol:
-                        ventas_by_cot[cot_fol] = v_info
+                    if v_idx_tel is not None or v_idx_cel is not None or v_idx_email is not None:
+                        tel_v = _excel_identifier(row[v_idx_tel]) if v_idx_tel is not None else None
+                        cel_v = _excel_identifier(row[v_idx_cel]) if v_idx_cel is not None else None
+                        em_v = _excel_identifier(row[v_idx_email]) if v_idx_email is not None else None
+                        v_info["contact_data"] = {
+                            "telefono": tel_v,
+                            "celular": cel_v,
+                            "email": em_v,
+                        }
+
+                    if target_folio:
+                        ventas_by_cot[target_folio] = v_info
 
                 BATCH_QUOTES = 2000
-                quote_keys = list(quotes_data.keys())
+                quote_keys = list(dict.fromkeys(list(quotes_data.keys()) + list(ventas_by_cot.keys())))
 
                 for q_start in range(0, len(quote_keys), BATCH_QUOTES):
                     batch_keys = quote_keys[q_start : q_start + BATCH_QUOTES]
@@ -1752,14 +1871,16 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                     batch_items: list[dict[str, Any]] = []
 
                     for num_cot in batch_keys:
-                        q_data = quotes_data[num_cot]
+                        q_data = quotes_data.get(num_cot) or {}
                         v_info = ventas_by_cot.get(num_cot) or {}
 
                         cli_nom = v_info.get("cliente_nombre") or q_data.get("cliente_nombre")
                         cli_num = v_info.get("numero_cliente") or q_data.get("numero_cliente")
                         vend_nom = v_info.get("vendedor_nombre") or q_data.get("vendedor_nombre")
-                        vend_cod = q_data.get("vendedor_codigo")
+                        vend_cod = v_info.get("vendedor_codigo") or q_data.get("vendedor_codigo")
                         canal_val = v_info.get("canal") or q_data.get("canal")
+                        org_val = q_data.get("organizacion_ventas") or v_info.get("organizacion_ventas")
+                        fecha_reg = q_data.get("fecha_registro") or v_info.get("fecha_registro")
 
                         vend_id = (
                             (users_by_code.get(_normalize_seller_text(vend_cod)) if vend_cod else None)
@@ -1773,7 +1894,7 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                             if not cli_num:
                                 cli_num = cli_obj.numero_cliente
 
-                        contact_data = dict(q_data.get("contact_data") or {})
+                        contact_data = dict(v_info.get("contact_data") or q_data.get("contact_data") or {})
                         if cli_obj:
                             if cli_obj.email and not contact_data.get("email"):
                                 contact_data["email"] = cli_obj.email
@@ -1785,9 +1906,10 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                                 contact_data["nombre_contacto"] = cli_obj.nombre_contacto
 
                         # Resumen de SKUs únicos y partidas completas en JSON
+                        items_data = q_data.get("items_data", [])
                         unique_skus = []
                         seen_skus = set()
-                        for it in q_data["items_data"]:
+                        for it in items_data:
                             sku_code = it.get("codigo_material")
                             if sku_code and sku_code not in seen_skus:
                                 seen_skus.add(sku_code)
@@ -1807,15 +1929,16 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                                 "es_promocion": it.get("es_promocion", False),
                                 "precio_promocion": float(it["precio_promocion"]) if it.get("precio_promocion") else None,
                             }
-                            for it in q_data["items_data"]
+                            for it in items_data
                         ]
 
-                        importe_fac = q_data["total"] if v_info.get("numero_factura") else None
+                        total_val = q_data.get("total") if q_data.get("total") is not None else v_info.get("total", Decimal("0.00"))
+                        importe_fac = total_val if v_info.get("numero_factura") else None
 
                         quote_fields = {
                             "numero_cotizacion": num_cot,
-                            "fecha_registro": q_data["fecha_registro"],
-                            "organizacion_ventas": q_data["organizacion_ventas"],
+                            "fecha_registro": fecha_reg,
+                            "organizacion_ventas": org_val,
                             "vendedor_id": vend_id,
                             "vendedor_nombre": vend_nom,
                             "numero_cliente": cli_num,
@@ -1823,7 +1946,7 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                             "datos_contacto": contact_data,
                             "items": items_json,
                             "materiales_cotizados": mat_cot_str,
-                            "total": q_data["total"],
+                            "total": total_val,
                             "numero_factura": v_info.get("numero_factura"),
                             "fecha_factura": v_info.get("fecha_factura"),
                             "hora_facturacion": v_info.get("hora_facturacion"),
@@ -1849,7 +1972,7 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
 
                         batch_quote_ids.append(target_quote_id)
 
-                        for it_data in q_data["items_data"]:
+                        for it_data in items_data:
                             it_fac_qty = Decimal("1.000") if v_info.get("numero_factura") else Decimal("0.000")
                             it_fac_amt = it_data["precio_venta"] if v_info.get("numero_factura") else Decimal("0.00")
                             batch_items.append({
