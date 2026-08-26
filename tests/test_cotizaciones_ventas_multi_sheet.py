@@ -204,10 +204,12 @@ class TestCotizacionesVentasMultiSheet(unittest.IsolatedAsyncioTestCase):
 
         ws_v = wb["Ventas"]
         ventas_headers = [c.value for c in ws_v[1]]
-        self.assertIn("Fecha de Factura", ventas_headers)
+        self.assertIn("Fecha de la Factura", ventas_headers)
         self.assertIn("Folio Cotizacion", ventas_headers)
         self.assertIn("Margen", ventas_headers)
-        self.assertIn("Grupo de Vendedores", ventas_headers)
+        self.assertIn("Numero de Vendedor", ventas_headers)
+        self.assertIn("Importe con IVA", ventas_headers)
+        self.assertIn("Codigo de Material", ventas_headers)
 
         ws_c = wb["Cotizaciones"]
         cot_headers = [c.value for c in ws_c[1]]
@@ -433,6 +435,136 @@ class TestCotizacionesVentasMultiSheet(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(q.total, Decimal("1184.34"))
             self.assertEqual(q.materiales_cotizados, "ST101, ST152")
             self.assertEqual(len(q.items), 2)
+
+    async def test_process_excel_background_definitivo_16_cols(self):
+        user_id = uuid4()
+        user = Usuario(id=user_id, nombre_completo="Aaron Emigdio Lechuga", codigo_vendedor="C82", rol="vendedor")
+        promo = Promocion(
+            id=1,
+            centro="MK01",
+            codigo_material="CFIP137",
+            descripcion_material="LLAVE ANGULAR 2 SALIDAS 1/2X1/2 COFLEX",
+            precio_promocion=140.00,
+        )
+
+        wb = openpyxl.Workbook()
+        # Sheet 1: Ventas (16 columnas definitivas con partidas a nivel renglón)
+        ws_v = wb.active
+        ws_v.title = "Ventas"
+        ws_v.append([
+            "Fecha de la Factura", "Numero del Cliente", "Plazo de Entrega", "Nombre del Cliente",
+            "Folio Cotizacion", "Folio de la Factura", "Hora de la Factura", "Codigo de Material",
+            "Descripcion del Material", "Cantidad Facturada UMB", "Importe con IVA", "Margen",
+            "Numero de Vendedor", "Nombre del Vendedor", "Indicador ABC+Frecuencia de Venta", "Canal de Distribucion"
+        ])
+        # Cotización 416662481: Facturada con 2 renglones
+        ws_v.append([
+            datetime(2026, 1, 2), "400191", "ENTREGA INMEDIATA", "ADAM",
+            "416662481", "1325607092", time(9, 52, 16), "CFIP137",
+            "LLAVE ANGULAR 2 SALIDAS 1/2X1/2 COFLEX", 1, 158.02, 35.81,
+            "C82", "Aaron Emigdio Lechuga", "B3", "01"
+        ])
+        ws_v.append([
+            datetime(2026, 1, 2), "400191", "ENTREGA INMEDIATA", "ADAM",
+            "416662481", "1325607092", time(9, 52, 16), "4119",
+            "LLAVE NARIZ P/MANGUERA 13MM DICA", 2, 178.00, 29.75,
+            "C82", "Aaron Emigdio Lechuga", "A2", "01"
+        ])
+        # Cotización 416662488: Facturación parcial (cotizó 2 productos, solo compró 1)
+        ws_v.append([
+            datetime(2026, 1, 3), "400200", "SOBREPEDIDO", "CONSTRUCTORA DEL NORTE",
+            "416662488", "1325607095", time(11, 20, 0), "TUBOPVC2",
+            "TUBO PVC HIDRAULICO 2 PULG", 1, 200.00, 25.00,
+            "C82", "Aaron Emigdio Lechuga", "A1", "01"
+        ])
+
+        # Sheet 2: Cotizaciones (8 columnas con partidas cotizadas)
+        ws_c = wb.create_sheet(title="Cotizaciones")
+        ws_c.append([
+            "Fecha de Registro", "Organizacion de Ventas", "Numero de Cotizacion", "Indicador ABC+Frecuencia de Venta",
+            "Codigo de Material", "Descripcion del Material", "Unidad de Medida", "Precio de Venta"
+        ])
+        # Cotización 416662481: Cotizó CFIP137 ($150) y 4119 ($170) -> Total Cotizado = $320
+        ws_c.append([
+            datetime(2026, 1, 2), "MK01", "416662481", "B3",
+            "CFIP137", "LLAVE ANGULAR 2 SALIDAS 1/2X1/2 COFLEX", "PZA", 150.00
+        ])
+        ws_c.append([
+            datetime(2026, 1, 2), "MK01", "416662481", "A2",
+            "4119", "LLAVE NARIZ P/MANGUERA 13MM DICA", "PZA", 170.00
+        ])
+        # Cotización 416662488: Cotizó TUBOPVC2 ($200) y CODO90 ($100) -> Total Cotizado = $300
+        ws_c.append([
+            datetime(2026, 1, 3), "MK01", "416662488", "A1",
+            "TUBOPVC2", "TUBO PVC HIDRAULICO 2 PULG", "TRAMO", 200.00
+        ])
+        ws_c.append([
+            datetime(2026, 1, 3), "MK01", "416662488", "A3",
+            "CODO90", "CODO 90 SANITARIO 2 PULG", "PZA", 100.00
+        ])
+        # Cotización 416662499: Cotización viva (no facturada)
+        ws_c.append([
+            datetime(2026, 1, 4), "MK01", "416662499", "C1",
+            "PEGAMENTOPVC", "PEGAMENTO PVC 250ML", "BOTE", 85.00
+        ])
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        excel_bytes = buf.getvalue()
+
+        fake_session = FakeAsyncSession(users=[user], promos=[promo], quotes=[])
+
+        with patch("app.core.database.SessionLocal", return_value=fake_session), \
+             patch("app.services.actualizaciones_datos.registrar_actualizacion_datos", new=AsyncMock()):
+            err = await process_excel_background(excel_bytes, user_id)
+            self.assertIsNone(err)
+
+            added_quotes = {q.numero_cotizacion: q for q in fake_session.added if isinstance(q, Cotizacion)}
+            self.assertEqual(len(added_quotes), 3)
+
+            # Cotización 416662481 (Totalmente Vendida)
+            q1 = added_quotes["416662481"]
+            self.assertEqual(q1.cliente_nombre, "ADAM")
+            self.assertEqual(q1.numero_cliente, "400191")
+            self.assertEqual(q1.numero_factura, "1325607092")
+            self.assertEqual(q1.total, Decimal("320.00"))
+            self.assertEqual(q1.importe_facturado, Decimal("336.02"))  # 158.02 + 178.00
+            self.assertEqual(q1.materiales_cotizados, "CFIP137, 4119")
+            self.assertEqual(q1.materiales_facturados, "CFIP137, 4119")
+            self.assertEqual(q1.porcentaje_materiales, Decimal("100.00"))
+            self.assertEqual(q1.porcentaje_importe, Decimal("105.01"))
+            self.assertEqual(len(q1.items), 2)
+            # Verificar items en JSON
+            items_by_code = {it["codigo_material"]: it for it in q1.items}
+            self.assertEqual(items_by_code["CFIP137"]["cantidad_facturada"], 1.0)
+            self.assertEqual(items_by_code["CFIP137"]["importe_facturado"], 158.02)
+            self.assertTrue(items_by_code["CFIP137"]["es_promocion"])
+            self.assertEqual(items_by_code["4119"]["cantidad_facturada"], 2.0)
+            self.assertEqual(items_by_code["4119"]["importe_facturado"], 178.00)
+
+            # Cotización 416662488 (Parcialmente Vendida)
+            q2 = added_quotes["416662488"]
+            self.assertEqual(q2.total, Decimal("300.00"))
+            self.assertEqual(q2.importe_facturado, Decimal("200.00"))
+            self.assertEqual(q2.materiales_cotizados, "TUBOPVC2, CODO90")
+            self.assertEqual(q2.materiales_facturados, "TUBOPVC2")
+            self.assertEqual(q2.porcentaje_materiales, Decimal("50.00"))
+            self.assertEqual(q2.porcentaje_importe, Decimal("66.67"))
+            q2_items = {it["codigo_material"]: it for it in q2.items}
+            self.assertEqual(q2_items["TUBOPVC2"]["cantidad_facturada"], 1.0)
+            self.assertEqual(q2_items["CODO90"]["cantidad_facturada"], 0.0)
+            self.assertEqual(q2_items["CODO90"]["importe_facturado"], 0.0)
+
+            # Cotización 416662499 (Viva / Sin factura)
+            q3 = added_quotes["416662499"]
+            self.assertIsNone(q3.numero_factura)
+            self.assertIsNone(q3.importe_facturado)
+            self.assertEqual(q3.total, Decimal("85.00"))
+            self.assertEqual(q3.materiales_cotizados, "PEGAMENTOPVC")
+            self.assertIsNone(q3.materiales_facturados)
+            self.assertIsNone(q3.porcentaje_materiales)
+            self.assertIsNone(q3.porcentaje_importe)
+
 
 
 

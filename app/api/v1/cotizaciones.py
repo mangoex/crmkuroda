@@ -12,7 +12,7 @@ from sqlalchemy.future import select
 from sqlalchemy import and_, case, delete, func, insert, or_
 from sqlalchemy.orm import load_only
 from uuid import UUID, uuid4
-from typing import Optional
+from typing import Any, Optional
 
 from app.core.database import get_db
 from app.core.security import get_current_user, RoleChecker
@@ -165,6 +165,9 @@ def serialize_cotizacion(
         "nivel_prioridad": enrichment.get("nivel_prioridad"),
         "promociones_coincidentes": enrichment.get("promociones_coincidentes", []),
         "materiales_cotizados": getattr(c, "materiales_cotizados", None),
+        "materiales_facturados": getattr(c, "materiales_facturados", None),
+        "porcentaje_materiales": float(c.porcentaje_materiales) if getattr(c, "porcentaje_materiales", None) is not None else None,
+        "porcentaje_importe": float(c.porcentaje_importe) if getattr(c, "porcentaje_importe", None) is not None else None,
     }
     if vista != "resumen":
         data.update(
@@ -654,7 +657,7 @@ async def list_pending_reminders(
         )
 
     query = select(RecordatorioSeguimiento).where(
-        RecordatorioSeguimiento.completado == False
+        RecordatorioSeguimiento.completado.is_(False)
     )
 
     if current_user.rol == "vendedor":
@@ -1010,16 +1013,18 @@ def _resolve_sheet_columns(worksheet) -> tuple[dict[str, Optional[int]], str]:
         "cliente_nombre": find_idx(["NOMBRE DEL CLIENTE", "NOMBRE DE CLIENTE", "CLIENTE NOMBRE", "NOMBRE CLIENTE", "CLIENTE", "RAZON SOCIAL"]),
         "numero_cliente": find_idx(["NUMERO DEL CLIENTE", "NUMERO DE CLIENTE", "NUM CLIENTE", "CODIGO CLIENTE", "CLIENTE ID"]),
         "vendedor_nombre": find_idx(["NOMBRE DEL VENDEDOR", "NOMBRE DE VENDEDOR", "VENDEDOR NOMBRE", "NOMBRE VENDEDOR", "ASESOR"]),
-        "vendedor_codigo": find_idx(["VENDEDOR", "CODIGO VENDEDOR", "CODIGO DE VENDEDOR", "NUMERO DE VENDEDOR", "CLAVE VENDEDOR"]),
+        "vendedor_codigo": find_idx(["NUMERO DE VENDEDOR", "NUMERO VENDEDOR", "VENDEDOR", "CODIGO VENDEDOR", "CODIGO DE VENDEDOR", "CLAVE VENDEDOR"]),
         "grupo_vendedores": find_idx(["GRUPO DE VENDEDORES", "GRUPO VENDEDORES", "GRUPO"]),
         "canal": find_idx(["CANAL DE DISTRIBUCION", "CANAL"]),
         "plazo_entrega": find_idx(["PLAZO DE ENTREGA", "TIPO DE ENTREGA", "ENTREGA"]),
-        "numero_factura": find_idx(["FOLIO FACTURA", "NUMERO DE FACTURA", "NUMERO FACTURA", "FACTURA", "FOLIO_FACTURA"]),
-        "fecha_factura": find_idx(["FECHA DE FACTURA", "FECHA FACTURA"]),
-        "hora_facturacion": find_idx(["HORA DE FACTURACION", "HORA FACTURACION", "HORA"]),
+        "numero_factura": find_idx(["FOLIO DE LA FACTURA", "FOLIO DE FACTURA", "FOLIO FACTURA", "NUMERO DE FACTURA", "NUMERO FACTURA", "FACTURA", "FOLIO_FACTURA"]),
+        "fecha_factura": find_idx(["FECHA DE LA FACTURA", "FECHA DE FACTURA", "FECHA FACTURA"]),
+        "hora_facturacion": find_idx(["HORA DE LA FACTURA", "HORA DE FACTURACION", "HORA FACTURA", "HORA FACTURACION", "HORA"]),
         "margen": find_idx(["MARGEN"]),
         "fecha_registro": find_idx(["FECHA DE REGISTRO", "FECHA REGISTRO", "FECHA"]),
         "organizacion_ventas": find_idx(["ORGANIZACION DE VENTAS", "ORG VENTAS", "CENTRO", "SUCURSAL"]),
+        "cantidad_facturada": find_idx(["CANTIDAD FACTURADA UMB", "CANTIDAD FACTURADA", "CANTIDAD FACT", "CANTIDAD ENTREGADA"]),
+        "importe_facturado": find_idx(["IMPORTE CON IVA", "IMPORTE FACTURADO C/IVA", "IMPORTE FACTURADO CON IVA", "IMPORTE FACTURADO", "IMPORTE FACT"]),
         "telefono": find_idx(["NUMERO DE TELEFONO", "TELEFONO"]),
         "celular": find_idx(["NUMERO DE CELULAR", "CELULAR"]),
         "email": find_idx(["DIRECCION CORREO ELECTRONICO", "CORREO ELECTRONICO", "EMAIL", "CORREO"]),
@@ -1094,16 +1099,21 @@ def generate_excel_template_bytes() -> bytes:
     ws_v = wb.active
     ws_v.title = "Ventas"
     ws_v.append([
-        "Fecha de Factura",
+        "Fecha de la Factura",
         "Numero del Cliente",
         "Plazo de Entrega",
         "Nombre del Cliente",
         "Folio Cotizacion",
-        "Folio Factura",
-        "Hora de Facturacion",
+        "Folio de la Factura",
+        "Hora de la Factura",
+        "Codigo de Material",
+        "Descripcion del Material",
+        "Cantidad Facturada UMB",
+        "Importe con IVA",
         "Margen",
-        "Grupo de Vendedores",
+        "Numero de Vendedor",
         "Nombre del Vendedor",
+        "Indicador ABC+Frecuencia de Venta",
         "Canal de Distribucion",
     ])
     ws_v.append([
@@ -1114,9 +1124,14 @@ def generate_excel_template_bytes() -> bytes:
         "416662481",
         "1325607092",
         "09:52:16",
+        "VMVP25",
+        "VAL PIE PICHANCHA 25MM VAL-MEX",
+        1,
+        158.02,
         33.52,
         "C82",
         "Aaron Emigdio Lechuga",
+        "B3",
         "01",
     ])
     ws_v.append([
@@ -1127,9 +1142,14 @@ def generate_excel_template_bytes() -> bytes:
         "416662488",
         "1325607094",
         "10:03:44",
+        "TUBOPVC2",
+        "TUBO PVC HIDRAULICO 2 PULG",
+        2,
+        488.36,
         24.40,
         "C94",
         "Jesus Manuel Chavez",
+        "A2",
         "01",
     ])
 
@@ -1801,6 +1821,11 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                 v_idx_canal = v_cols.get("canal")
                 v_idx_org = v_cols.get("organizacion_ventas")
                 v_idx_tot = v_cols.get("precio")
+                v_idx_sku = v_cols.get("codigo_material")
+                v_idx_des = v_cols.get("descripcion")
+                v_idx_cant_fac = v_cols.get("cantidad_facturada")
+                v_idx_imp_fac = v_cols.get("importe_facturado")
+                v_idx_abcf = v_cols.get("indicador_abcf")
                 v_idx_tel = v_cols.get("telefono")
                 v_idx_cel = v_cols.get("celular")
                 v_idx_email = v_cols.get("email")
@@ -1830,37 +1855,86 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                     vend_cod = _excel_identifier(row[v_idx_vend_cod]) if v_idx_vend_cod is not None else None
                     canal_val = _excel_identifier(row[v_idx_canal]) if v_idx_canal is not None else None
                     org_val = _excel_identifier(row[v_idx_org]) if v_idx_org is not None else None
-                    tot_val = safe_float(row[v_idx_tot]) if v_idx_tot is not None else None
 
-                    v_info = {
-                        "fecha_factura": fec_fac,
-                        "fecha_registro": fec_reg,
-                        "numero_cliente": cli_num,
-                        "cliente_nombre": cli_nom,
-                        "plazo_entrega": plazo,
-                        "numero_factura": fac_fol,
-                        "hora_facturacion": hora_str,
-                        "margen": Decimal(str(round(margen_val, 3))) if margen_val is not None else None,
-                        "grupo_vendedores": grp_vend,
-                        "vendedor_nombre": vend_nom,
-                        "vendedor_codigo": vend_cod,
-                        "canal": canal_val,
-                        "organizacion_ventas": org_val,
-                        "total": Decimal(str(round(tot_val, 2))) if tot_val is not None else None,
-                    }
+                    # Datos de la partida facturada (si la hoja Ventas trae desglose)
+                    v_sku = _excel_identifier(row[v_idx_sku]) if v_idx_sku is not None else None
+                    v_desc = _excel_identifier(row[v_idx_des]) if v_idx_des is not None else None
+                    v_abcf = _excel_identifier(row[v_idx_abcf]) if v_idx_abcf is not None else None
+                    v_cant_raw = safe_float(row[v_idx_cant_fac]) if v_idx_cant_fac is not None else 1.0
+                    v_imp_raw = (
+                        safe_float(row[v_idx_imp_fac]) if v_idx_imp_fac is not None
+                        else (safe_float(row[v_idx_tot]) if v_idx_tot is not None else 0.0)
+                    )
 
-                    if v_idx_tel is not None or v_idx_cel is not None or v_idx_email is not None:
-                        tel_v = _excel_identifier(row[v_idx_tel]) if v_idx_tel is not None else None
-                        cel_v = _excel_identifier(row[v_idx_cel]) if v_idx_cel is not None else None
-                        em_v = _excel_identifier(row[v_idx_email]) if v_idx_email is not None else None
-                        v_info["contact_data"] = {
-                            "telefono": tel_v,
-                            "celular": cel_v,
-                            "email": em_v,
+                    dec_cant_fac = Decimal(str(round(v_cant_raw, 3))) if v_cant_raw is not None else Decimal("1.000")
+                    dec_imp_fac = Decimal(str(round(v_imp_raw, 2))) if v_imp_raw is not None else Decimal("0.00")
+
+                    if target_folio not in ventas_by_cot:
+                        v_info = {
+                            "fecha_factura": fec_fac,
+                            "fecha_registro": fec_reg,
+                            "numero_cliente": cli_num,
+                            "cliente_nombre": cli_nom,
+                            "plazo_entrega": plazo,
+                            "numero_factura": fac_fol,
+                            "hora_facturacion": hora_str,
+                            "margen": Decimal(str(round(margen_val, 3))) if margen_val is not None else None,
+                            "margen_items": [(margen_val, float(dec_imp_fac))] if margen_val is not None else [],
+                            "grupo_vendedores": grp_vend,
+                            "vendedor_nombre": vend_nom,
+                            "vendedor_codigo": vend_cod,
+                            "canal": canal_val,
+                            "organizacion_ventas": org_val,
+                            "total_facturado": Decimal("0.00"),
+                            "items_facturados": [],
                         }
 
-                    if target_folio:
+                        if v_idx_tel is not None or v_idx_cel is not None or v_idx_email is not None:
+                            tel_v = _excel_identifier(row[v_idx_tel]) if v_idx_tel is not None else None
+                            cel_v = _excel_identifier(row[v_idx_cel]) if v_idx_cel is not None else None
+                            em_v = _excel_identifier(row[v_idx_email]) if v_idx_email is not None else None
+                            v_info["contact_data"] = {
+                                "telefono": tel_v,
+                                "celular": cel_v,
+                                "email": em_v,
+                            }
+
                         ventas_by_cot[target_folio] = v_info
+                    else:
+                        v_info = ventas_by_cot[target_folio]
+                        if not v_info.get("cliente_nombre") and cli_nom:
+                            v_info["cliente_nombre"] = cli_nom
+                        if not v_info.get("numero_cliente") and cli_num:
+                            v_info["numero_cliente"] = cli_num
+                        if not v_info.get("vendedor_nombre") and vend_nom:
+                            v_info["vendedor_nombre"] = vend_nom
+                        if not v_info.get("vendedor_codigo") and vend_cod:
+                            v_info["vendedor_codigo"] = vend_cod
+                        if not v_info.get("numero_factura") and fac_fol:
+                            v_info["numero_factura"] = fac_fol
+                        if not v_info.get("fecha_factura") and fec_fac:
+                            v_info["fecha_factura"] = fec_fac
+                        if margen_val is not None:
+                            v_info["margen_items"].append((margen_val, float(dec_imp_fac)))
+
+                    v_info["total_facturado"] += dec_imp_fac
+                    if v_sku:
+                        v_info["items_facturados"].append({
+                            "codigo_material": v_sku,
+                            "descripcion": v_desc,
+                            "cantidad_facturada": dec_cant_fac,
+                            "importe_facturado": dec_imp_fac,
+                            "indicador_abcf": v_abcf,
+                            "margen": margen_val,
+                        })
+
+                # Calcular margen ponderado
+                for v_item in ventas_by_cot.values():
+                    m_items = v_item.pop("margen_items", [])
+                    if m_items:
+                        total_weight = sum(max(w, 1.0) for _, w in m_items)
+                        weighted_margin = sum(m * max(w, 1.0) for m, w in m_items) / total_weight
+                        v_item["margen"] = Decimal(str(round(weighted_margin, 3)))
 
                 BATCH_QUOTES = 2000
                 quote_keys = list(dict.fromkeys(list(quotes_data.keys()) + list(ventas_by_cot.keys())))
@@ -1905,35 +1979,119 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                             if cli_obj.nombre_contacto and not contact_data.get("nombre_contacto"):
                                 contact_data["nombre_contacto"] = cli_obj.nombre_contacto
 
-                        # Resumen de SKUs únicos y partidas completas en JSON
-                        items_data = q_data.get("items_data", [])
-                        unique_skus = []
-                        seen_skus = set()
-                        for it in items_data:
-                            sku_code = it.get("codigo_material")
-                            if sku_code and sku_code not in seen_skus:
-                                seen_skus.add(sku_code)
-                                unique_skus.append(sku_code)
+                        # Cruzar partidas cotizadas (q_data) con partidas facturadas (v_info)
+                        items_cot = q_data.get("items_data", [])
+                        items_fac = v_info.get("items_facturados", [])
 
-                        mat_cot_str = ", ".join(unique_skus) if unique_skus else None
+                        items_fac_by_sku: dict[str, list[dict[str, Any]]] = defaultdict(list)
+                        for f_it in items_fac:
+                            items_fac_by_sku[normalize_text(f_it["codigo_material"])].append(f_it)
+
+                        final_quote_items: list[dict[str, Any]] = []
+                        matched_fac_skus: set[str] = set()
+
+                        # 1. Partidas cotizadas
+                        for it_data in items_cot:
+                            sku_norm = normalize_text(it_data["codigo_material"])
+                            fac_entries = items_fac_by_sku.get(sku_norm)
+
+                            if fac_entries:
+                                matched_fac_skus.add(sku_norm)
+                                it_fac_qty = sum((e["cantidad_facturada"] for e in fac_entries), Decimal("0.000"))
+                                it_fac_amt = sum((e["importe_facturado"] for e in fac_entries), Decimal("0.00"))
+                            elif v_info.get("numero_factura") and not items_fac:
+                                # Archivo legado donde Ventas no traía detalle de SKU
+                                it_fac_qty = it_data["cantidad_cotizada"]
+                                it_fac_amt = it_data["precio_venta"]
+                            else:
+                                it_fac_qty = Decimal("0.000")
+                                it_fac_amt = Decimal("0.00")
+
+                            final_quote_items.append({
+                                "codigo_material": it_data["codigo_material"],
+                                "descripcion": it_data["descripcion"],
+                                "indicador_abcf": it_data["indicador_abcf"],
+                                "unidad_medida": it_data["unidad_medida"],
+                                "precio_venta": it_data["precio_venta"],
+                                "cantidad_cotizada": it_data["cantidad_cotizada"],
+                                "importe_cotizado": it_data["importe_cotizado"],
+                                "cantidad_facturada": it_fac_qty,
+                                "importe_facturado": it_fac_amt,
+                                "es_promocion": it_data["es_promocion"],
+                                "precio_promocion": it_data["precio_promocion"],
+                            })
+
+                        # 2. Partidas facturadas adicionales (venta cruzada)
+                        for f_it in items_fac:
+                            sku_norm = normalize_text(f_it["codigo_material"])
+                            if sku_norm not in matched_fac_skus:
+                                matched_fac_skus.add(sku_norm)
+                                promo_match = promos_by_code.get(sku_norm)
+                                unit_prc = (f_it["importe_facturado"] / f_it["cantidad_facturada"]) if f_it["cantidad_facturada"] > 0 else f_it["importe_facturado"]
+                                final_quote_items.append({
+                                    "codigo_material": f_it["codigo_material"],
+                                    "descripcion": f_it["descripcion"],
+                                    "indicador_abcf": f_it["indicador_abcf"],
+                                    "unidad_medida": "PZA",
+                                    "precio_venta": Decimal(str(round(unit_prc, 2))),
+                                    "cantidad_cotizada": Decimal("0.000"),
+                                    "importe_cotizado": Decimal("0.00"),
+                                    "cantidad_facturada": f_it["cantidad_facturada"],
+                                    "importe_facturado": f_it["importe_facturado"],
+                                    "es_promocion": promo_match is not None,
+                                    "precio_promocion": Decimal(str(promo_match.precio_promocion)) if promo_match and promo_match.precio_promocion else None,
+                                })
+
+                        # Métricas agregadas
+                        cotizados_skus = [it["codigo_material"] for it in final_quote_items if it["cantidad_cotizada"] > 0]
+                        facturados_skus = [it["codigo_material"] for it in final_quote_items if it["cantidad_facturada"] > 0]
+
+                        mat_cot_str = ", ".join(dict.fromkeys(cotizados_skus)) if cotizados_skus else None
+                        mat_fac_str = ", ".join(dict.fromkeys(facturados_skus)) if facturados_skus else None
+
+                        sum_cotizado = sum((it["importe_cotizado"] for it in final_quote_items), Decimal("0.00"))
+                        sum_facturado = sum((it["importe_facturado"] for it in final_quote_items), Decimal("0.00"))
+
+                        total_val = q_data.get("total") if (q_data.get("total") is not None and q_data.get("total") > 0) else (sum_cotizado if sum_cotizado > 0 else (v_info.get("total_facturado") or Decimal("0.00")))
+
+                        if v_info.get("numero_factura"):
+                            if sum_facturado > 0:
+                                importe_fac = sum_facturado
+                            elif v_info.get("total_facturado") and v_info.get("total_facturado") > 0:
+                                importe_fac = v_info["total_facturado"]
+                            else:
+                                importe_fac = total_val
+                        else:
+                            importe_fac = None
+
+                        pct_mat = None
+                        if v_info.get("numero_factura") or facturados_skus:
+                            if cotizados_skus:
+                                intersect = set(facturados_skus) & set(cotizados_skus)
+                                pct_mat = Decimal(str(round((len(intersect) / len(set(cotizados_skus))) * 100, 2)))
+                            elif facturados_skus:
+                                pct_mat = Decimal("100.00")
+
+                        pct_imp = None
+                        if importe_fac is not None and total_val > 0:
+                            pct_imp = Decimal(str(round((float(importe_fac) / float(total_val)) * 100, 2)))
 
                         items_json = [
                             {
                                 "producto": it["codigo_material"],
                                 "codigo_material": it["codigo_material"],
                                 "descripcion": it.get("descripcion"),
-                                "cantidad": float(it["cantidad_cotizada"]),
+                                "cantidad": float(it["cantidad_cotizada"]) if it["cantidad_cotizada"] > 0 else float(it["cantidad_facturada"]),
                                 "precio_unitario": float(it["precio_venta"]),
                                 "indicador_abcf": it.get("indicador_abcf"),
                                 "unidad_medida": it.get("unidad_medida"),
                                 "es_promocion": it.get("es_promocion", False),
                                 "precio_promocion": float(it["precio_promocion"]) if it.get("precio_promocion") else None,
+                                "cantidad_facturada": float(it["cantidad_facturada"]),
+                                "importe_facturado": float(it["importe_facturado"]),
                             }
-                            for it in items_data
+                            for it in final_quote_items
                         ]
-
-                        total_val = q_data.get("total") if q_data.get("total") is not None else v_info.get("total", Decimal("0.00"))
-                        importe_fac = total_val if v_info.get("numero_factura") else None
 
                         quote_fields = {
                             "numero_cotizacion": num_cot,
@@ -1946,12 +2104,15 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                             "datos_contacto": contact_data,
                             "items": items_json,
                             "materiales_cotizados": mat_cot_str,
+                            "materiales_facturados": mat_fac_str,
+                            "porcentaje_materiales": pct_mat,
+                            "porcentaje_importe": pct_imp,
                             "total": total_val,
                             "numero_factura": v_info.get("numero_factura"),
                             "fecha_factura": v_info.get("fecha_factura"),
                             "hora_facturacion": v_info.get("hora_facturacion"),
                             "margen": v_info.get("margen"),
-                            "grupo_vendedores": v_info.get("grupo_vendedores"),
+                            "grupo_vendedores": v_info.get("grupo_vendedores") or vend_cod,
                             "plazo_entrega": v_info.get("plazo_entrega"),
                             "canal": canal_val,
                             "importe_facturado": importe_fac,
@@ -1972,9 +2133,7 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
 
                         batch_quote_ids.append(target_quote_id)
 
-                        for it_data in items_data:
-                            it_fac_qty = Decimal("1.000") if v_info.get("numero_factura") else Decimal("0.000")
-                            it_fac_amt = it_data["precio_venta"] if v_info.get("numero_factura") else Decimal("0.00")
+                        for it_data in final_quote_items:
                             batch_items.append({
                                 "id": uuid4(),
                                 "cotizacion_id": target_quote_id,
@@ -1985,8 +2144,8 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                                 "precio_venta": it_data["precio_venta"],
                                 "cantidad_cotizada": it_data["cantidad_cotizada"],
                                 "importe_cotizado": it_data["importe_cotizado"],
-                                "cantidad_facturada": it_fac_qty,
-                                "importe_facturado": it_fac_amt,
+                                "cantidad_facturada": it_data["cantidad_facturada"],
+                                "importe_facturado": it_data["importe_facturado"],
                                 "es_promocion": it_data["es_promocion"],
                                 "precio_promocion": it_data["precio_promocion"],
                             })
