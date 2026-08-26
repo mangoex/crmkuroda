@@ -86,6 +86,8 @@ def normalize_channel(raw_value: Any, configured: Mapping[str, str] | None = Non
         "ENVIO DOMICILIO": "Envío a Domicilio",
         "ENTREGA A DOMICILIO": "Envío a Domicilio",
         "DOMICILIO": "Envío a Domicilio",
+        "ENVO A DOMICILIO": "Envío a Domicilio",
+        "ENV?O A DOMICILIO": "Envío a Domicilio",
         # Entrega inmediata
         "ENTREGA INMEDIATA": "Entrega Inmediata",
         "ENTREGA-INMEDIATA": "Entrega Inmediata",
@@ -105,6 +107,8 @@ def normalize_channel(raw_value: Any, configured: Mapping[str, str] | None = Non
         # Envío por paquetería
         "ENVIO POR PAQUETERIA": "Envío por Paquetería",
         "ENVIO POR PAQUETERA": "Envío por Paquetería",
+        "ENVO POR PAQUETERA": "Envío por Paquetería",
+        "ENV?O POR PAQUETER?A": "Envío por Paquetería",
         "PAQUETERIA": "Envío por Paquetería",
         # Apartados
         "APARTADO": "Apartados",
@@ -120,6 +124,8 @@ def normalize_channel(raw_value: Any, configured: Mapping[str, str] | None = Non
         "400550": "Market place",
         # Mercancía resguardo
         "MERCANCIA RESGUARDO": "Mercancía Resguardo",
+        "MERCANCA RESGUARDO": "Mercancía Resguardo",
+        "MERCANC?A RESGUARDO": "Mercancía Resguardo",
         "MERCANCIA EN RESGUARDO": "Mercancía Resguardo",
         "RESGUARDO": "Mercancía Resguardo",
         # Kuroda turbo
@@ -150,7 +156,8 @@ def resolve_quote_effective_channel(
     Reglas de negocio prioritarias:
       - Cliente o Proveedor 400550 -> 'Market place'
       - Cliente o Proveedor 400260 -> 'Apartados'
-      - En caso contrario -> canal / tipo de entrega normalizado.
+      - Plazo de Entrega o Canal que coincida con canales canónicos/logísticos/estratégicos -> Nombre canónico
+      - En caso contrario -> canal / plazo normalizado.
     """
     raw_client = str(getattr(quote, "numero_cliente", "") or "").strip()
     clean_client_digits = raw_client.lstrip("0")
@@ -176,7 +183,27 @@ def resolve_quote_effective_channel(
     ):
         return "Apartados"
 
+    # 1. Prioridad: Verificar si plazo_entrega corresponde a un canal canónico (Entrega Inmediata, Pide y Recoge, Envío a Domicilio, etc.)
+    raw_plazo = getattr(quote, "plazo_entrega", None)
+    if raw_plazo:
+        norm_plazo = normalize_channel(raw_plazo, configured)
+        if norm_plazo in CANONICAL_CHANNELS:
+            return norm_plazo
+
+    # 2. Verificar si canal corresponde a un canal canónico
     raw_channel = getattr(quote, "canal", None)
+    if raw_channel:
+        norm_channel = normalize_channel(raw_channel, configured)
+        if norm_channel in CANONICAL_CHANNELS:
+            return norm_channel
+
+    # 3. Fallback: Si plazo_entrega tiene texto significativo no canónico
+    if raw_plazo:
+        norm_plazo = normalize_channel(raw_plazo, configured)
+        if norm_plazo != "Sin clasificar":
+            return norm_plazo
+
+    # 4. Fallback: canal
     return normalize_channel(raw_channel, configured)
 
 
@@ -891,13 +918,12 @@ async def get_promociones_intelligence_summary(db: Any) -> dict[str, Any]:
     from sqlalchemy.future import select
     from app.models.cotizacion import Cotizacion
     from app.models.cotizacion_detalle import CotizacionItem
-    from app.models.promocion import Promocion
 
     # Obtener partidas de promoción
     promo_items_res = await db.execute(
         select(CotizacionItem, Cotizacion)
         .join(Cotizacion, CotizacionItem.cotizacion_id == Cotizacion.id)
-        .where(CotizacionItem.es_promocion == True)  # noqa: E712
+        .where(CotizacionItem.es_promocion.is_(True))
     )
     promo_records = promo_items_res.all()
 

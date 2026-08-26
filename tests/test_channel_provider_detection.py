@@ -30,6 +30,25 @@ class TestChannelProviderDetection(unittest.TestCase):
         q2 = SimpleNamespace(numero_cliente="400260", numero_proveedor=None, canal="Envío a Domicilio")
         self.assertEqual(resolve_quote_effective_channel(q2), "Apartados")
 
+    def test_plazo_entrega_resolves_to_logistic_channels(self):
+        """Verifica que plazo_entrega mapee a los canales canónicos/logísticos correspondientes."""
+        cases = [
+            ("ENTREGA INMEDIATA", "01", "Entrega Inmediata"),
+            ("PIDE Y RECOGE", "01", "Pide y Recoge"),
+            ("ENVÍO A DOMICILIO", "01", "Envío a Domicilio"),
+            ("ENVIO A DOMICILIO", "01", "Envío a Domicilio"),
+            ("SOBREPEDIDO", "01", "Sobrepedido"),
+            ("ENVIO POR PAQUETERIA", "01", "Envío por Paquetería"),
+            ("CTE RECO EN OTRA SUC", "01", "Cte Reco en Otra Suc"),
+            ("OCURRE", "01", "Ocurre"),
+            ("MERCANCIA RESGUARDO", "01", "Mercancía Resguardo"),
+            ("KURODA TURBO", "01", "Kuroda Turbo"),
+        ]
+        for plazo, canal, expected in cases:
+            q = SimpleNamespace(numero_cliente="400191", plazo_entrega=plazo, canal=canal)
+            self.assertEqual(resolve_quote_effective_channel(q), expected, f"Fallo al resolver plazo: {plazo}")
+
 
 if __name__ == "__main__":
     unittest.main()
+
