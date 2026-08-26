@@ -313,4 +313,85 @@ class TestCotizacionesVentasMultiSheet(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(serialized["plazo_entrega"], "ENTREGA INMEDIATA")
         self.assertEqual(serialized["numero_factura"], "FAC-123")
         self.assertEqual(serialized["importe_facturado"], 1500.00)
+        self.assertEqual(serialized["materiales_cotizados"], None)
+
+    async def test_multisheet_preserves_existing_client_and_advisor_for_uninvoiced_quote(self):
+        user_id = uuid4()
+        user = Usuario(id=user_id, nombre_completo="ARMANDO ARIAS", codigo_vendedor="O88", rol="vendedor")
+        
+        # Pre-existing quote in database with known client and seller
+        existing_quote = Cotizacion(
+            id=uuid4(),
+            numero_cotizacion="COT-1003",
+            cliente_nombre="LAMBERTO URIARTE",
+            numero_cliente="400460",
+            vendedor_id=user_id,
+            vendedor_nombre="ARMANDO ARIAS",
+            datos_contacto={"telefono": "6671234567", "email": "lamberto@example.com"},
+            canal="01",
+            total=Decimal("80.00"),
+        )
+
+        fake_session = FakeAsyncSession(users=[user], promos=[], quotes=[existing_quote])
+
+        with patch("app.core.database.SessionLocal", return_value=fake_session), \
+             patch("app.services.actualizaciones_datos.registrar_actualizacion_datos", new=AsyncMock()):
+            # Excel has COT-1003 only in Cotizaciones sheet (not in Ventas)
+            excel_bytes = create_test_multisheet_excel_bytes()
+            err = await process_excel_background(excel_bytes, user_id)
+            self.assertIsNone(err)
+
+            # COT-1003 should preserve its client and seller!
+            self.assertEqual(existing_quote.cliente_nombre, "LAMBERTO URIARTE")
+            self.assertEqual(existing_quote.numero_cliente, "400460")
+            self.assertEqual(existing_quote.vendedor_nombre, "ARMANDO ARIAS")
+            self.assertEqual(existing_quote.vendedor_id, user_id)
+            self.assertEqual(existing_quote.materiales_cotizados, "SKU-PROMO-02")
+            self.assertEqual(len(existing_quote.items), 1)
+
+    async def test_multisheet_with_optional_cotizaciones_columns(self):
+        user_id = uuid4()
+        user = Usuario(id=user_id, nombre_completo="LORENA PERAZA", codigo_vendedor="C01", rol="vendedor")
+
+        wb = openpyxl.Workbook()
+        ws_ventas = wb.active
+        ws_ventas.title = "Ventas"
+        ws_ventas.append(["Fecha de Factura", "Numero del Cliente", "Plazo de Entrega", "Nombre del Cliente", "Folio Cotizacion", "Folio Factura", "Hora de Facturacion", "Margen", "Grupo de Vendedores", "Nombre del Vendedor", "Canal de Distribucion"])
+        # Ventas is empty (no invoices yet)
+
+        ws_c = wb.create_sheet(title="Cotizaciones")
+        ws_c.append([
+            "Fecha de Registro", "Organizacion de Ventas", "Numero de Cotizacion", "Indicador ABC+Frecuencia de Venta",
+            "Codigo de Material", "Descripcion del Material", "Unidad de Medida", "Precio de Venta",
+            "Nombre del Cliente", "Numero del Cliente", "Nombre del Vendedor", "Vendedor", "Canal"
+        ])
+        ws_c.append([
+            datetime(2026, 8, 20), "MK01", "COT-9999", "A1",
+            "TUBO-PVC-4", "TUBO PVC 4 PULG", "TRAMO", 350.00,
+            "CONSTRUCTORA EJEMPLO SA", "554433", "LORENA PERAZA", "C01", "02"
+        ])
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        excel_bytes = buf.getvalue()
+
+        fake_session = FakeAsyncSession(users=[user], promos=[], quotes=[])
+
+        with patch("app.core.database.SessionLocal", return_value=fake_session), \
+             patch("app.services.actualizaciones_datos.registrar_actualizacion_datos", new=AsyncMock()):
+            err = await process_excel_background(excel_bytes, user_id)
+            self.assertIsNone(err)
+
+            added_quotes = [item for item in fake_session.added if isinstance(item, Cotizacion)]
+            self.assertEqual(len(added_quotes), 1)
+            q = added_quotes[0]
+            self.assertEqual(q.numero_cotizacion, "COT-9999")
+            self.assertEqual(q.cliente_nombre, "CONSTRUCTORA EJEMPLO SA")
+            self.assertEqual(q.numero_cliente, "554433")
+            self.assertEqual(q.vendedor_nombre, "LORENA PERAZA")
+            self.assertEqual(q.vendedor_id, user_id)
+            self.assertEqual(q.canal, "02")
+            self.assertEqual(q.materiales_cotizados, "TUBO-PVC-4")
+            self.assertEqual(len(q.items), 1)
+
 

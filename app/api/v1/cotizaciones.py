@@ -164,6 +164,7 @@ def serialize_cotizacion(
         "tiene_promocion": enrichment.get("tiene_promocion", False),
         "nivel_prioridad": enrichment.get("nivel_prioridad"),
         "promociones_coincidentes": enrichment.get("promociones_coincidentes", []),
+        "materiales_cotizados": getattr(c, "materiales_cotizados", None),
     }
     if vista != "resumen":
         data.update(
@@ -458,6 +459,8 @@ async def list_cotizaciones(
         search_condition = or_(
             Cotizacion.cliente_nombre.ilike(search_term),
             Cotizacion.numero_cliente.ilike(search_term),
+            Cotizacion.numero_cotizacion.ilike(search_term),
+            Cotizacion.materiales_cotizados.ilike(search_term),
         )
         query = query.filter(search_condition)
         count_query = count_query.filter(search_condition)
@@ -1035,6 +1038,11 @@ def generate_excel_template_bytes() -> bytes:
         "Descripcion del Material",
         "Unidad de Medida",
         "Precio de Venta",
+        "Nombre del Cliente",
+        "Numero del Cliente",
+        "Nombre del Vendedor",
+        "Vendedor",
+        "Canal",
     ])
     ws_c.append([
         "2026-01-02",
@@ -1045,6 +1053,11 @@ def generate_excel_template_bytes() -> bytes:
         "VAL PIE PICHANCHA 25MM VAL-MEX",
         "PZA",
         136.21,
+        "PRODIVERSO CASA KURODA",
+        "400191",
+        "Aaron Emigdio Lechuga",
+        "C82",
+        "01",
     ])
     ws_c.append([
         "2026-01-02",
@@ -1055,6 +1068,11 @@ def generate_excel_template_bytes() -> bytes:
         "TUBO PVC HIDRAULICO 2 PULG",
         "TRAMO",
         210.50,
+        "PRODIVERSO CASA KURODA",
+        "400191",
+        "Aaron Emigdio Lechuga",
+        "C82",
+        "01",
     ])
     ws_c.append([
         "2026-01-02",
@@ -1065,6 +1083,11 @@ def generate_excel_template_bytes() -> bytes:
         "INSERTO AZUCENA 20X30 NAVIA BEIGE PZA",
         "PZA",
         42.24,
+        "CONSTRUCTORA DEL NORTE SA DE CV",
+        "400200",
+        "Jesus Manuel Chavez",
+        "C94",
+        "01",
     ])
 
     # Hoja 3: Instrucciones
@@ -1076,6 +1099,7 @@ def generate_excel_template_bytes() -> bytes:
     ws_i.append(["4. La columna 'Folio Cotizacion' en Ventas enlaza automáticamente con 'Numero de Cotizacion' en Cotizaciones."])
     ws_i.append(["5. Las cotizaciones sin factura en Ventas se registran como cotizaciones vivas / en seguimiento."])
     ws_i.append(["6. Los SKUs que coincidan con el catálogo de Promociones se clasificarán como ventas de promoción."])
+    ws_i.append(["7. La pestaña 'Cotizaciones' puede incluir opcionalmente 'Nombre del Cliente', 'Numero del Cliente', 'Nombre del Vendedor', 'Vendedor' y 'Canal' para cotizaciones en seguimiento no facturadas."])
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -1151,6 +1175,65 @@ def _find_detail_worksheet(workbook) -> tuple[any, dict[str, int]]:
         last_error = f"Faltan columnas requeridas: {', '.join(missing)}"
 
     raise ValueError(last_error or "No se encontraron hojas válidas para detalle de materiales.")
+
+
+def _merge_quote_fields(existing: Cotizacion, incoming: dict) -> dict:
+    """
+    Mezcla inteligentemente los campos importados con los existentes para
+    evitar sobreescribir clientes, contactos o asesores con valores vacíos o 'Cliente Desconocido'.
+    """
+    merged = dict(incoming)
+
+    # 1. Preservar cliente si el nuevo viene como 'Cliente Desconocido' o None
+    existing_client = getattr(existing, "cliente_nombre", None)
+    incoming_client = incoming.get("cliente_nombre")
+    if (not incoming_client or incoming_client == "Cliente Desconocido") and existing_client and existing_client != "Cliente Desconocido":
+        merged["cliente_nombre"] = existing_client
+
+    existing_client_num = getattr(existing, "numero_cliente", None)
+    if not incoming.get("numero_cliente") and existing_client_num:
+        merged["numero_cliente"] = existing_client_num
+
+    # 2. Preservar asesor
+    existing_vend_nom = getattr(existing, "vendedor_nombre", None)
+    if not incoming.get("vendedor_nombre") and existing_vend_nom:
+        merged["vendedor_nombre"] = existing_vend_nom
+
+    existing_vend_id = getattr(existing, "vendedor_id", None)
+    if not incoming.get("vendedor_id") and existing_vend_id:
+        merged["vendedor_id"] = existing_vend_id
+
+    existing_grp_vend = getattr(existing, "grupo_vendedores", None)
+    if not incoming.get("grupo_vendedores") and existing_grp_vend:
+        merged["grupo_vendedores"] = existing_grp_vend
+
+    # 3. Preservar canal y entrega si el nuevo viene vacío
+    existing_canal = getattr(existing, "canal", None)
+    if not incoming.get("canal") and existing_canal:
+        merged["canal"] = existing_canal
+
+    existing_plazo = getattr(existing, "plazo_entrega", None)
+    if not incoming.get("plazo_entrega") and existing_plazo:
+        merged["plazo_entrega"] = existing_plazo
+
+    existing_org = getattr(existing, "organizacion_ventas", None)
+    if not incoming.get("organizacion_ventas") and existing_org:
+        merged["organizacion_ventas"] = existing_org
+
+    # 4. Preservar datos de contacto si los nuevos vienen vacíos
+    existing_contacts = getattr(existing, "datos_contacto", None) or {}
+    incoming_contacts = incoming.get("datos_contacto") or {}
+    has_incoming_contact = any(bool(v) for v in incoming_contacts.values())
+    if not has_incoming_contact and existing_contacts:
+        merged["datos_contacto"] = existing_contacts
+    elif incoming_contacts and existing_contacts:
+        merged_contacts = dict(existing_contacts)
+        for k, v in incoming_contacts.items():
+            if v:
+                merged_contacts[k] = v
+        merged["datos_contacto"] = merged_contacts
+
+    return merged
 
 
 def _apply_imported_quote_values(cotizacion: Cotizacion, values: dict) -> Cotizacion:
@@ -1515,6 +1598,16 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                 cot_idx_udm = c_headers.get("UNIDAD DE MEDIDA", 6)
                 cot_idx_prc = c_headers.get("PRECIO DE VENTA", 7)
 
+                # Columnas opcionales en pestaña Cotizaciones
+                cot_idx_cli_nom = c_headers.get("NOMBRE DEL CLIENTE", c_headers.get("CLIENTE NOMBRE", c_headers.get("CLIENTE", None)))
+                cot_idx_cli_num = c_headers.get("NUMERO DEL CLIENTE", c_headers.get("NUMERO DE CLIENTE", None))
+                cot_idx_vend_nom = c_headers.get("NOMBRE DEL VENDEDOR", c_headers.get("VENDEDOR NOMBRE", c_headers.get("ASESOR", None)))
+                cot_idx_vend_cod = c_headers.get("VENDEDOR", c_headers.get("CODIGO VENDEDOR", c_headers.get("NUMERO DE VENDEDOR", None)))
+                cot_idx_canal = c_headers.get("CANAL DE DISTRIBUCION", c_headers.get("CANAL", None))
+                cot_idx_tel = c_headers.get("NUMERO DE TELEFONO", c_headers.get("TELEFONO", None))
+                cot_idx_cel = c_headers.get("NUMERO DE CELULAR", c_headers.get("CELULAR", None))
+                cot_idx_email = c_headers.get("DIRECCION CORREO ELECTRONICO", c_headers.get("EMAIL", c_headers.get("CORREO", None)))
+
                 # Agrupar cotizaciones y partidas
                 quotes_data: dict[str, dict[str, Any]] = {}
                 for row in ws_cot.iter_rows(min_row=2, values_only=True):
@@ -1543,6 +1636,41 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                             "total": Decimal("0.00"),
                             "items_data": [],
                         }
+
+                    # Extraer metadatos opcionales si vienen en la pestaña Cotizaciones
+                    if cot_idx_cli_nom is not None and not quotes_data[num_cot].get("cliente_nombre"):
+                        c_cli = _excel_identifier(row[cot_idx_cli_nom])
+                        if c_cli:
+                            quotes_data[num_cot]["cliente_nombre"] = c_cli
+                    if cot_idx_cli_num is not None and not quotes_data[num_cot].get("numero_cliente"):
+                        c_num = _excel_identifier(row[cot_idx_cli_num])
+                        if c_num:
+                            quotes_data[num_cot]["numero_cliente"] = c_num
+                    if cot_idx_vend_nom is not None and not quotes_data[num_cot].get("vendedor_nombre"):
+                        c_vnom = _excel_identifier(row[cot_idx_vend_nom])
+                        if c_vnom:
+                            quotes_data[num_cot]["vendedor_nombre"] = c_vnom
+                    if cot_idx_vend_cod is not None and not quotes_data[num_cot].get("vendedor_codigo"):
+                        c_vcod = _excel_identifier(row[cot_idx_vend_cod])
+                        if c_vcod:
+                            quotes_data[num_cot]["vendedor_codigo"] = c_vcod
+                    if cot_idx_canal is not None and not quotes_data[num_cot].get("canal"):
+                        c_can = _excel_identifier(row[cot_idx_canal])
+                        if c_can:
+                            quotes_data[num_cot]["canal"] = c_can
+
+                    if cot_idx_tel is not None or cot_idx_cel is not None or cot_idx_email is not None:
+                        tel_val = _excel_identifier(row[cot_idx_tel]) if cot_idx_tel is not None else None
+                        cel_val = _excel_identifier(row[cot_idx_cel]) if cot_idx_cel is not None else None
+                        em_val = _excel_identifier(row[cot_idx_email]) if cot_idx_email is not None else None
+                        if "contact_data" not in quotes_data[num_cot]:
+                            quotes_data[num_cot]["contact_data"] = {}
+                        if tel_val and not quotes_data[num_cot]["contact_data"].get("telefono"):
+                            quotes_data[num_cot]["contact_data"]["telefono"] = tel_val
+                        if cel_val and not quotes_data[num_cot]["contact_data"].get("celular"):
+                            quotes_data[num_cot]["contact_data"]["celular"] = cel_val
+                        if em_val and not quotes_data[num_cot]["contact_data"].get("email"):
+                            quotes_data[num_cot]["contact_data"]["email"] = em_val
 
                     sku_norm = normalize_text(sku)
                     promo_match = promos_by_code.get(sku_norm)
@@ -1627,20 +1755,60 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                         q_data = quotes_data[num_cot]
                         v_info = ventas_by_cot.get(num_cot) or {}
 
-                        cli_nom = v_info.get("cliente_nombre") or "Cliente Desconocido"
-                        cli_num = v_info.get("numero_cliente")
-                        vend_nom = v_info.get("vendedor_nombre")
+                        cli_nom = v_info.get("cliente_nombre") or q_data.get("cliente_nombre")
+                        cli_num = v_info.get("numero_cliente") or q_data.get("numero_cliente")
+                        vend_nom = v_info.get("vendedor_nombre") or q_data.get("vendedor_nombre")
+                        vend_cod = q_data.get("vendedor_codigo")
+                        canal_val = v_info.get("canal") or q_data.get("canal")
+
                         vend_id = (
-                            users_by_name.get(_normalize_seller_text(vend_nom))
-                            if vend_nom else None
+                            (users_by_code.get(_normalize_seller_text(vend_cod)) if vend_cod else None)
+                            or (users_by_name.get(_normalize_seller_text(vend_nom)) if vend_nom else None)
                         )
 
-                        cli_obj = clients_by_num.get(cli_num) or clients_by_nom.get(cli_nom) if (cli_num or cli_nom) else None
-                        contact_data = {
-                            "email": cli_obj.email if cli_obj else None,
-                            "telefono": cli_obj.telefono if cli_obj else None,
-                            "celular": cli_obj.celular if cli_obj else None,
-                        }
+                        cli_obj = (clients_by_num.get(cli_num) if cli_num else None) or (clients_by_nom.get(cli_nom) if cli_nom else None)
+                        if cli_obj:
+                            if not cli_nom or cli_nom == "Cliente Desconocido":
+                                cli_nom = cli_obj.nombre
+                            if not cli_num:
+                                cli_num = cli_obj.numero_cliente
+
+                        contact_data = dict(q_data.get("contact_data") or {})
+                        if cli_obj:
+                            if cli_obj.email and not contact_data.get("email"):
+                                contact_data["email"] = cli_obj.email
+                            if cli_obj.telefono and not contact_data.get("telefono"):
+                                contact_data["telefono"] = cli_obj.telefono
+                            if cli_obj.celular and not contact_data.get("celular"):
+                                contact_data["celular"] = cli_obj.celular
+                            if cli_obj.nombre_contacto and not contact_data.get("nombre_contacto"):
+                                contact_data["nombre_contacto"] = cli_obj.nombre_contacto
+
+                        # Resumen de SKUs únicos y partidas completas en JSON
+                        unique_skus = []
+                        seen_skus = set()
+                        for it in q_data["items_data"]:
+                            sku_code = it.get("codigo_material")
+                            if sku_code and sku_code not in seen_skus:
+                                seen_skus.add(sku_code)
+                                unique_skus.append(sku_code)
+
+                        mat_cot_str = ", ".join(unique_skus) if unique_skus else None
+
+                        items_json = [
+                            {
+                                "producto": it["codigo_material"],
+                                "codigo_material": it["codigo_material"],
+                                "descripcion": it.get("descripcion"),
+                                "cantidad": float(it["cantidad_cotizada"]),
+                                "precio_unitario": float(it["precio_venta"]),
+                                "indicador_abcf": it.get("indicador_abcf"),
+                                "unidad_medida": it.get("unidad_medida"),
+                                "es_promocion": it.get("es_promocion", False),
+                                "precio_promocion": float(it["precio_promocion"]) if it.get("precio_promocion") else None,
+                            }
+                            for it in q_data["items_data"]
+                        ]
 
                         importe_fac = q_data["total"] if v_info.get("numero_factura") else None
 
@@ -1651,9 +1819,10 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                             "vendedor_id": vend_id,
                             "vendedor_nombre": vend_nom,
                             "numero_cliente": cli_num,
-                            "cliente_nombre": cli_nom,
+                            "cliente_nombre": cli_nom or "Cliente Desconocido",
                             "datos_contacto": contact_data,
-                            "items": [],
+                            "items": items_json,
+                            "materiales_cotizados": mat_cot_str,
                             "total": q_data["total"],
                             "numero_factura": v_info.get("numero_factura"),
                             "fecha_factura": v_info.get("fecha_factura"),
@@ -1661,13 +1830,14 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                             "margen": v_info.get("margen"),
                             "grupo_vendedores": v_info.get("grupo_vendedores"),
                             "plazo_entrega": v_info.get("plazo_entrega"),
-                            "canal": v_info.get("canal"),
+                            "canal": canal_val,
                             "importe_facturado": importe_fac,
                         }
 
                         existing = existing_by_number.get(num_cot)
                         if existing:
-                            _apply_imported_quote_values(existing, quote_fields)
+                            final_fields = _merge_quote_fields(existing, quote_fields)
+                            _apply_imported_quote_values(existing, final_fields)
                             target_quote_id = existing.id
                             retained_ids.add(existing.id)
                         else:
@@ -1782,7 +1952,8 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                     }
                     existing_quote = existing_by_number.get(num_cot_val)
                     if existing_quote is not None:
-                        _apply_imported_quote_values(existing_quote, imported_values)
+                        merged_values = _merge_quote_fields(existing_quote, imported_values)
+                        _apply_imported_quote_values(existing_quote, merged_values)
                         retained_ids.add(existing_quote.id)
                     else:
                         new_id = uuid4()
