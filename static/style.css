@@ -3809,4 +3809,40 @@ body.dark-mode .table-row-hover:hover {
     margin-top: 6px;
 }
 
+/* Dedicated WhatsApp Action Button */
+.btn-whatsapp-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: #25D366;
+    color: #ffffff !important;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 2px 4px rgba(37, 211, 102, 0.25);
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-whatsapp-action:hover {
+    background: #1eb954;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(37, 211, 102, 0.35);
+    color: #ffffff !important;
+}
+
+.btn-whatsapp-action.disabled,
+.btn-whatsapp-action:disabled {
+    background: #e2e8f0;
+    color: #94a3b8 !important;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+
 

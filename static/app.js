@@ -2751,6 +2751,41 @@ function populateSobrepedidosSelect(select, values) {
     select.value = currentValue;
 }
 
+function buildCustomerNameDisplay(item) {
+    const clientName = escapeHTML(item.cliente_nombre || "-");
+    const numDisplay = item.numero_cliente ? `<small class="text-muted" style="display:block; font-size:11px;"># ${escapeHTML(item.numero_cliente)}</small>` : "";
+    return `<div style="min-width:140px;"><strong>${clientName}</strong>${numDisplay}</div>`;
+}
+
+function buildDedicatedWhatsAppButton(item, contextType = "entrega pendiente") {
+    const contact = item.contacto || {};
+    const phone = contact.celular || contact.telefono;
+    if (phone) {
+        const cleanPhone = String(phone).replace(/[^\d+]/g, "");
+        const formattedPhone = cleanPhone.startsWith("+") ? cleanPhone.replace("+", "") : (cleanPhone.length === 10 ? `52${cleanPhone}` : cleanPhone);
+        const sku = item.producto_sku || "";
+        const desc = item.producto_desc || "";
+        const folio = item.factura || item.id_pedido_erp || "";
+        const clientName = item.cliente_nombre || 'Cliente';
+        const message = `Hola ${clientName}, le saludo de Casa Kuroda respecto a su ${contextType} (${folio ? 'Folio: ' + folio : ''}) del producto ${sku} ${desc}. ¿En qué podemos apoyarle?`;
+        const waUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
+
+        return `
+            <a href="${waUrl}" target="_blank" rel="noopener" class="btn-whatsapp-action" title="Enviar WhatsApp a ${escapeHTML(phone)} (${escapeHTML(clientName)})" onclick="event.stopPropagation();">
+                <i class="fa-brands fa-whatsapp" style="font-size: 14px;"></i> WhatsApp
+            </a>
+        `;
+    }
+    if (item.numero_cliente) {
+        return `
+            <button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); openClientHistoryModal('${escapeHTML(item.numero_cliente)}');" title="Sin teléfono registrado. Clic para consultar ficha." style="font-size: 11px; padding: 4px 8px; color: #64748b; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.08); border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="fa-regular fa-address-book"></i> Sin Teléfono
+            </button>
+        `;
+    }
+    return `<span class="text-muted" style="font-size: 11px; font-style: italic;">Sin contacto</span>`;
+}
+
 function buildCustomerContactDisplay(item, contextType = "pedido") {
     const clientName = escapeHTML(item.cliente_nombre || "-");
     const numDisplay = item.numero_cliente ? `<small class="text-muted" style="display:block; font-size:11px;"># ${escapeHTML(item.numero_cliente)}</small>` : "";
@@ -3078,7 +3113,7 @@ async function loadPorEntregarData(forceRefresh = false) {
 
         DOM.tablePorEntregar.innerHTML = "";
         if (records.length === 0) {
-            DOM.tablePorEntregar.innerHTML = `<tr><td colspan="11" style="text-align: center;">No se encontraron registros por entregar.</td></tr>`;
+            DOM.tablePorEntregar.innerHTML = `<tr><td colspan="12" style="text-align: center;">No se encontraron registros por entregar.</td></tr>`;
             if (DOM.pagPorEntregar) DOM.pagPorEntregar.innerHTML = "";
             return;
         }
@@ -3142,7 +3177,8 @@ async function loadPorEntregarData(forceRefresh = false) {
                     `<td style="text-align: right; font-weight: 700; color: hsl(var(--primary)); white-space: nowrap;">${formatNumber(totalQty)}</td>`,
                     `<td style="white-space: nowrap;">${escapeHTML(firstItem.vendedor_codigo || firstItem.vendedor_nombre || "")}</td>`,
                     `<td style="white-space: nowrap;">${escapeHTML(firstItem.numero_cliente || '-')}</td>`,
-                    `<td>${buildCustomerContactDisplay(firstItem, "entrega pendiente")}</td>`,
+                    `<td>${buildCustomerNameDisplay(firstItem)}</td>`,
+                    `<td style="text-align: center; white-space: nowrap;">${buildDedicatedWhatsAppButton(firstItem, "entrega pendiente")}</td>`,
                     `<td style="white-space: nowrap;">${escapeHTML(firstItem.fecha_disponibilidad || "-")}</td>`,
                     `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${firstItem.dias_disponible ?? "-"}</td>`,
                     `<td class="col-truncate-lg" style="color: #64748b; font-size: 12px;">${escapeHTML(group.items.map(i => i.motivo_estado).filter(Boolean).slice(0, 2).join(", ") || "-")}</td>`,
@@ -3170,7 +3206,8 @@ async function loadPorEntregarData(forceRefresh = false) {
                         `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_entregar || 0)}</td>`,
                         `<td style="white-space: nowrap;">${escapeHTML(item.vendedor_codigo || item.vendedor_nombre || "")}</td>`,
                         `<td style="white-space: nowrap;">${escapeHTML(item.numero_cliente || '-')}</td>`,
-                        `<td>${buildCustomerContactDisplay(item, "entrega pendiente")}</td>`,
+                        `<td>${buildCustomerNameDisplay(item)}</td>`,
+                        `<td style="text-align: center; white-space: nowrap;">${buildDedicatedWhatsAppButton(item, "entrega pendiente")}</td>`,
                         `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
                         `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
                         `<td class="col-truncate-lg" title="${escapeHTML(item.motivo_estado || '')}">${escapeHTML(item.motivo_estado || '-')}</td>`,
@@ -3197,7 +3234,8 @@ async function loadPorEntregarData(forceRefresh = false) {
                     `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${formatNumber(item.cantidad_entregar || 0)}</td>`,
                     `<td style="white-space: nowrap;">${escapeHTML(item.vendedor_codigo || item.vendedor_nombre || "")}</td>`,
                     `<td style="white-space: nowrap;">${escapeHTML(item.numero_cliente || '-')}</td>`,
-                    `<td>${buildCustomerContactDisplay(item, "entrega pendiente")}</td>`,
+                    `<td>${buildCustomerNameDisplay(item)}</td>`,
+                    `<td style="text-align: center; white-space: nowrap;">${buildDedicatedWhatsAppButton(item, "entrega pendiente")}</td>`,
                     `<td style="white-space: nowrap;">${escapeHTML(item.fecha_disponibilidad || "-")}</td>`,
                     `<td style="text-align: right; font-weight: 600; white-space: nowrap;">${item.dias_disponible ?? "-"}</td>`,
                     `<td class="col-truncate-lg" title="${escapeHTML(item.motivo_estado || '')}">${escapeHTML(item.motivo_estado || '-')}</td>`,
