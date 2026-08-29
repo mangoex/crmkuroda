@@ -4469,6 +4469,7 @@ function renderQuotesTableFiltered() {
                 : (noteSaved ? "Editar comentario" : "Agregar comentario");
             const lossPill = lost ?
                 `<span class="status-pill status-pendiente">Si</span>` :
+                `<span class="status-pill status-completada">No</span>`;
             const rawClientName = c.cliente_nombre;
             let displayClient = rawClientName;
             if (!displayClient || displayClient === "Cliente Desconocido" || displayClient === "Cliente sin registrar") {
@@ -4518,6 +4519,8 @@ function renderQuotesTableFiltered() {
                 </td>
             `;
             DOM.tableCotizaciones.appendChild(tr);
+        });
+
         document.querySelectorAll(".quote-detail-row-link").forEach(link => {
             link.addEventListener("click", (e) => {
                 e.preventDefault();

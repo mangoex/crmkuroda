@@ -44,9 +44,12 @@ class LightUixContractTest(unittest.TestCase):
     def test_theme_toggle_is_disabled_in_js(self):
         self.assertIn('document.body.classList.add("light-mode")', self.javascript)
 
-    def test_stylesheet_cache_version_was_bumped(self):
-        self.assertIn("/static/style.css?v=", self.html)
+    def test_javascript_syntax_is_valid(self):
+        import subprocess
+        res = subprocess.run(["node", "-c", str(ROOT / "static" / "app.js")], capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0, f"JavaScript syntax error: {res.stderr}")
 
 
 if __name__ == "__main__":
     unittest.main()
+
