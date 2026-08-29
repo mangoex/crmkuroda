@@ -160,14 +160,32 @@ def serialize_cotizacion(
     pct_mat_val = _get_scalar_val(c, "porcentaje_materiales")
     pct_imp_val = _get_scalar_val(c, "porcentaje_importe")
     total_val = _get_scalar_val(c, "total")
+    cli_nom_raw = _get_scalar_val(c, "cliente_nombre")
+    cli_num_raw = _get_scalar_val(c, "numero_cliente")
+    num_cot_raw = _get_scalar_val(c, "numero_cotizacion")
+    vend_nom_raw = _get_scalar_val(c, "vendedor_nombre") or enrichment.get("vendedor_nombre")
+
+    # Enriquecer cliente de forma inteligente y resiliente
+    if enrichment.get("cliente_nombre"):
+        resolved_client = enrichment["cliente_nombre"]
+    elif cli_nom_raw and cli_nom_raw not in ("Cliente Desconocido", "Cliente sin registrar"):
+        resolved_client = cli_nom_raw
+    elif contact_data.get("nombre_contacto"):
+        resolved_client = contact_data["nombre_contacto"]
+    elif cli_num_raw:
+        resolved_client = f"Cliente #{cli_num_raw}"
+    elif num_cot_raw:
+        resolved_client = f"Cotización #{num_cot_raw}"
+    else:
+        resolved_client = "Cliente"
 
     data = {
         "id": str(_get_scalar_val(c, "id")),
         "vendedor_id": str(vendedor_id) if vendedor_id else None,
-        "vendedor_nombre": _get_scalar_val(c, "vendedor_nombre"),
+        "vendedor_nombre": vend_nom_raw,
         "vendedor_sin_vincular": vendedor_id is None,
-        "cliente_nombre": _get_scalar_val(c, "cliente_nombre"),
-        "numero_cliente": _get_scalar_val(c, "numero_cliente"),
+        "cliente_nombre": resolved_client,
+        "numero_cliente": cli_num_raw,
         "datos_contacto": contact_data,
         "total": float(total_val) if total_val is not None else 0.0,
         "numero_cotizacion": _get_scalar_val(c, "numero_cotizacion"),
@@ -295,9 +313,14 @@ async def _load_quote_enrichment(
         )
 
         # Enriquecer datos de contacto con el catálogo (máxima prioridad)
-        client = clients_by_number.get(quote.numero_cliente.strip() if quote.numero_cliente else "") or clients_by_name.get(quote.cliente_nombre.strip() if quote.cliente_nombre else "")
-        enriched_contact = dict(quote.datos_contacto or {})
+        raw_cli_num = _get_scalar_val(quote, "numero_cliente")
+        raw_cli_nom = _get_scalar_val(quote, "cliente_nombre")
+        client = clients_by_number.get(raw_cli_num.strip() if raw_cli_num else "") or (clients_by_name.get(raw_cli_nom.strip()) if raw_cli_nom and raw_cli_nom not in ("Cliente Desconocido", "Cliente sin registrar") else None)
+        enriched_contact = dict(_get_scalar_val(quote, "datos_contacto") or {})
+        resolved_client_name = None
         if client:
+            if client.nombre:
+                resolved_client_name = client.nombre
             if client.nombre_contacto and client.nombre_contacto.strip():
                 enriched_contact["nombre_contacto"] = client.nombre_contacto.strip()
             if client.celular and client.celular.strip():
@@ -306,9 +329,12 @@ async def _load_quote_enrichment(
                 enriched_contact["telefono"] = client.telefono.strip()
             if client.email and client.email.strip():
                 enriched_contact["email"] = client.email.strip()
+        elif raw_cli_num and (not raw_cli_nom or raw_cli_nom in ("Cliente Desconocido", "Cliente sin registrar")):
+            resolved_client_name = f"Cliente #{raw_cli_num}"
 
         result[quote.id] = {
             **promo,
+            "cliente_nombre": resolved_client_name,
             "datos_contacto": normalize_contact(enriched_contact),
             "comentarios_seguimiento_count": comment_counts.get(quote.id, 0),
             "items_detalle": [
@@ -1019,26 +1045,26 @@ def _resolve_sheet_columns(worksheet) -> tuple[dict[str, Optional[int]], str]:
             c_norm = normalize_text(c)
             if c_norm in headers:
                 return headers[c_norm]
-        # 2. Coincidencia por subcadena específica (mínimo 6 caracteres para evitar falsos positivos)
+        # 2. Coincidencia por subcadena específica (mínimo 4 caracteres para evitar falsos positivos)
         for c in candidates:
             c_norm = normalize_text(c)
-            if len(c_norm) >= 6:
+            if len(c_norm) >= 4:
                 for h_name, h_idx in headers.items():
                     if c_norm in h_name:
                         return h_idx
         return None
 
     col_map = {
-        "numero_cotizacion": find_idx(["NUMERO DE COTIZACION", "NUMERO COTIZACION", "FOLIO COTIZACION", "COTIZACION", "NUMERO_COTIZACION"]),
-        "codigo_material": find_idx(["CODIGO DE MATERIAL", "CODIGO MATERIAL", "CODIGO DEL MATERIAL", "CODIGO_MATERIAL", "CODIGO", "SKU", "CLAVE MATERIAL"]),
-        "descripcion": find_idx(["DESCRIPCION DEL MATERIAL", "DESCRIPCION DE MATERIAL", "DESCRIPCION MATERIAL", "DESCRIPCION", "CONCEPTO"]),
+        "numero_cotizacion": find_idx(["NUMERO DE COTIZACION", "NUMERO COTIZACION", "FOLIO COTIZACION", "FOLIO DE COTIZACION", "COTIZACION", "NUMERO_COTIZACION", "DOC. VENTAS", "DOCUMENTO VENTAS"]),
+        "codigo_material": find_idx(["CODIGO DE MATERIAL", "CODIGO MATERIAL", "CODIGO DEL MATERIAL", "CODIGO_MATERIAL", "CODIGO", "SKU", "CLAVE MATERIAL", "ARTICULO", "MATERIAL"]),
+        "descripcion": find_idx(["DESCRIPCION DEL MATERIAL", "DESCRIPCION DE MATERIAL", "DESCRIPCION MATERIAL", "DESCRIPCION", "CONCEPTO", "NOMBRE MATERIAL"]),
         "precio": find_idx(["PRECIO DE VENTA", "PRECIO UNITARIO", "PRECIO", "IMPORTE COTIZADO", "IMPORTE", "VALOR NETO", "TOTAL"]),
         "unidad_medida": find_idx(["UNIDAD DE MEDIDA", "UNIDAD DE MEDIDA BASE", "UNIDAD MEDIDA", "UMB", "UDM", "UNIDAD"]),
         "indicador_abcf": find_idx(["INDICADOR ABC+FRECUENCIA DE VENTA", "ABC+F", "ABCF", "INDICADOR ABC", "ABC"]),
-        "cliente_nombre": find_idx(["NOMBRE DEL CLIENTE", "NOMBRE DE CLIENTE", "CLIENTE NOMBRE", "NOMBRE CLIENTE", "CLIENTE", "RAZON SOCIAL"]),
-        "numero_cliente": find_idx(["NUMERO DEL CLIENTE", "NUMERO DE CLIENTE", "NUM CLIENTE", "CODIGO CLIENTE", "CLIENTE ID"]),
-        "vendedor_nombre": find_idx(["NOMBRE DEL VENDEDOR", "NOMBRE DE VENDEDOR", "VENDEDOR NOMBRE", "NOMBRE VENDEDOR", "ASESOR"]),
-        "vendedor_codigo": find_idx(["NUMERO DE VENDEDOR", "NUMERO VENDEDOR", "VENDEDOR", "CODIGO VENDEDOR", "CODIGO DE VENDEDOR", "CLAVE VENDEDOR"]),
+        "cliente_nombre": find_idx(["NOMBRE DEL CLIENTE", "NOMBRE DE CLIENTE", "CLIENTE NOMBRE", "NOMBRE CLIENTE", "CLIENTE", "SOLICITANTE", "NOMBRE SOLICITANTE", "RAZON SOCIAL", "EMPRESA", "CUENTA", "DESTINATARIO", "CLIENTE/PROSPECTO", "PROSPECTO"]),
+        "numero_cliente": find_idx(["NUMERO DEL CLIENTE", "NUMERO DE CLIENTE", "NUM CLIENTE", "CODIGO CLIENTE", "CODIGO DEL CLIENTE", "CLIENTE ID", "ID CLIENTE", "COD. CLIENTE", "NO. CLIENTE", "SOLICITANTE ID", "NO CLIENTE", "NO. DE CLIENTE", "CVE CLIENTE"]),
+        "vendedor_nombre": find_idx(["NOMBRE DEL VENDEDOR", "NOMBRE DE VENDEDOR", "VENDEDOR NOMBRE", "NOMBRE VENDEDOR", "ASESOR NOMBRE", "NOMBRE ASESOR", "NOMBRE DEL ASESOR", "EJECUTIVO", "AGENTE", "RESPONSABLE", "ASESOR", "VENDEDOR"]),
+        "vendedor_codigo": find_idx(["NUMERO DE VENDEDOR", "NUMERO VENDEDOR", "CODIGO VENDEDOR", "CODIGO DE VENDEDOR", "CLAVE VENDEDOR", "NUM ASESOR", "CVE ASESOR", "CVE VENDEDOR", "USR VENDEDOR", "VENDEDOR ID", "ID VENDEDOR", "VENDEDOR"]),
         "grupo_vendedores": find_idx(["GRUPO DE VENDEDORES", "GRUPO VENDEDORES", "GRUPO"]),
         "canal": find_idx(["CANAL DE DISTRIBUCION", "CANAL"]),
         "plazo_entrega": find_idx(["PLAZO DE ENTREGA", "TIPO DE ENTREGA", "ENTREGA"]),
@@ -1291,21 +1317,29 @@ def _quote_import_column_indices(worksheet) -> dict[str, int]:
     return indices
 
 
-def _find_quote_worksheet(workbook) -> tuple[any, dict[str, int]]:
-    """Busca automáticamente la hoja que contiene la estructura completa de cotizaciones."""
+def _find_all_quote_worksheets(workbook) -> list[tuple[any, dict[str, int]]]:
+    """Busca todas las hojas válidas que contienen la estructura de cotizaciones (ej. múltiples meses)."""
+    valid_sheets = []
     last_error = None
     for ws in workbook.worksheets:
         if ws.sheet_state == "hidden":
             continue
         try:
             indices = _quote_import_column_indices(ws)
-            return ws, indices
+            valid_sheets.append((ws, indices))
         except ValueError as err:
             last_error = err
 
+    if valid_sheets:
+        return valid_sheets
     if last_error:
         raise last_error
     raise ValueError("No se encontraron hojas válidas en el archivo Excel.")
+
+
+def _find_quote_worksheet(workbook) -> tuple[any, dict[str, int]]:
+    """Busca automáticamente la primera hoja que contiene la estructura completa de cotizaciones."""
+    return _find_all_quote_worksheets(workbook)[0]
 
 
 def _find_detail_worksheet(workbook) -> tuple[any, dict[str, int]]:
@@ -1338,12 +1372,16 @@ def _merge_quote_fields(existing: Cotizacion, incoming: dict) -> dict:
     # 1. Preservar cliente si el nuevo viene como 'Cliente Desconocido' o None
     existing_client = getattr(existing, "cliente_nombre", None)
     incoming_client = incoming.get("cliente_nombre")
-    if (not incoming_client or incoming_client == "Cliente Desconocido") and existing_client and existing_client != "Cliente Desconocido":
+    if (not incoming_client or incoming_client in ("Cliente Desconocido", "Cliente sin registrar")) and existing_client and existing_client not in ("Cliente Desconocido", "Cliente sin registrar"):
         merged["cliente_nombre"] = existing_client
 
     existing_client_num = getattr(existing, "numero_cliente", None)
     if not incoming.get("numero_cliente") and existing_client_num:
         merged["numero_cliente"] = existing_client_num
+
+    # Si cliente_nombre sigue siendo vacío o Desconocido pero hay numero_cliente
+    if (not merged.get("cliente_nombre") or merged.get("cliente_nombre") in ("Cliente Desconocido", "Cliente sin registrar")) and merged.get("numero_cliente"):
+        merged["cliente_nombre"] = f"Cliente #{merged['numero_cliente']}"
 
     # 2. Preservar asesor
     existing_vend_nom = getattr(existing, "vendedor_nombre", None)
@@ -1981,17 +2019,40 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                         org_val = q_data.get("organizacion_ventas") or v_info.get("organizacion_ventas")
                         fecha_reg = q_data.get("fecha_registro") or v_info.get("fecha_registro")
 
+                        existing = existing_by_number.get(num_cot)
+                        if existing:
+                            if not cli_nom or cli_nom in ("Cliente Desconocido", "Cliente sin registrar"):
+                                if existing.cliente_nombre and existing.cliente_nombre not in ("Cliente Desconocido", "Cliente sin registrar"):
+                                    cli_nom = existing.cliente_nombre
+                            if not cli_num and existing.numero_cliente:
+                                cli_num = existing.numero_cliente
+                            if not vend_nom and existing.vendedor_nombre:
+                                vend_nom = existing.vendedor_nombre
+                            if not vend_cod and existing.grupo_vendedores:
+                                vend_cod = existing.grupo_vendedores
+
                         vend_id = (
                             (users_by_code.get(_normalize_seller_text(vend_cod)) if vend_cod else None)
                             or (users_by_name.get(_normalize_seller_text(vend_nom)) if vend_nom else None)
+                            or (users_by_name.get(_normalize_seller_text(vend_cod)) if vend_cod else None)
+                            or (users_by_code.get(_normalize_seller_text(vend_nom)) if vend_nom else None)
+                            or (existing.vendedor_id if existing and existing.vendedor_id else None)
                         )
+
+                        if vend_id and not vend_nom:
+                            u_match = next((u for u in users if u.id == vend_id), None)
+                            if u_match and u_match.nombre_completo:
+                                vend_nom = u_match.nombre_completo
 
                         cli_obj = (clients_by_num.get(cli_num) if cli_num else None) or (clients_by_nom.get(cli_nom) if cli_nom else None)
                         if cli_obj:
-                            if not cli_nom or cli_nom == "Cliente Desconocido":
+                            if not cli_nom or cli_nom in ("Cliente Desconocido", "Cliente sin registrar"):
                                 cli_nom = cli_obj.nombre
                             if not cli_num:
                                 cli_num = cli_obj.numero_cliente
+
+                        if (not cli_nom or cli_nom in ("Cliente Desconocido", "Cliente sin registrar")) and cli_num:
+                            cli_nom = f"Cliente #{cli_num}"
 
                         contact_data = dict(v_info.get("contact_data") or q_data.get("contact_data") or {})
                         if cli_obj:
@@ -2195,22 +2256,23 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
 
             else:
                 # -------------------------------------------------------------
-                # FORMATO LEGADO (HOJA ÚNICA)
+                # FORMATO LEGADO (HOJA ÚNICA / MÚLTIPLES MESES)
                 # -------------------------------------------------------------
-                ws, column_indices = _find_quote_worksheet(wb)
+                worksheets_and_indices = _find_all_quote_worksheets(wb)
                 seen_numbers: set[str] = set()
                 new_quotes = []
 
-                for row in ws.iter_rows(min_row=2, values_only=True):
-                    if not row:
-                        continue
-                    num_cot_val = _excel_identifier(row[column_indices["numero_cotizacion"]])
-                    if not num_cot_val:
-                        continue
+                for ws, column_indices in worksheets_and_indices:
+                    for row in ws.iter_rows(min_row=2, values_only=True):
+                        if not row:
+                            continue
+                        num_cot_val = _excel_identifier(row[column_indices["numero_cotizacion"]])
+                        if not num_cot_val:
+                            continue
 
-                    if num_cot_val in seen_numbers:
-                        raise ValueError(f"El número de cotización {num_cot_val} está duplicado en el Excel.")
-                    seen_numbers.add(num_cot_val)
+                        if num_cot_val in seen_numbers:
+                            continue
+                        seen_numbers.add(num_cot_val)
 
                     fecha_reg = safe_date(row[column_indices["fecha_registro"]])
                     org_ventas = _excel_identifier(row[column_indices["organizacion_ventas"]])

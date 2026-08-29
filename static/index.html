@@ -2585,6 +2585,82 @@
         </div>
     </div>
 
+    <!-- Quote Detail Modal (Partidas y Materiales Cotizados) -->
+    <div id="quote-detail-modal" class="modal-wrapper hidden">
+        <div class="glass-card modal-card animate-scale-up" style="max-width: 900px; width: 95vw; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(59,130,246,0.15); color: #3b82f6; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                    </div>
+                    <div>
+                        <h3 id="quote-detail-title" style="margin: 0; font-size: 17px; font-weight: 700;">Detalle de Cotización</h3>
+                        <span id="quote-detail-subtitle" class="text-muted" style="font-size: 12px;">Consulta de materiales cotizados, cliente y condiciones</span>
+                    </div>
+                </div>
+                <button id="btn-close-quote-detail" class="btn-icon" type="button" title="Cerrar ventana"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body" id="quote-detail-body" style="overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding: 18px 20px;">
+                <!-- Header Info Bar -->
+                <div class="quote-detail-header-grid" id="quote-detail-header-info">
+                    <!-- Dinámico -->
+                </div>
+
+                <!-- Client & Contact Card -->
+                <div class="quote-detail-client-box" id="quote-detail-client-card">
+                    <!-- Dinámico -->
+                </div>
+
+                <!-- Items Table -->
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <h4 style="margin: 0; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-boxes-stacked" style="color: hsl(var(--primary));"></i>
+                            <span>Materiales y Partidas Cotizadas</span>
+                        </h4>
+                        <span id="quote-detail-items-count" class="badge badge-secondary" style="font-size: 11px;">0 partidas</span>
+                    </div>
+                    <div style="max-height: 280px; overflow-y: auto; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+                        <table class="quote-items-table" id="quote-detail-items-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <thead>
+                                <tr style="background: rgba(255,255,255,0.04); position: sticky; top: 0; z-index: 2;">
+                                    <th style="padding: 8px 10px; text-align: left;">SKU / Código</th>
+                                    <th style="padding: 8px 10px; text-align: left;">Descripción</th>
+                                    <th style="padding: 8px 10px; text-align: center;">ABC</th>
+                                    <th style="padding: 8px 10px; text-align: right;">Cantidad</th>
+                                    <th style="padding: 8px 10px; text-align: right;">Precio Unit.</th>
+                                    <th style="padding: 8px 10px; text-align: right;">Importe</th>
+                                </tr>
+                            </thead>
+                            <tbody id="quote-detail-items-tbody">
+                                <!-- Dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Totals & Invoicing Details -->
+                <div class="quote-detail-totals" id="quote-detail-totals-box">
+                    <!-- Dinámico -->
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 14px;">
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" id="btn-quote-view-client" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-address-card"></i> Ver Ficha de Cliente
+                    </button>
+                    <button type="button" id="btn-quote-view-followup" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-regular fa-note-sticky"></i> Seguimiento
+                    </button>
+                    <button type="button" id="btn-quote-add-reminder" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-regular fa-bell"></i> Recordatorio
+                    </button>
+                </div>
+                <button type="button" id="btn-quote-detail-close" class="btn btn-primary btn-sm">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- New Task Modal -->
     <div id="new-task-modal" class="modal-wrapper hidden">
         <div class="glass-card modal-card animate-scale-up" style="max-width: 400px;">

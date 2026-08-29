@@ -585,6 +585,43 @@ class TestCotizacionesVentasMultiSheet(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data_completa["numero_cotizacion"], "COT-TEST-RESILIENCE")
         self.assertIn("items", data_completa)
 
+    def test_serialize_cotizacion_resolves_unknown_client_from_client_number(self):
+        # Cotización con 'Cliente Desconocido' pero con numero_cliente
+        q = Cotizacion(
+            id=uuid4(),
+            numero_cotizacion="COT-416788516",
+            cliente_nombre="Cliente Desconocido",
+            numero_cliente="400460",
+            total=Decimal("738.90"),
+        )
+        serialized = serialize_cotizacion(q, vista="resumen")
+        self.assertEqual(serialized["cliente_nombre"], "Cliente #400460")
+
+    def test_serialize_cotizacion_resolves_unknown_client_from_contact_name(self):
+        # Cotización con 'Cliente Desconocido' pero con nombre_contacto en datos_contacto
+        q = Cotizacion(
+            id=uuid4(),
+            numero_cotizacion="COT-416788515",
+            cliente_nombre="Cliente Desconocido",
+            datos_contacto={"nombre_contacto": "ING. ROBERTO SALAZAR", "telefono": "6671234567"},
+            total=Decimal("203.79"),
+        )
+        serialized = serialize_cotizacion(q, vista="resumen")
+        self.assertEqual(serialized["cliente_nombre"], "ING. ROBERTO SALAZAR")
+
+    def test_serialize_cotizacion_resolves_unknown_client_from_enrichment(self):
+        # Cotización con 'Cliente Desconocido' enriquecida desde catálogo Cliente
+        q = Cotizacion(
+            id=uuid4(),
+            numero_cotizacion="COT-416788513",
+            cliente_nombre="Cliente Desconocido",
+            total=Decimal("1056.55"),
+        )
+        enrichment = {"cliente_nombre": "CONSTRUCTORA PACIFICO SUR"}
+        serialized = serialize_cotizacion(q, enrichment=enrichment, vista="resumen")
+        self.assertEqual(serialized["cliente_nombre"], "CONSTRUCTORA PACIFICO SUR")
+
+
 
 
 

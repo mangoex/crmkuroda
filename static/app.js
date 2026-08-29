@@ -4431,9 +4431,19 @@ function renderQuotesTableFiltered() {
                 : (noteSaved ? "Editar comentario" : "Agregar comentario");
             const lossPill = lost ?
                 `<span class="status-pill status-pendiente">Si</span>` :
-                `<span class="status-pill status-completada">No</span>`;
-                
-            const clientDisplay = `<strong>${escapeHTML(c.cliente_nombre)}</strong>${c.numero_cliente ? `<br><a href="#" class="btn-client-history text-muted" style="font-size: 11px; text-decoration: underline;" data-cliente="${escapeHTML(c.numero_cliente)}"><i class="fa-solid fa-clock-rotate-left"></i> ${escapeHTML(c.numero_cliente)}</a>` : ''}`;
+            const rawClientName = c.cliente_nombre;
+            let displayClient = rawClientName;
+            if (!displayClient || displayClient === "Cliente Desconocido" || displayClient === "Cliente sin registrar") {
+                const contactName = (c.datos_contacto?.nombre_contacto || "").trim();
+                if (contactName) {
+                    displayClient = contactName;
+                } else if (c.numero_cliente) {
+                    displayClient = `Cliente #${c.numero_cliente}`;
+                } else {
+                    displayClient = `Cotización #${quoteNum}`;
+                }
+            }
+            const clientDisplay = `<strong>${escapeHTML(displayClient)}</strong>${c.numero_cliente ? `<br><a href="#" class="btn-client-history text-muted" style="font-size: 11px; text-decoration: underline;" data-cliente="${escapeHTML(c.numero_cliente)}"><i class="fa-solid fa-clock-rotate-left"></i> ${escapeHTML(c.numero_cliente)}</a>` : ''}`;
 
             let promoBadgeHtml = "";
             if (c.tiene_promocion === true) {
@@ -4446,7 +4456,7 @@ function renderQuotesTableFiltered() {
 
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td><code>${quoteNum}</code>${promoBadgeHtml}</td>
+                <td><a href="#" class="quote-detail-row-link" data-id="${c.id}" style="font-weight:600; text-decoration:underline; cursor:pointer;" title="Ver detalle de cotización y materiales"><code>${quoteNum}</code></a>${promoBadgeHtml}</td>
                 <td>${dateStr}</td>
                 <td>${clientDisplay}</td>
                 <td>${contactInfo}</td>
@@ -4470,8 +4480,15 @@ function renderQuotesTableFiltered() {
                 </td>
             `;
             DOM.tableCotizaciones.appendChild(tr);
+        document.querySelectorAll(".quote-detail-row-link").forEach(link => {
+            link.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const id = link.getAttribute("data-id");
+                if (id) openQuoteDetailModal(id);
+            });
         });
-        
+
         document.querySelectorAll(".btn-quote-promo-detail").forEach(btn => {
             btn.addEventListener("click", (e) => {
                 e.preventDefault();
@@ -4915,15 +4932,197 @@ async function openClientFromKanbanCard(quote) {
     }
 }
 
+function getSellerDisplayName(sellerId, sellerNombreFallback = "") {
+    if (!sellerId && !sellerNombreFallback) return "Asesor sin vincular";
+    if (sellerId && state.user && state.user.id === sellerId && state.user.nombre_completo) {
+        return state.user.nombre_completo;
+    }
+    const found = (state.vendedores || []).find(v => v.id === sellerId);
+    if (found) {
+        if (found.nombre_completo && found.codigo_vendedor) {
+            return `${found.codigo_vendedor} - ${found.nombre_completo}`;
+        }
+        if (found.nombre_completo) return found.nombre_completo;
+        if (found.codigo_vendedor) return found.codigo_vendedor;
+        if (found.email) return found.email;
+    }
+    if (sellerNombreFallback) return sellerNombreFallback;
+    return "Asesor sin vincular";
+}
+
+let currentQuoteDetail = null;
+
+async function openQuoteDetailModal(quoteId) {
+    const modal = document.getElementById("quote-detail-modal");
+    const titleEl = document.getElementById("quote-detail-title");
+    const headerInfo = document.getElementById("quote-detail-header-info");
+    const clientBox = document.getElementById("quote-detail-client-card");
+    const tbody = document.getElementById("quote-detail-items-tbody");
+    const countBadge = document.getElementById("quote-detail-items-count");
+    const totalsBox = document.getElementById("quote-detail-totals-box");
+
+    if (!modal) return;
+    modal.classList.remove("hidden");
+
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 24px; color: hsl(var(--text-muted));"><i class="fa-solid fa-spinner fa-spin"></i> Cargando partidas de cotización...</td></tr>`;
+    }
+
+    try {
+        const res = await apiRequest(`/api/v1/cotizaciones/${quoteId}`);
+        const quote = res.data;
+        currentQuoteDetail = quote;
+
+        const quoteNum = quote.numero_cotizacion || "Sin #";
+        if (titleEl) titleEl.textContent = `Cotización #${quoteNum}`;
+
+        const sellerName = getSellerDisplayName(quote.vendedor_id, quote.vendedor_nombre);
+        const dateStr = quote.fecha_registro || "-";
+        const hasInvoice = !!quote.numero_factura;
+        const totalNum = Number(quote.total || 0);
+
+        let statusHtml = `<span class="status-pill status-pendiente">Cotizado / Abierto</span>`;
+        if (hasInvoice) {
+            statusHtml = `<span class="status-pill status-completada" style="background:#dcfce7; color:#15803d; border-color:#86efac;"><i class="fa-solid fa-circle-check"></i> Vendido / Facturado</span>`;
+        } else if (quote.tiene_promocion) {
+            statusHtml = `<span class="status-pill" style="background:#fef3c7; color:#b45309; border-color:#fde68a;"><i class="fa-solid fa-tags"></i> En Promoción</span>`;
+        }
+
+        if (headerInfo) {
+            headerInfo.innerHTML = `
+                <div class="quote-detail-header-item">
+                    <span>Folio</span>
+                    <strong>#${escapeHTML(quoteNum)}</strong>
+                </div>
+                <div class="quote-detail-header-item">
+                    <span>Fecha Registro</span>
+                    <strong>${escapeHTML(dateStr)}</strong>
+                </div>
+                <div class="quote-detail-header-item">
+                    <span>Asesor Comercial</span>
+                    <strong title="${escapeHTML(quote.vendedor_nombre || '')}">${escapeHTML(sellerName)}</strong>
+                </div>
+                <div class="quote-detail-header-item">
+                    <span>Estado Comercial</span>
+                    <div>${statusHtml}</div>
+                </div>
+            `;
+        }
+
+        const clientNum = quote.numero_cliente || "";
+        const contactData = quote.datos_contacto || {};
+        const contactName = (contactData.nombre_contacto || "").trim();
+        const cel = (contactData.celular || "").trim();
+        const tel = (contactData.telefono || "").trim();
+        const email = (contactData.email || "").trim();
+        const digits = cel.replace(/\D/g, "");
+        const hasWA = digits.length >= 10;
+
+        const waLink = hasWA
+            ? `<a href="https://wa.me/${digits.length === 10 ? '52' + digits : digits}" target="_blank" rel="noopener" class="btn btn-sm btn-success" style="background:#25d366; color:#fff; display:inline-flex; align-items:center; gap:6px; text-decoration:none; padding:5px 12px; border-radius:6px; font-size:12px; font-weight:600;"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>`
+            : "";
+
+        const rawModalClient = quote.cliente_nombre;
+        let displayModalClient = rawModalClient;
+        if (!displayModalClient || displayModalClient === "Cliente Desconocido" || displayModalClient === "Cliente sin registrar") {
+            if (contactName) {
+                displayModalClient = contactName;
+            } else if (quote.numero_cliente) {
+                displayModalClient = `Cliente #${quote.numero_cliente}`;
+            } else {
+                displayModalClient = `Cotización #${quoteNum}`;
+            }
+        }
+
+        if (clientBox) {
+            clientBox.innerHTML = `
+                <div class="quote-detail-client-info">
+                    <div class="quote-detail-client-name">
+                        <i class="fa-solid fa-building-user" style="color: hsl(var(--primary));"></i>
+                        <span>${escapeHTML(displayModalClient)}</span>
+                        ${clientNum ? `<span class="badge badge-secondary" style="font-size:11px;">#${escapeHTML(clientNum)}</span>` : ""}
+                    </div>
+                    <div class="quote-detail-client-contact">
+                        ${contactName ? `<span><i class="fa-solid fa-user"></i> ${escapeHTML(contactName)}</span>` : ""}
+                        ${cel ? `<span><i class="fa-solid fa-mobile-screen"></i> ${escapeHTML(cel)}</span>` : ""}
+                        ${tel ? `<span><i class="fa-solid fa-phone"></i> ${escapeHTML(tel)}</span>` : ""}
+                        ${email ? `<span><i class="fa-solid fa-envelope"></i> ${escapeHTML(email)}</span>` : ""}
+                    </div>
+                </div>
+                <div>
+                    ${waLink}
+                </div>
+            `;
+        }
+
+        const items = quote.items || [];
+        if (countBadge) {
+            countBadge.textContent = `${items.length} ${items.length === 1 ? 'partida' : 'partidas'}`;
+        }
+
+        if (tbody) {
+            if (items.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 24px; color: hsl(var(--text-muted));">No hay materiales registrados para esta cotización.</td></tr>`;
+            } else {
+                tbody.innerHTML = items.map(it => {
+                    const sku = it.codigo_material || "-";
+                    const desc = it.descripcion || "Sin descripción";
+                    const abc = it.indicador_abcf || "-";
+                    const qty = Number(it.cantidad_cotizada ?? it.cantidad ?? 1);
+                    const prc = Number(it.precio_venta ?? it.precio_unitario ?? 0);
+                    const imp = Number(it.importe_cotizado ?? (qty * prc));
+                    const isPromo = it.es_promocion === true;
+
+                    return `
+                        <tr>
+                            <td>
+                                <code>${escapeHTML(sku)}</code>
+                                ${isPromo ? `<br><span class="badge" style="background:#fef3c7; color:#b45309; font-size:10px; font-weight:700;"><i class="fa-solid fa-fire"></i> Promoción</span>` : ""}
+                            </td>
+                            <td>${escapeHTML(desc)}</td>
+                            <td style="text-align:center;"><span class="badge badge-secondary" style="font-size:10px;">${escapeHTML(abc)}</span></td>
+                            <td style="text-align:right;">${qty.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ${escapeHTML(it.unidad_medida || 'PZA')}</td>
+                            <td style="text-align:right;">$${prc.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="text-align:right; font-weight:700;">$${imp.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        </tr>
+                    `;
+                }).join("");
+            }
+        }
+
+        if (totalsBox) {
+            totalsBox.innerHTML = `
+                <div style="font-size: 13px;">
+                    ${hasInvoice ? `<span>Factura: <code>${escapeHTML(quote.numero_factura)}</code> (${quote.fecha_factura || ''})</span>` : `<span class="text-muted">Partidas pendientes por facturar</span>`}
+                </div>
+                <div style="font-size: 16px; font-weight: 700;">
+                    <span>Total Cotizado: <span style="color: hsl(var(--primary));">$${totalNum.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span></span>
+                </div>
+            `;
+        }
+
+    } catch (err) {
+        console.error("Error al cargar detalle de cotización:", err);
+        showToast("No se pudo cargar el detalle de la cotización.", "error");
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: #ef4444;">Error al cargar datos.</td></tr>`;
+        }
+    }
+}
+
 /* ==========================================================================
    KANBAN BOARD MODULE
    ========================================================================== */
 
 async function loadKanbanData(forceRefresh = false) {
     // Make sure vendedores are loaded
-    if (state.user.rol !== "vendedor" && state.vendedores.length === 0) {
-        const sellersRes = await apiRequest("/api/v1/vendedores/?limit=100");
-        state.vendedores = sellersRes.data || [];
+    if (state.vendedores.length === 0) {
+        try {
+            const sellersRes = await apiRequest("/api/v1/vendedores/?limit=100");
+            state.vendedores = sellersRes.data || [];
+        } catch (err) {
+            console.warn("No se pudieron cargar los vendedores:", err);
+        }
     }
     
     // Populate dropdown
@@ -5087,6 +5286,7 @@ function renderKanbanColumns() {
             card.setAttribute("draggable", "true");
             card.setAttribute("data-id", q.id);
             
+            const sellerName = getSellerDisplayName(q.vendedor_id, q.vendedor_nombre);
             const sellerEmail = q.vendedor_id === state.user.id
                 ? state.user.email
                 : (state.vendedores.find(v => v.id === q.vendedor_id)?.email || q.vendedor_nombre || "Asesor sin vincular");
@@ -5105,7 +5305,7 @@ function renderKanbanColumns() {
                 statusBadge = `<span class="kanban-card-badge" style="background:${promoClass}22;color:${promoClass};border:1px solid ${promoClass}66;" title="Promoción vigente hasta ${escapeHTML(expiry)}"><i class="fa-solid fa-tags"></i> Promoción</span>`;
             }
             const promotionDetail = col === "promociones" && q.promociones_coincidentes?.length
-                ? `<div style="margin-top:8px;font-size:11px;color:#fbbf24;">${q.promociones_coincidentes.map(p => `${escapeHTML(p.codigo_material)} · vence ${escapeHTML(p.valido_hasta)}`).join("<br>")}</div>`
+                ? `<div class="kanban-promo-banner"><div style="font-weight:700; margin-bottom:2px;"><i class="fa-solid fa-tags"></i> Promoción activa:</div>${q.promociones_coincidentes.map(p => `• <strong>${escapeHTML(p.codigo_material)}</strong> - vence ${escapeHTML(p.valido_hasta || '')}`).join("<br>")}</div>`
                 : "";
             
             const hasPendingReminder = (state.pendingReminders || []).some(r => String(r.cotizacion_id) === String(q.id));
@@ -5150,17 +5350,29 @@ function renderKanbanColumns() {
                     </div>`;
             }
 
+            const rawClientName = q.cliente_nombre;
+            let displayClientName = rawClientName;
+            if (!displayClientName || displayClientName === "Cliente Desconocido" || displayClientName === "Cliente sin registrar") {
+                if (contactName) {
+                    displayClientName = contactName;
+                } else if (q.numero_cliente) {
+                    displayClientName = `Cliente #${q.numero_cliente}`;
+                } else {
+                    displayClientName = `Cotización #${quoteNum}`;
+                }
+            }
+
             card.innerHTML = `
                 <div class="kanban-card-header">
                     <h4 class="kanban-card-client" style="display:flex; align-items:center; gap:6px;">
-                        <span>${escapeHTML(q.cliente_nombre)}</span> ${reminderIndicator}
+                        <span>${escapeHTML(displayClientName)}</span> ${reminderIndicator}
                     </h4>
                     <span class="kanban-card-num">${quoteNum !== '-' ? '#' + quoteNum : 'Sin #'}</span>
                 </div>
                 <div class="kanban-card-body">
                     ${contactDisplayHtml}
                     <div class="kanban-card-date"><i class="fa-regular fa-calendar"></i> ${dateStr}</div>
-                    <div class="kanban-card-seller" title="${sellerEmail}"><i class="fa-regular fa-user"></i> ${sellerEmail}</div>
+                    <div class="kanban-card-seller" title="${sellerEmail}"><i class="fa-regular fa-user"></i> ${escapeHTML(sellerName)}</div>
                 </div>
                 <div class="kanban-card-footer">
                     <span class="kanban-card-total">$${totalStr}</span>
@@ -5208,10 +5420,10 @@ function renderKanbanColumns() {
                 });
             }
 
-            // Click en la tarjeta (fuera de botones) abre directamente el diálogo del cliente en el catálogo
+            // Click en la tarjeta (fuera de botones) abre el modal de detalle de cotización y materiales
             card.addEventListener("click", (e) => {
                 if (e.target.closest(".kanban-card-actions") || e.target.closest(".quote-comments-btn") || e.target.closest(".kanban-reminder-btn") || e.target.closest(".kanban-history-btn") || e.target.closest(".kanban-whatsapp-btn") || card.classList.contains("dragging")) return;
-                openClientFromKanbanCard(q);
+                openQuoteDetailModal(q.id);
             });
             
             container.appendChild(card);
@@ -6225,6 +6437,39 @@ if (DOM.sortQuotesDesc) {
         loadCotizacionesData(true);
     });
 }
+
+function closeQuoteDetailModal() {
+    const modal = document.getElementById("quote-detail-modal");
+    if (modal) modal.classList.add("hidden");
+    currentQuoteDetail = null;
+}
+
+document.getElementById("btn-close-quote-detail")?.addEventListener("click", closeQuoteDetailModal);
+document.getElementById("btn-quote-detail-close")?.addEventListener("click", closeQuoteDetailModal);
+document.getElementById("quote-detail-modal")?.addEventListener("click", (e) => {
+    if (e.target.id === "quote-detail-modal") closeQuoteDetailModal();
+});
+document.getElementById("btn-quote-view-client")?.addEventListener("click", () => {
+    if (currentQuoteDetail) {
+        const q = currentQuoteDetail;
+        closeQuoteDetailModal();
+        openClientFromKanbanCard(q);
+    }
+});
+document.getElementById("btn-quote-view-followup")?.addEventListener("click", () => {
+    if (currentQuoteDetail) {
+        const q = currentQuoteDetail;
+        closeQuoteDetailModal();
+        openQuoteCommentsModal(q);
+    }
+});
+document.getElementById("btn-quote-add-reminder")?.addEventListener("click", () => {
+    if (currentQuoteDetail) {
+        const id = currentQuoteDetail.id;
+        closeQuoteDetailModal();
+        openAddReminderModal(id);
+    }
+});
 
 DOM.lostReasonForm?.addEventListener("submit", saveLostReason);
 DOM.btnCloseLostReasonModal?.addEventListener("click", closeLostReasonModal);
