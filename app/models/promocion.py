@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean
 from app.core.database import Base
 from datetime import datetime
 
@@ -24,6 +24,7 @@ class Promocion(Base):
     margen_promocion = Column(Float)
     proveedor = Column(String)
     inventario_disponible = Column(Float)
+    es_relevante = Column(Boolean, default=False, nullable=False, index=True)
 
     def to_dict(self):
         fam, subfam = get_kuroda_familia_y_subfamilia(self.descrip_gpo_materiales, self.descripcion_material)
@@ -41,5 +42,6 @@ class Promocion(Base):
             "margen_promocion": self.margen_promocion,
             "proveedor": self.proveedor,
             "inventario_disponible": self.inventario_disponible,
-            "valido_hasta": self.valido_hasta.isoformat() if self.valido_hasta else None
+            "valido_hasta": self.valido_hasta.isoformat() if self.valido_hasta else None,
+            "es_relevante": bool(self.es_relevante)
         }

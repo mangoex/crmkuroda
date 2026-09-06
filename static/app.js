@@ -254,6 +254,8 @@ const DOM = {
     sellerMiniProgressPercent: document.getElementById("seller-mini-progress-percent"),
     sellerRecentActivity: document.getElementById("seller-recent-activity"),
     sellerStrategicChannelsBars: document.getElementById("seller-strategic-channels-bars"),
+    sellerPromosDestacadasContainer: document.getElementById("seller-promos-destacadas-container"),
+    sellerPromosDestacadasGrid: document.getElementById("seller-promos-destacadas-grid"),
     sellerChannelBars: document.getElementById("seller-channel-bars"),
     sellerTopClientsTable: document.getElementById("seller-top-clients-table"),
     sellerTopMaterialsTable: document.getElementById("seller-top-materials-table"),
@@ -1929,6 +1931,80 @@ function renderSellerFollowups(quotes, plan, logToday, search) {
     });
 }
 
+function renderSellerPromosDestacadas(promociones) {
+    const container = DOM.sellerPromosDestacadasContainer || document.getElementById("seller-promos-destacadas-container");
+    const grid = DOM.sellerPromosDestacadasGrid || document.getElementById("seller-promos-destacadas-grid");
+    if (!container || !grid) return;
+
+    // Obtener promociones marcadas como relevantes
+    let relevantes = (promociones || []).filter(p => !!p.es_relevante);
+
+    if (relevantes.length === 0) {
+        container.style.display = "none";
+        return;
+    }
+
+    container.style.display = "block";
+    grid.innerHTML = relevantes.slice(0, 4).map(p => {
+        const precio = Number(p.precio_promocion || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const margen = p.margen_promocion !== null && p.margen_promocion !== undefined ? Number(p.margen_promocion).toFixed(1) : "-";
+        const desc = escapeHTML(p.descripcion_material || p.codigo_material || "Producto en Promoción");
+        const sku = escapeHTML(p.codigo_material || "");
+        const prov = escapeHTML(p.proveedor || p.centro || "Kuroda");
+
+        return `
+            <div class="seller-promo-destacada-card" 
+                 onclick="goToPromocion('${sku}')"
+                 style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; transition: all 0.2s ease; position: relative; overflow: hidden;"
+                 onmouseover="this.style.transform='translateY(-3px)'; this.style.borderColor='#f59e0b'; this.style.boxShadow='0 8px 20px rgba(245, 158, 11, 0.15)';"
+                 onmouseout="this.style.transform='none'; this.style.borderColor='rgba(245, 158, 11, 0.35)'; this.style.boxShadow='none';">
+                
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <span style="font-size: 11px; font-weight: 700; color: #f59e0b; background: rgba(245, 158, 11, 0.15); padding: 3px 8px; border-radius: 6px; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-star" style="font-size: 9px; margin-right: 3px;"></i> ${sku || 'PROMO'}
+                    </span>
+                    <span style="font-size: 11px; color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.12); padding: 3px 8px; border-radius: 6px;">
+                        <i class="fa-solid fa-arrow-trend-up" style="font-size: 9px; margin-right: 2px;"></i> ${margen}% Margen
+                    </span>
+                </div>
+
+                <div style="margin-bottom: 12px; min-height: 38px;">
+                    <h4 style="font-size: 13px; font-weight: 600; line-height: 1.3; margin: 0; color: hsl(var(--text-primary)); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;" title="${desc}">
+                        ${desc}
+                    </h4>
+                    <span style="font-size: 11px; color: hsl(var(--text-secondary)); margin-top: 2px; display: block;">${prov}</span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 10px; margin-top: auto;">
+                    <div>
+                        <span style="font-size: 10px; color: hsl(var(--text-secondary)); text-transform: uppercase; letter-spacing: 0.5px; display: block;">Precio Promo</span>
+                        <strong style="font-size: 17px; font-weight: 800; color: #38bdf8;">$${precio}</strong>
+                        <span style="font-size: 10px; color: hsl(var(--text-secondary));">${escapeHTML(p.moneda || 'MXN')}</span>
+                    </div>
+                    <span style="font-size: 11px; color: #f59e0b; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                        Ver detalle <i class="fa-solid fa-chevron-right" style="font-size: 9px;"></i>
+                    </span>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+window.goToPromocion = function(sku) {
+    if (typeof switchSection === "function") {
+        switchSection("promociones");
+    }
+    if (sku) {
+        setTimeout(() => {
+            const searchInput = document.getElementById("filter-promo-search");
+            if (searchInput) {
+                searchInput.value = sku;
+                searchInput.dispatchEvent(new Event("input"));
+            }
+        }, 150);
+    }
+};
+
 function renderSellerPromos(promociones, search) {
     const today = new Date();
     const activePromos = filterSellerDashboardItems(
@@ -2099,6 +2175,7 @@ async function renderSellerHomeDashboard({ metas, quotes, promociones, goalProgr
         console.warn("No se pudo cargar La Ventaja para el panel vendedor:", err);
     }
 
+    renderSellerPromosDestacadas(promociones);
     renderSellerPendingQuotes(quotes, search);
     renderSellerFollowups(quotes, plan, logToday, search);
     renderSellerPromos(promociones, search);
@@ -3385,7 +3462,9 @@ async function loadPromocionesData(forceRefresh = false) {
         }
 
         // Filter Status
-        if (statusFilter !== "todas") {
+        if (statusFilter === "relevantes") {
+            promociones = promociones.filter(p => !!p.es_relevante);
+        } else if (statusFilter !== "todas") {
             promociones = promociones.filter(p => {
                 if (!p.valido_hasta) return statusFilter === "activas";
                 const vDate = new Date(p.valido_hasta);
@@ -3550,7 +3629,7 @@ async function loadPromocionesData(forceRefresh = false) {
         
         DOM.tablePromociones.innerHTML = "";
         if (promociones.length === 0) {
-            DOM.tablePromociones.innerHTML = `<tr><td colspan="11" style="text-align: center;">No se encontraron promociones cargadas.</td></tr>`;
+            DOM.tablePromociones.innerHTML = `<tr><td colspan="12" style="text-align: center;">No se encontraron promociones cargadas.</td></tr>`;
             if (DOM.pagPromociones) DOM.pagPromociones.innerHTML = "";
             return;
         }
@@ -3559,6 +3638,8 @@ async function loadPromocionesData(forceRefresh = false) {
         const pag = createPaginationControls('promoCurrentPage', totalItems, loadPromocionesData, 25);
         const pageItems = promociones.slice(pag.startIndex, pag.endIndex);
         
+        const canManagePromos = state.user && ["admin", "gerente", "marketing"].includes(state.user.rol);
+
         pageItems.forEach(p => {
             const tr = document.createElement("tr");
             const imageSearchUrl = buildProductImageSearchUrl(p);
@@ -3571,7 +3652,26 @@ async function loadPromocionesData(forceRefresh = false) {
                 tr.style.opacity = "0.5";
             }
             
+            const isRelevante = !!p.es_relevante;
+            const starTitle = canManagePromos
+                ? (isRelevante ? "Quitar de relevantes (Top 4)" : "Marcar como relevante (Foco Comercial - Máx 4)")
+                : (isRelevante ? "Promoción relevante del mes" : "No marcada");
+            const starCursor = canManagePromos ? "pointer" : "default";
+            const starColor = isRelevante ? "#f59e0b" : "#94a3b8";
+            const starClass = isRelevante ? "fa-solid fa-star" : "fa-regular fa-star";
+            const starScale = isRelevante ? "scale(1.2)" : "scale(1)";
+
             tr.innerHTML = `
+                <td style="text-align: center; vertical-align: middle;">
+                    <button type="button" class="btn-star-relevante ${isRelevante ? 'active' : ''}" 
+                            data-promo-id="${p.id}"
+                            data-is-relevante="${isRelevante ? '1' : '0'}"
+                            onclick="${canManagePromos ? `togglePromoRelevante(${p.id}, ${isRelevante})` : ''}"
+                            title="${starTitle}"
+                            style="background: none; border: none; cursor: ${starCursor}; font-size: 1.15rem; color: ${starColor}; transform: ${starScale}; padding: 4px 6px; transition: transform 0.15s ease, color 0.15s ease;">
+                        <i class="${starClass}"></i>
+                    </button>
+                </td>
                 <td>
                     <a href="${imageSearchUrl}" target="_blank" rel="noopener" title="Buscar imagen del producto" class="btn btn-secondary btn-sm" style="min-width: 34px; padding: 7px 9px; display: inline-flex; align-items: center; justify-content: center;">
                         <i class="fa-regular fa-image"></i>
@@ -3604,6 +3704,46 @@ async function loadPromocionesData(forceRefresh = false) {
         showToast("Error cargando promociones: " + e.message, "error");
     }
 }
+
+window.togglePromoRelevante = async function(promoId, isCurrentlyRelevante) {
+    if (!state.user || !["admin", "gerente", "marketing"].includes(state.user.rol)) {
+        showToast("Solo administradores y gerentes pueden marcar promociones relevantes.", "error");
+        return;
+    }
+    
+    // Invariante estricta: Máximo 4 promociones relevantes
+    if (!isCurrentlyRelevante) {
+        const countRelevantes = (state.promociones || []).filter(p => !!p.es_relevante).length;
+        if (countRelevantes >= 4) {
+            showToast("Ya existen 4 promociones marcadas como relevantes. Debes desmarcar una antes de seleccionar otra.", "warning");
+            return;
+        }
+    }
+
+    try {
+        const res = await apiRequest(`/api/v1/promociones/${promoId}/toggle-relevante`, "POST");
+        if (res && res.status === "success") {
+            const isNowRelevante = !isCurrentlyRelevante;
+            showToast(res.message || (isNowRelevante ? "Promoción marcada como relevante (Top 4)." : "Promoción retirada de relevantes."), "success");
+            
+            // Actualizar localmente state.promociones
+            if (state.promociones) {
+                const target = state.promociones.find(p => p.id === promoId);
+                if (target) {
+                    target.es_relevante = isNowRelevante;
+                }
+            }
+            
+            // Re-renderizar la tabla de promociones
+            if (typeof loadPromocionesData === "function") {
+                loadPromocionesData();
+            }
+        }
+    } catch (err) {
+        const errorDetail = err?.data?.detail || err.message || "Error al actualizar relevancia de la promoción.";
+        showToast(errorDetail, "error");
+    }
+};
 
 // Upload Promociones Handler
 if (DOM.uploadPromocionesForm) {
