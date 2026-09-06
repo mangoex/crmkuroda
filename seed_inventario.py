@@ -70,19 +70,81 @@ def parse_inventario_rows_from_workbook(wb) -> list[dict]:
                 headers,
                 "precio venta",
                 "precio de venta",
+                "precio venta civa",
+                "precio venta con iva",
+                "precio venta neto",
+                "precio de venta civa",
+                "precio de venta con iva",
                 "precio lista",
+                "precio de lista",
+                "precio lista civa",
+                "precio lista con iva",
                 "precio unitario",
+                "precio unitario civa",
+                "precio unitario con iva",
                 "precio comercial",
                 "precio",
+                "precios",
                 "pvp",
+                "pvp civa",
+                "pvp con iva",
                 "costo promedio unitario",
-                "precio promedio",
+                "costo promedio unitario moneda de venta",
+                "costo unitario",
+                "costo unit",
+                "costo",
+                "costos",
                 "costo promedio",
+                "costo prom",
+                "costo reposicion",
+                "costo reposición",
+                "costo estandar",
+                "costo estándar",
+                "costo estandar promocion",
+                "precio promedio",
                 "precio prom",
                 "precio promocion",
+                "precio efectivo promocion",
+                "precio efectivo",
+                "precio base",
+                "precio sugerido",
+                "precio publico",
+                "precio público",
+                "precio mostrador",
+                "precio distribuidor",
+                "valor unitario",
+                "val unitario",
+                "val unit",
+                "p venta",
+                "p vta",
+                "precio vta",
+                "importe venta",
+                "importe unitario",
             ),
-            "importe_inventario_propio": _header_index(headers, "importe inventario propio", "importe inv", "importe de inventario propio"),
-            "valor_consignacion_proveedor": _header_index(headers, "valor consignacion proveedor", "valor de consignacion proveedor"),
+            "importe_inventario_propio": _header_index(
+                headers,
+                "importe inventario propio",
+                "importe inv propio",
+                "importe inv",
+                "importe inventario",
+                "importe de inventario propio",
+                "importe propio",
+                "importe total",
+                "importe neto",
+                "importe",
+                "valor inventario",
+                "valor propio",
+            ),
+            "valor_consignacion_proveedor": _header_index(
+                headers,
+                "valor consignacion proveedor",
+                "valor de consignacion proveedor",
+                "valor consignacion",
+                "valor de consignacion",
+                "importe consignacion",
+                "importe consignado",
+                "consignacion importe",
+            ),
             "ubicacion": _header_index(headers, "ubicacion", "localizacion"),
             "grupo_materiales": _header_index(headers, "grupo materiales"),
             "descrip_gpo_materiales": _header_index(headers, "descripcion grupo materiales", "descrip gpo materiales"),
@@ -108,8 +170,16 @@ def parse_inventario_rows_from_workbook(wb) -> list[dict]:
 
                 c_unitario = _as_float(_row_value(row, indices["costo_promedio_unitario"], 14))
                 imp_propio = _as_float(_row_value(row, indices["importe_inventario_propio"], 15))
-                if (c_unitario is None or c_unitario == 0.0) and imp_propio and imp_propio > 0 and c_propia > 0:
-                    c_unitario = round(imp_propio / c_propia, 2)
+                val_consig = _as_float(_row_value(row, indices["valor_consignacion_proveedor"], 16))
+
+                if c_unitario is None or c_unitario == 0.0:
+                    if imp_propio and imp_propio > 0 and c_propia > 0:
+                        c_unitario = round(imp_propio / c_propia, 2)
+                    elif val_consig and val_consig > 0 and e_consig > 0:
+                        c_unitario = round(val_consig / e_consig, 2)
+
+                if (imp_propio is None or imp_propio == 0.0) and c_unitario and c_unitario > 0 and c_propia > 0:
+                    imp_propio = round(c_unitario * c_propia, 2)
 
                 centro_val = str(_row_value(row, indices["centro"], 0)) if _row_value(row, indices["centro"], 0) is not None else None
                 cod_mat = str(_row_value(row, indices["codigo_material"], 1)) if _row_value(row, indices["codigo_material"], 1) is not None else None
@@ -138,7 +208,7 @@ def parse_inventario_rows_from_workbook(wb) -> list[dict]:
                     "umb": str(_row_value(row, indices["umb"], 13)) if _row_value(row, indices["umb"], 13) is not None else None,
                     "costo_promedio_unitario": c_unitario,
                     "importe_inventario_propio": imp_propio,
-                    "valor_consignacion_proveedor": _as_float(_row_value(row, indices["valor_consignacion_proveedor"], 16)),
+                    "valor_consignacion_proveedor": val_consig,
                     "ubicacion": str(_row_value(row, indices["ubicacion"], 17)) if _row_value(row, indices["ubicacion"], 17) is not None else None,
                     "grupo_materiales": str(_row_value(row, indices["grupo_materiales"], 18)) if _row_value(row, indices["grupo_materiales"], 18) is not None else None,
                     "descrip_gpo_materiales": str(_row_value(row, indices["descrip_gpo_materiales"], 19)) if _row_value(row, indices["descrip_gpo_materiales"], 19) is not None else None,
@@ -174,12 +244,12 @@ async def seed_inventario_from_excel(force=False):
                 )
                 valid_price_count = valid_price_res.scalar() or 0
                 
-                # Si ya tiene registros con precio, no es necesario resembrar
-                if valid_price_count > 0:
+                # Si el inventario tiene al menos 2000 precios válidos o más del 95% con precio, se omite siembra
+                if valid_price_count >= 2000 or (existing_count > 0 and (valid_price_count / existing_count) >= 0.95):
                     logger.info(f"Inventario ABC+F ya contiene {existing_count} registros ({valid_price_count} con precio válido). Se omite siembra.")
                     return existing_count
                 
-                logger.info(f"Inventario existente contiene 0 precios válidos. Re-sembrando automáticamente...")
+                logger.info(f"Inventario existente contiene {existing_count} registros pero solo {valid_price_count} con precio válido (< 2000 o < 95%). Reparando y re-sembrando automáticamente...")
 
         print(f"Cargando Inventario ABC+F desde: {excel_file}")
         wb = openpyxl.load_workbook(excel_file, read_only=True, data_only=True)
@@ -202,3 +272,8 @@ async def seed_inventario_from_excel(force=False):
 
         print(f"¡Siembra de Inventario ABC+F completada! ({total_inserted} registros con precios y ubicaciones)")
         return total_inserted
+
+
+async def reparar_precios_inventario():
+    """Actualiza y garantiza la presencia de precios oficiales en Inventario D."""
+    return await seed_inventario_from_excel(force=True)

@@ -2584,6 +2584,31 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             });
         }
 
+        // Build price lookup catalog map across known inventory and promotions
+        const priceCatalogMap = new Map();
+        if (state.inventario_abcf && Array.isArray(state.inventario_abcf)) {
+            state.inventario_abcf.forEach(item => {
+                const sku = getInventoryProductKey(item);
+                const cp = Number(item.cantidad_propia || 0);
+                const ec = Number(item.existencia_consignacion || 0);
+                const p = Number(item.costo_promedio_unitario || 0) ||
+                    (cp > 0 && Number(item.importe_inventario_propio || 0) > 0 ? Number(item.importe_inventario_propio) / cp : 0) ||
+                    (ec > 0 && Number(item.valor_consignacion_proveedor || 0) > 0 ? Number(item.valor_consignacion_proveedor) / ec : 0);
+                if (sku && p > 0 && !priceCatalogMap.has(sku)) {
+                    priceCatalogMap.set(sku, p);
+                }
+            });
+        }
+        if (state.promociones && Array.isArray(state.promociones)) {
+            state.promociones.forEach(pr => {
+                const sku = String(pr.codigo_material || "").trim();
+                const p = Number(pr.precio_promocion || pr.precio_efectivo_promocion || pr.costo_promedio || 0);
+                if (sku && p > 0 && !priceCatalogMap.has(sku)) {
+                    priceCatalogMap.set(sku, p);
+                }
+            });
+        }
+
         // --- PAGINATION LOGIC ---
         const totalItems = inventario.length;
         const pag = createPaginationControls('invCurrentPage', totalItems, loadInventarioAbcfData, 25);
@@ -2591,13 +2616,25 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         
         pageItems.forEach(i => {
             const tr = document.createElement("tr");
+            const skuKey = getInventoryProductKey(i);
             const imageSearchUrl = buildProductImageSearchUrl({
-                codigo_material: getInventoryProductKey(i),
+                codigo_material: skuKey,
                 descripcion_material: getInventoryDescription(i),
                 proveedor: getInventoryProviderName(i)
             });
             const cantPropia = Number(i.cantidad_propia || 0);
-            const costoUnit = Number(i.costo_promedio_unitario || 0) || (cantPropia > 0 && Number(i.importe_inventario_propio || 0) > 0 ? Number(i.importe_inventario_propio) / cantPropia : 0);
+            const cantConsig = Number(i.existencia_consignacion || 0);
+            let costoUnit = Number(i.costo_promedio_unitario || 0);
+
+            if (!costoUnit || costoUnit <= 0) {
+                if (cantPropia > 0 && Number(i.importe_inventario_propio || 0) > 0) {
+                    costoUnit = Number(i.importe_inventario_propio) / cantPropia;
+                } else if (cantConsig > 0 && Number(i.valor_consignacion_proveedor || 0) > 0) {
+                    costoUnit = Number(i.valor_consignacion_proveedor) / cantConsig;
+                } else if (skuKey && priceCatalogMap.has(skuKey)) {
+                    costoUnit = priceCatalogMap.get(skuKey);
+                }
+            }
 
             const precioFmt = `$${costoUnit.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
