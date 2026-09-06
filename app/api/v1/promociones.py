@@ -112,6 +112,7 @@ async def get_promociones_relevantes(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{promocion_id}/toggle-relevante", status_code=status.HTTP_200_OK)
+@router.put("/{promocion_id}/toggle-relevante", status_code=status.HTTP_200_OK)
 async def toggle_promocion_relevante(
     promocion_id: int,
     db: AsyncSession = Depends(get_db),

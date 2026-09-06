@@ -784,6 +784,9 @@ async function initSession() {
    ========================================================================== */
 
 async function apiRequest(endpoint, options = {}) {
+    if (typeof options === "string") {
+        options = { method: options };
+    }
     const url = endpoint;
     const headers = {
         "Content-Type": "application/json",
@@ -809,7 +812,11 @@ async function apiRequest(endpoint, options = {}) {
                 logout();
                 throw new Error("Sesión expirada. Por favor inicia sesión nuevamente.");
             }
-            throw new Error(data.message || "Error al realizar la solicitud.");
+            const errorMsg = (typeof data?.detail === "string" ? data.detail : null) || data?.message || "Error al realizar la solicitud.";
+            const err = new Error(errorMsg);
+            err.data = data;
+            err.status = response.status;
+            throw err;
         }
         return data;
     } catch (error) {
@@ -3721,7 +3728,7 @@ window.togglePromoRelevante = async function(promoId, isCurrentlyRelevante) {
     }
 
     try {
-        const res = await apiRequest(`/api/v1/promociones/${promoId}/toggle-relevante`, "POST");
+        const res = await apiRequest(`/api/v1/promociones/${promoId}/toggle-relevante`, { method: "POST" });
         if (res && res.status === "success") {
             const isNowRelevante = !isCurrentlyRelevante;
             showToast(res.message || (isNowRelevante ? "Promoción marcada como relevante (Top 4)." : "Promoción retirada de relevantes."), "success");
