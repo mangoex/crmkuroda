@@ -2113,6 +2113,245 @@
                             </div>
                         </div>
 
+                        <!-- Agente 5: INVESTIGADOR DE MERCADO -->
+                        <div class="glass-card border-glow" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                            <div style="display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;">
+                                <div style="width: 48px; height: 48px; border-radius: 50%; background: rgba(236, 72, 153, 0.15); border: 2px solid #ec4899; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #ec4899;">
+                                    <i class="fa-solid fa-magnifying-glass-chart text-glow"></i>
+                                </div>
+                                <div>
+                                    <h3 style="margin: 0; font-size: 16px;">Investigador de Mercado</h3>
+                                    <span style="font-size: 11px; color: hsl(var(--text-secondary)); font-weight: 600; text-transform: uppercase;">Market Intel & Pricing</span>
+                                </div>
+                            </div>
+                            <p style="font-size: 13px; color: hsl(var(--text-secondary)); margin: 0; line-height: 1.5;">Rastrea publicaciones, precios y promociones de la competencia en internet por plaza geográfica (ej. Culiacán) y genera sugerencias de precio basadas en mercado e inventario.</p>
+                            
+                            <button id="btn-open-market-agent" class="btn btn-glow" style="width: 100%; margin-top: auto; background: linear-gradient(135deg, #ec4899, #be185d); border: none; box-shadow: 0 4px 12px rgba(236,72,153,0.25);">
+                                Abrir Investigador de Mercado <i class="fa-solid fa-compass-drafting" style="margin-left: 6px;"></i>
+                            </button>
+                        </div>
+
+                    </div>
+
+                    <!-- Workspace / Panel del Agente Investigador de Mercado -->
+                    <div id="market-agent-panel" class="hidden" style="margin-top: 30px; display: flex; flex-direction: column; gap: 24px;">
+                        <div class="glass-card border-glow" style="padding: 24px; position: relative;">
+                            <button id="btn-close-market-panel" class="btn-icon" style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; width: 32px; height: 32px; color: hsl(var(--text-secondary)); cursor: pointer;">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                            
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                                <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(236, 72, 153, 0.2); display: flex; align-items: center; justify-content: center; font-size: 20px; color: #ec4899;">
+                                    <i class="fa-solid fa-globe"></i>
+                                </div>
+                                <div>
+                                    <h3 style="margin: 0; font-size: 18px;">Agente Investigador de Mercado & Pricing Estratégico</h3>
+                                    <p style="margin: 2px 0 0 0; font-size: 12px; color: hsl(var(--text-secondary));">
+                                        Monitorea precios en internet, compara publicaciones y optimiza precios según existencias locales.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Barra de Conexión OpenRouter -->
+                            <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--border-radius-sm); padding: 14px 18px; margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <i class="fa-solid fa-plug-circle-bolt" style="color: #38bdf8; font-size: 16px;"></i>
+                                    <span style="font-size: 13px; font-weight: 600;">Conexión OpenRouter API:</span>
+                                    <span id="market-openrouter-status-badge" class="badge" style="background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid #10b981; font-size: 11px;">
+                                        <i class="fa-solid fa-circle-check"></i> Activa (Sistema)
+                                    </span>
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center; flex: 1; max-width: 480px; justify-content: flex-end;">
+                                    <input type="password" id="market-api-key-input" placeholder="API Key personalizada (opcional)" style="font-size: 12px; padding: 7px 12px; background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: 6px; flex: 1;">
+                                    <button type="button" id="btn-test-openrouter-key" class="btn btn-secondary btn-sm" style="font-size: 12px; white-space: nowrap;">
+                                        <i class="fa-solid fa-vial"></i> Probar API
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Formulario de Configuración de la Investigación -->
+                            <form id="market-agent-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px;">
+                                <!-- Columna 1: Selección de Producto -->
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <label for="market-product-search" style="font-size: 13px; font-weight: 600;">
+                                        <i class="fa-solid fa-box-open" style="color: #ec4899; margin-right: 6px;"></i> Producto de Nuestro Catálogo
+                                    </label>
+                                    <div style="position: relative;">
+                                        <input type="text" id="market-product-search" placeholder="Escribe código o nombre (ej. Tubo PVC, Lavabo, Calentador)..." autocomplete="off" required style="width: 100%; box-sizing: border-box; padding: 10px 14px; background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); color: hsl(var(--text-primary)); font-size: 13px;">
+                                        <div id="market-product-dropdown" class="hidden" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 100; max-height: 240px; overflow-y: auto; background: hsl(var(--bg-primary)); border: 1px solid hsl(var(--border-color)); border-radius: 0 0 8px 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);"></div>
+                                    </div>
+
+                                    <!-- Chip Informativo del Producto Seleccionado -->
+                                    <div id="market-product-selected-card" class="hidden" style="background: rgba(236,72,153,0.08); border: 1px solid rgba(236,72,153,0.25); border-radius: 8px; padding: 12px; margin-top: 6px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                            <div>
+                                                <strong id="market-sel-prod-code" style="color: #ec4899; font-size: 12px;"></strong>
+                                                <p id="market-sel-prod-desc" style="margin: 2px 0 6px 0; font-size: 13px; font-weight: 500;"></p>
+                                            </div>
+                                            <span id="market-sel-prod-abc" class="badge" style="background: rgba(255,255,255,0.1); font-size: 10px;"></span>
+                                        </div>
+                                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 12px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 8px; margin-top: 4px;">
+                                            <div><span style="color: hsl(var(--text-secondary));">P. Lista:</span> <strong id="market-sel-prod-price" style="color: #10b981;">$0.00</strong></div>
+                                            <div><span style="color: hsl(var(--text-secondary));">Costo Base:</span> <strong id="market-sel-prod-cost">$0.00</strong></div>
+                                            <div><span style="color: hsl(var(--text-secondary));">Stock Disp:</span> <strong id="market-sel-prod-stock">0 pzas</strong></div>
+                                        </div>
+                                    </div>
+                                    <!-- Hidden Inputs con los datos del producto seleccionado -->
+                                    <input type="hidden" id="market-input-code">
+                                    <input type="hidden" id="market-input-desc">
+                                    <input type="hidden" id="market-input-price">
+                                    <input type="hidden" id="market-input-cost">
+                                    <input type="hidden" id="market-input-stock">
+                                    <input type="hidden" id="market-input-abc">
+                                </div>
+
+                                <!-- Columna 2: Plaza Geográfica -->
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <label style="font-size: 13px; font-weight: 600;">
+                                        <i class="fa-solid fa-location-dot" style="color: #38bdf8; margin-right: 6px;"></i> Plaza Geográfica Objetivo
+                                    </label>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                        <div>
+                                            <label for="market-city-input" style="font-size: 11px; color: hsl(var(--text-secondary));">Ciudad</label>
+                                            <input type="text" id="market-city-input" value="Culiacán" required style="width: 100%; box-sizing: border-box; padding: 9px 12px; background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); font-size: 13px; color: hsl(var(--text-primary));">
+                                        </div>
+                                        <div>
+                                            <label for="market-state-input" style="font-size: 11px; color: hsl(var(--text-secondary));">Estado</label>
+                                            <input type="text" id="market-state-input" value="Sinaloa" required style="width: 100%; box-sizing: border-box; padding: 9px 12px; background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); font-size: 13px; color: hsl(var(--text-primary));">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label for="market-country-input" style="font-size: 11px; color: hsl(var(--text-secondary));">País</label>
+                                        <input type="text" id="market-country-input" value="México" required style="width: 100%; box-sizing: border-box; padding: 9px 12px; background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: var(--border-radius-sm); font-size: 13px; color: hsl(var(--text-primary));">
+                                    </div>
+                                    <small style="color: hsl(var(--text-secondary)); font-size: 11px;">
+                                        <i class="fa-solid fa-circle-info"></i> Delimita la prospección a distribuidores con entrega en esta zona.
+                                    </small>
+                                </div>
+
+                                <!-- Columna 3: Competidores Prioritarios & Disparo -->
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <label style="font-size: 13px; font-weight: 600;">
+                                        <i class="fa-solid fa-store" style="color: #fbbf24; margin-right: 6px;"></i> Competidores a Auditar
+                                    </label>
+                                    <div id="market-competitors-chips" style="display: flex; flex-wrap: wrap; gap: 6px; min-height: 48px;">
+                                        <span class="market-chip active" data-competitor="The Home Depot">The Home Depot <i class="fa-solid fa-check"></i></span>
+                                        <span class="market-chip active" data-competitor="Construrama">Construrama <i class="fa-solid fa-check"></i></span>
+                                        <span class="market-chip active" data-competitor="Plomería Universal">Plomería Universal <i class="fa-solid fa-check"></i></span>
+                                        <span class="market-chip active" data-competitor="El Surtidor">El Surtidor <i class="fa-solid fa-check"></i></span>
+                                    </div>
+                                    <div style="display: flex; gap: 6px;">
+                                        <input type="text" id="market-add-competitor-input" placeholder="Otro competidor..." style="flex: 1; font-size: 12px; padding: 6px 10px; background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: 6px;">
+                                        <button type="button" id="btn-add-competitor-chip" class="btn btn-secondary btn-sm" style="padding: 6px 10px;">
+                                            <i class="fa-solid fa-plus"></i>
+                                        </button>
+                                    </div>
+
+                                    <button type="submit" id="btn-start-market-research" class="btn btn-glow" style="margin-top: auto; width: 100%; background: linear-gradient(135deg, #ec4899, #9333ea); border: none; padding: 12px; font-weight: 600; font-size: 14px; box-shadow: 0 4px 15px rgba(236,72,153,0.3);">
+                                        <span id="market-btn-text"><i class="fa-solid fa-satellite-dish" style="margin-right: 8px;"></i> Iniciar Investigación en Internet</span>
+                                        <span id="market-btn-spinner" class="hidden"><i class="fa-solid fa-spinner fa-spin" style="margin-right: 8px;"></i> Rastreando publicaciones web...</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Sección de Resultados (Oculta hasta recibir datos) -->
+                        <div id="market-results-section" class="hidden" style="display: flex; flex-direction: column; gap: 24px;">
+                            <!-- 4 KPI Cards -->
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+                                <div class="metric-card" style="border-left: 4px solid #38bdf8;">
+                                    <span>Precio Kuroda Actual</span>
+                                    <strong id="kpi-market-kuroda-price" style="color: #38bdf8;">$0.00</strong>
+                                    <small id="kpi-market-kuroda-stock" style="color: hsl(var(--text-secondary));">Stock: 0 pzas</small>
+                                </div>
+                                <div class="metric-card" style="border-left: 4px solid #10b981;">
+                                    <span>Mínimo de Mercado</span>
+                                    <strong id="kpi-market-min-price" style="color: #10b981;">$0.00</strong>
+                                    <small id="kpi-market-gap-min">Brecha: 0.0%</small>
+                                </div>
+                                <div class="metric-card" style="border-left: 4px solid #fbbf24;">
+                                    <span>Promedio de Mercado</span>
+                                    <strong id="kpi-market-avg-price" style="color: #fbbf24;">$0.00</strong>
+                                    <small id="kpi-market-gap-avg">Brecha: 0.0%</small>
+                                </div>
+                                <div class="metric-card" style="border-left: 4px solid #ec4899; background: rgba(236,72,153,0.06);">
+                                    <span>Precio Sugerido Kuroda</span>
+                                    <strong id="kpi-market-suggested-price" style="color: #ec4899;">$0.00</strong>
+                                    <small id="kpi-market-strategy-badge" class="badge badge-primary" style="font-size: 10px;">Estrategia</small>
+                                </div>
+                            </div>
+
+                            <!-- Card de Sugerencia Comercial e Inventario -->
+                            <div class="glass-card border-glow" style="padding: 20px; border-left: 4px solid #ec4899;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                                    <h4 style="margin: 0; font-size: 15px; color: #ec4899; display: flex; align-items: center; gap: 8px;">
+                                        <i class="fa-solid fa-lightbulb"></i> Dictamen y Sugerencia de Precio Inteligente
+                                    </h4>
+                                    <span id="market-res-plaza-badge" class="badge badge-secondary" style="font-size: 11px;">Culiacán, Sinaloa</span>
+                                </div>
+                                <p id="market-res-justification" style="margin: 0 0 8px 0; font-size: 14px; line-height: 1.5; color: hsl(var(--text-primary));"></p>
+                                <p id="market-res-summary" style="margin: 0; font-size: 12px; color: hsl(var(--text-secondary)); font-style: italic;"></p>
+                            </div>
+
+                            <!-- Visualización Gráfica (Chart.js) -->
+                            <div class="glass-card border-glow" style="padding: 20px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                    <h4 style="margin: 0; font-size: 15px;">
+                                        <i class="fa-solid fa-chart-column" style="color: #38bdf8; margin-right: 8px;"></i> Comparativa Visual de Precios en la Plaza
+                                    </h4>
+                                    <span style="font-size: 12px; color: hsl(var(--text-secondary));">Valores en Pesos Mexicanos (MXN)</span>
+                                </div>
+                                <div style="position: relative; height: 280px; width: 100%;">
+                                    <canvas id="market-comparison-chart"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Tabla Comparativa con Filtros Dinámicos -->
+                            <div class="glass-card border-glow" style="padding: 20px;">
+                                <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                    <div>
+                                        <h4 style="margin: 0; font-size: 15px;">
+                                            <i class="fa-solid fa-table-list" style="color: #10b981; margin-right: 8px;"></i> Publicaciones y Ofertas Encontradas
+                                        </h4>
+                                        <span id="market-table-count" style="font-size: 12px; color: hsl(var(--text-secondary));">0 publicaciones rastreadas</span>
+                                    </div>
+                                    
+                                    <!-- Controles de Filtros Dinámicos -->
+                                    <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+                                        <input type="search" id="market-table-filter-text" placeholder="Filtrar por tienda o modelo..." style="font-size: 12px; padding: 6px 10px; background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: 6px; width: 180px;">
+                                        <select id="market-table-filter-competitor" style="font-size: 12px; padding: 6px 10px; background: hsl(var(--bg-secondary)); border: 1px solid hsl(var(--border-color)); border-radius: 6px; color: hsl(var(--text-primary));">
+                                            <option value="">Todas las tiendas</option>
+                                        </select>
+                                        <label style="font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; color: hsl(var(--text-secondary));">
+                                            <input type="checkbox" id="market-table-filter-promos-only"> Solo promociones
+                                        </label>
+                                        <label style="font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; color: hsl(var(--text-secondary));">
+                                            <input type="checkbox" id="market-table-filter-cheaper-only"> Más baratos que Kuroda
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Tabla -->
+                                <div class="table-container" style="overflow-x: auto;">
+                                    <table class="data-table" id="market-comparison-table" style="width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>Competidor / Tienda</th>
+                                                <th>Producto Publicado</th>
+                                                <th>Precio Competencia</th>
+                                                <th>Diferencia vs Kuroda</th>
+                                                <th>Promoción Detectada</th>
+                                                <th>Disponibilidad / Plaza</th>
+                                                <th>Enlace</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="market-comparison-tbody">
+                                            <!-- Injected dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </section>
 

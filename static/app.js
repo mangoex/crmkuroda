@@ -7419,6 +7419,485 @@ if (analystTrigger) {
     });
 }
 
+// =========================================================================
+// AGENTE 5: INVESTIGADOR DE MERCADO & PRICING ESTRATÉGICO
+// =========================================================================
+let currentMarketChart = null;
+let currentMarketPublications = [];
+let currentKurodaRefPrice = 0;
+let productSearchDebounceTimer = null;
+
+// Open & Close Market Agent Workspace
+const btnOpenMarketAgent = document.getElementById("btn-open-market-agent");
+const btnCloseMarketPanel = document.getElementById("btn-close-market-panel");
+const marketAgentPanel = document.getElementById("market-agent-panel");
+
+if (btnOpenMarketAgent && marketAgentPanel) {
+    btnOpenMarketAgent.addEventListener("click", () => {
+        marketAgentPanel.classList.remove("hidden");
+        marketAgentPanel.scrollIntoView({ behavior: "smooth" });
+    });
+}
+
+if (btnCloseMarketPanel && marketAgentPanel) {
+    btnCloseMarketPanel.addEventListener("click", () => {
+        marketAgentPanel.classList.add("hidden");
+    });
+}
+
+// Test OpenRouter Connection Button
+const btnTestOpenRouterKey = document.getElementById("btn-test-openrouter-key");
+if (btnTestOpenRouterKey) {
+    btnTestOpenRouterKey.addEventListener("click", async () => {
+        const apiKeyInput = document.getElementById("market-api-key-input");
+        const statusBadge = document.getElementById("market-openrouter-status-badge");
+        const keyVal = apiKeyInput ? apiKeyInput.value.trim() : "";
+        
+        btnTestOpenRouterKey.disabled = true;
+        btnTestOpenRouterKey.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Probando...';
+        
+        try {
+            const res = await apiRequest("/api/v1/mercado/test-connection", {
+                method: "POST",
+                body: JSON.stringify({ api_key: keyVal })
+            });
+            
+            if (res.connected) {
+                showToast(res.message || "Conexión con OpenRouter exitosa.");
+                if (statusBadge) {
+                    statusBadge.style.background = "rgba(16,185,129,0.15)";
+                    statusBadge.style.borderColor = "#10b981";
+                    statusBadge.style.color = "#10b981";
+                    statusBadge.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${res.label || "Conectado"}`;
+                }
+            } else {
+                showToast(res.message || "No se pudo conectar a OpenRouter.", "error");
+                if (statusBadge) {
+                    statusBadge.style.background = "rgba(239,68,68,0.15)";
+                    statusBadge.style.borderColor = "#ef4444";
+                    statusBadge.style.color = "#ef4444";
+                    statusBadge.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Sin conexión`;
+                }
+            }
+        } catch (err) {
+            showToast(err.message || "Error al verificar conexión", "error");
+        } finally {
+            btnTestOpenRouterKey.disabled = false;
+            btnTestOpenRouterKey.innerHTML = '<i class="fa-solid fa-vial"></i> Probar API';
+        }
+    });
+}
+
+// Product Autocompletion
+const marketProductSearchInput = document.getElementById("market-product-search");
+const marketProductDropdown = document.getElementById("market-product-dropdown");
+
+if (marketProductSearchInput && marketProductDropdown) {
+    marketProductSearchInput.addEventListener("input", (e) => {
+        const q = e.target.value.trim();
+        clearTimeout(productSearchDebounceTimer);
+        
+        if (q.length < 2) {
+            marketProductDropdown.innerHTML = "";
+            marketProductDropdown.classList.add("hidden");
+            return;
+        }
+        
+        productSearchDebounceTimer = setTimeout(async () => {
+            try {
+                const productos = await apiRequest(`/api/v1/mercado/productos?q=${encodeURIComponent(q)}&limit=15`);
+                marketProductDropdown.innerHTML = "";
+                
+                if (!productos || productos.length === 0) {
+                    marketProductDropdown.innerHTML = '<div style="padding: 12px; font-size: 12px; color: hsl(var(--text-secondary)); text-align: center;">No se encontraron productos coincidentes.</div>';
+                    marketProductDropdown.classList.remove("hidden");
+                    return;
+                }
+                
+                productos.forEach(p => {
+                    const itemDiv = document.createElement("div");
+                    itemDiv.className = "market-product-item";
+                    itemDiv.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong>${p.codigo_material}</strong>
+                            <span class="badge" style="font-size: 10px;">${p.abc_f}</span>
+                        </div>
+                        <div style="font-size: 12px; margin-top: 2px;">${p.descripcion_material}</div>
+                        <div style="font-size: 11px; color: hsl(var(--text-secondary)); margin-top: 4px;">
+                            P. Lista: <span style="color: #10b981; font-weight: 600;">$${p.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span> | 
+                            Costo: $${p.costo_promedio.toLocaleString('es-MX', { minimumFractionDigits: 2 })} | 
+                            Stock: ${p.stock_disponible} pzas
+                        </div>
+                    `;
+                    itemDiv.addEventListener("click", () => {
+                        selectMarketProduct(p);
+                    });
+                    marketProductDropdown.appendChild(itemDiv);
+                });
+                marketProductDropdown.classList.remove("hidden");
+            } catch (err) {
+                loggerError("Error buscando productos:", err);
+            }
+        }, 280);
+    });
+    
+    // Close dropdown on outside click
+    document.addEventListener("click", (e) => {
+        if (!marketProductSearchInput.contains(e.target) && !marketProductDropdown.contains(e.target)) {
+            marketProductDropdown.classList.add("hidden");
+        }
+    });
+}
+
+function selectMarketProduct(p) {
+    document.getElementById("market-input-code").value = p.codigo_material;
+    document.getElementById("market-input-desc").value = p.descripcion_material;
+    document.getElementById("market-input-price").value = p.precio_venta;
+    document.getElementById("market-input-cost").value = p.costo_promedio;
+    document.getElementById("market-input-stock").value = p.stock_disponible;
+    document.getElementById("market-input-abc").value = p.abc_f;
+    
+    document.getElementById("market-sel-prod-code").textContent = p.codigo_material;
+    document.getElementById("market-sel-prod-desc").textContent = p.descripcion_material;
+    document.getElementById("market-sel-prod-price").textContent = `$${p.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    document.getElementById("market-sel-prod-cost").textContent = `$${p.costo_promedio.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    document.getElementById("market-sel-prod-stock").textContent = `${p.stock_disponible} pzas`;
+    document.getElementById("market-sel-prod-abc").textContent = `Mat. ${p.abc_f}`;
+    
+    document.getElementById("market-product-selected-card").classList.remove("hidden");
+    marketProductSearchInput.value = `${p.codigo_material} - ${p.descripcion_material}`;
+    marketProductDropdown.classList.add("hidden");
+}
+
+// Competitors Chip Toggle & Adding custom chips
+const competitorsChipsContainer = document.getElementById("market-competitors-chips");
+if (competitorsChipsContainer) {
+    competitorsChipsContainer.addEventListener("click", (e) => {
+        const chip = e.target.closest(".market-chip");
+        if (!chip) return;
+        chip.classList.toggle("active");
+        const icon = chip.querySelector("i");
+        if (icon) {
+            icon.className = chip.classList.contains("active") ? "fa-solid fa-check" : "fa-solid fa-plus";
+        }
+    });
+}
+
+const btnAddCompetitorChip = document.getElementById("btn-add-competitor-chip");
+const inputAddCompetitor = document.getElementById("market-add-competitor-input");
+if (btnAddCompetitorChip && inputAddCompetitor && competitorsChipsContainer) {
+    const addComp = () => {
+        const val = inputAddCompetitor.value.trim();
+        if (!val) return;
+        const newChip = document.createElement("span");
+        newChip.className = "market-chip active";
+        newChip.dataset.competitor = val;
+        newChip.innerHTML = `${val} <i class="fa-solid fa-check"></i>`;
+        competitorsChipsContainer.appendChild(newChip);
+        inputAddCompetitor.value = "";
+    };
+    btnAddCompetitorChip.addEventListener("click", addComp);
+    inputAddCompetitor.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            addComp();
+        }
+    });
+}
+
+// Market Agent Form Submission
+const marketAgentForm = document.getElementById("market-agent-form");
+if (marketAgentForm) {
+    marketAgentForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const code = document.getElementById("market-input-code").value.trim();
+        const desc = document.getElementById("market-input-desc").value.trim();
+        const price = parseFloat(document.getElementById("market-input-price").value) || 0;
+        const cost = parseFloat(document.getElementById("market-input-cost").value) || 0;
+        const stock = parseFloat(document.getElementById("market-input-stock").value) || 0;
+        const abc = document.getElementById("market-input-abc").value.trim() || "B";
+        
+        if (!code || !desc) {
+            showToast("Por favor busca y selecciona un producto del catálogo.", "error");
+            marketProductSearchInput.focus();
+            return;
+        }
+        
+        const city = document.getElementById("market-city-input").value.trim() || "Culiacán";
+        const stateName = document.getElementById("market-state-input").value.trim() || "Sinaloa";
+        const country = document.getElementById("market-country-input").value.trim() || "México";
+        
+        const activeChips = Array.from(document.querySelectorAll("#market-competitors-chips .market-chip.active"))
+            .map(c => c.dataset.competitor)
+            .filter(Boolean);
+            
+        const apiKeyCustom = (document.getElementById("market-api-key-input")?.value || "").trim();
+        
+        const btnSubmit = document.getElementById("btn-start-market-research");
+        const btnText = document.getElementById("market-btn-text");
+        const btnSpinner = document.getElementById("market-btn-spinner");
+        const resultsSection = document.getElementById("market-results-section");
+        
+        btnSubmit.disabled = true;
+        btnText.classList.add("hidden");
+        btnSpinner.classList.remove("hidden");
+        resultsSection.classList.add("hidden");
+        
+        try {
+            const payload = {
+                codigo_material: code,
+                descripcion_material: desc,
+                precio_kuroda: price,
+                costo_kuroda: cost,
+                stock_kuroda: stock,
+                abc_f: abc,
+                ciudad: city,
+                estado: stateName,
+                pais: country,
+                competidores: activeChips,
+                api_key_override: apiKeyCustom || null
+            };
+            
+            showToast("Iniciando rastreo de mercado en la plaza...", "info");
+            const res = await apiRequest("/api/v1/mercado/investigar", {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+            
+            renderMarketResults(res);
+            showToast("Investigación de mercado completada con éxito.");
+            resultsSection.classList.remove("hidden");
+            resultsSection.scrollIntoView({ behavior: "smooth" });
+        } catch (err) {
+            showToast(err.message || "Error al investigar el mercado.", "error");
+        } finally {
+            btnSubmit.disabled = false;
+            btnText.classList.remove("hidden");
+            btnSpinner.classList.add("hidden");
+        }
+    });
+}
+
+function renderMarketResults(data) {
+    const analysis = data.analisis_precios || {};
+    currentKurodaRefPrice = data.precio_kuroda || 0;
+    currentMarketPublications = data.publicaciones || [];
+    
+    // 1. KPI Cards
+    document.getElementById("kpi-market-kuroda-price").textContent = `$${currentKurodaRefPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    document.getElementById("kpi-market-kuroda-stock").textContent = `Stock: ${data.stock_kuroda} pzas (Mat. ${data.abc_f || 'B'})`;
+    
+    const minPrice = analysis.precio_minimo_mercado || currentKurodaRefPrice;
+    document.getElementById("kpi-market-min-price").textContent = `$${minPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const gapMin = analysis.brecha_vs_minimo_pct || 0;
+    document.getElementById("kpi-market-gap-min").textContent = `Brecha vs mín: ${gapMin >= 0 ? '+' : ''}${gapMin.toFixed(1)}%`;
+    document.getElementById("kpi-market-gap-min").style.color = gapMin <= 0 ? '#10b981' : '#f87171';
+    
+    const avgPrice = analysis.precio_promedio_mercado || currentKurodaRefPrice;
+    document.getElementById("kpi-market-avg-price").textContent = `$${avgPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    const gapAvg = analysis.brecha_vs_promedio_pct || 0;
+    document.getElementById("kpi-market-gap-avg").textContent = `Brecha vs prom: ${gapAvg >= 0 ? '+' : ''}${gapAvg.toFixed(1)}%`;
+    document.getElementById("kpi-market-gap-avg").style.color = gapAvg <= 0 ? '#10b981' : '#f87171';
+    
+    const sugPrice = analysis.precio_sugerido || currentKurodaRefPrice;
+    document.getElementById("kpi-market-suggested-price").textContent = `$${sugPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
+    document.getElementById("kpi-market-strategy-badge").textContent = (analysis.estrategia || "COMPETITIVO").replace(/_/g, ' ');
+    
+    // 2. Justification Card
+    document.getElementById("market-res-plaza-badge").textContent = `${data.plaza.ciudad}, ${data.plaza.estado}`;
+    document.getElementById("market-res-justification").textContent = analysis.justificacion || "";
+    document.getElementById("market-res-summary").textContent = data.resumen_plaza || "";
+    
+    // 3. Populate Competitor Filter Dropdown
+    const filterCompetitorSelect = document.getElementById("market-table-filter-competitor");
+    if (filterCompetitorSelect) {
+        const uniqueStores = Array.from(new Set(currentMarketPublications.map(p => p.tienda))).filter(Boolean);
+        filterCompetitorSelect.innerHTML = '<option value="">Todas las tiendas</option>';
+        uniqueStores.forEach(store => {
+            const opt = document.createElement("option");
+            opt.value = store;
+            opt.textContent = store;
+            filterCompetitorSelect.appendChild(opt);
+        });
+    }
+    
+    // 4. Render Table
+    filterAndRenderMarketTable();
+    
+    // 5. Render Chart.js
+    renderMarketChart(data);
+}
+
+function filterAndRenderMarketTable() {
+    const tbody = document.getElementById("market-comparison-tbody");
+    const countEl = document.getElementById("market-table-count");
+    if (!tbody) return;
+    
+    const textQuery = (document.getElementById("market-table-filter-text")?.value || "").toLowerCase().trim();
+    const compFilter = document.getElementById("market-table-filter-competitor")?.value || "";
+    const promosOnly = document.getElementById("market-table-filter-promos-only")?.checked || false;
+    const cheaperOnly = document.getElementById("market-table-filter-cheaper-only")?.checked || false;
+    
+    const filtered = currentMarketPublications.filter(pub => {
+        if (textQuery && !pub.tienda.toLowerCase().includes(textQuery) && !pub.producto_encontrado.toLowerCase().includes(textQuery)) {
+            return false;
+        }
+        if (compFilter && pub.tienda !== compFilter) {
+            return false;
+        }
+        if (promosOnly && !pub.en_promocion) {
+            return false;
+        }
+        if (cheaperOnly && pub.precio >= currentKurodaRefPrice) {
+            return false;
+        }
+        return true;
+    });
+    
+    if (countEl) {
+        countEl.textContent = `${filtered.length} publicaciones mostradas (de ${currentMarketPublications.length} encontradas)`;
+    }
+    
+    tbody.innerHTML = "";
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: hsl(var(--text-secondary));">No se encontraron publicaciones con los filtros seleccionados.</td></tr>`;
+        return;
+    }
+    
+    filtered.forEach(item => {
+        const tr = document.createElement("tr");
+        const difAbs = currentKurodaRefPrice - item.precio;
+        const difPct = item.precio > 0 ? ((currentKurodaRefPrice - item.precio) / item.precio) * 100 : 0;
+        
+        let difBadge = "";
+        if (item.precio < currentKurodaRefPrice) {
+            difBadge = `<span class="market-cheaper-badge"><i class="fa-solid fa-arrow-down"></i> -$${Math.abs(difAbs).toFixed(2)} (${Math.abs(difPct).toFixed(1)}% más barato)</span>`;
+        } else if (item.precio > currentKurodaRefPrice) {
+            difBadge = `<span class="market-expensive-badge"><i class="fa-solid fa-arrow-up"></i> +$${Math.abs(difAbs).toFixed(2)} (${Math.abs(difPct).toFixed(1)}% más caro)</span>`;
+        } else {
+            difBadge = `<span class="badge">Mismo precio</span>`;
+        }
+        
+        const promoBadge = item.en_promocion 
+            ? `<span class="market-promo-badge"><i class="fa-solid fa-tag"></i> ${item.detalle_promocion || 'Promoción Activa'}</span>`
+            : `<span style="color: hsl(var(--text-secondary)); font-size: 11px;">Precio regular</span>`;
+            
+        const linkBtn = item.url 
+            ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 8px; text-decoration: none;">Ver <i class="fa-solid fa-arrow-up-right-from-square" style="margin-left: 4px;"></i></a>`
+            : `<span style="color: hsl(var(--text-secondary)); font-size: 11px;">N/D</span>`;
+            
+        tr.innerHTML = `
+            <td><strong>${item.tienda}</strong></td>
+            <td style="max-width: 260px; font-size: 12px;">${item.producto_encontrado}</td>
+            <td><strong style="font-size: 13px;">$${item.precio.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong> <small style="color: hsl(var(--text-secondary));">${item.moneda}</small></td>
+            <td>${difBadge}</td>
+            <td>${promoBadge}</td>
+            <td style="font-size: 12px; color: hsl(var(--text-secondary));">${item.disponibilidad_local || 'Plaza local'}</td>
+            <td>${linkBtn}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// Table Filter Event Listeners
+const filterTextInput = document.getElementById("market-table-filter-text");
+const filterCompSelect = document.getElementById("market-table-filter-competitor");
+const filterPromosCheck = document.getElementById("market-table-filter-promos-only");
+const filterCheaperCheck = document.getElementById("market-table-filter-cheaper-only");
+
+if (filterTextInput) filterTextInput.addEventListener("input", filterAndRenderMarketTable);
+if (filterCompSelect) filterCompSelect.addEventListener("change", filterAndRenderMarketTable);
+if (filterPromosCheck) filterPromosCheck.addEventListener("change", filterAndRenderMarketTable);
+if (filterCheaperCheck) filterCheaperCheck.addEventListener("change", filterAndRenderMarketTable);
+
+function renderMarketChart(data) {
+    const canvas = document.getElementById("market-comparison-chart");
+    if (!canvas || typeof Chart === "undefined") return;
+    
+    if (currentMarketChart) {
+        currentMarketChart.destroy();
+        currentMarketChart = null;
+    }
+    
+    const labels = ["Casa Kuroda (Lista)"];
+    const prices = [data.precio_kuroda];
+    const backgroundColors = ["#38bdf8"];
+    const borderColors = ["#0284c7"];
+    
+    (data.publicaciones || []).forEach(pub => {
+        labels.push(pub.tienda.length > 20 ? pub.tienda.substring(0, 18) + '...' : pub.tienda);
+        prices.push(pub.precio);
+        backgroundColors.push("#fbbf24");
+        borderColors.push("#d97706");
+    });
+    
+    const sug = (data.analisis_precios || {}).precio_sugerido;
+    if (sug) {
+        labels.push("Sugerencia Kuroda");
+        prices.push(sug);
+        backgroundColors.push("#ec4899");
+        borderColors.push("#be185d");
+    }
+    
+    const ctx = canvas.getContext("2d");
+    currentMarketChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Precio de Venta (MXN)",
+                data: prices,
+                backgroundColor: backgroundColors,
+                borderColor: borderColors,
+                borderWidth: 1.5,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return ` $${context.raw.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    grid: {
+                        color: "rgba(255, 255, 255, 0.08)"
+                    },
+                    ticks: {
+                        callback: function(val) {
+                            return '$' + val.toLocaleString('es-MX');
+                        },
+                        color: "#94a3b8"
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: "#cbd5e1",
+                        font: {
+                            size: 11
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
 /* ==========================================================================
    THEME MANAGER
    ========================================================================== */

@@ -3844,5 +3844,82 @@ body.dark-mode .table-row-hover:hover {
     cursor: not-allowed;
 }
 
+/* --- Agente Investigador de Mercado & Pricing --- */
+.market-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: hsl(var(--text-secondary));
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.market-chip:hover {
+    border-color: rgba(236, 72, 153, 0.5);
+    color: hsl(var(--text-primary));
+}
+
+.market-chip.active {
+    background: rgba(236, 72, 153, 0.15);
+    border-color: #ec4899;
+    color: #f472b6;
+    font-weight: 600;
+}
+
+.market-product-item {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.market-product-item:hover {
+    background: rgba(236, 72, 153, 0.1);
+}
+
+.market-product-item strong {
+    color: #ec4899;
+    font-size: 12px;
+}
+
+.market-promo-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.market-cheaper-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+}
+
+.market-expensive-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+}
+
+
 
 

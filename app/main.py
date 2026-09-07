@@ -24,6 +24,7 @@ from app.api.v1.por_entregar import router as por_entregar_router
 from app.api.v1.actualizaciones_datos import router as actualizaciones_datos_router
 from app.api.v1.commercial_analytics import router as commercial_analytics_router
 from app.api.v1.clientes import router as clientes_router
+from app.api.v1.investigador_mercado import router as investigador_mercado_router
 
 from contextlib import asynccontextmanager
 from app.core.scheduler import start_scheduler, scheduler
@@ -243,6 +244,7 @@ app.include_router(por_entregar_router, prefix="/api/v1/por-entregar", tags=["Po
 app.include_router(actualizaciones_datos_router, prefix="/api/v1/actualizaciones-datos", tags=["Actualizaciones de datos"])
 app.include_router(commercial_analytics_router, prefix="/api/v1/analitica", tags=["Analítica comercial"])
 app.include_router(clientes_router, prefix="/api/v1/clientes", tags=["Clientes"])
+app.include_router(investigador_mercado_router, prefix="/api/v1/mercado", tags=["Investigador de Mercado"])
 
 # Mount Static Files (CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")
