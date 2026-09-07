@@ -1,3 +1,4 @@
+import os
 import logging
 from typing import Any, Dict, List, Optional
 import httpx
@@ -50,6 +51,10 @@ class InvestigarRequest(BaseModel):
 
 class TestConnectionRequest(BaseModel):
     api_key: Optional[str] = None
+
+
+class SaveGlobalKeyRequest(BaseModel):
+    api_key: str = Field(..., description="API Key de OpenRouter a guardar globalmente")
 
 
 @router.get("/productos", response_model=List[ProductoCatalogoDto])
@@ -260,3 +265,70 @@ async def test_openrouter_connection(req: TestConnectionRequest):
             "connected": False,
             "message": f"No se pudo contactar a OpenRouter: {str(exc)}"
         }
+
+
+@router.post("/save-global-key")
+async def save_global_openrouter_key(req: SaveGlobalKeyRequest):
+    """
+    Guarda la API Key de OpenRouter de forma global en el servidor para que cualquier
+    gerente o usuario pueda utilizar el Investigador de Mercado sin tener que reconfigurarla.
+    """
+    clean_key = (req.api_key or "").strip()
+    if clean_key.lower().startswith("bearer "):
+        clean_key = clean_key[7:].strip()
+        
+    if not clean_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La clave de API no puede estar vacía."
+        )
+        
+    url = "https://openrouter.ai/api/v1/auth/key"
+    headers = {"Authorization": f"Bearer {clean_key}"}
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(url, headers=headers)
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"OpenRouter no autorizó la clave (HTTP {resp.status_code}): {resp.text}"
+                )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"No se pudo validar la clave con OpenRouter: {str(exc)}"
+        )
+        
+    # Establecer la clave en la configuración activa en memoria del backend
+    settings.OPENROUTER_API_KEY = clean_key
+    
+    # Intentar guardar en archivo .env para persistencia
+    try:
+        env_path = os.path.join(os.getcwd(), ".env")
+        lines = []
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        
+        found = False
+        new_lines = []
+        for line in lines:
+            if line.startswith("OPENROUTER_API_KEY="):
+                new_lines.append(f"OPENROUTER_API_KEY={clean_key}\n")
+                found = True
+            else:
+                new_lines.append(line)
+        if not found:
+            new_lines.append(f"\nOPENROUTER_API_KEY={clean_key}\n")
+            
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+    except Exception as exc:
+        logger.warning(f"No se pudo actualizar .env localmente: {exc}")
+        
+    return {
+        "status": "success",
+        "message": "Clave de OpenRouter configurada exitosamente de forma global en el servidor. Todos los gerentes ya pueden usarla desde cualquier equipo."
+    }

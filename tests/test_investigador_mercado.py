@@ -442,3 +442,90 @@ def test_frontend_persiste_openrouter_key():
     assert "checkMarketOpenRouterStatus" in javascript
 
 
+@pytest.mark.asyncio
+async def test_descarta_publicaciones_con_precio_cero_o_sin_inventario():
+    """
+    Verifica que si un proveedor no tiene inventario o el modelo devuelve precio 0.0,
+    el agente lo descarte por completo para no distorsionar ni la tabla ni la gráfica.
+    """
+    mock_response = """
+    {
+        "publicaciones": [
+            {
+                "tienda": "The Home Depot",
+                "producto_encontrado": "Tinaco 1100L",
+                "precio": 2999.00,
+                "moneda": "MXN",
+                "en_promocion": true
+            },
+            {
+                "tienda": "Bricomark",
+                "producto_encontrado": "Tinaco Plus Tricapa",
+                "precio": 0.00,
+                "moneda": "MXN",
+                "en_promocion": false
+            },
+            {
+                "tienda": "Mercado Libre",
+                "producto_encontrado": "Tinaco Agotado",
+                "precio": 0.00,
+                "moneda": "MXN",
+                "en_promocion": false
+            },
+            {
+                "tienda": "Plomería Universal",
+                "producto_encontrado": "Tinaco Rotoplas",
+                "precio": 3445.07,
+                "moneda": "MXN",
+                "en_promocion": false
+            }
+        ],
+        "resumen_plaza": "Ofertas reales en Culiacán."
+    }
+    """
+    with patch("app.agents.investigador_mercado_agent.call_llm_openrouter_web", new=AsyncMock(return_value=mock_response)):
+        res = await investigar_mercado_producto(
+            codigo_material="ROT1100",
+            descripcion_material="Tinaco 1100L",
+            precio_kuroda=3442.13,
+            costo_kuroda=2494.30,
+            stock_kuroda=100.0,
+            api_key_override="sk-or-test"
+        )
+        
+        # Deben filtrarse los que tienen precio 0.0 (Bricomark y Mercado Libre)
+        assert len(res.publicaciones) == 2
+        tiendas = [p.tienda for p in res.publicaciones]
+        assert "The Home Depot" in tiendas
+        assert "Plomería Universal" in tiendas
+        assert "Bricomark" not in tiendas
+        assert "Mercado Libre" not in tiendas
+        assert all(p.precio > 0 for p in res.publicaciones)
+        # El precio mínimo debe ser 2999.00, jamás 0.00
+        assert res.analisis_precios["precio_minimo_mercado"] == 2999.00
+
+
+def test_guardar_clave_global_servidor():
+    """
+    Verifica que el endpoint POST /api/v1/mercado/save-global-key valide la clave
+    y la configure en settings para toda la empresa.
+    """
+    client = TestClient(app)
+    
+    # Mock de validación en OpenRouter
+    mock_resp = AsyncMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"data": {"label": "Clave Empresa"}}
+    
+    with patch("httpx.AsyncClient.get", return_value=mock_resp):
+        response = client.post(
+            "/api/v1/mercado/save-global-key",
+            json={"api_key": "sk-or-empresa-global-123"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+        from app.core.config import settings
+        assert settings.OPENROUTER_API_KEY == "sk-or-empresa-global-123"
+
+

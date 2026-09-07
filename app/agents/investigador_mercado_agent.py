@@ -306,8 +306,11 @@ async def investigar_mercado_producto(
         "2. REVISIÓN DE CUALQUIER PROVEEDOR: Aunque se sugieran ciertos competidores, debes revisar y registrar "
         "publicaciones de cualquier tienda o proveedor que venda el producto (The Home Depot, Construrama, distribuidores locales, "
         "ferreterías de la plaza, o comercio electrónico como Mercado Libre o Amazon México). No te limites a una lista fija.\n"
-        "3. Debes responder EXCLUSIVAMENTE en formato JSON válido, sin bloques de texto explicativo fuera del JSON.\n"
-        "4. Estructura JSON esperada:\n"
+        "3. EXCLUSIÓN DE PRODUCTOS SIN PRECIO O SIN INVENTARIO: Si un proveedor o tienda no tiene el producto disponible, "
+        "está agotado o no publica un precio de venta numérico mayor a cero, NO LO INCLUYAS en la lista de publicaciones. "
+        "Bajo ninguna circunstancia devuelvas precios en 0.00 o null. Solo reporta ofertas reales con precio > 0.\n"
+        "4. Debes responder EXCLUSIVAMENTE en formato JSON válido, sin bloques de texto explicativo fuera del JSON.\n"
+        "5. Estructura JSON esperada:\n"
         "{\n"
         '  "publicaciones": [\n'
         "    {\n"
@@ -332,7 +335,7 @@ async def investigar_mercado_producto(
         f"- Plaza geográfica objetivo: {ciudad}, {estado}, {pais}\n"
         f"- Directriz de proveedores: {comp_directriz}\n\n"
         f"Realiza la búsqueda web para encontrar precios actuales de este producto o equivalentes directos de la misma marca/especificación "
-        f"en {ciudad}, {estado}. Devuelve los resultados encontrados en el formato JSON solicitado."
+        f"en {ciudad}, {estado}. Devuelve los resultados encontrados en el formato JSON solicitado sin incluir proveedores que no tengan precio o tengan precio 0."
     )
     
     publicaciones_items: List[ItemCompetidor] = []
@@ -358,7 +361,15 @@ async def investigar_mercado_producto(
         resumen_plaza = parsed.get("resumen_plaza", f"Investigación realizada en plaza {ciudad}, {estado}.")
         
         for pub in parsed.get("publicaciones", []):
-            p_val = float(pub.get("precio", 0.0))
+            try:
+                p_val = float(pub.get("precio", 0.0) or 0.0)
+            except (ValueError, TypeError):
+                p_val = 0.0
+                
+            # Omitir cualquier proveedor que no tenga precio o esté en 0 (sin inventario / no encontrado)
+            if p_val <= 0:
+                continue
+                
             dif_abs = round(precio_kuroda - p_val, 2)
             dif_pct = round(((precio_kuroda - p_val) / p_val) * 100, 2) if p_val > 0 else 0.0
             

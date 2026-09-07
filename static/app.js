@@ -7765,6 +7765,39 @@ if (btnTestOpenRouterKey) {
     });
 }
 
+// Botón para Guardar Clave Globalmente en el Servidor (para toda la empresa)
+const btnSaveGlobalKey = document.getElementById("btn-save-global-openrouter-key");
+if (btnSaveGlobalKey) {
+    btnSaveGlobalKey.addEventListener("click", async () => {
+        const apiKeyInput = document.getElementById("market-api-key-input");
+        const keyVal = apiKeyInput ? apiKeyInput.value.trim() : "";
+        if (!keyVal) {
+            showToast("Por favor ingresa primero tu clave de OpenRouter en el campo para guardarla en el servidor.", "warning");
+            if (apiKeyInput) apiKeyInput.focus();
+            return;
+        }
+        
+        btnSaveGlobalKey.disabled = true;
+        btnSaveGlobalKey.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando en Servidor...';
+        
+        try {
+            const res = await apiRequest("/api/v1/mercado/save-global-key", {
+                method: "POST",
+                body: JSON.stringify({ api_key: keyVal })
+            });
+            showToast(res.message || "Clave configurada globalmente en el servidor.");
+            localStorage.setItem("crm_kuroda_openrouter_key", keyVal);
+            marketServerHasKey = true;
+            await checkMarketOpenRouterStatus();
+        } catch (err) {
+            showToast(err.message || "Error al guardar la clave en el servidor.", "error");
+        } finally {
+            btnSaveGlobalKey.disabled = false;
+            btnSaveGlobalKey.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Guardar Global';
+        }
+    });
+}
+
 // Inicializar estado de API Key al cargar el documento
 setTimeout(checkMarketOpenRouterStatus, 250);
 
@@ -8043,7 +8076,8 @@ if (marketAgentForm) {
 function renderMarketResults(data) {
     const analysis = data.analisis_precios || {};
     currentKurodaRefPrice = data.precio_kuroda || 0;
-    currentMarketPublications = data.publicaciones || [];
+    // REGLA: Excluir proveedores sin precio o con precio 0 (sin stock / no encontrados)
+    currentMarketPublications = (data.publicaciones || []).filter(p => p && parseFloat(p.precio) > 0);
     
     // 1. KPI Cards
     document.getElementById("kpi-market-kuroda-price").textContent = `$${currentKurodaRefPrice.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
@@ -8119,6 +8153,10 @@ function filterAndRenderMarketTable() {
     const cheaperOnly = document.getElementById("market-table-filter-cheaper-only")?.checked || false;
     
     const filtered = currentMarketPublications.filter(pub => {
+        const pVal = parseFloat(pub.precio) || 0;
+        if (pVal <= 0) {
+            return false; // Excluir sin stock o sin precio
+        }
         if (textQuery && !pub.tienda.toLowerCase().includes(textQuery) && !pub.producto_encontrado.toLowerCase().includes(textQuery)) {
             return false;
         }
@@ -8208,9 +8246,11 @@ function renderMarketChart(data) {
     const borderColors = ["#0284c7"];
     
     (data.publicaciones || []).forEach(pub => {
+        const pVal = parseFloat(pub.precio) || 0;
+        if (pVal <= 0) return; // Omitir competidores sin precio o sin inventario
         const storeName = pub.tienda.length > 20 ? pub.tienda.substring(0, 18) + '...' : pub.tienda;
         labels.push(storeName);
-        prices.push(pub.precio);
+        prices.push(pVal);
         backgroundColors.push("rgba(245, 158, 11, 0.85)");
         borderColors.push("#d97706");
     });
