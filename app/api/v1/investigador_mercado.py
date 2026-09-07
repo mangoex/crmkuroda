@@ -141,6 +141,19 @@ async def buscar_productos_catalogo(
     return productos
 
 
+@router.get("/status")
+async def get_openrouter_status():
+    """
+    Retorna el estado de disponibilidad de la API Key en el servidor (settings).
+    """
+    has_system_key = bool(settings.OPENROUTER_API_KEY and settings.OPENROUTER_API_KEY.strip())
+    return {
+        "has_system_key": has_system_key,
+        "default_model": settings.OPENROUTER_MODEL,
+        "provider": settings.LLM_PROVIDER
+    }
+
+
 @router.post("/investigar", response_model=InvestigacionMercadoResult)
 async def ejecutar_investigacion_mercado(
     req: InvestigarRequest
@@ -151,6 +164,15 @@ async def ejecutar_investigacion_mercado(
     2. Consulta en internet publicaciones, promociones y precios competidores con OpenRouter.
     3. Calcula sugerencia determinista de precio combinando mercado e inventario.
     """
+    user_key = (req.api_key_override or "").strip()
+    system_key = (settings.OPENROUTER_API_KEY or "").strip()
+    
+    if not user_key and not system_key:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Se requiere una API Key de OpenRouter para buscar precios en internet. Por favor introdúcela en la barra superior de conexión."
+        )
+    
     try:
         resultado = await investigar_mercado_producto(
             codigo_material=req.codigo_material,
@@ -163,10 +185,22 @@ async def ejecutar_investigacion_mercado(
             estado=req.estado,
             pais=req.pais,
             competidores=req.competidores,
-            api_key_override=req.api_key_override,
+            api_key_override=user_key or None,
             modelo_override=req.modelo_override
         )
         return resultado
+    except PermissionError as p_err:
+        logger.error(f"Error de autenticación OpenRouter: {p_err}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(p_err)
+        )
+    except ValueError as v_err:
+        logger.error(f"Error de validación en OpenRouter: {v_err}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(v_err)
+        )
     except Exception as exc:
         logger.error(f"Fallo en investigación de mercado: {exc}")
         raise HTTPException(
@@ -180,13 +214,17 @@ async def test_openrouter_connection(req: TestConnectionRequest):
     """
     Valida la conectividad con la API de OpenRouter usando la API Key provista o la global.
     """
-    key_to_test = (req.api_key or "").strip() or settings.OPENROUTER_API_KEY
+    key_to_test = (req.api_key or "").strip() or (settings.OPENROUTER_API_KEY or "").strip()
     if not key_to_test:
         return {
             "status": "error",
             "connected": False,
-            "message": "No hay API Key configurada. Por favor introduce una clave de OpenRouter."
+            "message": "No hay API Key configurada. Por favor introduce tu clave de OpenRouter."
         }
+    
+    # Normalizar si el usuario pegó el token incluyendo 'Bearer '
+    if key_to_test.lower().startswith("bearer "):
+        key_to_test = key_to_test[7:].strip()
     
     url = "https://openrouter.ai/api/v1/auth/key"
     headers = {"Authorization": f"Bearer {key_to_test}"}
@@ -203,6 +241,12 @@ async def test_openrouter_connection(req: TestConnectionRequest):
                     "limit": data.get("limit"),
                     "usage": data.get("usage"),
                     "message": "Conexión exitosa con OpenRouter API."
+                }
+            elif resp.status_code == 401:
+                return {
+                    "status": "error",
+                    "connected": False,
+                    "message": "Error 401: La clave de API de OpenRouter no es válida o está revocada."
                 }
             else:
                 return {

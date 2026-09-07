@@ -182,12 +182,16 @@ async def call_llm_openrouter_web(
     Realiza una petición a OpenRouter activando la capacidad de navegación y búsqueda web.
     Permite el uso de API key del usuario o la configurada globalmente en settings.
     """
-    resolved_key = (api_key or "").strip() or settings.OPENROUTER_API_KEY
-    if not resolved_key:
-        raise ValueError("OPENROUTER_API_KEY no está configurada en variables de entorno ni fue provista en la sesión.")
+    resolved_key = (api_key or "").strip() or (settings.OPENROUTER_API_KEY or "").strip()
+    if not resolved_key or resolved_key.lower() in ("null", "undefined", "none", '""', "''"):
+        raise ValueError("No se ha configurado la API Key de OpenRouter. Por favor introduce tu clave de OpenRouter en la barra superior.")
     
+    # Normalizar si el usuario pegó el token incluyendo 'Bearer '
+    if resolved_key.lower().startswith("bearer "):
+        resolved_key = resolved_key[7:].strip()
+
     # Modelo predeterminado para búsqueda web
-    # Perplexity sonar o GPT-4o-mini con plugins web en OpenRouter
+    # Perplexity sonar o GPT-4o-mini con capacidad web
     resolved_model = (model or "").strip() or settings.OPENROUTER_MODEL
     
     url = "https://openrouter.ai/api/v1/chat/completions"
@@ -198,19 +202,46 @@ async def call_llm_openrouter_web(
         "X-Title": "CRM Kuroda Inteligente"
     }
     
+    # Herramienta server-side moderna de OpenRouter para navegación web en tiempo real
     payload: Dict[str, Any] = {
         "model": resolved_model,
         "messages": [
             {"role": "system", "content": system_instruction},
             {"role": "user", "content": prompt}
         ],
-        # Habilitar plugin de búsqueda web nativo de OpenRouter
-        "plugins": [{"id": "web"}]
+        "tools": [
+            {
+                "type": "openrouter:web_search",
+                "parameters": {
+                    "max_results": 10
+                }
+            }
+        ]
     }
     
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(url, json=payload, headers=headers)
-        if response.status_code != 200:
+        
+        # Fallback a plugins legacy si el modelo específico no acepta tools
+        if response.status_code == 400 and "tool" in response.text.lower():
+            logger.info("Reintentando petición a OpenRouter con plugin web legacy...")
+            fallback_payload = {
+                "model": resolved_model,
+                "messages": payload["messages"],
+                "plugins": [{"id": "web"}]
+            }
+            response = await client.post(url, json=fallback_payload, headers=headers)
+            
+        if response.status_code == 401:
+            logger.error(f"Error OpenRouter Web API 401: {response.text}")
+            raise PermissionError("Error de autenticación con OpenRouter (401): La clave de API es inválida o no está autorizada.")
+        elif response.status_code == 402:
+            logger.error(f"Error OpenRouter Web API 402: {response.text}")
+            raise RuntimeError("Error de créditos en OpenRouter (402): Saldo insuficiente de créditos en tu cuenta de OpenRouter.")
+        elif response.status_code == 429:
+            logger.error(f"Error OpenRouter Web API 429: {response.text}")
+            raise RuntimeError("Límite de solicitudes alcanzado en OpenRouter (429). Por favor espera un momento.")
+        elif response.status_code != 200:
             logger.error(f"Error OpenRouter Web API: status={response.status_code} body={response.text}")
             raise RuntimeError(f"Error de OpenRouter ({response.status_code}): {response.text}")
         
@@ -346,9 +377,12 @@ async def investigar_mercado_producto(
                 )
             )
             
+    except (ValueError, PermissionError) as auth_err:
+        logger.error(f"Fallo de credenciales o autenticación OpenRouter: {auth_err}")
+        raise auth_err
     except Exception as exc:
         logger.warning(f"No se pudo completar búsqueda online en tiempo real: {exc}. Generando análisis de referencia.")
-        resumen_plaza = f"Investigación en plaza {ciudad}, {estado} (Modo referencia ante disponibilidad web)."
+        resumen_plaza = f"Investigación en plaza {ciudad}, {estado} (Modo referencia: la búsqueda online reportó '{str(exc)[:120]}')."
         # Fallback de seguridad si no hay respuesta de OpenRouter
         publicaciones_items = []
         

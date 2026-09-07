@@ -236,7 +236,8 @@ def test_api_mercado_investigar_endpoint_completo():
             "ciudad": "Culiacán",
             "estado": "Sinaloa",
             "pais": "México",
-            "competidores": ["The Home Depot"]
+            "competidores": ["The Home Depot"],
+            "api_key_override": "sk-or-mock-key-12345"
         }
         
         response = client.post("/api/v1/mercado/investigar", json=payload)
@@ -367,5 +368,77 @@ async def test_investigar_mercado_con_busqueda_abierta_cualquier_proveedor():
         )
         assert len(resultado.publicaciones) == 1
         assert resultado.publicaciones[0].tienda == "Amazon México"
+
+
+def test_mercado_status_endpoint():
+    """
+    Verifica que el endpoint GET /api/v1/mercado/status devuelva la disponibilidad
+    de clave de sistema y el modelo configurado.
+    """
+    client = TestClient(app)
+    response = client.get("/api/v1/mercado/status")
+    assert response.status_code == 200
+    data = response.json()
+    assert "has_system_key" in data
+    assert "default_model" in data
+
+
+def test_investigar_requiere_api_key_cuando_no_hay_global():
+    """
+    Verifica que la API rechace con HTTP 400 si no se proporciona API key
+    y el servidor no tiene una configurada.
+    """
+    client = TestClient(app)
+    with patch("app.api.v1.investigador_mercado.settings.OPENROUTER_API_KEY", ""):
+        response = client.post(
+            "/api/v1/mercado/investigar",
+            json={
+                "codigo_material": "TEST1",
+                "descripcion_material": "Material Prueba",
+                "precio_kuroda": 100.0,
+                "costo_kuroda": 70.0,
+                "api_key_override": ""
+            }
+        )
+        assert response.status_code == 400
+        data = response.json()
+        error_text = data.get("message", data.get("detail", ""))
+        assert "API Key" in error_text
+
+
+def test_investigar_propaga_error_401_claramente():
+    """
+    Verifica que si OpenRouter responde 401 (Unauthorized), la API devuelva HTTP 401
+    y no enmascare el error en un análisis referencial vacío.
+    """
+    client = TestClient(app)
+    with patch("app.agents.investigador_mercado_agent.call_llm_openrouter_web", side_effect=PermissionError("Error 401: Clave no válida")):
+        response = client.post(
+            "/api/v1/mercado/investigar",
+            json={
+                "codigo_material": "TEST1",
+                "descripcion_material": "Material Prueba",
+                "precio_kuroda": 100.0,
+                "costo_kuroda": 70.0,
+                "api_key_override": "sk-or-invalid"
+            }
+        )
+        assert response.status_code == 401
+        data = response.json()
+        error_text = data.get("message", data.get("detail", ""))
+        assert "401" in error_text
+
+
+def test_frontend_persiste_openrouter_key():
+    """
+    Verifica que el frontend contenga las rutinas de persistencia en localStorage
+    y el endpoint /status para sincronizar el estado de conexión.
+    """
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    javascript = (root / "static" / "app.js").read_text(encoding="utf-8")
+    assert "crm_kuroda_openrouter_key" in javascript
+    assert "/api/v1/mercado/status" in javascript
+    assert "checkMarketOpenRouterStatus" in javascript
 
 

@@ -7612,6 +7612,47 @@ let currentKurodaRefPrice = 0;
 let productSearchDebounceTimer = null;
 
 // Open & Close Market Agent Workspace
+let marketServerHasKey = false;
+
+async function checkMarketOpenRouterStatus() {
+    const apiKeyInput = document.getElementById("market-api-key-input");
+    const statusBadge = document.getElementById("market-openrouter-status-badge");
+    if (!statusBadge) return;
+    
+    // 1. Restaurar clave previamente guardada en localStorage
+    const savedKey = localStorage.getItem("crm_kuroda_openrouter_key") || "";
+    if (savedKey && apiKeyInput && !apiKeyInput.value) {
+        apiKeyInput.value = savedKey;
+    }
+    
+    // 2. Consultar al backend si tiene clave global en settings
+    try {
+        const res = await apiRequest("/api/v1/mercado/status");
+        marketServerHasKey = !!res?.has_system_key;
+    } catch (e) {
+        marketServerHasKey = false;
+    }
+    
+    const currentKey = apiKeyInput ? apiKeyInput.value.trim() : "";
+    
+    if (currentKey) {
+        statusBadge.style.background = "rgba(16,185,129,0.15)";
+        statusBadge.style.borderColor = "#10b981";
+        statusBadge.style.color = "#10b981";
+        statusBadge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Clave Guardada en Navegador';
+    } else if (marketServerHasKey) {
+        statusBadge.style.background = "rgba(16,185,129,0.15)";
+        statusBadge.style.borderColor = "#10b981";
+        statusBadge.style.color = "#10b981";
+        statusBadge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Activa en Servidor';
+    } else {
+        statusBadge.style.background = "rgba(234,179,8,0.15)";
+        statusBadge.style.borderColor = "#eab308";
+        statusBadge.style.color = "#eab308";
+        statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> API Key Requerida';
+    }
+}
+
 function openMarketAgentPanel() {
     const panel = document.getElementById("market-agent-panel");
     if (panel) {
@@ -7623,6 +7664,7 @@ function openMarketAgentPanel() {
             const y = panel.getBoundingClientRect().top + window.pageYOffset + yOffset;
             window.scrollTo({ top: y, behavior: "smooth" });
         }, 60);
+        checkMarketOpenRouterStatus();
     }
 }
 
@@ -7648,6 +7690,35 @@ if (btnCloseMarketPanel) {
     btnCloseMarketPanel.addEventListener("click", closeMarketAgentPanel);
 }
 
+// Input de API Key con persistencia automática en localStorage
+const marketApiKeyInput = document.getElementById("market-api-key-input");
+if (marketApiKeyInput) {
+    const storedKey = localStorage.getItem("crm_kuroda_openrouter_key");
+    if (storedKey) {
+        marketApiKeyInput.value = storedKey;
+    }
+    
+    marketApiKeyInput.addEventListener("input", (e) => {
+        const val = e.target.value.trim();
+        if (val) {
+            localStorage.setItem("crm_kuroda_openrouter_key", val);
+        } else {
+            localStorage.removeItem("crm_kuroda_openrouter_key");
+        }
+        checkMarketOpenRouterStatus();
+    });
+}
+
+// Botón de alternar visibilidad de API Key
+const btnToggleMarketKey = document.getElementById("btn-toggle-market-key-visibility");
+if (btnToggleMarketKey && marketApiKeyInput) {
+    btnToggleMarketKey.addEventListener("click", () => {
+        const isPassword = marketApiKeyInput.type === "password";
+        marketApiKeyInput.type = isPassword ? "text" : "password";
+        btnToggleMarketKey.innerHTML = isPassword ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
+    });
+}
+
 // Test OpenRouter Connection Button
 const btnTestOpenRouterKey = document.getElementById("btn-test-openrouter-key");
 if (btnTestOpenRouterKey) {
@@ -7666,6 +7737,9 @@ if (btnTestOpenRouterKey) {
             });
             
             if (res.connected) {
+                if (keyVal) {
+                    localStorage.setItem("crm_kuroda_openrouter_key", keyVal);
+                }
                 showToast(res.message || "Conexión con OpenRouter exitosa.");
                 if (statusBadge) {
                     statusBadge.style.background = "rgba(16,185,129,0.15)";
@@ -7690,6 +7764,9 @@ if (btnTestOpenRouterKey) {
         }
     });
 }
+
+// Inicializar estado de API Key al cargar el documento
+setTimeout(checkMarketOpenRouterStatus, 250);
 
 // Product Autocompletion
 const marketProductSearchInput = document.getElementById("market-product-search");
@@ -7882,7 +7959,24 @@ if (marketAgentForm) {
             .map(c => c.dataset.competitor)
             .filter(Boolean);
             
-        const apiKeyCustom = (document.getElementById("market-api-key-input")?.value || "").trim();
+        const savedKey = localStorage.getItem("crm_kuroda_openrouter_key") || "";
+        const apiKeyInputEl = document.getElementById("market-api-key-input");
+        const apiKeyCustom = (apiKeyInputEl?.value || "").trim() || savedKey;
+        
+        // Validar que se cuente con una API Key antes de lanzar la búsqueda
+        if (!apiKeyCustom && !marketServerHasKey) {
+            showToast("Se requiere una API Key de OpenRouter para buscar precios en internet. Por favor introdúcela en la barra superior.", "warning");
+            if (apiKeyInputEl) {
+                apiKeyInputEl.focus();
+                apiKeyInputEl.style.borderColor = "#f59e0b";
+                apiKeyInputEl.style.boxShadow = "0 0 0 3px rgba(245, 158, 11, 0.25)";
+                setTimeout(() => {
+                    apiKeyInputEl.style.borderColor = "";
+                    apiKeyInputEl.style.boxShadow = "";
+                }, 3000);
+            }
+            return;
+        }
         
         const btnSubmit = document.getElementById("btn-start-market-research");
         const btnText = document.getElementById("market-btn-text");
@@ -7909,18 +8003,35 @@ if (marketAgentForm) {
                 api_key_override: apiKeyCustom || null
             };
             
-            showToast("Iniciando rastreo de mercado en la plaza...", "info");
+            showToast("Rastreando publicaciones y precios en internet...", "info");
             const res = await apiRequest("/api/v1/mercado/investigar", {
                 method: "POST",
                 body: JSON.stringify(payload)
             });
             
             renderMarketResults(res);
-            showToast("Investigación de mercado completada con éxito.");
+            if (res.publicaciones && res.publicaciones.length > 0) {
+                showToast(`Investigación completada: se encontraron ${res.publicaciones.length} publicaciones.`);
+            } else {
+                showToast("Investigación finalizada en modo referencia (sin publicaciones online activas).", "warning");
+            }
             resultsSection.classList.remove("hidden");
             resultsSection.scrollIntoView({ behavior: "smooth" });
         } catch (err) {
-            showToast(err.message || "Error al investigar el mercado.", "error");
+            const errMsg = err.message || "Error al investigar el mercado.";
+            showToast(errMsg, "error");
+            if (errMsg.includes("401") || errMsg.toLowerCase().includes("autenticación") || errMsg.toLowerCase().includes("api key") || errMsg.toLowerCase().includes("clave")) {
+                const statusBadge = document.getElementById("market-openrouter-status-badge");
+                if (statusBadge) {
+                    statusBadge.style.background = "rgba(239,68,68,0.15)";
+                    statusBadge.style.borderColor = "#ef4444";
+                    statusBadge.style.color = "#ef4444";
+                    statusBadge.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Clave Inválida (401)`;
+                }
+                if (apiKeyInputEl) {
+                    apiKeyInputEl.focus();
+                }
+            }
         } finally {
             btnSubmit.disabled = false;
             btnText.classList.remove("hidden");
@@ -8029,7 +8140,10 @@ function filterAndRenderMarketTable() {
     
     tbody.innerHTML = "";
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: hsl(var(--text-secondary));">No se encontraron publicaciones con los filtros seleccionados.</td></tr>`;
+        const emptyMsg = currentMarketPublications.length === 0
+            ? '<i class="fa-solid fa-circle-exclamation" style="color: #f59e0b; margin-right: 6px;"></i> No se obtuvieron publicaciones en tiempo real para este producto en la plaza. Se presenta dictamen referencial con base en costos e inventario.'
+            : 'No se encontraron publicaciones con los filtros seleccionados.';
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: hsl(var(--text-secondary));">${emptyMsg}</td></tr>`;
         return;
     }
     
