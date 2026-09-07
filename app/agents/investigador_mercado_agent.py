@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 import httpx
@@ -241,9 +242,28 @@ async def investigar_mercado_producto(
     3. Extrae las publicaciones y precios estructurados.
     4. Ejecuta el algoritmo determinista en Python para precios sugeridos e inventario.
     """
-    competidores_list = [c.strip() for c in (competidores or []) if c.strip()]
-    if not competidores_list:
-        competidores_list = ["The Home Depot", "Construrama", "Plomería Universal", "El Surtidor", "Ferreterías locales"]
+    # Separar competidores específicos y flag de búsqueda abierta
+    raw_competidores = [c.strip() for c in (competidores or []) if c.strip()]
+    buscar_en_toda_la_web = (not raw_competidores) or ("__ALL__" in raw_competidores)
+    competidores_prioritarios = [c for c in raw_competidores if c != "__ALL__"]
+    
+    if not competidores_prioritarios and not buscar_en_toda_la_web:
+        competidores_prioritarios = ["The Home Depot", "Construrama", "Plomería Universal", "El Surtidor"]
+        
+    if competidores_prioritarios:
+        comp_directriz = (
+            f"Prioriza auditar las tiendas sugeridas: {', '.join(competidores_prioritarios)}. "
+            f"Sin embargo, el sistema DEBE rastrear activamente CUALQUIER otro proveedor, tienda de materiales, "
+            f"ferretería local o distribuidor con venta o envío en {ciudad}, {estado} (ej. Mercado Libre México, "
+            f"Amazon México, Fix Ferreterías, Sodimac, Boxito, Truper o comercios locales). "
+            f"No te limites solo a los competidores listados; incluye cualquier otra publicación real encontrada en internet."
+        )
+    else:
+        comp_directriz = (
+            f"Rastrea en toda la web en cualquier tienda, proveedor, ferretería o distribuidor con cobertura "
+            f"en {ciudad}, {estado} (ej. The Home Depot, Construrama, Plomería Universal, El Surtidor, "
+            f"Fix Ferreterías, Sodimac, Mercado Libre México, Amazon México, etc.)."
+        )
         
     system_instruction = (
         "Eres un Agente Investigador de Mercado experto en el sector de plomería, materiales de construcción, "
@@ -252,7 +272,9 @@ async def investigar_mercado_producto(
         "REGLAS OBLIGATORIAS:\n"
         "1. Debes enfocar la investigación exclusivamente en la plaza geográfica indicada (ciudad y estado). "
         "No mezcles precios de tiendas en otras ciudades lejanas a menos que ofrezcan envío directo con flete a dicha plaza.\n"
-        "2. Identifica publicaciones reales de competidores (ej. The Home Depot, Construrama, distribuidores locales o tiendas online en México).\n"
+        "2. REVISIÓN DE CUALQUIER PROVEEDOR: Aunque se sugieran ciertos competidores, debes revisar y registrar "
+        "publicaciones de cualquier tienda o proveedor que venda el producto (The Home Depot, Construrama, distribuidores locales, "
+        "ferreterías de la plaza, o comercio electrónico como Mercado Libre o Amazon México). No te limites a una lista fija.\n"
         "3. Debes responder EXCLUSIVAMENTE en formato JSON válido, sin bloques de texto explicativo fuera del JSON.\n"
         "4. Estructura JSON esperada:\n"
         "{\n"
@@ -273,11 +295,11 @@ async def investigar_mercado_producto(
     )
     
     prompt = (
-        f"INVESTIGACIÓN DE MERCADO:\n"
+        f"INVESTIGACIÓN DE MERCADO Y PROVEEDORES EN LA PLAZA:\n"
         f"- Producto de referencia Kuroda: {descripcion_material} (Código: {codigo_material})\n"
         f"- Precio actual de lista en Kuroda: ${precio_kuroda:.2f} MXN\n"
         f"- Plaza geográfica objetivo: {ciudad}, {estado}, {pais}\n"
-        f"- Competidores priorizados a auditar en la zona: {', '.join(competidores_list)}\n\n"
+        f"- Directriz de proveedores: {comp_directriz}\n\n"
         f"Realiza la búsqueda web para encontrar precios actuales de este producto o equivalentes directos de la misma marca/especificación "
         f"en {ciudad}, {estado}. Devuelve los resultados encontrados en el formato JSON solicitado."
     )
@@ -293,16 +315,14 @@ async def investigar_mercado_producto(
             model=modelo_override
         )
         
-        # Limpieza de bloque de código markdown si existe
-        clean_json = raw_text.strip()
-        if clean_json.startswith("```json"):
-            clean_json = clean_json[7:]
-        elif clean_json.startswith("```"):
-            clean_json = clean_json[3:]
-        if clean_json.endswith("```"):
-            clean_json = clean_json[:-3]
-        clean_json = clean_json.strip()
-        
+        # Extracción robusta de JSON (tolerante a preámbulo o bloques de código markdown)
+        json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', raw_text)
+        if json_match:
+            clean_json = json_match.group(1).strip()
+        else:
+            json_match = re.search(r'(\{[\s\S]*\})', raw_text)
+            clean_json = json_match.group(1).strip() if json_match else raw_text.strip()
+            
         parsed = json.loads(clean_json)
         resumen_plaza = parsed.get("resumen_plaza", f"Investigación realizada en plaza {ciudad}, {estado}.")
         
@@ -341,6 +361,8 @@ async def investigar_mercado_producto(
         precios_competencia=precios_encontrados
     )
     
+    competidores_reportados = competidores_prioritarios if competidores_prioritarios else ["Cualquier proveedor en internet / Plaza local"]
+    
     return InvestigacionMercadoResult(
         codigo_material=codigo_material,
         descripcion_material=descripcion_material,
@@ -349,7 +371,7 @@ async def investigar_mercado_producto(
         stock_kuroda=stock_kuroda,
         abc_f=abc_f,
         plaza={"ciudad": ciudad, "estado": estado, "pais": pais},
-        competidores_consultados=competidores_list,
+        competidores_consultados=competidores_reportados,
         publicaciones=publicaciones_items,
         analisis_precios=analisis,
         resumen_plaza=resumen_plaza,

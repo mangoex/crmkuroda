@@ -287,4 +287,85 @@ def test_market_agent_frontend_contract():
     assert "renderMarketResults" in javascript
     assert "filterAndRenderMarketTable" in javascript
     assert "renderMarketChart" in javascript
+    assert "clearSelectedMarketProduct" in javascript
+    assert 'id="btn-clear-market-product-input"' in html
+    assert "market-kpi-card" in html
+
+
+@pytest.mark.asyncio
+async def test_investigar_mercado_con_conversational_text_y_markdown():
+    """
+    Verifica que el agente extraiga correctamente el JSON estructurado incluso si el modelo
+    de lenguaje responde con saludos, texto explicativo o preámbulo antes del bloque de código.
+    """
+    conversational_response = (
+        "Hola, he completado la búsqueda en la plaza Culiacán, Sinaloa. Aquí tienes las publicaciones encontradas:\n\n"
+        "```json\n"
+        "{\n"
+        '  "publicaciones": [\n'
+        "    {\n"
+        '      "tienda": "Ferretería El Tornillo Local",\n'
+        '      "producto_encontrado": "Cespol para Lavabo A.I.",\n'
+        '      "precio": 59.90,\n'
+        '      "moneda": "MXN",\n'
+        '      "en_promocion": true,\n'
+        '      "detalle_promocion": "15% off pago de contado",\n'
+        '      "url": "https://eltornillo.com/p/cespol",\n'
+        '      "disponibilidad_local": "En sucursal Centro Culiacán"\n'
+        "    }\n"
+        "  ],\n"
+        '  "resumen_plaza": "Gran variedad de marcas alternativas en la zona urbana."\n'
+        "}\n"
+        "```\n"
+        "Quedo a tu disposición para más investigaciones."
+    )
+    
+    with patch("app.agents.investigador_mercado_agent.call_llm_openrouter_web", new=AsyncMock(return_value=conversational_response)):
+        resultado = await investigar_mercado_producto(
+            codigo_material="F3337",
+            descripcion_material="CESPOL P/LAVA C/CUB A.I. METALIZADO",
+            precio_kuroda=66.58,
+            costo_kuroda=48.25,
+            stock_kuroda=30.0,
+            abc_f="D",
+            ciudad="Culiacán",
+            estado="Sinaloa",
+            competidores=["__ALL__", "The Home Depot", "Ferretería El Tornillo Local"]
+        )
+        
+        assert len(resultado.publicaciones) == 1
+        assert resultado.publicaciones[0].tienda == "Ferretería El Tornillo Local"
+        assert resultado.publicaciones[0].precio == 59.90
+        assert resultado.publicaciones[0].en_promocion is True
+        # Al ser Material D, el precio sugerido debe buscar liquidar rotación compitiendo con 59.90
+        assert resultado.analisis_precios["precio_sugerido"] <= 60.0
+        assert resultado.analisis_precios["precio_sugerido"] >= 48.25 * 1.12
+
+
+@pytest.mark.asyncio
+async def test_investigar_mercado_con_busqueda_abierta_cualquier_proveedor():
+    """
+    Verifica que al no haber competidores o incluir __ALL__, la directriz del prompt
+    instruya al agente a buscar cualquier proveedor en internet.
+    """
+    mock_response = (
+        "{"
+        '  "publicaciones": ['
+        '    {"tienda": "Amazon México", "producto_encontrado": "Cespol", "precio": 65.0, "en_promocion": false}'
+        '  ],'
+        '  "resumen_plaza": "Oferta con entrega garantizada en Culiacán."'
+        "}"
+    )
+    with patch("app.agents.investigador_mercado_agent.call_llm_openrouter_web", new=AsyncMock(return_value=mock_response)):
+        resultado = await investigar_mercado_producto(
+            codigo_material="F3337",
+            descripcion_material="CESPOL",
+            precio_kuroda=66.58,
+            costo_kuroda=48.25,
+            stock_kuroda=10.0,
+            competidores=["__ALL__"]
+        )
+        assert len(resultado.publicaciones) == 1
+        assert resultado.publicaciones[0].tienda == "Amazon México"
+
 
