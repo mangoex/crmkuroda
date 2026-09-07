@@ -7612,21 +7612,40 @@ let currentKurodaRefPrice = 0;
 let productSearchDebounceTimer = null;
 
 // Open & Close Market Agent Workspace
-const btnOpenMarketAgent = document.getElementById("btn-open-market-agent");
-const btnCloseMarketPanel = document.getElementById("btn-close-market-panel");
-const marketAgentPanel = document.getElementById("market-agent-panel");
-
-if (btnOpenMarketAgent && marketAgentPanel) {
-    btnOpenMarketAgent.addEventListener("click", () => {
-        marketAgentPanel.classList.remove("hidden");
-        marketAgentPanel.scrollIntoView({ behavior: "smooth" });
-    });
+function openMarketAgentPanel() {
+    const panel = document.getElementById("market-agent-panel");
+    if (panel) {
+        panel.classList.remove("hidden");
+        panel.style.display = "flex";
+        setTimeout(() => {
+            panel.scrollIntoView({ behavior: "smooth", block: "start" });
+            const yOffset = -80;
+            const y = panel.getBoundingClientRect().top + window.pageYOffset + yOffset;
+            window.scrollTo({ top: y, behavior: "smooth" });
+        }, 60);
+    }
 }
 
-if (btnCloseMarketPanel && marketAgentPanel) {
-    btnCloseMarketPanel.addEventListener("click", () => {
-        marketAgentPanel.classList.add("hidden");
-    });
+function closeMarketAgentPanel() {
+    const panel = document.getElementById("market-agent-panel");
+    if (panel) {
+        panel.classList.add("hidden");
+        panel.style.display = "none";
+    }
+}
+
+window.openMarketAgentPanel = openMarketAgentPanel;
+window.closeMarketAgentPanel = closeMarketAgentPanel;
+
+const btnOpenMarketAgent = document.getElementById("btn-open-market-agent");
+const btnCloseMarketPanel = document.getElementById("btn-close-market-panel");
+
+if (btnOpenMarketAgent) {
+    btnOpenMarketAgent.addEventListener("click", openMarketAgentPanel);
+}
+
+if (btnCloseMarketPanel) {
+    btnCloseMarketPanel.addEventListener("click", closeMarketAgentPanel);
 }
 
 // Test OpenRouter Connection Button

@@ -17,7 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="/static/style.css?v=1.2.0">
+    <link rel="stylesheet" href="/static/style.css?v=1.3.1">
 </head>
 <body class="light-mode">
     
@@ -2147,7 +2147,7 @@
                             </div>
                             <p style="font-size: 13px; color: hsl(var(--text-secondary)); margin: 0; line-height: 1.5;">Rastrea publicaciones, precios y promociones de la competencia en internet por plaza geográfica (ej. Culiacán) y genera sugerencias de precio basadas en mercado e inventario.</p>
                             
-                            <button id="btn-open-market-agent" class="btn btn-glow" style="width: 100%; margin-top: auto; background: linear-gradient(135deg, #ec4899, #be185d); border: none; box-shadow: 0 4px 12px rgba(236,72,153,0.25);">
+                            <button id="btn-open-market-agent" type="button" onclick="openMarketAgentPanel()" class="btn btn-glow" style="width: 100%; margin-top: auto; background: linear-gradient(135deg, #ec4899, #be185d); border: none; box-shadow: 0 4px 12px rgba(236,72,153,0.25); cursor: pointer;">
                                 Abrir Investigador de Mercado <i class="fa-solid fa-compass-drafting" style="margin-left: 6px;"></i>
                             </button>
                         </div>
@@ -2155,9 +2155,9 @@
                     </div>
 
                     <!-- Workspace / Panel del Agente Investigador de Mercado -->
-                    <div id="market-agent-panel" class="hidden" style="margin-top: 30px; display: flex; flex-direction: column; gap: 24px;">
+                    <div id="market-agent-panel" class="hidden" style="margin-top: 30px; margin-bottom: 60px; display: flex; flex-direction: column; gap: 24px;">
                         <div class="glass-card border-glow" style="padding: 24px; position: relative;">
-                            <button id="btn-close-market-panel" class="btn-icon" style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; width: 32px; height: 32px; color: hsl(var(--text-secondary)); cursor: pointer;">
+                            <button id="btn-close-market-panel" type="button" onclick="closeMarketAgentPanel()" class="btn-icon" style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; width: 32px; height: 32px; color: hsl(var(--text-secondary)); cursor: pointer;">
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
                             
@@ -2372,8 +2372,31 @@
                                     </table>
                                 </div>
                             </div>
-                        </div>
                     </div>
+
+                    <!-- Market Agent Controller Inline Handlers -->
+                    <script>
+                        function openMarketAgentPanel() {
+                            const p = document.getElementById("market-agent-panel");
+                            if (p) {
+                                p.classList.remove("hidden");
+                                p.style.display = "flex";
+                                setTimeout(function() {
+                                    p.scrollIntoView({ behavior: "smooth", block: "start" });
+                                    const yOffset = -80;
+                                    const y = p.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                                    window.scrollTo({ top: y, behavior: "smooth" });
+                                }, 60);
+                            }
+                        }
+                        function closeMarketAgentPanel() {
+                            const p = document.getElementById("market-agent-panel");
+                            if (p) {
+                                p.classList.add("hidden");
+                                p.style.display = "none";
+                            }
+                        }
+                    </script>
                 </section>
 
                 <!-- Section: La Ligera Ventaja (Slight Edge) -->
@@ -3404,6 +3427,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.2.0"></script>
+    <script src="/static/app.js?v=1.3.1"></script>
 </body>
 </html>
