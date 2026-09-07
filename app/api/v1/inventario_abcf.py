@@ -106,19 +106,81 @@ async def upload_inventario(
                     headers,
                     "precio venta",
                     "precio de venta",
+                    "precio venta civa",
+                    "precio venta con iva",
+                    "precio venta neto",
+                    "precio de venta civa",
+                    "precio de venta con iva",
                     "precio lista",
+                    "precio de lista",
+                    "precio lista civa",
+                    "precio lista con iva",
                     "precio unitario",
+                    "precio unitario civa",
+                    "precio unitario con iva",
                     "precio comercial",
                     "precio",
+                    "precios",
                     "pvp",
+                    "pvp civa",
+                    "pvp con iva",
                     "costo promedio unitario",
-                    "precio promedio",
+                    "costo promedio unitario moneda de venta",
+                    "costo unitario",
+                    "costo unit",
+                    "costo",
+                    "costos",
                     "costo promedio",
+                    "costo prom",
+                    "costo reposicion",
+                    "costo reposición",
+                    "costo estandar",
+                    "costo estándar",
+                    "costo estandar promocion",
+                    "precio promedio",
                     "precio prom",
                     "precio promocion",
+                    "precio efectivo promocion",
+                    "precio efectivo",
+                    "precio base",
+                    "precio sugerido",
+                    "precio publico",
+                    "precio público",
+                    "precio mostrador",
+                    "precio distribuidor",
+                    "valor unitario",
+                    "val unitario",
+                    "val unit",
+                    "p venta",
+                    "p vta",
+                    "precio vta",
+                    "importe venta",
+                    "importe unitario",
                 ),
-                "importe_inventario_propio": _header_index(headers, "importe inventario propio", "importe inv", "importe de inventario propio"),
-                "valor_consignacion_proveedor": _header_index(headers, "valor consignacion proveedor", "valor de consignacion proveedor"),
+                "importe_inventario_propio": _header_index(
+                    headers,
+                    "importe inventario propio",
+                    "importe inv propio",
+                    "importe inv",
+                    "importe inventario",
+                    "importe de inventario propio",
+                    "importe propio",
+                    "importe total",
+                    "importe neto",
+                    "importe",
+                    "valor inventario",
+                    "valor propio",
+                ),
+                "valor_consignacion_proveedor": _header_index(
+                    headers,
+                    "valor consignacion proveedor",
+                    "valor de consignacion proveedor",
+                    "valor consignacion",
+                    "valor de consignacion",
+                    "importe consignacion",
+                    "importe consignado",
+                    "consignacion importe",
+                ),
                 "ubicacion": _header_index(headers, "ubicacion", "localizacion"),
                 "grupo_materiales": _header_index(headers, "grupo materiales"),
                 "descrip_gpo_materiales": _header_index(headers, "descripcion grupo materiales", "descrip gpo materiales"),
@@ -129,6 +191,11 @@ async def upload_inventario(
 
             if indices["codigo_material"] is None or indices["centro"] is None:
                 continue
+
+            seen_keys = getattr(wb, "_seen_inventario_keys", None)
+            if seen_keys is None:
+                seen_keys = set()
+                wb._seen_inventario_keys = seen_keys
 
             iter_rows = ws.iter_rows(min_row=2, values_only=True)
             for row in iter_rows:
@@ -142,18 +209,35 @@ async def upload_inventario(
                     if c_propia == 0.0 and e_consig == 0.0:
                         continue
 
+                    centro_val = str(_row_value(row, indices["centro"], 0)) if _row_value(row, indices["centro"], 0) is not None else None
+                    cod_mat = str(_row_value(row, indices["codigo_material"], 1)) if _row_value(row, indices["codigo_material"], 1) is not None else None
+                    almacen_val = str(_row_value(row, indices["almacen"])) if _row_value(row, indices["almacen"]) is not None else None
+
+                    dedup_key = (centro_val, almacen_val, cod_mat)
+                    if dedup_key in seen_keys:
+                        continue
+                    seen_keys.add(dedup_key)
+
                     c_unitario = _as_float(_row_value(row, indices["costo_promedio_unitario"], 14))
                     imp_propio = _as_float(_row_value(row, indices["importe_inventario_propio"], 15))
-                    if (c_unitario is None or c_unitario == 0.0) and imp_propio and imp_propio > 0 and c_propia > 0:
-                        c_unitario = round(imp_propio / c_propia, 2)
+                    val_consig = _as_float(_row_value(row, indices["valor_consignacion_proveedor"], 16))
+
+                    if c_unitario is None or c_unitario == 0.0:
+                        if imp_propio and imp_propio > 0 and c_propia > 0:
+                            c_unitario = round(imp_propio / c_propia, 2)
+                        elif val_consig and val_consig > 0 and e_consig > 0:
+                            c_unitario = round(val_consig / e_consig, 2)
+
+                    if (imp_propio is None or imp_propio == 0.0) and c_unitario and c_unitario > 0 and c_propia > 0:
+                        imp_propio = round(c_unitario * c_propia, 2)
                         
                     inv = InventarioAbcf(
-                        nombre_centro=str(_row_value(row, indices["centro"], 0)) if _row_value(row, indices["centro"], 0) is not None else None,
-                        almacen=str(_row_value(row, indices["almacen"])) if _row_value(row, indices["almacen"]) is not None else None,
+                        nombre_centro=centro_val,
+                        almacen=almacen_val,
                         numero_proveedor=str(_row_value(row, indices["numero_proveedor"])) if _row_value(row, indices["numero_proveedor"]) is not None else None,
                         nombre_proveedor=str(_row_value(row, indices["nombre_proveedor"], 2)) if _row_value(row, indices["nombre_proveedor"], 2) is not None else None,
                         abc_f=str(_row_value(row, indices["abc_f"])) if _row_value(row, indices["abc_f"]) is not None else None,
-                        codigo_material=str(_row_value(row, indices["codigo_material"], 1)) if _row_value(row, indices["codigo_material"], 1) is not None else None,
+                        codigo_material=cod_mat,
                         descripcion_material=str(_row_value(row, indices["descripcion_material"], 3)) if _row_value(row, indices["descripcion_material"], 3) is not None else None,
                         cantidad_propia=c_propia,
                         existencia_consignacion=e_consig,
@@ -164,7 +248,7 @@ async def upload_inventario(
                         umb=str(_row_value(row, indices["umb"], 13)) if _row_value(row, indices["umb"], 13) is not None else None,
                         costo_promedio_unitario=c_unitario,
                         importe_inventario_propio=imp_propio,
-                        valor_consignacion_proveedor=_as_float(_row_value(row, indices["valor_consignacion_proveedor"], 16)),
+                        valor_consignacion_proveedor=val_consig,
                         ubicacion=str(_row_value(row, indices["ubicacion"], 17)) if _row_value(row, indices["ubicacion"], 17) is not None else None,
                         grupo_materiales=str(_row_value(row, indices["grupo_materiales"], 18)) if _row_value(row, indices["grupo_materiales"], 18) is not None else None,
                         descrip_gpo_materiales=str(_row_value(row, indices["descrip_gpo_materiales"], 19)) if _row_value(row, indices["descrip_gpo_materiales"], 19) is not None else None,
@@ -186,3 +270,12 @@ async def upload_inventario(
         await db.rollback()
         print(f"Error general procesando archivo de inventario: {e}")
         raise HTTPException(status_code=500, detail=f"Error procesando el archivo: {str(e)}")
+
+
+@router.post("/reparar-precios", status_code=status.HTTP_200_OK)
+async def reparar_precios_endpoint(
+    current_user: Usuario = Depends(require_admin)
+):
+    from seed_inventario import reparar_precios_inventario
+    total = await reparar_precios_inventario()
+    return {"status": "success", "message": f"Precios de Inventario D reparados exitosamente ({total} registros sincronizados con catálogo oficial)."}

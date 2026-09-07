@@ -3920,6 +3920,37 @@ body.dark-mode .table-row-hover:hover {
     color: #34d399;
 }
 
+/* ==========================================================================
+   PROCESO PROMOCIONES RELEVANTES (TOP 4 FOCO COMERCIAL)
+   ========================================================================== */
+.btn-star-relevante {
+    background: transparent;
+    border: none;
+    padding: 6px;
+    cursor: pointer;
+    border-radius: 6px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
 
+.btn-star-relevante:not(:disabled):hover {
+    transform: scale(1.25) !important;
+    background: rgba(245, 158, 11, 0.12);
+}
 
+.btn-star-relevante.active {
+    color: #f59e0b !important;
+    filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.5));
+}
 
+.seller-promo-destacada-card {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
+}
+
+.seller-promo-destacada-card:hover {
+    transform: translateY(-3px);
+    border-color: #f59e0b !important;
+    box-shadow: 0 8px 22px rgba(245, 158, 11, 0.18) !important;
+}

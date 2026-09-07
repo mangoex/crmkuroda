@@ -34,6 +34,21 @@ class InventarioAbcf(Base):
 
     def to_dict(self):
         fam, subfam = get_kuroda_familia_y_subfamilia(self.descrip_gpo_materiales, self.descripcion_material)
+        c_unit = self.costo_promedio_unitario
+        imp_propio = self.importe_inventario_propio
+        val_consig = self.valor_consignacion_proveedor
+        c_propia = self.cantidad_propia or 0.0
+        e_consig = self.existencia_consignacion or 0.0
+
+        if c_unit is None or c_unit <= 0.0:
+            if imp_propio and imp_propio > 0.0 and c_propia > 0.0:
+                c_unit = round(imp_propio / c_propia, 2)
+            elif val_consig and val_consig > 0.0 and e_consig > 0.0:
+                c_unit = round(val_consig / e_consig, 2)
+
+        if (imp_propio is None or imp_propio <= 0.0) and c_unit and c_unit > 0.0 and c_propia > 0.0:
+            imp_propio = round(c_unit * c_propia, 2)
+
         return {
             "id": self.id,
             "nombre_centro": self.nombre_centro,
@@ -50,8 +65,8 @@ class InventarioAbcf(Base):
             "existencia_bloqueada": self.existencia_bloqueada,
             "existencia_control_calidad": self.existencia_control_calidad,
             "umb": self.umb,
-            "costo_promedio_unitario": self.costo_promedio_unitario,
-            "importe_inventario_propio": self.importe_inventario_propio,
+            "costo_promedio_unitario": c_unit,
+            "importe_inventario_propio": imp_propio,
             "valor_consignacion_proveedor": self.valor_consignacion_proveedor,
             "ubicacion": self.ubicacion,
             "grupo_materiales": self.grupo_materiales,

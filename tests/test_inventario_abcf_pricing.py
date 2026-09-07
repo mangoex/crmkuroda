@@ -15,9 +15,20 @@ class TestInventarioAbcfPricing(unittest.TestCase):
             "PVP",
             "Precio Comercial",
             "Costo Promedio Unitario",
+            "Costo Unitario",
+            "Costo",
             "Precio Promocion",
             "Precio Prom.",
             "Precio Prom",
+            "Precio Venta c/IVA",
+            "Precio de Venta c/IVA",
+            "Precio Lista c/IVA",
+            "Valor Unitario",
+            "P. Venta",
+            "P Venta",
+            "Precio Comercial",
+            "Costo Promedio Unitario Moneda de Venta",
+            "Precio Efectivo Promocion",
         ]
         
         for alias in sale_price_aliases:
@@ -26,16 +37,56 @@ class TestInventarioAbcfPricing(unittest.TestCase):
                 headers,
                 "precio venta",
                 "precio de venta",
+                "precio venta civa",
+                "precio venta con iva",
+                "precio venta neto",
+                "precio de venta civa",
+                "precio de venta con iva",
                 "precio lista",
+                "precio de lista",
+                "precio lista civa",
+                "precio lista con iva",
                 "precio unitario",
+                "precio unitario civa",
+                "precio unitario con iva",
                 "precio comercial",
                 "precio",
+                "precios",
                 "pvp",
+                "pvp civa",
+                "pvp con iva",
                 "costo promedio unitario",
+                "costo promedio unitario moneda de venta",
+                "costo unitario",
+                "costo unit",
+                "costo",
+                "costos",
                 "costo promedio",
+                "costo prom",
+                "costo reposicion",
+                "costo reposición",
+                "costo estandar",
+                "costo estándar",
+                "costo estandar promocion",
                 "precio promedio",
                 "precio prom",
                 "precio promocion",
+                "precio efectivo promocion",
+                "precio efectivo",
+                "precio base",
+                "precio sugerido",
+                "precio publico",
+                "precio público",
+                "precio mostrador",
+                "precio distribuidor",
+                "valor unitario",
+                "val unitario",
+                "val unit",
+                "p venta",
+                "p vta",
+                "precio vta",
+                "importe venta",
+                "importe unitario",
             )
             self.assertEqual(idx, 2, f"Falló al reconocer alias de precio: {alias}")
 
@@ -47,6 +98,33 @@ class TestInventarioAbcfPricing(unittest.TestCase):
 
         resolved_price = costo_unitario_raw if costo_unitario_raw > 0 else (importe_propio / cant_propia if cant_propia > 0 else 0.0)
         self.assertEqual(resolved_price, 2733.30)
+
+    def test_price_fallback_from_consignation_amount_and_quantity(self):
+        """Si es material en consignación sin costo promedio, debe resolverse de valor_consignacion / existencia_consignacion."""
+        existencia_consignacion = 10.0
+        valor_consignacion = 1609.20
+        costo_unitario_raw = 0.0
+
+        resolved_price = costo_unitario_raw if costo_unitario_raw > 0 else (round(valor_consignacion / existencia_consignacion, 2) if existencia_consignacion > 0 else 0.0)
+        self.assertEqual(resolved_price, 160.92)
+
+    def test_inventario_model_to_dict_resolves_missing_prices(self):
+        """Verifica que el método to_dict del modelo resuelva determinísticamente el precio de venta unitario."""
+        from app.models.inventario_abcf import InventarioAbcf
+
+        item = InventarioAbcf(
+            nombre_centro="MKS CASA KURODA",
+            almacen="MA01",
+            codigo_material="102565",
+            descripcion_material="MANERAL P/MON MONTICELLO CROMO MOEN",
+            cantidad_propia=5.0,
+            costo_promedio_unitario=None,
+            importe_inventario_propio=2254.35,
+            ubicacion="C49"
+        )
+        data = item.to_dict()
+        self.assertEqual(data["costo_promedio_unitario"], 450.87)
+        self.assertEqual(data["importe_inventario_propio"], 2254.35)
 
     def test_parse_inventario_rows_extracts_prices_and_deduplicates(self):
         """Verifica que el parser de libro openpyxl extraiga correctamente los precios y no duplique registros."""

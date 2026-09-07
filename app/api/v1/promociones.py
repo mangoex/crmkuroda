@@ -86,10 +86,68 @@ def _as_datetime(value):
 
 
 @router.get("/")
-async def list_promociones(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Promocion))
+async def list_promociones(
+    solo_relevantes: Optional[bool] = False,
+    db: AsyncSession = Depends(get_db)
+):
+    query = select(Promocion)
+    if solo_relevantes:
+        query = query.where(Promocion.es_relevante == True)
+    result = await db.execute(query)
     promociones = result.scalars().all()
     return {"status": "success", "data": [p.to_dict() for p in promociones]}
+
+
+@router.get("/relevantes", status_code=status.HTTP_200_OK)
+async def get_promociones_relevantes(db: AsyncSession = Depends(get_db)):
+    """Retorna hasta 4 promociones marcadas como relevantes para el panel comercial."""
+    result = await db.execute(
+        select(Promocion)
+        .where(Promocion.es_relevante == True)
+        .order_by(Promocion.id.asc())
+        .limit(4)
+    )
+    promociones = result.scalars().all()
+    return {"status": "success", "data": [p.to_dict() for p in promociones]}
+
+
+@router.post("/{promocion_id}/toggle-relevante", status_code=status.HTTP_200_OK)
+@router.put("/{promocion_id}/toggle-relevante", status_code=status.HTTP_200_OK)
+async def toggle_promocion_relevante(
+    promocion_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: Usuario = Depends(require_admin)
+):
+    """Marca o desmarca una promoción como relevante con límite estricto de máximo 4."""
+    from sqlalchemy import func
+    promocion = (
+        await db.execute(select(Promocion).where(Promocion.id == promocion_id))
+    ).scalars().first()
+    if not promocion:
+        raise HTTPException(status_code=404, detail="La promoción no existe.")
+
+    if not promocion.es_relevante:
+        count_relevantes = (
+            await db.execute(
+                select(func.count(Promocion.id)).where(Promocion.es_relevante == True)
+            )
+        ).scalar() or 0
+        if count_relevantes >= 4:
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existen 4 promociones marcadas como relevantes. Debes desmarcar una antes de seleccionar otra."
+            )
+        promocion.es_relevante = True
+    else:
+        promocion.es_relevante = False
+
+    await db.commit()
+    await db.refresh(promocion)
+    return {
+        "status": "success",
+        "message": f"Promoción {'marcada como relevante' if promocion.es_relevante else 'desmarcada de relevantes'}.",
+        "data": promocion.to_dict()
+    }
 
 
 @router.get("/rendimiento", status_code=status.HTTP_200_OK)
@@ -198,6 +256,15 @@ async def upload_promociones(
                 }
                 rows_to_process = list(reader)
 
+        # Obtener SKUs que estaban marcados como relevantes para preservarlos
+        skus_relevantes_result = await db.execute(
+            select(Promocion.codigo_material).where(Promocion.es_relevante == True)
+        )
+        skus_relevantes_previos = set(
+            str(sku).strip() for sku in skus_relevantes_result.scalars().all() if sku
+        )
+        relevantes_preservados = set()
+
         # Eliminar promociones anteriores
         await db.execute(delete(Promocion))
         
@@ -218,11 +285,22 @@ async def upload_promociones(
             if str(centro_val).strip().lower() == "centro" or str(cod_mat_val).strip().lower() in ("codigo material", "material"):
                 continue
 
+            cod_mat_str = str(cod_mat_val).strip() if cod_mat_val is not None else None
+            es_relevante_item = False
+            if (
+                cod_mat_str
+                and cod_mat_str in skus_relevantes_previos
+                and cod_mat_str not in relevantes_preservados
+                and len(relevantes_preservados) < 4
+            ):
+                es_relevante_item = True
+                relevantes_preservados.add(cod_mat_str)
+
             promocion = Promocion(
                 centro=str(centro_val).strip() if centro_val is not None else None,
                 descrip_gpo_materiales=str(_row_value(row, indices.get("descrip_gpo_materiales"), 1)).strip() if _row_value(row, indices.get("descrip_gpo_materiales"), 1) is not None else None,
                 indicador_abc=str(_row_value(row, indices.get("indicador_abc"), 2)).strip() if _row_value(row, indices.get("indicador_abc"), 2) is not None else None,
-                codigo_material=str(cod_mat_val).strip() if cod_mat_val is not None else None,
+                codigo_material=cod_mat_str,
                 descripcion_material=str(_row_value(row, indices.get("descripcion_material"), 4)).strip() if _row_value(row, indices.get("descripcion_material"), 4) is not None else None,
                 unidad_medida=str(_row_value(row, indices.get("unidad_medida"), 5)).strip() if _row_value(row, indices.get("unidad_medida"), 5) is not None else None,
                 costo_promedio=_as_float(_row_value(row, indices.get("costo_promedio"), 6)),
@@ -235,6 +313,7 @@ async def upload_promociones(
                 margen_promocion=_as_float(_row_value(row, indices.get("margen_promocion"), 13)),
                 proveedor=str(_row_value(row, indices.get("proveedor"), 14)).strip() if _row_value(row, indices.get("proveedor"), 14) is not None else None,
                 inventario_disponible=_as_float(_row_value(row, indices.get("inventario_disponible"), 15)),
+                es_relevante=es_relevante_item,
             )
             batch.append(promocion)
             rows_added += 1

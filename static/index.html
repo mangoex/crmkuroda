@@ -17,7 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="/static/style.css?v=1.1.7">
+    <link rel="stylesheet" href="/static/style.css?v=1.2.0">
 </head>
 <body class="light-mode">
     
@@ -234,6 +234,25 @@
                             <div class="seller-card-body">
                                 <div id="seller-strategic-channels-bars" class="seller-channel-bars" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
                                     <!-- Loaded dynamically -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Promociones Relevantes (Top 4 Foco Comercial) -->
+                        <div class="seller-card seller-promos-destacadas-card" id="seller-promos-destacadas-container" style="margin: 0 0 24px;">
+                            <div class="seller-card-header" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.05) 100%); border-left: 4px solid #f59e0b; display: flex; justify-content: space-between; align-items: center; padding: 12px 18px;">
+                                <div class="seller-card-title" style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-solid fa-star" style="color: #f59e0b; font-size: 16px;"></i>
+                                    <h2 style="font-size: 15px; font-weight: 700; margin: 0; color: #f59e0b;">Promociones Relevantes del Mes (Foco Comercial)</h2>
+                                </div>
+                                <button type="button" class="seller-link-button" style="margin: 0; padding: 5px 12px; font-size: 12px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); color: #d97706; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600;" onclick="switchSection('promociones')">
+                                    <span>Ver todas en Promociones</span>
+                                    <i class="fa-solid fa-arrow-right" style="font-size: 10px;"></i>
+                                </button>
+                            </div>
+                            <div class="seller-card-body" style="padding: 16px;">
+                                <div id="seller-promos-destacadas-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+                                    <!-- Loaded dynamically: 4 tarjetas de producto -->
                                 </div>
                             </div>
                         </div>
@@ -1056,6 +1075,7 @@
                                 <label for="filter-promo-status" style="font-size: 0.85rem; color: hsl(var(--text-secondary));">Estado</label>
                                 <select id="filter-promo-status" class="form-control" style="width: 100%;">
                                     <option value="activas">Activas</option>
+                                    <option value="relevantes">⭐ Solo Relevantes (Top 4)</option>
                                     <option value="vencidas">Vencidas</option>
                                     <option value="todas">Todas</option>
                                 </select>
@@ -1113,6 +1133,7 @@
                         <table class="data-table" id="table-promociones">
                             <thead>
                                 <tr>
+                                    <th class="th-star-relevante" style="width: 44px; text-align: center;" title="Marcar como relevante (Top 4)"><i class="fa-solid fa-star" style="color: #fbbf24;"></i></th>
                                     <th style="width: 48px;"></th>
                                     <th>Centro</th>
                                     <th>Código</th>
@@ -3383,6 +3404,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.1.7"></script>
+    <script src="/static/app.js?v=1.2.0"></script>
 </body>
 </html>
