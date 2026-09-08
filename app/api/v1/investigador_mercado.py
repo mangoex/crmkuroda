@@ -10,6 +10,8 @@ from sqlalchemy import or_
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.security import RoleChecker, get_current_user
+from app.models.usuario import Usuario
 from app.models.inventario_abcf import InventarioAbcf
 from app.models.promocion import Promocion
 from app.agents.investigador_mercado_agent import (
@@ -19,7 +21,10 @@ from app.agents.investigador_mercado_agent import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+require_admin_or_gerente = RoleChecker(["admin", "gerente"])
+
+router = APIRouter(dependencies=[Depends(require_admin_or_gerente)])
+
 
 
 class ProductoCatalogoDto(BaseModel):

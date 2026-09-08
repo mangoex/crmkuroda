@@ -760,6 +760,17 @@ async function initSession() {
                 if (DOM.menuApi) DOM.menuApi.classList.remove("hidden");
             }
         }
+        // Control de acceso al Agente Investigador de Mercado (exclusivo para Admin y Gerente)
+        const isManagerOrAdmin = state.user && ["admin", "gerente"].includes(state.user.rol);
+        const cardMarketAgent = document.getElementById("card-market-agent");
+        const panelMarketAgent = document.getElementById("market-agent-panel");
+        if (cardMarketAgent) {
+            cardMarketAgent.classList.toggle("hidden", !isManagerOrAdmin);
+        }
+        if (!isManagerOrAdmin && panelMarketAgent) {
+            panelMarketAgent.classList.add("hidden");
+            panelMarketAgent.style.display = "none";
+        }
         updateUploadControlsVisibility();
         renderLastUploadLabels();
         await loadLastUploadLabels();
@@ -7654,6 +7665,10 @@ async function checkMarketOpenRouterStatus() {
 }
 
 function openMarketAgentPanel() {
+    if (state.user && !["admin", "gerente"].includes(state.user.rol)) {
+        showToast("Acceso denegado: El Agente Investigador de Mercado es exclusivo para Gerentes y Administradores.", "error");
+        return;
+    }
     const panel = document.getElementById("market-agent-panel");
     if (panel) {
         panel.classList.remove("hidden");
@@ -7930,16 +7945,74 @@ function selectMarketProduct(p) {
 }
 
 // Competitors Chip Toggle & Adding custom chips
+function updateMarketStrictModeUI() {
+    const badge = document.getElementById("market-strict-badge");
+    const hint = document.getElementById("market-competitors-hint");
+    const allChip = document.querySelector("#market-competitors-chips .market-chip[data-competitor='__ALL__']");
+    const isAllActive = allChip && allChip.classList.contains("active");
+    
+    if (isAllActive) {
+        if (badge) {
+            badge.style.background = "rgba(56,189,248,0.15)";
+            badge.style.color = "#0284c7";
+            badge.style.borderColor = "rgba(56,189,248,0.3)";
+            badge.innerHTML = '<i class="fa-solid fa-globe"></i> Búsqueda Abierta';
+        }
+        if (hint) {
+            hint.innerHTML = '<i class="fa-solid fa-circle-info" style="color: #38bdf8;"></i> <strong>Búsqueda abierta:</strong> Rastreará cualquier tienda, proveedor o distribuidor con cobertura en la plaza.';
+        }
+    } else {
+        if (badge) {
+            badge.style.background = "rgba(16,185,129,0.15)";
+            badge.style.color = "#10b981";
+            badge.style.borderColor = "rgba(16,185,129,0.3)";
+            badge.innerHTML = '<i class="fa-solid fa-filter-circle-dollar"></i> Modo Estricto Activo';
+        }
+        if (hint) {
+            hint.innerHTML = '<i class="fa-solid fa-shield-halved" style="color: #10b981;"></i> <strong>Búsqueda estricta:</strong> Solo rastrea y acepta ofertas cuyo nombre comercial coincida con las tiendas seleccionadas.';
+        }
+    }
+}
+window.updateMarketStrictModeUI = updateMarketStrictModeUI;
+
 const competitorsChipsContainer = document.getElementById("market-competitors-chips");
 if (competitorsChipsContainer) {
     competitorsChipsContainer.addEventListener("click", (e) => {
         const chip = e.target.closest(".market-chip");
         if (!chip) return;
-        chip.classList.toggle("active");
-        const icon = chip.querySelector("i");
-        if (icon) {
-            icon.className = chip.classList.contains("active") ? "fa-solid fa-check" : "fa-solid fa-plus";
+        
+        const isAll = chip.dataset.competitor === "__ALL__";
+        if (isAll) {
+            const willBeActive = !chip.classList.contains("active");
+            chip.classList.toggle("active", willBeActive);
+            const icon = chip.querySelector("i.fa-check, i.fa-plus");
+            if (icon) icon.className = willBeActive ? "fa-solid fa-check" : "fa-solid fa-plus";
+            
+            // Si activa "Toda la web", desmarcar tiendas individuales para evitar confusión
+            if (willBeActive) {
+                document.querySelectorAll("#market-competitors-chips .market-chip:not([data-competitor='__ALL__'])").forEach(c => {
+                    c.classList.remove("active");
+                    const ic = c.querySelector("i.fa-check, i.fa-plus");
+                    if (ic) ic.className = "fa-solid fa-plus";
+                });
+            }
+        } else {
+            chip.classList.toggle("active");
+            const icon = chip.querySelector("i.fa-check, i.fa-plus");
+            if (icon) {
+                icon.className = chip.classList.contains("active") ? "fa-solid fa-check" : "fa-solid fa-plus";
+            }
+            // Si activa un competidor específico, desmarcar "Toda la web"
+            if (chip.classList.contains("active")) {
+                const allChip = document.getElementById("market-chip-all-web");
+                if (allChip) {
+                    allChip.classList.remove("active");
+                    const allIcon = allChip.querySelector("i.fa-check, i.fa-plus");
+                    if (allIcon) allIcon.className = "fa-solid fa-plus";
+                }
+            }
         }
+        updateMarketStrictModeUI();
     });
 }
 
@@ -7955,6 +8028,15 @@ if (btnAddCompetitorChip && inputAddCompetitor && competitorsChipsContainer) {
         newChip.innerHTML = `${val} <i class="fa-solid fa-check"></i>`;
         competitorsChipsContainer.appendChild(newChip);
         inputAddCompetitor.value = "";
+        
+        // Desmarcar toda la web si agrega un competidor específico
+        const allChip = document.getElementById("market-chip-all-web");
+        if (allChip) {
+            allChip.classList.remove("active");
+            const allIcon = allChip.querySelector("i.fa-check, i.fa-plus");
+            if (allIcon) allIcon.className = "fa-solid fa-plus";
+        }
+        updateMarketStrictModeUI();
     };
     btnAddCompetitorChip.addEventListener("click", addComp);
     inputAddCompetitor.addEventListener("keypress", (e) => {

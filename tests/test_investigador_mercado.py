@@ -3,17 +3,32 @@ from decimal import Decimal
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 from app.main import app
+from app.core.security import get_current_user
+from app.models.usuario import Usuario
 
 # 1. Tests del Algoritmo Determinista de Precios (Humanio CEO: Matemáticas en Python, no en LLM)
 from app.agents.investigador_mercado_agent import (
     calcular_precio_sugerido,
     InvestigacionMercadoResult,
     ItemCompetidor,
-    investigar_mercado_producto
+    investigar_mercado_producto,
+    normalizar_texto,
+    coincide_nombre_comercial
 )
 
 
+@pytest.fixture(autouse=True)
+def default_auth_override():
+    """Autouse fixture: por defecto para pruebas funcionales, actuar como usuario admin."""
+    app.dependency_overrides[get_current_user] = lambda: Usuario(
+        id=1, email="admin@kuroda.com", rol="admin", nombre_completo="Administrador de Pruebas"
+    )
+    yield
+    app.dependency_overrides.pop(get_current_user, None)
+
+
 def test_calcular_precio_sugerido_protege_margen_minimo():
+
     """
     Verifica que el precio sugerido NUNCA caiga por debajo del costo unitario + margen mínimo de seguridad,
     incluso si la competencia tiene precios predatorios extremadamente bajos.
@@ -253,23 +268,26 @@ def test_api_mercado_investigar_endpoint_completo():
 def test_market_agent_frontend_contract():
     """
     Contrato de Frontend: Verifica que la interfaz gráfica contenga todos los elementos
-    especificados en la historia de usuario en index.html y app.js.
+    especificados en la historia de usuario en index.html y app.js, incluyendo
+    blindaje RBAC para vendedores e indicador visual de modo estricto.
     """
     from pathlib import Path
     root = Path(__file__).resolve().parents[1]
     html = (root / "static" / "index.html").read_text(encoding="utf-8")
     javascript = (root / "static" / "app.js").read_text(encoding="utf-8")
     
-    # 1. Tarjeta en Centro de Agentes
+    # 1. Tarjeta en Centro de Agentes con ID RBAC
     assert "Investigador de Mercado" in html
+    assert 'id="card-market-agent"' in html
     assert 'id="btn-open-market-agent"' in html
     
-    # 2. Workspace y Formulario
+    # 2. Workspace y Formulario con Modo Estricto
     assert 'id="market-agent-panel"' in html
     assert 'id="market-product-search"' in html
     assert 'id="market-city-input"' in html
     assert 'id="market-state-input"' in html
     assert 'id="market-competitors-chips"' in html
+    assert 'id="market-strict-badge"' in html
     assert 'id="btn-start-market-research"' in html
     
     # 3. KPIs, Sugerencia, Gráfica y Tabla Comparativa
@@ -281,7 +299,7 @@ def test_market_agent_frontend_contract():
     assert 'id="market-table-filter-competitor"' in html
     assert 'id="market-table-filter-promos-only"' in html
     
-    # 4. JavaScript Handlers
+    # 4. JavaScript Handlers, Blindaje RBAC y Modo Estricto
     assert "btn-open-market-agent" in javascript
     assert "/api/v1/mercado/investigar" in javascript
     assert "/api/v1/mercado/productos" in javascript
@@ -291,6 +309,9 @@ def test_market_agent_frontend_contract():
     assert "clearSelectedMarketProduct" in javascript
     assert 'id="btn-clear-market-product-input"' in html
     assert "market-kpi-card" in html
+    assert "cardMarketAgent" in javascript
+    assert "updateMarketStrictModeUI" in javascript
+    assert "isManagerOrAdmin" in javascript
 
 
 @pytest.mark.asyncio
@@ -527,5 +548,175 @@ def test_guardar_clave_global_servidor():
         assert data["status"] == "success"
         from app.core.config import settings
         assert settings.OPENROUTER_API_KEY == "sk-or-empresa-global-123"
+
+
+def test_investigador_mercado_rbac_rechaza_vendedor_con_403():
+    """
+    Verifica que un usuario con rol 'vendedor' tenga el acceso denegado (HTTP 403)
+    a todos los endpoints del agente investigador de mercado.
+    """
+    app.dependency_overrides[get_current_user] = lambda: Usuario(
+        id=2, email="vendedor@kuroda.com", rol="vendedor", nombre_completo="Vendedor Pruebas"
+    )
+    client = TestClient(app)
+    
+    # 1. Status
+    r_status = client.get("/api/v1/mercado/status")
+    assert r_status.status_code == 403
+    assert "Acceso denegado" in (r_status.json().get("message") or r_status.json().get("detail", ""))
+    
+    # 2. Productos
+    r_prod = client.get("/api/v1/mercado/productos?q=tubo")
+    assert r_prod.status_code == 403
+    
+    # 3. Investigar
+    r_inv = client.post(
+        "/api/v1/mercado/investigar",
+        json={
+            "codigo_material": "T1",
+            "descripcion_material": "Tubo",
+            "precio_kuroda": 10.0,
+            "costo_kuroda": 5.0
+        }
+    )
+    assert r_inv.status_code == 403
+    
+    # 4. Save global key
+    r_save = client.post("/api/v1/mercado/save-global-key", json={"api_key": "sk-test"})
+    assert r_save.status_code == 403
+
+
+def test_investigador_mercado_rbac_rechaza_anonimo_con_401():
+    """
+    Verifica que peticiones no autenticadas (sin token JWT) sean rechazadas con HTTP 401.
+    """
+    app.dependency_overrides.pop(get_current_user, None)
+    client = TestClient(app)
+    resp = client.get("/api/v1/mercado/status")
+    assert resp.status_code == 401
+
+
+def test_investigador_mercado_rbac_permite_gerente_y_admin():
+    """
+    Verifica que usuarios con rol 'gerente' o 'admin' puedan acceder a los endpoints autorizados.
+    """
+    client = TestClient(app)
+    for rol_val in ["gerente", "admin"]:
+        app.dependency_overrides[get_current_user] = lambda r=rol_val: Usuario(
+            id=3, email=f"{r}@kuroda.com", rol=r, nombre_completo=f"Usuario {r}"
+        )
+        resp = client.get("/api/v1/mercado/status")
+        assert resp.status_code == 200
+
+
+def test_normalizar_texto_remueve_tildes_y_puntuacion():
+    """
+    Verifica que la función normalizar_texto limpie acentos, mayúsculas y caracteres especiales.
+    """
+    assert normalizar_texto("Plomería Universal") == "plomeria universal"
+    assert normalizar_texto("Culiacán, Sinaloa!") == "culiacan sinaloa"
+    assert normalizar_texto("The HOME Depot MÉXICO S.A.") == "the home depot mexico s a"
+
+
+def test_coincide_nombre_comercial_reconoce_variaciones_validas():
+    """
+    Verifica que el algoritmo determinista en Python reconozca sucursales y variaciones
+    comerciales de los competidores seleccionados.
+    """
+    competidores = ["The Home Depot", "Construrama", "Plomería Universal", "El Surtidor"]
+    
+    assert coincide_nombre_comercial("The Home Depot Culiacán", competidores) is True
+    assert coincide_nombre_comercial("Home Depot México", competidores) is True
+    assert coincide_nombre_comercial("Materiales Construrama Sinaloa", competidores) is True
+    assert coincide_nombre_comercial("Plomería Universal Tres Ríos", competidores) is True
+    assert coincide_nombre_comercial("El Surtidor del Fontanero", competidores) is True
+    assert coincide_nombre_comercial("El Surtidor", competidores) is True
+
+
+def test_coincide_nombre_comercial_rechaza_marcas_fabricantes_y_no_listados():
+    """
+    Verifica que tiendas ajenas a la lista y marcas fabricantes del producto (como Rotoplas o Helvex)
+    sean estrictamente rechazadas por el filtro determinista.
+    """
+    competidores = ["The Home Depot", "Construrama", "Plomería Universal", "El Surtidor"]
+    
+    # Marcas fabricantes del producto que no deben confundirse con la tienda distribuidora
+    assert coincide_nombre_comercial("Rotoplas", competidores) is False
+    assert coincide_nombre_comercial("Rotoplas Oficial", competidores) is False
+    assert coincide_nombre_comercial("Helvex", competidores) is False
+    assert coincide_nombre_comercial("Urrea Dipsa", competidores) is False
+    
+    # Tiendas o ferreterías no solicitadas
+    assert coincide_nombre_comercial("Bricomark", competidores) is False
+    assert coincide_nombre_comercial("Ferretería La Fragua", competidores) is False
+    assert coincide_nombre_comercial("Fix Ferreterías", competidores) is False
+
+
+@pytest.mark.asyncio
+async def test_investigar_mercado_filtrado_estricto_descarta_no_coincidentes():
+    """
+    Verifica que cuando se configuran competidores específicos, el agente descarte
+    automáticamente cualquier publicación que no coincida con el nombre comercial de los mismos,
+    garantizando que no se filtren marcas de producto ni tiendas ajenas en los KPIs ni en la tabla.
+    """
+    mock_response = """
+    {
+        "publicaciones": [
+            {
+                "tienda": "The Home Depot Culiacán",
+                "producto_encontrado": "Tinaco 1100L",
+                "precio": 3100.00,
+                "moneda": "MXN",
+                "en_promocion": false
+            },
+            {
+                "tienda": "Bricomark",
+                "producto_encontrado": "Tinaco 1100L",
+                "precio": 2800.00,
+                "moneda": "MXN",
+                "en_promocion": false
+            },
+            {
+                "tienda": "Rotoplas",
+                "producto_encontrado": "Tinaco Tricapa 1100L",
+                "precio": 3200.00,
+                "moneda": "MXN",
+                "en_promocion": false
+            },
+            {
+                "tienda": "Construrama del Valle",
+                "producto_encontrado": "Tinaco 1100 Litros",
+                "precio": 3050.00,
+                "moneda": "MXN",
+                "en_promocion": true
+            }
+        ],
+        "resumen_plaza": "Auditoría estricta en Culiacán, Sinaloa."
+    }
+    """
+    with patch("app.agents.investigador_mercado_agent.call_llm_openrouter_web", new=AsyncMock(return_value=mock_response)):
+        res = await investigar_mercado_producto(
+            codigo_material="ROT1100",
+            descripcion_material="Tinaco 1100L",
+            precio_kuroda=3442.13,
+            costo_kuroda=2494.30,
+            stock_kuroda=50.0,
+            ciudad="Culiacán",
+            estado="Sinaloa",
+            competidores=["The Home Depot", "Construrama"],
+            api_key_override="sk-or-test"
+        )
+        
+        # Deben sobrevivir solo The Home Depot y Construrama; Bricomark y Rotoplas deben ser descartados
+        assert len(res.publicaciones) == 2
+        tiendas = [p.tienda for p in res.publicaciones]
+        assert "The Home Depot Culiacán" in tiendas
+        assert "Construrama del Valle" in tiendas
+        assert "Bricomark" not in tiendas
+        assert "Rotoplas" not in tiendas
+        
+        # El precio mínimo debe ser 3050.00 (Construrama), NO 2800.00 (Bricomark descartado)
+        assert res.analisis_precios["precio_minimo_mercado"] == 3050.00
+
 
 

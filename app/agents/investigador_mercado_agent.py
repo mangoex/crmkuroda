@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import unicodedata
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 import httpx
@@ -9,6 +10,77 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+def normalizar_texto(texto: str) -> str:
+    """Normaliza un texto quitando acentos, mayúsculas y caracteres especiales."""
+    if not texto:
+        return ""
+    norm = unicodedata.normalize("NFD", str(texto))
+    sin_tildes = "".join(ch for ch in norm if unicodedata.category(ch) != "Mn")
+    limpio = re.sub(r'[^a-z0-9\s]', ' ', sin_tildes.lower())
+    return re.sub(r'\s+', ' ', limpio).strip()
+
+
+
+def coincide_nombre_comercial(nombre_tienda: str, competidores_permitidos: List[str]) -> bool:
+    """
+    Valida de forma estricta y determinista si la tienda encontrada coincide
+    con el nombre comercial de alguno de los competidores solicitados.
+    
+    Criterios Humanio CEO:
+    1. Si no hay competidores permitidos o se incluye '__ALL__', retorna True.
+    2. Coincidencia directa de subcadena (ej. 'The Home Depot' coincide con 'Home Depot Culiacán').
+    3. Coincidencia de tokens clave de la marca (ej. 'Construrama' con 'Materiales Construrama Sinaloa').
+    4. Descarta marcas/fabricantes de producto (ej. 'Rotoplas', 'Helvex') o tiendas no solicitadas (ej. 'Bricomark').
+    """
+    if not competidores_permitidos or "__ALL__" in competidores_permitidos:
+        return True
+        
+    t_norm = normalizar_texto(nombre_tienda)
+    if not t_norm:
+        return False
+        
+    # Palabras comunes o genéricas del comercio que no aportan distinción de marca comercial
+    stop_words = {
+        "de", "del", "la", "el", "los", "las", "en", "y", "sa", "cv", "mx",
+        "mexico", "tienda", "tiendas", "ferreteria", "ferreterias", "materiales",
+        "distribuidor", "distribuidora", "sucursal", "online", "com", "oficial"
+    }
+    
+    t_tokens = set(tok for tok in t_norm.split() if tok not in stop_words and len(tok) >= 3)
+    
+    for comp in competidores_permitidos:
+        if comp == "__ALL__":
+            return True
+        c_norm = normalizar_texto(comp)
+        if not c_norm:
+            continue
+            
+        # 1. Coincidencia directa de subcadena completa
+        if c_norm in t_norm or t_norm in c_norm:
+            return True
+            
+        # 2. Análisis por tokens clave distintivos de la marca comercial
+        c_tokens = [tok for tok in c_norm.split() if tok not in stop_words and len(tok) >= 3]
+        if not c_tokens:
+            continue
+            
+        # Si todos los tokens clave del competidor están presentes en la tienda encontrada
+        # (ej. comp="The Home Depot" -> ["home", "depot"]; tienda="Home Depot México" -> True)
+        if all(tok in t_tokens for tok in c_tokens):
+            return True
+            
+        # Para marcas de una sola palabra principal (ej. "Construrama", "Surtidor", "Boxito", "Sodimac")
+        if len(c_tokens) == 1 and c_tokens[0] in t_tokens:
+            return True
+            
+        # Si coincide la mayoría de los tokens y hay al menos uno distintivo largo (>= 5 letras)
+        coincidentes = [tok for tok in c_tokens if tok in t_tokens]
+        if len(coincidentes) >= max(1, len(c_tokens) - 1) and any(len(tok) >= 5 for tok in coincidentes):
+            return True
+            
+    return False
 
 
 class ItemCompetidor(BaseModel):
@@ -43,6 +115,7 @@ def calcular_precio_sugerido(
     costo: float,
     precio_kuroda: float,
     stock_actual: float,
+
     abc_f: Optional[str] = "B",
     precios_competencia: Optional[List[float]] = None,
     margen_minimo_pct: float = 0.12
@@ -275,25 +348,30 @@ async def investigar_mercado_producto(
     """
     # Separar competidores específicos y flag de búsqueda abierta
     raw_competidores = [c.strip() for c in (competidores or []) if c.strip()]
-    buscar_en_toda_la_web = (not raw_competidores) or ("__ALL__" in raw_competidores)
+    buscar_en_toda_la_web = ("__ALL__" in raw_competidores) or (not raw_competidores)
     competidores_prioritarios = [c for c in raw_competidores if c != "__ALL__"]
     
     if not competidores_prioritarios and not buscar_en_toda_la_web:
         competidores_prioritarios = ["The Home Depot", "Construrama", "Plomería Universal", "El Surtidor"]
         
-    if competidores_prioritarios:
+    if competidores_prioritarios and not buscar_en_toda_la_web:
+        comp_directriz = (
+            f"CONDICIÓN ESTRICTA DE COMPETIDORES: "
+            f"Debes auditar y reportar EXCLUSIVAMENTE los precios de las siguientes tiendas y competidores por su NOMBRE COMERCIAL: "
+            f"{', '.join(competidores_prioritarios)}. "
+            f"ESTÁ ESTRICTAMENTE PROHIBIDO incluir proveedores no solicitados, tiendas ajenas a esta lista o marcas/fabricantes del producto "
+            f"(ej. marcas como Rotoplas, Helvex, Urrea NO son tiendas distribuidoras a menos que se listen explícitamente). "
+            f"Solo reporta publicaciones donde la tienda vendedora coincida con los nombres comerciales indicados con cobertura en {ciudad}, {estado}."
+        )
+    elif competidores_prioritarios and buscar_en_toda_la_web:
         comp_directriz = (
             f"Prioriza auditar las tiendas sugeridas: {', '.join(competidores_prioritarios)}. "
-            f"Sin embargo, el sistema DEBE rastrear activamente CUALQUIER otro proveedor, tienda de materiales, "
-            f"ferretería local o distribuidor con venta o envío en {ciudad}, {estado} (ej. Mercado Libre México, "
-            f"Amazon México, Fix Ferreterías, Sodimac, Boxito, Truper o comercios locales). "
-            f"No te limites solo a los competidores listados; incluye cualquier otra publicación real encontrada en internet."
+            f"Sin embargo, también puedes incluir otros distribuidores o ferreterías con cobertura o envío a {ciudad}, {estado}."
         )
     else:
         comp_directriz = (
             f"Rastrea en toda la web en cualquier tienda, proveedor, ferretería o distribuidor con cobertura "
-            f"en {ciudad}, {estado} (ej. The Home Depot, Construrama, Plomería Universal, El Surtidor, "
-            f"Fix Ferreterías, Sodimac, Mercado Libre México, Amazon México, etc.)."
+            f"en {ciudad}, {estado} (ej. The Home Depot, Construrama, Plomería Universal, El Surtidor, etc.)."
         )
         
     system_instruction = (
@@ -301,11 +379,10 @@ async def investigar_mercado_producto(
         "tuberías, grifería y acabados en México. Tu labor es buscar activamente en internet precios, publicaciones "
         "y promociones vigentes de productos específicos en una zona geográfica delimitada.\n\n"
         "REGLAS OBLIGATORIAS:\n"
-        "1. Debes enfocar la investigación exclusivamente en la plaza geográfica indicada (ciudad y estado). "
-        "No mezcles precios de tiendas en otras ciudades lejanas a menos que ofrezcan envío directo con flete a dicha plaza.\n"
-        "2. REVISIÓN DE CUALQUIER PROVEEDOR: Aunque se sugieran ciertos competidores, debes revisar y registrar "
-        "publicaciones de cualquier tienda o proveedor que venda el producto (The Home Depot, Construrama, distribuidores locales, "
-        "ferreterías de la plaza, o comercio electrónico como Mercado Libre o Amazon México). No te limites a una lista fija.\n"
+        f"1. PLAZA GEOGRÁFICA ESTRICTA: Debes enfocar la investigación exclusivamente en la plaza geográfica indicada: {ciudad}, {estado}, {pais}. "
+        f"Descarta cualquier tienda o precio de otras regiones sin cobertura física o envío verificado a {ciudad}.\n"
+        "2. CONDICIÓN ESTRICTA DE COMPETIDORES: Si se especifican competidores, debes buscar el nombre comercial "
+        "de esos competidores específicos y considerar ÚNICAMENTE sus coincidencias comerciales. NO reportes tiendas no solicitadas ni utilices la marca del producto como tienda vendedora.\n"
         "3. EXCLUSIÓN DE PRODUCTOS SIN PRECIO O SIN INVENTARIO: Si un proveedor o tienda no tiene el producto disponible, "
         "está agotado o no publica un precio de venta numérico mayor a cero, NO LO INCLUYAS en la lista de publicaciones. "
         "Bajo ninguna circunstancia devuelvas precios en 0.00 o null. Solo reporta ofertas reales con precio > 0.\n"
@@ -314,7 +391,7 @@ async def investigar_mercado_producto(
         "{\n"
         '  "publicaciones": [\n'
         "    {\n"
-        '      "tienda": "Nombre del competidor o tienda",\n'
+        '      "tienda": "Nombre comercial del competidor o tienda",\n'
         '      "producto_encontrado": "Nombre exacto del producto encontrado",\n'
         '      "precio": 123.45,\n'
         '      "moneda": "MXN",\n'
@@ -370,12 +447,23 @@ async def investigar_mercado_producto(
             if p_val <= 0:
                 continue
                 
+            tienda_nombre = str(pub.get("tienda", "Competidor local")).strip()
+            
+            # FILTRADO DETERMINISTA ESTRICTO DE COMPETIDORES:
+            # Si no es búsqueda abierta y hay competidores prioritarios, validar coincidencia comercial estricta
+            if competidores_prioritarios and not buscar_en_toda_la_web:
+                if not coincide_nombre_comercial(tienda_nombre, competidores_prioritarios):
+                    logger.info(
+                        f"Descartando tienda '{tienda_nombre}' por no coincidir estrictamente con competidores permitidos: {competidores_prioritarios}"
+                    )
+                    continue
+                
             dif_abs = round(precio_kuroda - p_val, 2)
             dif_pct = round(((precio_kuroda - p_val) / p_val) * 100, 2) if p_val > 0 else 0.0
             
             publicaciones_items.append(
                 ItemCompetidor(
-                    tienda=pub.get("tienda", "Competidor local"),
+                    tienda=tienda_nombre,
                     producto_encontrado=pub.get("producto_encontrado", descripcion_material),
                     precio=p_val,
                     moneda=pub.get("moneda", "MXN"),
@@ -396,6 +484,7 @@ async def investigar_mercado_producto(
         resumen_plaza = f"Investigación en plaza {ciudad}, {estado} (Modo referencia: la búsqueda online reportó '{str(exc)[:120]}')."
         # Fallback de seguridad si no hay respuesta de OpenRouter
         publicaciones_items = []
+
         
     precios_encontrados = [item.precio for item in publicaciones_items if item.precio > 0]
     analisis = calcular_precio_sugerido(
