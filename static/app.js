@@ -704,7 +704,14 @@ async function initSession() {
         DOM.authContainer?.classList.add("hidden");
         DOM.dashboardContainer?.classList.remove("hidden");
         
-        // Set user badge
+        // Set user badge and body role attributes
+        const userRole = (state.user && state.user.rol) ? String(state.user.rol).toLowerCase().trim() : "";
+        if (document.body) {
+            document.body.setAttribute("data-role", userRole);
+            document.body.classList.toggle("role-vendedor", userRole === "vendedor");
+            document.body.classList.toggle("role-admin", userRole === "admin");
+            document.body.classList.toggle("role-gerente", userRole === "gerente");
+        }
         const displayName = state.user.nombre_completo || state.user.email.split("@")[0].toUpperCase();
         if (DOM.userDisplayName) DOM.userDisplayName.textContent = displayName;
         if (DOM.userRoleBadge) DOM.userRoleBadge.textContent = state.user.rol.toUpperCase();
@@ -7437,6 +7444,14 @@ function updateAgentsVisibilityForRole() {
     const isVendedor = userRole === "vendedor";
     const isManagerOrAdmin = ["admin", "gerente"].includes(userRole);
     
+    // Sincronizar estado en el elemento body para control CSS instantáneo
+    if (document.body) {
+        document.body.setAttribute("data-role", userRole);
+        document.body.classList.toggle("role-vendedor", isVendedor);
+        document.body.classList.toggle("role-admin", userRole === "admin");
+        document.body.classList.toggle("role-gerente", userRole === "gerente");
+    }
+    
     // 1. Agente Outreach: NO debe aparecer en el panel del vendedor
     const cardOutreachAgent = document.getElementById("card-agent-outreach");
     if (cardOutreachAgent) {
@@ -7665,6 +7680,9 @@ let productSearchDebounceTimer = null;
 let marketServerHasKey = false;
 
 async function checkMarketOpenRouterStatus() {
+    const userRole = (state.user && state.user.rol) ? String(state.user.rol).toLowerCase().trim() : "";
+    if (!["admin", "gerente"].includes(userRole)) return;
+    
     const apiKeyInput = document.getElementById("market-api-key-input");
     const statusBadge = document.getElementById("market-openrouter-status-badge");
     if (!statusBadge) return;
@@ -7852,8 +7870,13 @@ if (btnSaveGlobalKey) {
     });
 }
 
-// Inicializar estado de API Key al cargar el documento
-setTimeout(checkMarketOpenRouterStatus, 250);
+// Inicializar estado de API Key al cargar el documento (exclusivo para gerentes y administradores)
+setTimeout(() => {
+    const userRole = (state.user && state.user.rol) ? String(state.user.rol).toLowerCase().trim() : "";
+    if (["admin", "gerente"].includes(userRole)) {
+        checkMarketOpenRouterStatus();
+    }
+}, 250);
 
 // Product Autocompletion
 const marketProductSearchInput = document.getElementById("market-product-search");

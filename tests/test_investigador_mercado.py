@@ -316,6 +316,12 @@ def test_market_agent_frontend_contract():
     assert "card-agent-outreach" in javascript
     assert "isManagerOrAdmin" in javascript
 
+    # 5. Reglas CSS nativas RBAC para vendedores (ocultación instantánea sin parpadeo)
+    css = (root / "static" / "style.css").read_text(encoding="utf-8")
+    assert 'body[data-role="vendedor"] #card-agent-outreach' in css
+    assert 'body[data-role="vendedor"] #card-market-agent' in css
+    assert 'agent-card-admin-only' in html
+
 
 @pytest.mark.asyncio
 async def test_investigar_mercado_con_conversational_text_y_markdown():

@@ -4052,3 +4052,18 @@ body.dark-mode .market-kpi-card:hover {
     border-color: #f59e0b !important;
     box-shadow: 0 8px 22px rgba(245, 158, 11, 0.18) !important;
 }
+
+/* ==========================================================================
+   AGENT CARDS RBAC VISIBILITY RULES (EXCLUSIONES PARA VENDEDORES)
+   ========================================================================== */
+body[data-role="vendedor"] #card-agent-outreach,
+body[data-role="vendedor"] #card-market-agent,
+body[data-role="vendedor"] #market-agent-panel,
+body[data-role="vendedor"] .agent-card-admin-only,
+.role-vendedor #card-agent-outreach,
+.role-vendedor #card-market-agent,
+.role-vendedor #market-agent-panel,
+.role-vendedor .agent-card-admin-only {
+    display: none !important;
+}
+
