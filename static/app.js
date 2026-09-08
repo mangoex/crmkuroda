@@ -760,17 +760,10 @@ async function initSession() {
                 if (DOM.menuApi) DOM.menuApi.classList.remove("hidden");
             }
         }
-        // Control de acceso al Agente Investigador de Mercado (exclusivo para Admin y Gerente)
-        const isManagerOrAdmin = state.user && ["admin", "gerente"].includes(state.user.rol);
-        const cardMarketAgent = document.getElementById("card-market-agent");
-        const panelMarketAgent = document.getElementById("market-agent-panel");
-        if (cardMarketAgent) {
-            cardMarketAgent.classList.toggle("hidden", !isManagerOrAdmin);
-        }
-        if (!isManagerOrAdmin && panelMarketAgent) {
-            panelMarketAgent.classList.add("hidden");
-            panelMarketAgent.style.display = "none";
-        }
+        // Control de visibilidad de agentes según el rol del usuario:
+        // - Para vendedor: se ocultan Agente Outreach y el Investigador de Mercado.
+        // - Para admin/gerente: todos los agentes están disponibles.
+        updateAgentsVisibilityForRole();
         updateUploadControlsVisibility();
         renderLastUploadLabels();
         await loadLastUploadLabels();
@@ -903,6 +896,10 @@ async function switchSection(sectionId) {
             sec.classList.add("hidden");
         }
     });
+    
+    if (sectionId === "agentes") {
+        updateAgentsVisibilityForRole();
+    }
     
     // Load fresh data for the section
     await loadSectionData(sectionId);
@@ -7432,10 +7429,47 @@ if (DOM.profileForm) {
 }
 
 /* ==========================================================================
-   CENTRALIZED AGENTS HANDLERS (CEO, COACH, OUTREACH)
+   CENTRALIZED AGENTS HANDLERS (CEO, COACH, OUTREACH, ANALYST, MERCADO)
    ========================================================================== */
 
+function updateAgentsVisibilityForRole() {
+    const userRole = (state.user && state.user.rol) ? String(state.user.rol).toLowerCase().trim() : "";
+    const isVendedor = userRole === "vendedor";
+    const isManagerOrAdmin = ["admin", "gerente"].includes(userRole);
+    
+    // 1. Agente Outreach: NO debe aparecer en el panel del vendedor
+    const cardOutreachAgent = document.getElementById("card-agent-outreach");
+    if (cardOutreachAgent) {
+        if (isVendedor) {
+            cardOutreachAgent.classList.add("hidden");
+            cardOutreachAgent.style.setProperty("display", "none", "important");
+        } else {
+            cardOutreachAgent.classList.remove("hidden");
+            cardOutreachAgent.style.removeProperty("display");
+        }
+    }
+    
+    // 2. Investigador de Mercado: NO debe aparecer en el panel del vendedor (exclusivo para Admin y Gerente)
+    const cardMarketAgent = document.getElementById("card-market-agent");
+    const panelMarketAgent = document.getElementById("market-agent-panel");
+    if (cardMarketAgent) {
+        if (!isManagerOrAdmin) {
+            cardMarketAgent.classList.add("hidden");
+            cardMarketAgent.style.setProperty("display", "none", "important");
+        } else {
+            cardMarketAgent.classList.remove("hidden");
+            cardMarketAgent.style.removeProperty("display");
+        }
+    }
+    if (!isManagerOrAdmin && panelMarketAgent) {
+        panelMarketAgent.classList.add("hidden");
+        panelMarketAgent.style.setProperty("display", "none", "important");
+    }
+}
+window.updateAgentsVisibilityForRole = updateAgentsVisibilityForRole;
+
 async function loadAgentesSectionData() {
+    updateAgentsVisibilityForRole();
     // We need sellers data to populate dropdowns. If state.vendedores is empty, fetch it.
     if (state.vendedores.length === 0) {
         if (state.user.rol !== "vendedor") {
@@ -7578,6 +7612,11 @@ if (coachForm) {
 const outreachTrigger = document.getElementById("btn-agent-outreach-trigger");
 if (outreachTrigger) {
     outreachTrigger.addEventListener("click", () => {
+        const userRole = (state.user && state.user.rol) ? String(state.user.rol).toLowerCase().trim() : "";
+        if (userRole === "vendedor") {
+            showToast("Acceso no disponible para el perfil de vendedor.", "warning");
+            return;
+        }
         switchSection("cotizaciones");
         const aiQuoteWrapper = document.getElementById("ai-quote-wrapper");
         if (aiQuoteWrapper) {

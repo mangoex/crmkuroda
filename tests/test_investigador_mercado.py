@@ -279,6 +279,7 @@ def test_market_agent_frontend_contract():
     # 1. Tarjeta en Centro de Agentes con ID RBAC
     assert "Investigador de Mercado" in html
     assert 'id="card-market-agent"' in html
+    assert 'id="card-agent-outreach"' in html
     assert 'id="btn-open-market-agent"' in html
     
     # 2. Workspace y Formulario con Modo Estricto
@@ -311,6 +312,8 @@ def test_market_agent_frontend_contract():
     assert "market-kpi-card" in html
     assert "cardMarketAgent" in javascript
     assert "updateMarketStrictModeUI" in javascript
+    assert "updateAgentsVisibilityForRole" in javascript
+    assert "card-agent-outreach" in javascript
     assert "isManagerOrAdmin" in javascript
 
 
