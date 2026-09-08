@@ -248,6 +248,17 @@ class TestPromocionesUIContracts(unittest.TestCase):
         self.assertIn("togglePromoRelevante", self.app_js)
         self.assertIn("renderSellerPromosDestacadas", self.app_js)
 
+    def test_promociones_destacadas_golden_frame_styling(self):
+        """El marco de promociones relevantes debe tener diseño dorado de alto impacto en CSS y HTML."""
+        css = Path("static/style.css").read_text(encoding="utf-8")
+        self.assertIn(".seller-promos-destacadas-card", css)
+        self.assertIn(".seller-promos-header", css)
+        self.assertIn(".seller-promos-star-badge", css)
+        self.assertIn(".seller-promo-destacada-card", css)
+        self.assertIn("seller-promos-star-badge", self.index_html)
+        self.assertIn("v=1.5.0", self.index_html)
+
 
 if __name__ == "__main__":
     unittest.main()
+

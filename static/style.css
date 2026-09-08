@@ -4043,14 +4043,331 @@ body.dark-mode .market-kpi-card:hover {
     filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.5));
 }
 
+/* ==========================================================================
+   SELLER DASHBOARD - MARCO DORADO DE PROMOCIONES DESTACADAS (FOCO COMERCIAL)
+   ========================================================================== */
+
+/* Contenedor del marco dorado de promociones destacadas */
+.seller-promos-destacadas-card {
+    margin: 0 0 24px;
+    border-radius: 16px !important;
+    position: relative;
+    overflow: hidden;
+    background: 
+        radial-gradient(ellipse at 85% 15%, rgba(251, 191, 36, 0.45) 0%, rgba(245, 158, 11, 0.15) 45%, transparent 70%),
+        linear-gradient(135deg, #fffbeb 0%, #fef3c7 25%, #fde68a 60%, #fcd34d 100%) !important;
+    border: 2px solid #f59e0b !important;
+    box-shadow: 
+        0 14px 34px -4px rgba(245, 158, 11, 0.32),
+        0 4px 14px -2px rgba(217, 119, 6, 0.18),
+        inset 0 1px 1px rgba(255, 255, 255, 0.9) !important;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Marca de agua decorativa sutil en el fondo */
+.seller-promos-watermark {
+    position: absolute;
+    right: -25px;
+    top: -20px;
+    font-size: 150px;
+    color: #d97706;
+    opacity: 0.07;
+    pointer-events: none;
+    transform: rotate(18deg);
+    z-index: 0;
+}
+
+/* Cabecera del marco dorado con efecto frosted-glass */
+.seller-promos-header {
+    background: rgba(255, 255, 255, 0.65) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1.5px solid rgba(217, 119, 6, 0.22) !important;
+    border-left: 5px solid #d97706 !important;
+    padding: 14px 20px !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    position: relative;
+    z-index: 1;
+}
+
+.seller-promos-title-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Insignia dorada 3D para el icono de estrella */
+.seller-promos-star-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    box-shadow: 0 4px 10px rgba(217, 119, 6, 0.35), inset 0 1px 2px rgba(255, 255, 255, 0.6);
+    flex-shrink: 0;
+}
+
+.seller-promos-title-text {
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    margin: 0 !important;
+    color: #78350f !important;
+    letter-spacing: -0.01em;
+}
+
+.seller-promos-tag-pill {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 12px;
+    letter-spacing: 0.6px;
+    box-shadow: 0 2px 6px rgba(180, 83, 9, 0.25);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.seller-promos-subtitle {
+    font-size: 11.5px;
+    color: #92400e;
+    font-weight: 600;
+    margin-top: 2px;
+    display: block;
+}
+
+/* Botón de acción principal destacado */
+.seller-promos-cta-btn {
+    background: #ffffff !important;
+    color: #92400e !important;
+    border: 1.5px solid #d97706 !important;
+    padding: 8px 16px !important;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    box-shadow: 0 2px 8px rgba(217, 119, 6, 0.18) !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.seller-promos-cta-btn:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
+    color: #ffffff !important;
+    border-color: #b45309 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(180, 83, 9, 0.35) !important;
+}
+
+/* Contenedor del grid de productos */
+.seller-promos-body {
+    padding: 18px 20px !important;
+    position: relative;
+    z-index: 1;
+}
+
+.seller-promos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+/* Tarjetas individuales de producto: fondo blanco sólido, bordes nítidos, alta legibilidad */
 .seller-promo-destacada-card {
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
+    background: #ffffff !important;
+    border: 1.5px solid rgba(245, 158, 11, 0.45) !important;
+    border-radius: 14px !important;
+    padding: 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 14px rgba(180, 83, 9, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    position: relative !important;
+    overflow: hidden !important;
 }
 
 .seller-promo-destacada-card:hover {
-    transform: translateY(-3px);
-    border-color: #f59e0b !important;
-    box-shadow: 0 8px 22px rgba(245, 158, 11, 0.18) !important;
+    transform: translateY(-4px) !important;
+    border-color: #d97706 !important;
+    box-shadow: 0 12px 28px -4px rgba(217, 119, 6, 0.26), 0 0 0 1px #f59e0b !important;
+}
+
+.seller-promo-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    gap: 6px;
+}
+
+.seller-promo-badge-sku {
+    font-size: 11px;
+    font-weight: 800;
+    color: #92400e;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border: 1px solid rgba(245, 158, 11, 0.55);
+    padding: 4px 9px;
+    border-radius: 6px;
+    letter-spacing: 0.4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.seller-promo-badge-sku i {
+    font-size: 9px;
+    color: #d97706;
+}
+
+.seller-promo-badge-margen {
+    font-size: 11px;
+    color: #047857;
+    font-weight: 800;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    padding: 4px 9px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.seller-promo-badge-margen i {
+    font-size: 9px;
+}
+
+.seller-promo-card-body {
+    margin-bottom: 14px;
+    min-height: 42px;
+}
+
+.seller-promo-product-title {
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
+    line-height: 1.35 !important;
+    margin: 0 !important;
+    color: #0f172a !important;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.seller-promo-product-prov {
+    font-size: 11.5px;
+    color: #64748b;
+    font-weight: 500;
+    margin-top: 3px;
+    display: block;
+}
+
+.seller-promo-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-top: 1px solid rgba(245, 158, 11, 0.18);
+    padding-top: 12px;
+    margin-top: auto;
+}
+
+.seller-promo-price-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: #92400e;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    display: block;
+    margin-bottom: 1px;
+}
+
+.seller-promo-price-value-row {
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+}
+
+.seller-promo-price-amount {
+    font-size: 19px;
+    font-weight: 900;
+    color: #b45309;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+
+.seller-promo-currency {
+    font-size: 11px;
+    font-weight: 700;
+    color: #78350f;
+}
+
+.seller-promo-detail-link {
+    font-size: 11.5px;
+    color: #d97706;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.seller-promo-destacada-card:hover .seller-promo-detail-link {
+    color: #b45309;
+    transform: translateX(3px);
+}
+
+/* Modo oscuro adaptativo */
+body.dark-mode .seller-promos-destacadas-card {
+    background: 
+        radial-gradient(ellipse at 85% 15%, rgba(245, 158, 11, 0.25) 0%, transparent 60%),
+        linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(180, 83, 9, 0.20) 50%, rgba(120, 53, 15, 0.32) 100%),
+        #1c1917 !important;
+    border-color: rgba(245, 158, 11, 0.55) !important;
+    box-shadow: 0 14px 34px -4px rgba(0, 0, 0, 0.6), 0 0 24px rgba(245, 158, 11, 0.15) !important;
+}
+
+body.dark-mode .seller-promos-header {
+    background: rgba(28, 25, 23, 0.7) !important;
+    border-bottom-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+body.dark-mode .seller-promos-title-text {
+    color: #fde68a !important;
+}
+
+body.dark-mode .seller-promos-subtitle {
+    color: #fcd34d !important;
+}
+
+body.dark-mode .seller-promo-destacada-card {
+    background: rgba(30, 27, 24, 0.95) !important;
+    border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+body.dark-mode .seller-promo-product-title {
+    color: #f3f4f6 !important;
+}
+
+body.dark-mode .seller-promo-product-prov {
+    color: #9ca3af !important;
+}
+
+body.dark-mode .seller-promo-price-amount {
+    color: #fbbf24 !important;
+}
+
+body.dark-mode .seller-promo-currency {
+    color: #fde68a !important;
 }
 
 /* ==========================================================================

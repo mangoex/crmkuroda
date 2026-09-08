@@ -1977,34 +1977,37 @@ function renderSellerPromosDestacadas(promociones) {
         return `
             <div class="seller-promo-destacada-card" 
                  onclick="goToPromocion('${sku}')"
-                 style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; transition: all 0.2s ease; position: relative; overflow: hidden;"
-                 onmouseover="this.style.transform='translateY(-3px)'; this.style.borderColor='#f59e0b'; this.style.boxShadow='0 8px 20px rgba(245, 158, 11, 0.15)';"
-                 onmouseout="this.style.transform='none'; this.style.borderColor='rgba(245, 158, 11, 0.35)'; this.style.boxShadow='none';">
+                 role="button"
+                 tabindex="0"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){goToPromocion('${sku}');event.preventDefault();}"
+                 title="Ver detalle de promoción: ${desc}">
                 
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                    <span style="font-size: 11px; font-weight: 700; color: #f59e0b; background: rgba(245, 158, 11, 0.15); padding: 3px 8px; border-radius: 6px; letter-spacing: 0.5px;">
-                        <i class="fa-solid fa-star" style="font-size: 9px; margin-right: 3px;"></i> ${sku || 'PROMO'}
+                <div class="seller-promo-card-header">
+                    <span class="seller-promo-badge-sku">
+                        <i class="fa-solid fa-star"></i> ${sku || 'PROMO'}
                     </span>
-                    <span style="font-size: 11px; color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.12); padding: 3px 8px; border-radius: 6px;">
-                        <i class="fa-solid fa-arrow-trend-up" style="font-size: 9px; margin-right: 2px;"></i> ${margen}% Margen
+                    <span class="seller-promo-badge-margen">
+                        <i class="fa-solid fa-arrow-trend-up"></i> ${margen}% Margen
                     </span>
                 </div>
 
-                <div style="margin-bottom: 12px; min-height: 38px;">
-                    <h4 style="font-size: 13px; font-weight: 600; line-height: 1.3; margin: 0; color: hsl(var(--text-primary)); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;" title="${desc}">
+                <div class="seller-promo-card-body">
+                    <h4 class="seller-promo-product-title" title="${desc}">
                         ${desc}
                     </h4>
-                    <span style="font-size: 11px; color: hsl(var(--text-secondary)); margin-top: 2px; display: block;">${prov}</span>
+                    <span class="seller-promo-product-prov">${prov}</span>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 10px; margin-top: auto;">
+                <div class="seller-promo-card-footer">
                     <div>
-                        <span style="font-size: 10px; color: hsl(var(--text-secondary)); text-transform: uppercase; letter-spacing: 0.5px; display: block;">Precio Promo</span>
-                        <strong style="font-size: 17px; font-weight: 800; color: #38bdf8;">$${precio}</strong>
-                        <span style="font-size: 10px; color: hsl(var(--text-secondary));">${escapeHTML(p.moneda || 'MXN')}</span>
+                        <span class="seller-promo-price-label">Precio Promo</span>
+                        <div class="seller-promo-price-value-row">
+                            <strong class="seller-promo-price-amount">$${precio}</strong>
+                            <span class="seller-promo-currency">${escapeHTML(p.moneda || 'MXN')}</span>
+                        </div>
                     </div>
-                    <span style="font-size: 11px; color: #f59e0b; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
-                        Ver detalle <i class="fa-solid fa-chevron-right" style="font-size: 9px;"></i>
+                    <span class="seller-promo-detail-link">
+                        Ver detalle <i class="fa-solid fa-chevron-right"></i>
                     </span>
                 </div>
             </div>
