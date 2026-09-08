@@ -531,6 +531,9 @@ def test_guardar_clave_global_servidor():
     Verifica que el endpoint POST /api/v1/mercado/save-global-key valide la clave
     y la configure en settings para toda la empresa.
     """
+    from unittest.mock import mock_open
+    from app.core.config import settings
+    orig_key = settings.OPENROUTER_API_KEY
     client = TestClient(app)
     
     # Mock de validación en OpenRouter
@@ -538,16 +541,20 @@ def test_guardar_clave_global_servidor():
     mock_resp.status_code = 200
     mock_resp.json.return_value = {"data": {"label": "Clave Empresa"}}
     
-    with patch("httpx.AsyncClient.get", return_value=mock_resp):
-        response = client.post(
-            "/api/v1/mercado/save-global-key",
-            json={"api_key": "sk-or-empresa-global-123"}
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "success"
-        from app.core.config import settings
-        assert settings.OPENROUTER_API_KEY == "sk-or-empresa-global-123"
+    try:
+        with patch("httpx.AsyncClient.get", return_value=mock_resp), \
+             patch("builtins.open", mock_open(read_data="OPENROUTER_API_KEY=\n")), \
+             patch("os.path.exists", return_value=True):
+            response = client.post(
+                "/api/v1/mercado/save-global-key",
+                json={"api_key": "sk-or-empresa-global-123"}
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "success"
+            assert settings.OPENROUTER_API_KEY == "sk-or-empresa-global-123"
+    finally:
+        settings.OPENROUTER_API_KEY = orig_key
 
 
 def test_investigador_mercado_rbac_rechaza_vendedor_con_403():
@@ -717,6 +724,129 @@ async def test_investigar_mercado_filtrado_estricto_descarta_no_coincidentes():
         
         # El precio mínimo debe ser 3050.00 (Construrama), NO 2800.00 (Bricomark descartado)
         assert res.analisis_precios["precio_minimo_mercado"] == 3050.00
+
+
+def test_coincide_nombre_comercial_malova_variaciones():
+    """
+    Verifica que el algoritmo determinista en Python reconozca 'Malova' y todas
+    sus variaciones comerciales locales comunes en Culiacán (Ferretería Malova, Malova Culiacán, etc.).
+    """
+    competidores = ["Malova", "The Home Depot"]
+    assert coincide_nombre_comercial("Malova", competidores) is True
+    assert coincide_nombre_comercial("Ferretería Malova", competidores) is True
+    assert coincide_nombre_comercial("Malova Ferreterías", competidores) is True
+    assert coincide_nombre_comercial("Malova Culiacán", competidores) is True
+    assert coincide_nombre_comercial("Ferretería y Materiales Malova", competidores) is True
+    assert coincide_nombre_comercial("Distribuidora Malova Sinaloa", competidores) is True
+
+
+@pytest.mark.asyncio
+async def test_investigar_mercado_genera_consultas_dirigidas_malova():
+    """
+    Verifica que al auditar con Malova como competidor en Culiacán,
+    el agente construya y transmita consultas dirigidas específicas de búsqueda web para Malova en Culiacán.
+    """
+    captured_prompt = None
+    captured_system = None
+    
+    async def fake_call_llm(prompt, system_instruction, api_key, model):
+        nonlocal captured_prompt, captured_system
+        captured_prompt = prompt
+        captured_system = system_instruction
+        return """
+        {
+            "publicaciones": [
+                {
+                    "tienda": "Ferretería Malova",
+                    "producto_encontrado": "Tinaco 1100L",
+                    "precio": 3150.00,
+                    "moneda": "MXN",
+                    "en_promocion": false
+                }
+            ],
+            "resumen_plaza": "Precios encontrados en Culiacán."
+        }
+        """
+
+    with patch("app.agents.investigador_mercado_agent.call_llm_openrouter_web", new=fake_call_llm):
+        res = await investigar_mercado_producto(
+            codigo_material="TIN1100",
+            descripcion_material="Tinaco 1100L Rotoplas",
+            precio_kuroda=3400.00,
+            costo_kuroda=2500.00,
+            stock_kuroda=10.0,
+            ciudad="Culiacán",
+            estado="Sinaloa",
+            competidores=["Malova", "The Home Depot"],
+            api_key_override="sk-test"
+        )
+        
+        # Verificar que el prompt contenga búsquedas específicas para Malova y Culiacán
+        assert captured_prompt is not None
+        assert "MALOVA" in captured_prompt
+        assert "Ferretería Malova" in captured_prompt or "Malova Culiacán" in captured_prompt
+        assert "Culiacán" in captured_prompt
+        
+        # Verificar que la tienda fue aceptada
+        assert len(res.publicaciones) == 1
+        assert res.publicaciones[0].tienda == "Ferretería Malova"
+        assert res.publicaciones[0].precio == 3150.00
+
+
+@pytest.mark.asyncio
+async def test_investigar_mercado_modo_combinado_prioriza_y_conserva_todos():
+    """
+    Verifica que en modo combinado (__ALL__ + competidores específicos):
+    1. Las tiendas generales/locales no sean descartadas.
+    2. Los competidores prioritarios aparezcan primero en la lista de resultados.
+    """
+    mock_response = """
+    {
+        "publicaciones": [
+            {
+                "tienda": "Mercado Libre México",
+                "producto_encontrado": "Tinaco 1100L",
+                "precio": 2900.00,
+                "moneda": "MXN"
+            },
+            {
+                "tienda": "Ferretería Malova",
+                "producto_encontrado": "Tinaco 1100L",
+                "precio": 3100.00,
+                "moneda": "MXN"
+            },
+            {
+                "tienda": "The Home Depot Culiacán",
+                "producto_encontrado": "Tinaco 1100L",
+                "precio": 3200.00,
+                "moneda": "MXN"
+            }
+        ],
+        "resumen_plaza": "Comparativa amplia con prioridad a tiendas locales."
+    }
+    """
+    with patch("app.agents.investigador_mercado_agent.call_llm_openrouter_web", new=AsyncMock(return_value=mock_response)):
+        res = await investigar_mercado_producto(
+            codigo_material="TIN1100",
+            descripcion_material="Tinaco 1100L Rotoplas",
+            precio_kuroda=3400.00,
+            costo_kuroda=2500.00,
+            stock_kuroda=10.0,
+            ciudad="Culiacán",
+            estado="Sinaloa",
+            competidores=["__ALL__", "Malova", "The Home Depot"],
+            api_key_override="sk-test"
+        )
+        
+        # Todas las 3 tiendas deben estar presentes (ninguna descartada)
+        assert len(res.publicaciones) == 3
+        
+        # Los prioritarios (Malova y Home Depot) deben aparecer antes que tiendas no prioritarias (Mercado Libre)
+        tiendas = [p.tienda for p in res.publicaciones]
+        assert tiendas[0] == "Ferretería Malova"
+        assert tiendas[1] == "The Home Depot Culiacán"
+        assert tiendas[2] == "Mercado Libre México"
+
 
 
 

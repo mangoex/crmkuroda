@@ -7950,8 +7950,21 @@ function updateMarketStrictModeUI() {
     const hint = document.getElementById("market-competitors-hint");
     const allChip = document.querySelector("#market-competitors-chips .market-chip[data-competitor='__ALL__']");
     const isAllActive = allChip && allChip.classList.contains("active");
+    const activeSpecificCompetitors = Array.from(
+        document.querySelectorAll("#market-competitors-chips .market-chip.active:not([data-competitor='__ALL__'])")
+    );
     
-    if (isAllActive) {
+    if (isAllActive && activeSpecificCompetitors.length > 0) {
+        if (badge) {
+            badge.style.background = "rgba(168,85,247,0.15)";
+            badge.style.color = "#a855f7";
+            badge.style.borderColor = "rgba(168,85,247,0.3)";
+            badge.innerHTML = '<i class="fa-solid fa-magnifying-glass-chart"></i> Prioridad a Seleccionados + Toda la Web';
+        }
+        if (hint) {
+            hint.innerHTML = '<i class="fa-solid fa-bolt" style="color: #a855f7;"></i> <strong>Prioridad a seleccionados + Toda la web:</strong> Audita con máxima prioridad a las tiendas seleccionadas y amplía a toda la web para comparar con más opciones de la plaza.';
+        }
+    } else if (isAllActive && activeSpecificCompetitors.length === 0) {
         if (badge) {
             badge.style.background = "rgba(56,189,248,0.15)";
             badge.style.color = "#0284c7";
@@ -7961,7 +7974,7 @@ function updateMarketStrictModeUI() {
         if (hint) {
             hint.innerHTML = '<i class="fa-solid fa-circle-info" style="color: #38bdf8;"></i> <strong>Búsqueda abierta:</strong> Rastreará cualquier tienda, proveedor o distribuidor con cobertura en la plaza.';
         }
-    } else {
+    } else if (!isAllActive && activeSpecificCompetitors.length > 0) {
         if (badge) {
             badge.style.background = "rgba(16,185,129,0.15)";
             badge.style.color = "#10b981";
@@ -7970,6 +7983,21 @@ function updateMarketStrictModeUI() {
         }
         if (hint) {
             hint.innerHTML = '<i class="fa-solid fa-shield-halved" style="color: #10b981;"></i> <strong>Búsqueda estricta:</strong> Solo rastrea y acepta ofertas cuyo nombre comercial coincida con las tiendas seleccionadas.';
+        }
+    } else {
+        if (allChip) {
+            allChip.classList.add("active");
+            const icon = allChip.querySelector("i.fa-check, i.fa-plus");
+            if (icon) icon.className = "fa-solid fa-check";
+        }
+        if (badge) {
+            badge.style.background = "rgba(56,189,248,0.15)";
+            badge.style.color = "#0284c7";
+            badge.style.borderColor = "rgba(56,189,248,0.3)";
+            badge.innerHTML = '<i class="fa-solid fa-globe"></i> Búsqueda Abierta';
+        }
+        if (hint) {
+            hint.innerHTML = '<i class="fa-solid fa-circle-info" style="color: #38bdf8;"></i> <strong>Búsqueda abierta:</strong> Rastreará cualquier tienda, proveedor o distribuidor con cobertura en la plaza.';
         }
     }
 }
@@ -7981,36 +8009,10 @@ if (competitorsChipsContainer) {
         const chip = e.target.closest(".market-chip");
         if (!chip) return;
         
-        const isAll = chip.dataset.competitor === "__ALL__";
-        if (isAll) {
-            const willBeActive = !chip.classList.contains("active");
-            chip.classList.toggle("active", willBeActive);
-            const icon = chip.querySelector("i.fa-check, i.fa-plus");
-            if (icon) icon.className = willBeActive ? "fa-solid fa-check" : "fa-solid fa-plus";
-            
-            // Si activa "Toda la web", desmarcar tiendas individuales para evitar confusión
-            if (willBeActive) {
-                document.querySelectorAll("#market-competitors-chips .market-chip:not([data-competitor='__ALL__'])").forEach(c => {
-                    c.classList.remove("active");
-                    const ic = c.querySelector("i.fa-check, i.fa-plus");
-                    if (ic) ic.className = "fa-solid fa-plus";
-                });
-            }
-        } else {
-            chip.classList.toggle("active");
-            const icon = chip.querySelector("i.fa-check, i.fa-plus");
-            if (icon) {
-                icon.className = chip.classList.contains("active") ? "fa-solid fa-check" : "fa-solid fa-plus";
-            }
-            // Si activa un competidor específico, desmarcar "Toda la web"
-            if (chip.classList.contains("active")) {
-                const allChip = document.getElementById("market-chip-all-web");
-                if (allChip) {
-                    allChip.classList.remove("active");
-                    const allIcon = allChip.querySelector("i.fa-check, i.fa-plus");
-                    if (allIcon) allIcon.className = "fa-solid fa-plus";
-                }
-            }
+        chip.classList.toggle("active");
+        const icon = chip.querySelector("i.fa-check, i.fa-plus");
+        if (icon) {
+            icon.className = chip.classList.contains("active") ? "fa-solid fa-check" : "fa-solid fa-plus";
         }
         updateMarketStrictModeUI();
     });
@@ -8028,14 +8030,6 @@ if (btnAddCompetitorChip && inputAddCompetitor && competitorsChipsContainer) {
         newChip.innerHTML = `${val} <i class="fa-solid fa-check"></i>`;
         competitorsChipsContainer.appendChild(newChip);
         inputAddCompetitor.value = "";
-        
-        // Desmarcar toda la web si agrega un competidor específico
-        const allChip = document.getElementById("market-chip-all-web");
-        if (allChip) {
-            allChip.classList.remove("active");
-            const allIcon = allChip.querySelector("i.fa-check, i.fa-plus");
-            if (allIcon) allIcon.className = "fa-solid fa-plus";
-        }
         updateMarketStrictModeUI();
     };
     btnAddCompetitorChip.addEventListener("click", addComp);

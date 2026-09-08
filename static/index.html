@@ -2272,14 +2272,15 @@
                                         <label style="font-size: 13px; font-weight: 600;">
                                             <i class="fa-solid fa-store" style="color: #fbbf24; margin-right: 6px;"></i> Tiendas & Competidores
                                         </label>
-                                        <span id="market-strict-badge" class="badge" style="background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); font-size: 11px;">
-                                            <i class="fa-solid fa-filter-circle-dollar"></i> Modo Estricto Activo
+                                        <span id="market-strict-badge" class="badge" style="background: rgba(168,85,247,0.15); color: #a855f7; border: 1px solid rgba(168,85,247,0.3); font-size: 11px;">
+                                            <i class="fa-solid fa-magnifying-glass-chart"></i> Prioridad a Seleccionados + Toda la Web
                                         </span>
                                     </div>
                                     <div id="market-competitors-chips" style="display: flex; flex-wrap: wrap; gap: 6px;">
-                                        <span class="market-chip" data-competitor="__ALL__" id="market-chip-all-web" title="Rastrear cualquier proveedor o tienda con cobertura en la plaza">
-                                            <i class="fa-solid fa-globe"></i> Toda la web / Búsqueda abierta <i class="fa-solid fa-plus"></i>
+                                        <span class="market-chip active" data-competitor="__ALL__" id="market-chip-all-web" title="Rastrear también en toda la web para comparar con más distribuidores locales">
+                                            <i class="fa-solid fa-globe"></i> Toda la web / Búsqueda abierta <i class="fa-solid fa-check"></i>
                                         </span>
+                                        <span class="market-chip active" data-competitor="Malova" title="Ferretería y Materiales Malova (Culiacán)">Malova <i class="fa-solid fa-check"></i></span>
                                         <span class="market-chip active" data-competitor="The Home Depot">The Home Depot <i class="fa-solid fa-check"></i></span>
                                         <span class="market-chip active" data-competitor="Construrama">Construrama <i class="fa-solid fa-check"></i></span>
                                         <span class="market-chip active" data-competitor="Plomería Universal">Plomería Universal <i class="fa-solid fa-check"></i></span>
@@ -2292,7 +2293,7 @@
                                         </button>
                                     </div>
                                     <small id="market-competitors-hint" style="color: hsl(var(--text-secondary)); font-size: 11px; line-height: 1.4;">
-                                        <i class="fa-solid fa-shield-halved" style="color: #10b981;"></i> <strong>Búsqueda estricta:</strong> Solo rastrea y acepta ofertas cuyo nombre comercial coincida con las tiendas seleccionadas.
+                                        <i class="fa-solid fa-bolt" style="color: #a855f7;"></i> <strong>Prioridad a seleccionados + Toda la web:</strong> Audita con máxima prioridad a las tiendas seleccionadas y amplía a toda la web para comparar con más opciones de la plaza.
                                     </small>
 
                                     <button type="submit" id="btn-start-market-research" class="btn btn-glow" style="margin-top: auto; width: 100%; background: linear-gradient(135deg, #ec4899, #9333ea); border: none; padding: 12px; font-weight: 600; font-size: 14px; box-shadow: 0 4px 15px rgba(236,72,153,0.3); cursor: pointer;">

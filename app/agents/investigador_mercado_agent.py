@@ -354,40 +354,44 @@ async def investigar_mercado_producto(
     if not competidores_prioritarios and not buscar_en_toda_la_web:
         competidores_prioritarios = ["The Home Depot", "Construrama", "Plomería Universal", "El Surtidor"]
         
-    if competidores_prioritarios and not buscar_en_toda_la_web:
-        comp_directriz = (
-            f"CONDICIÓN ESTRICTA DE COMPETIDORES: "
-            f"Debes auditar y reportar EXCLUSIVAMENTE los precios de las siguientes tiendas y competidores por su NOMBRE COMERCIAL: "
-            f"{', '.join(competidores_prioritarios)}. "
-            f"ESTÁ ESTRICTAMENTE PROHIBIDO incluir proveedores no solicitados, tiendas ajenas a esta lista o marcas/fabricantes del producto "
-            f"(ej. marcas como Rotoplas, Helvex, Urrea NO son tiendas distribuidoras a menos que se listen explícitamente). "
-            f"Solo reporta publicaciones donde la tienda vendedora coincida con los nombres comerciales indicados con cobertura en {ciudad}, {estado}."
-        )
-    elif competidores_prioritarios and buscar_en_toda_la_web:
-        comp_directriz = (
-            f"Prioriza auditar las tiendas sugeridas: {', '.join(competidores_prioritarios)}. "
-            f"Sin embargo, también puedes incluir otros distribuidores o ferreterías con cobertura o envío a {ciudad}, {estado}."
-        )
-    else:
-        comp_directriz = (
-            f"Rastrea en toda la web en cualquier tienda, proveedor, ferretería o distribuidor con cobertura "
-            f"en {ciudad}, {estado} (ej. The Home Depot, Construrama, Plomería Universal, El Surtidor, etc.)."
-        )
+    # Construir directivas y consultas dirigidas explícitas para cada competidor
+    consultas_dirigidas = []
+    if competidores_prioritarios:
+        for comp in competidores_prioritarios:
+            c_clean = comp.strip()
+            c_norm = normalizar_texto(c_clean)
+            if "malova" in c_norm:
+                consultas_dirigidas.append(
+                    f"• BÚSQUEDA ESPECÍFICA PARA MALOVA (Proveedor local líder en Culiacán): Busca explícitamente "
+                    f"'{c_clean} {ciudad} {descripcion_material}', 'Ferretería Malova {ciudad} precio {descripcion_material}', "
+                    f"'Malova Ferreterías {ciudad}' o publicaciones comerciales locales de Malova en {ciudad}."
+                )
+            else:
+                consultas_dirigidas.append(
+                    f"• BÚSQUEDA ESPECÍFICA PARA {c_clean.upper()}: Busca explícitamente "
+                    f"'{c_clean} {ciudad} {descripcion_material}' o '{c_clean} {ciudad} precio'."
+                )
+
+    lista_consultas_str = "\n".join(consultas_dirigidas) if consultas_dirigidas else f"• Busca '{descripcion_material} precio {ciudad} {estado}' en proveedores y ferreterías locales y en línea con cobertura en {ciudad}."
         
     system_instruction = (
         "Eres un Agente Investigador de Mercado experto en el sector de plomería, materiales de construcción, "
         "tuberías, grifería y acabados en México. Tu labor es buscar activamente en internet precios, publicaciones "
         "y promociones vigentes de productos específicos en una zona geográfica delimitada.\n\n"
         "REGLAS OBLIGATORIAS:\n"
-        f"1. PLAZA GEOGRÁFICA ESTRICTA: Debes enfocar la investigación exclusivamente en la plaza geográfica indicada: {ciudad}, {estado}, {pais}. "
-        f"Descarta cualquier tienda o precio de otras regiones sin cobertura física o envío verificado a {ciudad}.\n"
-        "2. CONDICIÓN ESTRICTA DE COMPETIDORES: Si se especifican competidores, debes buscar el nombre comercial "
-        "de esos competidores específicos y considerar ÚNICAMENTE sus coincidencias comerciales. NO reportes tiendas no solicitadas ni utilices la marca del producto como tienda vendedora.\n"
-        "3. EXCLUSIÓN DE PRODUCTOS SIN PRECIO O SIN INVENTARIO: Si un proveedor o tienda no tiene el producto disponible, "
+        f"1. PLAZA GEOGRÁFICA: Enfoca la investigación exclusivamente en la plaza geográfica indicada: {ciudad}, {estado}, {pais}. "
+        f"Descarta cualquier tienda o precio de otras regiones sin sucursal física o cobertura de entrega comprobada en {ciudad}.\n"
+        "2. AUDITORÍA EXHAUSTIVA DE COMPETIDORES: Tienes activa la herramienta de búsqueda web. Para auditar a los competidores solicitados "
+        "(especialmente proveedores locales clave como Malova / Ferretería Malova, Construrama, Plomería Universal, El Surtidor, etc.), "
+        "DEBES ejecutar búsquedas web dirigidas con el nombre comercial de cada competidor. NO realices una sola búsqueda genérica que solo arroje The Home Depot.\n"
+        "3. IDENTIFICACIÓN DE RAZONES COMERCIALES LOCALES: Reconoce las razones sociales y nombres comerciales locales "
+        "(por ejemplo: para 'Malova' reconoce 'Ferretería Malova', 'Malova Ferreterías' o 'Malova Culiacán'; para 'The Home Depot' 'The Home Depot Culiacán'; para 'Construrama' distribuidores Construrama locales). "
+        "NO uses la marca o fabricante del producto (ej. Rotoplas) como tienda distribuidora.\n"
+        "4. EXCLUSIÓN DE PRODUCTOS SIN PRECIO O SIN INVENTARIO: Si un proveedor o tienda no tiene el producto disponible, "
         "está agotado o no publica un precio de venta numérico mayor a cero, NO LO INCLUYAS en la lista de publicaciones. "
         "Bajo ninguna circunstancia devuelvas precios en 0.00 o null. Solo reporta ofertas reales con precio > 0.\n"
-        "4. Debes responder EXCLUSIVAMENTE en formato JSON válido, sin bloques de texto explicativo fuera del JSON.\n"
-        "5. Estructura JSON esperada:\n"
+        "5. Debes responder EXCLUSIVAMENTE en formato JSON válido, sin bloques de texto explicativo fuera del JSON.\n"
+        "6. Estructura JSON esperada:\n"
         "{\n"
         '  "publicaciones": [\n'
         "    {\n"
@@ -409,11 +413,17 @@ async def investigar_mercado_producto(
         f"INVESTIGACIÓN DE MERCADO Y PROVEEDORES EN LA PLAZA:\n"
         f"- Producto de referencia Kuroda: {descripcion_material} (Código: {codigo_material})\n"
         f"- Precio actual de lista en Kuroda: ${precio_kuroda:.2f} MXN\n"
-        f"- Plaza geográfica objetivo: {ciudad}, {estado}, {pais}\n"
-        f"- Directriz de proveedores: {comp_directriz}\n\n"
-        f"Realiza la búsqueda web para encontrar precios actuales de este producto o equivalentes directos de la misma marca/especificación "
-        f"en {ciudad}, {estado}. Devuelve los resultados encontrados en el formato JSON solicitado sin incluir proveedores que no tengan precio o tengan precio 0."
+        f"- Plaza geográfica objetivo: {ciudad}, {estado}, {pais}\n\n"
+        f"CONSULTAS OBLIGATORIAS QUE DEBES EJECUTAR CON TU HERRAMIENTA DE BÚSQUEDA WEB:\n"
+        f"{lista_consultas_str}\n\n"
+        f"DIRECTRICES DE INVESTIGACIÓN:\n"
+        f"1. AUDITORÍA OBLIGATORIA: Ejecuta búsquedas dirigidas para cada uno de los competidores anteriores para encontrar sus precios en {ciudad}. "
+        f"En particular, para 'Malova', busca en Culiacán 'Ferretería Malova', 'Malova Ferreterías' o su presencia comercial en Culiacán.\n"
+        f"2. {'MODO COMBINADO (PRIORITARIOS + TODA LA WEB): Además de los competidores prioritarios, incluye publicaciones reales de otros distribuidores, ferreterías o comercio con cobertura en ' + ciudad + ' (ej. Mercado Libre México, Sodimac, distribuidores locales) para una comparativa de mercado rica y variada.' if buscar_en_toda_la_web else 'MODO ESTRICTO: Reporta exclusivamente ofertas de los competidores prioritarios solicitados (' + ', '.join(competidores_prioritarios) + ') y sus sucursales locales en ' + ciudad + '.'}\n"
+        f"3. Solo incluye publicaciones con precio numérico real > 0 en MXN. Omite cualquier proveedor que no publique precio.\n\n"
+        f"Devuelve los resultados encontrados en el formato JSON solicitado."
     )
+
     
     publicaciones_items: List[ItemCompetidor] = []
     resumen_plaza = ""
@@ -485,7 +495,14 @@ async def investigar_mercado_producto(
         # Fallback de seguridad si no hay respuesta de OpenRouter
         publicaciones_items = []
 
-        
+    # Ordenar publicaciones: competidores prioritarios primero, luego por precio ascendente
+    if competidores_prioritarios:
+        publicaciones_items.sort(
+            key=lambda it: (0 if coincide_nombre_comercial(it.tienda, competidores_prioritarios) else 1, it.precio)
+        )
+    else:
+        publicaciones_items.sort(key=lambda it: it.precio)
+
     precios_encontrados = [item.precio for item in publicaciones_items if item.precio > 0]
     analisis = calcular_precio_sugerido(
         costo=costo_kuroda,
