@@ -4371,6 +4371,24 @@ body.dark-mode .seller-promo-currency {
 }
 
 /* ==========================================================================
+   QUOTE TABLE ACTIONS - WHATSAPP BUTTON (ESTILO VERDE/BLANCO)
+   ========================================================================== */
+.quote-whatsapp-btn {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quote-whatsapp-btn[data-has-wa="1"]:hover {
+    background: rgba(37, 211, 102, 0.16) !important;
+    border-color: #25D366 !important;
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.28) !important;
+    transform: translateY(-2px);
+}
+
+.quote-whatsapp-btn[data-has-wa="0"]:hover {
+    opacity: 0.85;
+}
+
+/* ==========================================================================
    AGENT CARDS RBAC VISIBILITY RULES (EXCLUSIONES PARA VENDEDORES)
    ========================================================================== */
 body[data-role="vendedor"] #card-agent-outreach,

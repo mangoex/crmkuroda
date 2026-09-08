@@ -4664,11 +4664,24 @@ function renderQuotesTableFiltered() {
             const quoteNum = c.numero_cotizacion || '-';
             const canal = c.canal || '-';
             const lost = isQuoteLost(c);
-            const noteSaved = lost ? hasLostReason(c) : Boolean(c.comentarios);
-            const noteColor = noteSaved ? "#22c55e" : "#ffffff";
-            const noteTitle = lost
-                ? (noteSaved ? "Editar motivo de perdida" : "Registrar motivo de perdida")
-                : (noteSaved ? "Editar comentario" : "Agregar comentario");
+            
+            // Detección y preparación de WhatsApp
+            const contact = c.datos_contacto || {};
+            const phone = contact.contacto_preferente || contact.celular || contact.telefono || c.celular || c.telefono || "";
+            const cleanPhone = String(phone).replace(/[^\d+]/g, "");
+            const digitsOnly = cleanPhone.replace(/\D/g, "");
+            const hasWhatsApp = digitsOnly.length >= 7;
+            const formattedPhone = cleanPhone.startsWith("+")
+                ? cleanPhone.replace("+", "")
+                : (cleanPhone.length === 10 ? `52${cleanPhone}` : cleanPhone);
+            const clientName = c.cliente_nombre || 'Cliente';
+            const waMessage = `Hola ${clientName}, le saludo de Casa Kuroda respecto a su cotización ${quoteNum !== '-' ? '#' + quoteNum : ''}. ¿En qué podemos apoyarle?`;
+            const waUrl = hasWhatsApp ? `https://wa.me/${formattedPhone}?text=${encodeURIComponent(waMessage)}` : "";
+            const waColor = hasWhatsApp ? "#25D366" : "#ffffff";
+            const waTitle = hasWhatsApp 
+                ? `Enviar WhatsApp a ${escapeHTML(phone)} (${escapeHTML(clientName)})` 
+                : "Sin teléfono o WhatsApp registrado";
+
             const lossPill = lost ?
                 `<span class="status-pill status-pendiente">Si</span>` :
                 `<span class="status-pill status-completada">No</span>`;
@@ -4708,8 +4721,8 @@ function renderQuotesTableFiltered() {
                 <td>${invoiceNumber ? `<code title="Factura">${escapeHTML(invoiceNumber)}</code>` : `<span class="text-muted">-</span>`}</td>
                 <td>
                     <div style="display:flex; gap:6px;">
-                        <button class="btn btn-secondary btn-sm lost-reason-btn" data-id="${c.id}" title="${noteTitle}" style="min-width: 38px; padding: 8px 10px; color: ${noteColor};">
-                            <i class="fa-regular fa-note-sticky"></i>
+                        <button class="btn btn-secondary btn-sm quote-whatsapp-btn" data-id="${c.id}" data-url="${escapeHTML(waUrl)}" data-has-wa="${hasWhatsApp ? '1' : '0'}" title="${waTitle}" style="min-width: 38px; padding: 8px 10px; color: ${waColor};">
+                            <i class="fa-brands fa-whatsapp" style="font-size: 15px;"></i>
                         </button>
                         <button class="btn btn-secondary btn-sm reminder-btn" data-id="${c.id}" title="Agendar recordatorio" style="min-width:38px; padding:8px 10px;">
                             <i class="fa-regular fa-bell"></i>
@@ -4742,11 +4755,17 @@ function renderQuotesTableFiltered() {
             });
         });
 
-        document.querySelectorAll(".lost-reason-btn").forEach(btn => {
-            btn.addEventListener("click", () => {
-                const id = btn.getAttribute("data-id");
-                const quote = state.cotizaciones.find(q => q.id === id);
-                if (quote) openLostReasonModal(quote);
+        document.querySelectorAll(".quote-whatsapp-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const hasWa = btn.getAttribute("data-has-wa") === "1";
+                const url = btn.getAttribute("data-url");
+                if (hasWa && url) {
+                    window.open(url, "_blank", "noopener,noreferrer");
+                } else {
+                    showToast("Esta cotización no tiene teléfono o WhatsApp registrado", "info");
+                }
             });
         });
 

@@ -256,7 +256,7 @@ class TestPromocionesUIContracts(unittest.TestCase):
         self.assertIn(".seller-promos-star-badge", css)
         self.assertIn(".seller-promo-destacada-card", css)
         self.assertIn("seller-promos-star-badge", self.index_html)
-        self.assertIn("v=1.5.0", self.index_html)
+        self.assertIn("v=1.6.0", self.index_html)
 
 
 if __name__ == "__main__":

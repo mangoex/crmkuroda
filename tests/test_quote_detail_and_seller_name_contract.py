@@ -44,3 +44,12 @@ class QuoteDetailAndSellerNameContractTest(unittest.TestCase):
         """Si una cotización no trae nombre de cliente, debe resolverse con fallback inteligente en vez de quedar 'Desconocido'."""
         self.assertIn("displayClientName", self.javascript)
         self.assertIn("displayModalClient", self.javascript)
+
+    def test_quote_table_has_whatsapp_button_instead_of_notes(self):
+        """En la tabla de cotizaciones se debe sustituir el botón de notas por el botón de WhatsApp (verde si tiene, blanco si no)."""
+        self.assertIn("quote-whatsapp-btn", self.javascript)
+        self.assertIn(".quote-whatsapp-btn", self.css)
+        self.assertNotIn("lost-reason-btn", self.javascript)
+        self.assertIn("#25D366", self.javascript)
+        self.assertIn("#ffffff", self.javascript)
+
