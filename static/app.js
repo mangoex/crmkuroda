@@ -602,6 +602,11 @@ const DOM = {
     clientHistoryTotalInvoiced: document.getElementById("client-history-total-invoiced"),
     clientHistoryConversionRate: document.getElementById("client-history-conversion-rate"),
     clientHistoryTable: document.querySelector("#client-history-table tbody"),
+    thClientHistoryStatus: document.getElementById("th-client-history-status"),
+    iconClientHistorySortStatus: document.getElementById("icon-client-history-sort-status"),
+    clientHistoryTableContainer: document.querySelector("#client-history-modal .table-container"),
+    clientHistoryCountInfo: document.getElementById("client-history-count-info"),
+    btnLoadMoreClientHistory: document.getElementById("btn-load-more-client-history"),
     searchClientHistoryInput: document.getElementById("search-client-history-input"),
     btnSearchClientHistory: document.getElementById("btn-search-client-history"),
 
@@ -6819,7 +6824,163 @@ function closeModal() {
    HU-1, HU-2, HU-3 FEATURE MODULES
    ========================================================================== */
 
-// --- HU-2: CLIENT HISTORY MODAL ---
+// --- HU-2: CLIENT HISTORY MODAL (OPTIMIZADO CON RENDERIZADO POR LOTES Y ORDENAMIENTO POR ESTADO) ---
+const clientHistoryState = {
+    allOperations: [],
+    currentOperations: [],
+    sortDir: null, // null | 'facturado_first' | 'expirado_first'
+    renderedCount: 0,
+    chunkSize: 100,
+    activeNumeroCliente: null,
+};
+
+function getStatusOrderScore(estado, sortDir) {
+    const norm = String(estado || "").toLowerCase().trim();
+    if (sortDir === "facturado_first") {
+        if (norm === "facturado") return 1;
+        if (norm === "pendiente") return 2;
+        if (norm.startsWith("expirad")) return 3;
+        if (norm.includes("perdida")) return 4;
+        return 5;
+    } else if (sortDir === "expirado_first") {
+        if (norm.startsWith("expirad")) return 1;
+        if (norm.includes("perdida")) return 2;
+        if (norm === "pendiente") return 3;
+        if (norm === "facturado") return 4;
+        return 5;
+    }
+    return 0;
+}
+
+function renderClientHistoryRows(startIndex, count) {
+    if (!DOM.clientHistoryTable) return;
+    const ops = clientHistoryState.currentOperations;
+    const total = ops.length;
+    if (total === 0) {
+        DOM.clientHistoryTable.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding: 24px;">No se encontraron operaciones registradas para este cliente.</td></tr>';
+        if (DOM.clientHistoryCountInfo) DOM.clientHistoryCountInfo.textContent = "0 operaciones";
+        if (DOM.btnLoadMoreClientHistory) DOM.btnLoadMoreClientHistory.classList.add("hidden");
+        return;
+    }
+
+    const endIndex = Math.min(startIndex + count, total);
+    const chunk = ops.slice(startIndex, endIndex);
+
+    const rowsHtml = chunk.map(op => {
+        let badgeClass = "badge-neutral";
+        if (op.estado === "Facturado") badgeClass = "badge-success";
+        else if (op.estado === "Venta Perdida") badgeClass = "badge-error";
+        else if (op.estado === "Expirada" || op.estado === "Expirado") badgeClass = "badge-warning";
+        else if (op.estado === "Pendiente") badgeClass = "badge-info";
+
+        const cotTotal = Number(op.total_cotizado || 0);
+        const facTotal = Number(op.importe_facturado || 0);
+
+        return `
+            <tr>
+                <td><strong>${escapeHTML(op.numero_cotizacion || 'Sin #')}</strong></td>
+                <td>${op.fecha_registro ? escapeHTML(op.fecha_registro.split('T')[0]) : '-'}</td>
+                <td>${escapeHTML(op.canal || '-')}</td>
+                <td>$${cotTotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td>${facTotal > 0 ? '$' + facTotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (op.numero_factura ? ` <small class="text-muted">(${escapeHTML(op.numero_factura)})</small>` : '') : '-'}</td>
+                <td><span class="badge ${badgeClass}">${escapeHTML(op.estado || 'Pendiente')}</span></td>
+                <td><small>${escapeHTML(op.vendedor_nombre || 'Asesor')}</small></td>
+            </tr>
+        `;
+    }).join("");
+
+    if (startIndex === 0) {
+        DOM.clientHistoryTable.innerHTML = rowsHtml;
+    } else {
+        DOM.clientHistoryTable.insertAdjacentHTML("beforeend", rowsHtml);
+    }
+
+    clientHistoryState.renderedCount = endIndex;
+
+    if (DOM.clientHistoryCountInfo) {
+        if (clientHistoryState.renderedCount >= total) {
+            DOM.clientHistoryCountInfo.textContent = `Mostrando todas las ${total.toLocaleString('es-MX')} operaciones`;
+        } else {
+            DOM.clientHistoryCountInfo.textContent = `Mostrando ${clientHistoryState.renderedCount.toLocaleString('es-MX')} de ${total.toLocaleString('es-MX')} operaciones`;
+        }
+    }
+
+    if (DOM.btnLoadMoreClientHistory) {
+        if (clientHistoryState.renderedCount < total) {
+            DOM.btnLoadMoreClientHistory.classList.remove("hidden");
+            const remaining = total - clientHistoryState.renderedCount;
+            const nextBatch = Math.min(remaining, clientHistoryState.chunkSize);
+            DOM.btnLoadMoreClientHistory.textContent = `Cargar más (${nextBatch.toLocaleString('es-MX')})`;
+        } else {
+            DOM.btnLoadMoreClientHistory.classList.add("hidden");
+        }
+    }
+}
+
+function loadMoreClientHistory() {
+    if (clientHistoryState.renderedCount >= clientHistoryState.currentOperations.length) return;
+    renderClientHistoryRows(clientHistoryState.renderedCount, clientHistoryState.chunkSize);
+}
+
+function toggleClientHistorySort() {
+    if (clientHistoryState.sortDir === "facturado_first") {
+        clientHistoryState.sortDir = "expirado_first";
+    } else {
+        clientHistoryState.sortDir = "facturado_first";
+    }
+
+    applyClientHistorySort();
+}
+
+function applyClientHistorySort() {
+    const dir = clientHistoryState.sortDir;
+    const icon = DOM.iconClientHistorySortStatus;
+
+    if (!dir) {
+        if (icon) {
+            icon.className = "fa-solid fa-sort";
+            icon.style.color = "";
+        }
+        clientHistoryState.currentOperations = [...clientHistoryState.allOperations];
+    } else {
+        if (dir === "facturado_first") {
+            if (icon) {
+                icon.className = "fa-solid fa-arrow-down";
+                icon.style.color = "#10b981";
+            }
+            if (DOM.thClientHistoryStatus) {
+                DOM.thClientHistoryStatus.title = "Orden: Facturado → Pendiente → Expirado (clic para invertir)";
+            }
+        } else if (dir === "expirado_first") {
+            if (icon) {
+                icon.className = "fa-solid fa-arrow-up";
+                icon.style.color = "#f59e0b";
+            }
+            if (DOM.thClientHistoryStatus) {
+                DOM.thClientHistoryStatus.title = "Orden: Expirado → Pendiente → Facturado (clic para invertir)";
+            }
+        }
+
+        clientHistoryState.currentOperations.sort((a, b) => {
+            const scoreA = getStatusOrderScore(a.estado, dir);
+            const scoreB = getStatusOrderScore(b.estado, dir);
+            if (scoreA !== scoreB) return scoreA - scoreB;
+            const dateA = a.fecha_registro || "";
+            const dateB = b.fecha_registro || "";
+            if (dateA !== dateB) return dateB.localeCompare(dateA);
+            const cotA = a.numero_cotizacion || "";
+            const cotB = b.numero_cotizacion || "";
+            return cotB.localeCompare(cotA);
+        });
+    }
+
+    clientHistoryState.renderedCount = 0;
+    if (DOM.clientHistoryTableContainer) {
+        DOM.clientHistoryTableContainer.scrollTop = 0;
+    }
+    renderClientHistoryRows(0, clientHistoryState.chunkSize);
+}
+
 async function openClientHistoryModal(numeroCliente) {
     if (!numeroCliente) {
         showToast("Por favor ingresa un número de cliente.", "info");
@@ -6828,14 +6989,26 @@ async function openClientHistoryModal(numeroCliente) {
     const cleanNum = String(numeroCliente).trim();
     if (!cleanNum || !DOM.clientHistoryModal) return;
 
+    clientHistoryState.activeNumeroCliente = cleanNum;
+    clientHistoryState.sortDir = null;
+    if (DOM.iconClientHistorySortStatus) {
+        DOM.iconClientHistorySortStatus.className = "fa-solid fa-sort";
+        DOM.iconClientHistorySortStatus.style.color = "";
+    }
+    if (DOM.thClientHistoryStatus) {
+        DOM.thClientHistoryStatus.title = "Clic para ordenar por Estado (Facturado / Pendiente / Expirado)";
+    }
+
     if (DOM.clientHistorySubtitle) DOM.clientHistorySubtitle.textContent = `Consultando historial para el cliente: ${cleanNum}...`;
     if (DOM.clientHistoryTotalQuotes) DOM.clientHistoryTotalQuotes.textContent = "0";
     if (DOM.clientHistoryInvoicedCount) DOM.clientHistoryInvoicedCount.textContent = "0";
     if (DOM.clientHistoryTotalQuoted) DOM.clientHistoryTotalQuoted.textContent = "$0.00";
     if (DOM.clientHistoryTotalInvoiced) DOM.clientHistoryTotalInvoiced.textContent = "$0.00";
     if (DOM.clientHistoryConversionRate) DOM.clientHistoryConversionRate.textContent = "0%";
+    if (DOM.clientHistoryCountInfo) DOM.clientHistoryCountInfo.textContent = "";
+    if (DOM.btnLoadMoreClientHistory) DOM.btnLoadMoreClientHistory.classList.add("hidden");
     if (DOM.clientHistoryTable) {
-        DOM.clientHistoryTable.innerHTML = '<tr><td colspan="7" style="text-align: center;">Cargando historial...</td></tr>';
+        DOM.clientHistoryTable.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 24px;">Cargando historial...</td></tr>';
     }
 
     DOM.clientHistoryModal.classList.remove("hidden");
@@ -6846,52 +7019,30 @@ async function openClientHistoryModal(numeroCliente) {
         const resumen = data.resumen || {};
         const ops = data.operaciones || [];
 
-        const clientName = data.cliente_nombre ? `${data.cliente_nombre} (${cleanNum})` : `Cliente No. ${cleanNum}`;
+        const clientName = data.cliente_nombre ? `${data.cliente_nombre} · No. SAP: ${data.numero_cliente || cleanNum}` : `Cliente No. ${cleanNum}`;
         if (DOM.clientHistorySubtitle) DOM.clientHistorySubtitle.textContent = clientName;
 
-        if (DOM.clientHistoryTotalQuotes) DOM.clientHistoryTotalQuotes.textContent = resumen.total_cotizaciones || 0;
-        if (DOM.clientHistoryInvoicedCount) DOM.clientHistoryInvoicedCount.textContent = resumen.total_facturadas || 0;
-        if (DOM.clientHistoryTotalQuoted) DOM.clientHistoryTotalQuoted.textContent = `$${formatNumber(resumen.importe_cotizado || 0)}`;
-        if (DOM.clientHistoryTotalInvoiced) DOM.clientHistoryTotalInvoiced.textContent = `$${formatNumber(resumen.importe_facturado || 0)}`;
+        if (DOM.clientHistoryTotalQuotes) DOM.clientHistoryTotalQuotes.textContent = (resumen.total_cotizaciones || 0).toLocaleString('es-MX');
+        if (DOM.clientHistoryInvoicedCount) DOM.clientHistoryInvoicedCount.textContent = (resumen.total_facturadas || 0).toLocaleString('es-MX');
+        if (DOM.clientHistoryTotalQuoted) DOM.clientHistoryTotalQuoted.textContent = `$${Number(resumen.importe_cotizado || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (DOM.clientHistoryTotalInvoiced) DOM.clientHistoryTotalInvoiced.textContent = `$${Number(resumen.importe_facturado || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         if (DOM.clientHistoryConversionRate) DOM.clientHistoryConversionRate.textContent = `${resumen.tasa_conversion || 0}%`;
 
-        if (DOM.clientHistoryTable) {
-            DOM.clientHistoryTable.innerHTML = "";
-            if (ops.length === 0) {
-                DOM.clientHistoryTable.innerHTML = '<tr><td colspan="7" style="text-align: center;">No se registraron operaciones para este cliente.</td></tr>';
-                return;
-            }
+        clientHistoryState.allOperations = ops.slice();
+        clientHistoryState.currentOperations = ops.slice();
+        clientHistoryState.renderedCount = 0;
 
-            ops.forEach(op => {
-                let statusBadge = `<span class="badge badge-secondary">${escapeHTML(op.estado || 'Pendiente')}</span>`;
-                if (op.estado === "Facturado") {
-                    statusBadge = `<span class="badge badge-success" style="background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4);">Facturado</span>`;
-                } else if (op.estado === "Venta Perdida") {
-                    statusBadge = `<span class="badge badge-danger" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4);">Venta Perdida</span>`;
-                } else if (op.estado === "Expirada") {
-                    statusBadge = `<span class="badge badge-secondary" style="background: rgba(156, 163, 175, 0.2); color: #9ca3af;">Expirada</span>`;
-                } else if (op.estado === "Pendiente") {
-                    statusBadge = `<span class="badge badge-warning" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4);">Pendiente</span>`;
-                }
-
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td><code>${escapeHTML(op.numero_cotizacion || 'S/N')}</code></td>
-                    <td>${op.fecha_registro ? escapeHTML(op.fecha_registro.split('T')[0]) : '-'}</td>
-                    <td>${escapeHTML(op.canal || '-')}</td>
-                    <td><strong>$${formatNumber(op.total_cotizado || 0)}</strong></td>
-                    <td>$${formatNumber(op.importe_facturado || 0)}${op.numero_factura ? ` <small class="text-muted">(${escapeHTML(op.numero_factura)})</small>` : ''}</td>
-                    <td>${statusBadge}</td>
-                    <td>${escapeHTML(op.vendedor_nombre || '-')}</td>
-                `;
-                DOM.clientHistoryTable.appendChild(tr);
-            });
+        if (DOM.clientHistoryTableContainer) {
+            DOM.clientHistoryTableContainer.scrollTop = 0;
         }
+
+        renderClientHistoryRows(0, clientHistoryState.chunkSize);
     } catch (err) {
         showToast("Error al cargar historial del cliente: " + err.message, "error");
         if (DOM.clientHistoryTable) {
-            DOM.clientHistoryTable.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #ef4444;">${escapeHTML(err.message)}</td></tr>`;
+            DOM.clientHistoryTable.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #ef4444; padding: 24px;">${escapeHTML(err.message)}</td></tr>`;
         }
+        if (DOM.clientHistorySubtitle) DOM.clientHistorySubtitle.textContent = "Error al cargar datos.";
     }
 }
 
@@ -6918,6 +7069,20 @@ if (DOM.searchClientHistoryInput) {
         if (e.key === "Enter") {
             e.preventDefault();
             openClientHistoryModal(DOM.searchClientHistoryInput.value);
+        }
+    });
+}
+if (DOM.thClientHistoryStatus) {
+    DOM.thClientHistoryStatus.addEventListener("click", toggleClientHistorySort);
+}
+if (DOM.btnLoadMoreClientHistory) {
+    DOM.btnLoadMoreClientHistory.addEventListener("click", loadMoreClientHistory);
+}
+if (DOM.clientHistoryTableContainer) {
+    DOM.clientHistoryTableContainer.addEventListener("scroll", () => {
+        const { scrollTop, scrollHeight, clientHeight } = DOM.clientHistoryTableContainer;
+        if (scrollTop + clientHeight >= scrollHeight - 60) {
+            loadMoreClientHistory();
         }
     });
 }
@@ -10755,57 +10920,6 @@ document.addEventListener("click", (e) => {
    HU-1, HU-2, HU-3 FUNCTIONS & EVENT LISTENERS
    ========================================================================== */
 
-// --- HU-2: HISTORIAL DEL CLIENTE ---
-async function openClientHistoryModal(numeroCliente) {
-    if (!numeroCliente) return;
-    if (!DOM.clientHistoryModal) return;
-
-    DOM.clientHistorySubtitle.textContent = `Buscando historial para el Cliente No. ${escapeHTML(numeroCliente)}...`;
-    DOM.clientHistoryTable.innerHTML = '<tr><td colspan="7" class="text-center">Cargando operaciones...</td></tr>';
-    DOM.clientHistoryModal.classList.remove("hidden");
-
-    try {
-        const res = await apiRequest(`/api/v1/cotizaciones/historial-cliente?numero_cliente=${encodeURIComponent(numeroCliente)}`);
-        const history = res.data;
-
-        const nombre = history.cliente_nombre || `Cliente No. ${numeroCliente}`;
-        DOM.clientHistorySubtitle.textContent = `${escapeHTML(nombre)} · No. SAP: ${escapeHTML(history.numero_cliente)}`;
-
-        DOM.clientHistoryTotalQuotes.textContent = history.resumen.total_cotizaciones;
-        DOM.clientHistoryInvoicedCount.textContent = history.resumen.total_facturadas;
-        DOM.clientHistoryTotalQuoted.textContent = `$${history.resumen.importe_cotizado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-        DOM.clientHistoryTotalInvoiced.textContent = `$${history.resumen.importe_facturado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
-        DOM.clientHistoryConversionRate.textContent = `${history.resumen.tasa_conversion}%`;
-
-        if (!history.operaciones || history.operaciones.length === 0) {
-            DOM.clientHistoryTable.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No se encontraron operaciones registradas para este cliente.</td></tr>';
-            return;
-        }
-
-        DOM.clientHistoryTable.innerHTML = history.operaciones.map(op => {
-            let badgeClass = "badge-secondary";
-            if (op.estado === "Facturado") badgeClass = "badge-success";
-            else if (op.estado === "Venta Perdida") badgeClass = "badge-danger";
-            else if (op.estado === "Expirada") badgeClass = "badge-warning";
-            else if (op.estado === "Pendiente") badgeClass = "badge-primary";
-
-            return `
-                <tr>
-                    <td><strong>${escapeHTML(op.numero_cotizacion || 'Sin #')}</strong></td>
-                    <td>${op.fecha_registro || '-'}</td>
-                    <td>${escapeHTML(op.canal || '-')}</td>
-                    <td>$${op.total_cotizado.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</td>
-                    <td>${op.importe_facturado > 0 ? '$' + op.importe_facturado.toLocaleString('es-MX', { minimumFractionDigits: 2 }) : '-'}</td>
-                    <td><span class="badge ${badgeClass}">${op.estado}</span></td>
-                    <td><small>${escapeHTML(op.vendedor_nombre || 'Asesor')}</small></td>
-                </tr>
-            `;
-        }).join("");
-    } catch (err) {
-        showToast("Error al obtener historial del cliente: " + err.message, "error");
-        DOM.clientHistorySubtitle.textContent = "Error al cargar datos.";
-    }
-}
 
 // --- HU-3: CLIENTES POTENCIALES DE PROMOCIÓN ---
 async function openPromoClientsModal(promoId) {

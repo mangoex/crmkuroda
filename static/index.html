@@ -3269,7 +3269,9 @@
                                 <th>Canal</th>
                                 <th>Total Cotizado</th>
                                 <th>Importe Facturado</th>
-                                <th>Estado</th>
+                                <th id="th-client-history-status" style="cursor: pointer; user-select: none; white-space: nowrap;" title="Clic para ordenar por Estado (Facturado / Pendiente / Expirado)">
+                                    Estado <i class="fa-solid fa-sort" id="icon-client-history-sort-status" style="margin-left: 4px; font-size: 11px;"></i>
+                                </th>
                                 <th>Vendedor</th>
                             </tr>
                         </thead>
@@ -3277,6 +3279,10 @@
                             <!-- Loaded dynamically -->
                         </tbody>
                     </table>
+                </div>
+                <div id="client-history-footer" style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-secondary, #94a3b8); padding: 4px 6px;">
+                    <span id="client-history-count-info"></span>
+                    <button id="btn-load-more-client-history" class="btn btn-secondary btn-sm hidden" type="button" style="font-size: 11px; padding: 3px 12px; border-radius: 4px;">Cargar más operaciones</button>
                 </div>
             </div>
             <div class="modal-footer">
@@ -3516,6 +3522,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.6.2"></script>
+    <script src="/static/app.js?v=1.6.3"></script>
 </body>
 </html>

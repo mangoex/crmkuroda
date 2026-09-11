@@ -129,6 +129,59 @@ class ClientHistoryTest(unittest.TestCase):
         # Newest first, so second quote's name appears first
         self.assertEqual(result["cliente_nombre"], "ACME CORP S.A.")
 
+    def test_projected_quote_without_heavy_columns(self):
+        """Simulate SQLAlchemy load_only where items, texto_propuesta, etc. are not loaded."""
+        class ProjectedQuote:
+            def __init__(self, **kwargs):
+                for k, v in kwargs.items():
+                    setattr(self, k, v)
+
+        quote = ProjectedQuote(
+            id="q-proj",
+            numero_cliente="400191",
+            cliente_nombre="MERCADO",
+            total=1500.50,
+            importe_facturado=1500.50,
+            numero_factura="FAC-999",
+            fecha_registro=date(2026, 8, 1),
+            fecha_factura=date(2026, 8, 2),
+            canal="Sucursal",
+            venta_perdida=None,
+            vendedor_nombre="Asesor Kuroda",
+            datos_contacto={"telefono": "6670000000"},
+            numero_cotizacion="COT-12345",
+        )
+        result = build_client_history("400191", [quote])
+        self.assertEqual(result["resumen"]["total_cotizaciones"], 1)
+        self.assertEqual(result["resumen"]["total_facturadas"], 1)
+        self.assertEqual(result["resumen"]["importe_cotizado"], 1500.50)
+        self.assertEqual(result["resumen"]["importe_facturado"], 1500.50)
+        self.assertEqual(result["operaciones"][0]["estado"], "Facturado")
+
+    def test_high_volume_exact_aggregation(self):
+        """Ensure calculations remain 100% exact with thousands of quotes (like MERCADO 15k+)."""
+        quotes = []
+        for i in range(1000):
+            # 500 invoiced, 300 expired, 200 pending
+            if i < 500:
+                q = _quote(id=f"q{i}", total=100, importe_facturado=100, numero_factura=f"F-{i}", fecha_registro=date(2026, 5, 1))
+            elif i < 800:
+                q = _quote(id=f"q{i}", total=50, fecha_registro=date(2026, 1, 1)) # expired
+            else:
+                q = _quote(id=f"q{i}", total=25, fecha_registro=date(2026, 6, 25)) # pending
+            quotes.append(q)
+
+        result = build_client_history("1001", quotes, today=date(2026, 7, 1))
+        self.assertEqual(result["resumen"]["total_cotizaciones"], 1000)
+        self.assertEqual(result["resumen"]["total_facturadas"], 500)
+        self.assertEqual(result["resumen"]["total_expiradas"], 300)
+        self.assertEqual(result["resumen"]["total_pendientes"], 200)
+        # 500*100 + 300*50 + 200*25 = 50000 + 15000 + 5000 = 70000
+        self.assertEqual(result["resumen"]["importe_cotizado"], 70000.0)
+        self.assertEqual(result["resumen"]["importe_facturado"], 50000.0)
+        self.assertEqual(result["resumen"]["tasa_conversion"], 50.0)
+
 
 if __name__ == "__main__":
     unittest.main()
+

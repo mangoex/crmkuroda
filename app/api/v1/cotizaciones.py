@@ -648,8 +648,34 @@ async def get_client_history(
             detail="El rol de soporte no tiene acceso a la analítica comercial.",
         )
 
-    query = select(Cotizacion).where(
-        func.upper(func.trim(Cotizacion.numero_cliente)) == numero_cliente.strip().upper()
+    clean_client_num = numero_cliente.strip()
+    query = (
+        select(Cotizacion)
+        .options(
+            load_only(
+                Cotizacion.id,
+                Cotizacion.vendedor_id,
+                Cotizacion.vendedor_nombre,
+                Cotizacion.cliente_nombre,
+                Cotizacion.numero_cliente,
+                Cotizacion.datos_contacto,
+                Cotizacion.total,
+                Cotizacion.numero_cotizacion,
+                Cotizacion.fecha_registro,
+                Cotizacion.canal,
+                Cotizacion.numero_factura,
+                Cotizacion.fecha_factura,
+                Cotizacion.importe_facturado,
+                Cotizacion.venta_perdida,
+            )
+        )
+        .where(
+            func.upper(func.trim(Cotizacion.numero_cliente)) == clean_client_num.upper()
+        )
+        .order_by(
+            Cotizacion.fecha_registro.desc().nullslast(),
+            Cotizacion.numero_cotizacion.desc().nullslast(),
+        )
     )
 
     if current_user.rol == "vendedor":

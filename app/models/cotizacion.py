@@ -20,7 +20,7 @@ class Cotizacion(Base):
     numero_cotizacion = Column(String, index=True, nullable=True)
     canal = Column(String, nullable=True)
     vendedor_nombre = Column(String, nullable=True)
-    numero_cliente = Column(String, nullable=True)
+    numero_cliente = Column(String, index=True, nullable=True)
     fecha_registro = Column(Date, nullable=True)
     numero_factura = Column(String, nullable=True)
     fecha_factura = Column(Date, nullable=True)

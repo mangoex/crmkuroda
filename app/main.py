@@ -56,6 +56,9 @@ async def lifespan(app: FastAPI):
             # Garantizar que la columna es_relevante exista en promociones sin importar el estado de Alembic
             await conn.execute(text("ALTER TABLE promociones ADD COLUMN IF NOT EXISTS es_relevante BOOLEAN NOT NULL DEFAULT FALSE;"))
             await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_promociones_es_relevante ON promociones (es_relevante);"))
+            # Garantizar índices de alto rendimiento para búsqueda de historial por número de cliente
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cotizaciones_numero_cliente ON cotizaciones (numero_cliente);"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cotizaciones_upper_trim_numero_cliente ON cotizaciones (upper(trim(numero_cliente)));"))
     except Exception as exc:
         print(f"Advertencia al sincronizar metadatos de BD: {exc}")
 
