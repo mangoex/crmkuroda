@@ -7705,17 +7705,13 @@ async function checkMarketOpenRouterStatus() {
     const userRole = (state.user && state.user.rol) ? String(state.user.rol).toLowerCase().trim() : "";
     if (!["admin", "gerente"].includes(userRole)) return;
     
-    const apiKeyInput = document.getElementById("market-api-key-input");
     const statusBadge = document.getElementById("market-openrouter-status-badge");
     if (!statusBadge) return;
     
-    // 1. Restaurar clave previamente guardada en localStorage
-    const savedKey = localStorage.getItem("crm_kuroda_openrouter_key") || "";
-    if (savedKey && apiKeyInput && !apiKeyInput.value) {
-        apiKeyInput.value = savedKey;
-    }
+    // Limpieza de claves legacy en navegador para usar exclusivamente variables de entorno
+    localStorage.removeItem("crm_kuroda_openrouter_key");
     
-    // 2. Consultar al backend si tiene clave global en settings
+    // Consultar al backend si tiene clave global configurada en variables de entorno
     try {
         const res = await apiRequest("/api/v1/mercado/status");
         marketServerHasKey = !!res?.has_system_key;
@@ -7723,14 +7719,7 @@ async function checkMarketOpenRouterStatus() {
         marketServerHasKey = false;
     }
     
-    const currentKey = apiKeyInput ? apiKeyInput.value.trim() : "";
-    
-    if (currentKey) {
-        statusBadge.style.background = "rgba(16,185,129,0.15)";
-        statusBadge.style.borderColor = "#10b981";
-        statusBadge.style.color = "#10b981";
-        statusBadge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Clave Guardada en Navegador';
-    } else if (marketServerHasKey) {
+    if (marketServerHasKey) {
         statusBadge.style.background = "rgba(16,185,129,0.15)";
         statusBadge.style.borderColor = "#10b981";
         statusBadge.style.color = "#10b981";
@@ -7739,7 +7728,7 @@ async function checkMarketOpenRouterStatus() {
         statusBadge.style.background = "rgba(234,179,8,0.15)";
         statusBadge.style.borderColor = "#eab308";
         statusBadge.style.color = "#eab308";
-        statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> API Key Requerida';
+        statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Pendiente en Servidor';
     }
 }
 
@@ -7784,113 +7773,9 @@ if (btnCloseMarketPanel) {
     btnCloseMarketPanel.addEventListener("click", closeMarketAgentPanel);
 }
 
-// Input de API Key con persistencia automática en localStorage
-const marketApiKeyInput = document.getElementById("market-api-key-input");
-if (marketApiKeyInput) {
-    const storedKey = localStorage.getItem("crm_kuroda_openrouter_key");
-    if (storedKey) {
-        marketApiKeyInput.value = storedKey;
-    }
-    
-    marketApiKeyInput.addEventListener("input", (e) => {
-        const val = e.target.value.trim();
-        if (val) {
-            localStorage.setItem("crm_kuroda_openrouter_key", val);
-        } else {
-            localStorage.removeItem("crm_kuroda_openrouter_key");
-        }
-        checkMarketOpenRouterStatus();
-    });
-}
+// La API Key de OpenRouter se gestiona centralmente en el servidor vía variables de entorno de Railway (OPENROUTER_API_KEY).
+// Se mantiene limpieza automática de claves obsoletas en navegador (crm_kuroda_openrouter_key).
 
-// Botón de alternar visibilidad de API Key
-const btnToggleMarketKey = document.getElementById("btn-toggle-market-key-visibility");
-if (btnToggleMarketKey && marketApiKeyInput) {
-    btnToggleMarketKey.addEventListener("click", () => {
-        const isPassword = marketApiKeyInput.type === "password";
-        marketApiKeyInput.type = isPassword ? "text" : "password";
-        btnToggleMarketKey.innerHTML = isPassword ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
-    });
-}
-
-// Test OpenRouter Connection Button
-const btnTestOpenRouterKey = document.getElementById("btn-test-openrouter-key");
-if (btnTestOpenRouterKey) {
-    btnTestOpenRouterKey.addEventListener("click", async () => {
-        const apiKeyInput = document.getElementById("market-api-key-input");
-        const statusBadge = document.getElementById("market-openrouter-status-badge");
-        const keyVal = apiKeyInput ? apiKeyInput.value.trim() : "";
-        
-        btnTestOpenRouterKey.disabled = true;
-        btnTestOpenRouterKey.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Probando...';
-        
-        try {
-            const res = await apiRequest("/api/v1/mercado/test-connection", {
-                method: "POST",
-                body: JSON.stringify({ api_key: keyVal })
-            });
-            
-            if (res.connected) {
-                if (keyVal) {
-                    localStorage.setItem("crm_kuroda_openrouter_key", keyVal);
-                }
-                showToast(res.message || "Conexión con OpenRouter exitosa.");
-                if (statusBadge) {
-                    statusBadge.style.background = "rgba(16,185,129,0.15)";
-                    statusBadge.style.borderColor = "#10b981";
-                    statusBadge.style.color = "#10b981";
-                    statusBadge.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${res.label || "Conectado"}`;
-                }
-            } else {
-                showToast(res.message || "No se pudo conectar a OpenRouter.", "error");
-                if (statusBadge) {
-                    statusBadge.style.background = "rgba(239,68,68,0.15)";
-                    statusBadge.style.borderColor = "#ef4444";
-                    statusBadge.style.color = "#ef4444";
-                    statusBadge.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Sin conexión`;
-                }
-            }
-        } catch (err) {
-            showToast(err.message || "Error al verificar conexión", "error");
-        } finally {
-            btnTestOpenRouterKey.disabled = false;
-            btnTestOpenRouterKey.innerHTML = '<i class="fa-solid fa-vial"></i> Probar API';
-        }
-    });
-}
-
-// Botón para Guardar Clave Globalmente en el Servidor (para toda la empresa)
-const btnSaveGlobalKey = document.getElementById("btn-save-global-openrouter-key");
-if (btnSaveGlobalKey) {
-    btnSaveGlobalKey.addEventListener("click", async () => {
-        const apiKeyInput = document.getElementById("market-api-key-input");
-        const keyVal = apiKeyInput ? apiKeyInput.value.trim() : "";
-        if (!keyVal) {
-            showToast("Por favor ingresa primero tu clave de OpenRouter en el campo para guardarla en el servidor.", "warning");
-            if (apiKeyInput) apiKeyInput.focus();
-            return;
-        }
-        
-        btnSaveGlobalKey.disabled = true;
-        btnSaveGlobalKey.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando en Servidor...';
-        
-        try {
-            const res = await apiRequest("/api/v1/mercado/save-global-key", {
-                method: "POST",
-                body: JSON.stringify({ api_key: keyVal })
-            });
-            showToast(res.message || "Clave configurada globalmente en el servidor.");
-            localStorage.setItem("crm_kuroda_openrouter_key", keyVal);
-            marketServerHasKey = true;
-            await checkMarketOpenRouterStatus();
-        } catch (err) {
-            showToast(err.message || "Error al guardar la clave en el servidor.", "error");
-        } finally {
-            btnSaveGlobalKey.disabled = false;
-            btnSaveGlobalKey.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Guardar Global';
-        }
-    });
-}
 
 // Inicializar estado de API Key al cargar el documento (exclusivo para gerentes y administradores)
 setTimeout(() => {
@@ -8152,22 +8037,9 @@ if (marketAgentForm) {
             .map(c => c.dataset.competitor)
             .filter(Boolean);
             
-        const savedKey = localStorage.getItem("crm_kuroda_openrouter_key") || "";
-        const apiKeyInputEl = document.getElementById("market-api-key-input");
-        const apiKeyCustom = (apiKeyInputEl?.value || "").trim() || savedKey;
-        
-        // Validar que se cuente con una API Key antes de lanzar la búsqueda
-        if (!apiKeyCustom && !marketServerHasKey) {
-            showToast("Se requiere una API Key de OpenRouter para buscar precios en internet. Por favor introdúcela en la barra superior.", "warning");
-            if (apiKeyInputEl) {
-                apiKeyInputEl.focus();
-                apiKeyInputEl.style.borderColor = "#f59e0b";
-                apiKeyInputEl.style.boxShadow = "0 0 0 3px rgba(245, 158, 11, 0.25)";
-                setTimeout(() => {
-                    apiKeyInputEl.style.borderColor = "";
-                    apiKeyInputEl.style.boxShadow = "";
-                }, 3000);
-            }
+        // Validar que el servidor cuente con la API Key configurada globalmente
+        if (!marketServerHasKey) {
+            showToast("El servicio de IA en el servidor aún no tiene configurada OPENROUTER_API_KEY en las variables de entorno de Railway.", "warning");
             return;
         }
         
@@ -8192,8 +8064,7 @@ if (marketAgentForm) {
                 ciudad: city,
                 estado: stateName,
                 pais: country,
-                competidores: activeChips,
-                api_key_override: apiKeyCustom || null
+                competidores: activeChips
             };
             
             showToast("Rastreando publicaciones y precios en internet...", "info");
