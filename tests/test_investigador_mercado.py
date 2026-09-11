@@ -436,10 +436,12 @@ def test_investigar_requiere_api_key_cuando_no_hay_global():
         assert "API Key" in error_text
 
 
-def test_investigar_propaga_error_401_claramente():
+def test_investigar_error_openrouter_devuelve_502_no_401_para_evitar_logout():
     """
-    Verifica que si OpenRouter responde 401 (Unauthorized), la API devuelva HTTP 401
-    y no enmascare el error en un análisis referencial vacío.
+    BLINDAJE DE SESIÓN (Regla de Oro):
+    Si OpenRouter responde con fallo de autenticación (PermissionError/401 upstream),
+    la API DEBE devolver HTTP 502 Bad Gateway y NUNCA HTTP 401.
+    Devolver HTTP 401 dispararía el interceptor global del frontend expulsando al usuario (auto-logout).
     """
     client = TestClient(app)
     with patch("app.agents.investigador_mercado_agent.call_llm_openrouter_web", side_effect=PermissionError("Error 401: Clave no válida")):
@@ -453,10 +455,12 @@ def test_investigar_propaga_error_401_claramente():
                 "api_key_override": "sk-or-invalid"
             }
         )
-        assert response.status_code == 401
+        # Debe ser 502 Bad Gateway para no confundirse con la expiración de la sesión JWT del CRM
+        assert response.status_code == 502
+        assert response.status_code != 401
         data = response.json()
         error_text = data.get("message", data.get("detail", ""))
-        assert "401" in error_text
+        assert "autenticación" in error_text.lower() or "openrouter" in error_text.lower()
 
 
 def test_frontend_persiste_openrouter_key():

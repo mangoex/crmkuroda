@@ -8213,13 +8213,13 @@ if (marketAgentForm) {
         } catch (err) {
             const errMsg = err.message || "Error al investigar el mercado.";
             showToast(errMsg, "error");
-            if (errMsg.includes("401") || errMsg.toLowerCase().includes("autenticación") || errMsg.toLowerCase().includes("api key") || errMsg.toLowerCase().includes("clave")) {
+            if (errMsg.includes("401") || errMsg.includes("502") || errMsg.toLowerCase().includes("autenticación") || errMsg.toLowerCase().includes("api key") || errMsg.toLowerCase().includes("clave") || errMsg.toLowerCase().includes("openrouter")) {
                 const statusBadge = document.getElementById("market-openrouter-status-badge");
                 if (statusBadge) {
                     statusBadge.style.background = "rgba(239,68,68,0.15)";
                     statusBadge.style.borderColor = "#ef4444";
                     statusBadge.style.color = "#ef4444";
-                    statusBadge.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Clave Inválida (401)`;
+                    statusBadge.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Clave Inválida / Error Proveedor`;
                 }
                 if (apiKeyInputEl) {
                     apiKeyInputEl.focus();

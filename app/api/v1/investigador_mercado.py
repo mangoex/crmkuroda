@@ -202,14 +202,20 @@ async def ejecutar_investigacion_mercado(
     except PermissionError as p_err:
         logger.error(f"Error de autenticación OpenRouter: {p_err}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(p_err)
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Fallo de autenticación con el proveedor de IA (OpenRouter): {str(p_err)}"
         )
     except ValueError as v_err:
         logger.error(f"Error de validación en OpenRouter: {v_err}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(v_err)
+        )
+    except RuntimeError as r_err:
+        logger.error(f"Error de servicio OpenRouter: {r_err}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(r_err)
         )
     except Exception as exc:
         logger.error(f"Fallo en investigación de mercado: {exc}")
