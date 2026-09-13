@@ -7,7 +7,7 @@ from datetime import date
 class CotizacionBase(BaseModel):
     cliente_nombre: str
     datos_contacto: dict[str, Any] = Field(description="JSON con email, telefono, etc.")
-    items: list[dict[str, Any]] = Field(description="Lista de items: [{'producto': str, 'cantidad': int, 'precio_unitario': float}]")
+    items: list[dict[str, Any]] = Field(description="Lista de items: [{'producto': str, 'cantidad': int, 'precio_unitario': Decimal}]")
     total: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
     texto_propuesta: Optional[str] = None
     

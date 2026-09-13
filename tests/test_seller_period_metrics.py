@@ -69,9 +69,9 @@ class TestSellerPeriodMetrics(unittest.TestCase):
 
         self.assertEqual(metrics["total_quotes"], 3)
         self.assertEqual(metrics["invoiced_quotes"], 2) # q1 y q2
-        self.assertEqual(metrics["total_quoted"], 6000.00) # 1000 + 2000 + 3000
-        self.assertEqual(metrics["total_invoiced"], 3000.00) # 1000 + 2000
-        self.assertEqual(round(metrics["conversion_rate"], 2), 66.67) # 2/3 = 66.67%
+        self.assertEqual(metrics["total_quoted"], Decimal("6000.00")) # 1000 + 2000 + 3000
+        self.assertEqual(metrics["total_invoiced"], Decimal("3000.00")) # 1000 + 2000
+        self.assertAlmostEqual(float(metrics["conversion_rate"]), 66.67, places=2) # 2/3 = 66.67%
 
     def test_monthly_period_metrics(self):
         """Mes: q1, q2 y q3 pertenecen a Agosto 2026. q4 es de Julio."""
@@ -80,9 +80,9 @@ class TestSellerPeriodMetrics(unittest.TestCase):
 
         self.assertEqual(metrics["total_quotes"], 3)
         self.assertEqual(metrics["invoiced_quotes"], 2)
-        self.assertEqual(metrics["total_quoted"], 6000.00)
-        self.assertEqual(metrics["total_invoiced"], 3000.00)
-        self.assertEqual(round(metrics["conversion_rate"], 2), 66.67)
+        self.assertEqual(metrics["total_quoted"], Decimal("6000.00"))
+        self.assertEqual(metrics["total_invoiced"], Decimal("3000.00"))
+        self.assertAlmostEqual(float(metrics["conversion_rate"]), 66.67, places=2)
 
     def test_empty_period_zero_division(self):
         """Periodo sin cotizaciones debe retornar 0.00% sin lanzar ZeroDivisionError."""

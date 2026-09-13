@@ -253,16 +253,16 @@ def aggregate_channels(
             group["importe_facturado"] / operations if operations else Decimal("0")
         )
         group["participacion"] = (
-            round(float(group["importe_facturado"] / total_invoiced * 100), 2)
+            round(Decimal(group["importe_facturado"] / total_invoiced * 100), 2)
             if total_invoiced
             else 0
         )
         result.append(
             {
                 **group,
-                "importe_cotizado": float(group["importe_cotizado"]),
-                "importe_facturado": float(group["importe_facturado"]),
-                "ticket_promedio": float(group["ticket_promedio"]),
+                "importe_cotizado": Decimal(group["importe_cotizado"]),
+                "importe_facturado": Decimal(group["importe_facturado"]),
+                "ticket_promedio": Decimal(group["ticket_promedio"]),
             }
         )
     return sorted(result, key=lambda item: item["importe_facturado"], reverse=True)
@@ -303,11 +303,11 @@ def aggregate_channel_summary_rows(
                 "etiqueta": display_name,
                 "cotizaciones": quotes,
                 "operaciones_facturadas": operations,
-                "importe_cotizado": float(decimal_value(quoted_total)),
-                "importe_facturado": float(invoiced),
+                "importe_cotizado": Decimal(decimal_value(quoted_total)),
+                "importe_facturado": Decimal(invoiced),
                 "conversion": round(operations / quotes * 100, 2) if quotes else 0,
-                "ticket_promedio": float(invoiced / operations) if operations else 0,
-                "participacion": round(float(invoiced / total_invoiced * 100), 2)
+                "ticket_promedio": Decimal(invoiced / operations) if operations else 0,
+                "participacion": round(Decimal(invoiced / total_invoiced * 100), 2)
                 if total_invoiced
                 else 0,
             }
@@ -363,10 +363,10 @@ def aggregate_material_items(
         result.append(
             {
                 **group,
-                "cantidad_cotizada": float(group["cantidad_cotizada"]),
-                "importe_cotizado": float(group["importe_cotizado"]),
-                "cantidad_facturada": float(group["cantidad_facturada"]),
-                "importe_facturado": float(group["importe_facturado"]),
+                "cantidad_cotizada": Decimal(group["cantidad_cotizada"]),
+                "importe_cotizado": Decimal(group["importe_cotizado"]),
+                "cantidad_facturada": Decimal(group["cantidad_facturada"]),
+                "importe_facturado": Decimal(group["importe_facturado"]),
             }
         )
     return sorted(
@@ -447,16 +447,16 @@ def build_seller_performance(
                 "vendedor_id": str(seller.id),
                 "codigo_vendedor": seller.codigo_vendedor,
                 "vendedor": seller.nombre_completo or seller.email,
-                "meta": float(goal),
-                "importe_cotizado": float(quote_total),
-                "venta_facturada": float(invoice_total),
-                "cumplimiento": round(float(invoice_total / goal * 100), 2) if goal else 0,
+                "meta": Decimal(goal),
+                "importe_cotizado": Decimal(quote_total),
+                "venta_facturada": Decimal(invoice_total),
+                "cumplimiento": round(Decimal(invoice_total / goal * 100), 2) if goal else 0,
                 "cotizaciones": len(seller_quotes),
                 "operaciones_facturadas": len(invoiced),
                 "conversion": round(len(invoiced) / len(seller_quotes) * 100, 2)
                 if seller_quotes
                 else 0,
-                "ticket_promedio": float(invoice_total / len(invoiced)) if invoiced else 0,
+                "ticket_promedio": Decimal(invoice_total / len(invoiced)) if invoiced else 0,
                 "pendientes": pending,
                 "consistencia_promedio": round(consistency, 2),
                 "ultima_actividad": max((log.date for log in seller_logs), default=None),
@@ -635,8 +635,8 @@ def find_clients_for_promotion(
         fecha_compra = client["ultima_compra"]
         result.append({
             **client,
-            "cantidad_total": float(client["cantidad_total"]),
-            "importe_total": float(client["importe_total"]),
+            "cantidad_total": Decimal(client["cantidad_total"]),
+            "importe_total": Decimal(client["importe_total"]),
             "ultima_compra": fecha_compra.isoformat() if fecha_compra else None,
         })
 
@@ -730,8 +730,8 @@ def build_seller_dashboard_metrics(
 
     canales_list = []
     for stats in sorted_channels:
-        monto_num = float(stats["monto"])
-        pct = round(float(stats["monto"] / total_sales * 100), 1) if total_sales > 0 else 0.0
+        monto_num = Decimal(stats["monto"])
+        pct = round(Decimal(stats["monto"] / total_sales * 100), 1) if total_sales > 0 else 0.0
         canales_list.append({
             "canal": stats["canal"],
             "color": stats["color"],
@@ -785,8 +785,8 @@ def build_seller_dashboard_metrics(
 
     clientes_list = []
     for cg in client_groups.values():
-        venta_num = float(cg["venta"])
-        pct = round(float(cg["venta"] / total_sales * 100), 1) if total_sales > 0 else 0.0
+        venta_num = Decimal(cg["venta"])
+        pct = round(Decimal(cg["venta"] / total_sales * 100), 1) if total_sales > 0 else 0.0
         top_mat = "Material general"
         if cg["groups_count"]:
             top_mat = max(cg["groups_count"].items(), key=lambda x: x[1])[0]
@@ -848,8 +848,8 @@ def build_seller_dashboard_metrics(
         materiales_list.append({
             "material": mg["material"],
             "grupo": mg["grupo"],
-            "unidades": int(mg["unidades"]) if mg["unidades"] == int(mg["unidades"]) else float(mg["unidades"]),
-            "monto": float(mg["monto"]),
+            "unidades": int(mg["unidades"]) if mg["unidades"] == int(mg["unidades"]) else Decimal(mg["unidades"]),
+            "monto": Decimal(mg["monto"]),
         })
     materiales_list.sort(key=lambda m: m["monto"], reverse=True)
 
@@ -858,7 +858,7 @@ def build_seller_dashboard_metrics(
 
     return {
         "totales": {
-            "venta_total": float(total_sales),
+            "venta_total": Decimal(total_sales),
             "cotizaciones": len(quotes),
         },
         "canales": canales_list,
@@ -899,7 +899,7 @@ def calculate_seller_period_metrics(
                 total_invoiced += inv_amt
 
     conversion_rate = (
-        round(float((Decimal(invoiced_quotes) / Decimal(total_quotes)) * Decimal("100")), 2)
+        round(Decimal((Decimal(invoiced_quotes) / Decimal(total_quotes)) * Decimal("100")), 2)
         if total_quotes > 0
         else 0.0
     )
@@ -907,8 +907,8 @@ def calculate_seller_period_metrics(
     return {
         "total_quotes": total_quotes,
         "invoiced_quotes": invoiced_quotes,
-        "total_quoted": float(total_quoted),
-        "total_invoiced": float(total_invoiced),
+        "total_quoted": Decimal(total_quoted),
+        "total_invoiced": Decimal(total_invoiced),
         "conversion_rate": conversion_rate,
     }
 
@@ -983,7 +983,7 @@ async def get_promociones_intelligence_summary(db: Any) -> dict[str, Any]:
     total_quotes_count = len(quotes_seen)
     invoiced_quotes_count = len(invoiced_quotes_seen)
     conversion = (
-        round(float((Decimal(invoiced_quotes_count) / Decimal(total_quotes_count)) * Decimal("100")), 2)
+        round(Decimal((Decimal(invoiced_quotes_count) / Decimal(total_quotes_count)) * Decimal("100")), 2)
         if total_quotes_count > 0
         else 0.0
     )
@@ -995,10 +995,10 @@ async def get_promociones_intelligence_summary(db: Any) -> dict[str, Any]:
                 "descripcion": s["descripcion"],
                 "cotizaciones": s["cotizaciones"],
                 "facturadas": s["facturadas"],
-                "monto_cotizado": float(s["monto_cotizado"]),
-                "monto_facturado": float(s["monto_facturado"]),
+                "monto_cotizado": Decimal(s["monto_cotizado"]),
+                "monto_facturado": Decimal(s["monto_facturado"]),
                 "conversion": round(
-                    float((Decimal(s["facturadas"]) / Decimal(s["cotizaciones"])) * Decimal("100")), 2
+                    Decimal((Decimal(s["facturadas"]) / Decimal(s["cotizaciones"])) * Decimal("100")), 2
                 )
                 if s["cotizaciones"] > 0
                 else 0.0,
@@ -1015,7 +1015,7 @@ async def get_promociones_intelligence_summary(db: Any) -> dict[str, Any]:
                 "vendedor": v["vendedor"],
                 "cotizaciones_promo": v["cotizaciones_promo"],
                 "facturadas_promo": v["facturadas_promo"],
-                "monto_promo_facturado": float(v["monto_promo_facturado"]),
+                "monto_promo_facturado": Decimal(v["monto_promo_facturado"]),
             }
             for v in seller_stats.values()
         ],
@@ -1027,8 +1027,8 @@ async def get_promociones_intelligence_summary(db: Any) -> dict[str, Any]:
         "total_cotizaciones_con_promo": total_quotes_count,
         "total_cotizaciones_promo_facturadas": invoiced_quotes_count,
         "total_partidas_promo": len(promo_records),
-        "total_monto_cotizado_promo": float(total_quoted_promo),
-        "total_monto_facturado_promo": float(total_invoiced_promo),
+        "total_monto_cotizado_promo": Decimal(total_quoted_promo),
+        "total_monto_facturado_promo": Decimal(total_invoiced_promo),
         "tasa_efectividad_promo": conversion,
         "top_skus_promo": top_skus[:20],
         "top_vendedores_promo": top_sellers[:15],

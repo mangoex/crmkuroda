@@ -237,9 +237,9 @@ def build_goals_dashboard(
             {
                 "vendedor_id": sid_str,
                 "vendedor": getattr(seller, "nombre_completo", None) or getattr(seller, "email", "Vendedor"),
-                "meta": float(target),
-                "venta_facturada": float(actual),
-                "cumplimiento": round(float(actual / target * 100), 2) if target else 0,
+                "meta": Decimal(target),
+                "venta_facturada": Decimal(actual),
+                "cumplimiento": round(Decimal(actual / target * 100), 2) if target else 0,
                 "origen_meta": "comercial" if configured else ("legada" if target else "sin_meta"),
             }
         )
@@ -258,9 +258,9 @@ def build_goals_dashboard(
         branch_rows.append(
             {
                 "sucursal": branch,
-                "meta": float(target),
-                "venta_facturada": float(actual),
-                "cumplimiento": round(float(actual / target * 100), 2) if target else 0,
+                "meta": Decimal(target),
+                "venta_facturada": Decimal(actual),
+                "cumplimiento": round(Decimal(actual / target * 100), 2) if target else 0,
                 "origen_meta": "comercial" if configured else "sin_meta",
             }
         )
@@ -299,15 +299,15 @@ def build_goals_dashboard(
             configured = bool(target)
 
         actual = sales_in_period(channel_quotes.get(ch, []), start, end)
-        pct_meta = round(float(target / general_target * 100), 2) if general_target else 0
-        pct_venta = round(float(actual / general_actual * 100), 2) if general_actual else 0
-        cumplimiento = round(float(actual / target * 100), 2) if target else 0
+        pct_meta = round(Decimal(target / general_target * 100), 2) if general_target else 0
+        pct_venta = round(Decimal(actual / general_actual * 100), 2) if general_actual else 0
+        cumplimiento = round(Decimal(actual / target * 100), 2) if target else 0
 
         channel_rows.append(
             {
                 "canal": ch,
-                "meta": float(target),
-                "venta_facturada": float(actual),
+                "meta": Decimal(target),
+                "venta_facturada": Decimal(actual),
                 "cumplimiento": cumplimiento,
                 "pct_meta_total": pct_meta,
                 "pct_venta_total": pct_venta,
@@ -325,9 +325,9 @@ def build_goals_dashboard(
             "fecha_fin": end.isoformat(),
         },
         "general": {
-            "meta": float(general_target),
-            "venta_facturada": float(general_actual),
-            "cumplimiento": round(float(general_actual / general_target * 100), 2) if general_target else 0,
+            "meta": Decimal(general_target),
+            "venta_facturada": Decimal(general_actual),
+            "cumplimiento": round(Decimal(general_actual / general_target * 100), 2) if general_target else 0,
             "origen_meta": "comercial" if general_configured else "sin_meta",
         },
         "vendedores": sorted(seller_rows, key=lambda row: row["venta_facturada"], reverse=True),

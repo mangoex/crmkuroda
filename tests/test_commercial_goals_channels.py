@@ -110,18 +110,18 @@ class CommercialGoalsChannelsTest(unittest.TestCase):
         self.assertIn("Envío a Domicilio", canales)
 
         inmediata = canales["Entrega Inmediata"]
-        self.assertEqual(inmediata["meta"], 600000.0)
-        self.assertEqual(inmediata["venta_facturada"], 500000.0)
-        self.assertAlmostEqual(inmediata["cumplimiento"], 83.33, places=1)
-        self.assertAlmostEqual(inmediata["pct_meta_total"], 60.0, places=1)
-        self.assertAlmostEqual(inmediata["pct_venta_total"], 83.33, places=1)
+        self.assertEqual(inmediata["meta"], Decimal("600000.0"))
+        self.assertEqual(inmediata["venta_facturada"], Decimal("500000.0"))
+        self.assertAlmostEqual(float(inmediata["cumplimiento"]), 83.33, places=1)
+        self.assertAlmostEqual(float(inmediata["pct_meta_total"]), 60.0, places=1)
+        self.assertAlmostEqual(float(inmediata["pct_venta_total"]), 83.33, places=1)
 
         domicilio = canales["Envío a Domicilio"]
-        self.assertEqual(domicilio["meta"], 400000.0)
-        self.assertEqual(domicilio["venta_facturada"], 100000.0)
-        self.assertAlmostEqual(domicilio["cumplimiento"], 25.0, places=1)
-        self.assertAlmostEqual(domicilio["pct_meta_total"], 40.0, places=1)
-        self.assertAlmostEqual(domicilio["pct_venta_total"], 16.67, places=1)
+        self.assertEqual(domicilio["meta"], Decimal("400000.0"))
+        self.assertEqual(domicilio["venta_facturada"], Decimal("100000.0"))
+        self.assertAlmostEqual(float(domicilio["cumplimiento"]), 25.0, places=1)
+        self.assertAlmostEqual(float(domicilio["pct_meta_total"]), 40.0, places=1)
+        self.assertAlmostEqual(float(domicilio["pct_venta_total"]), 16.67, places=1)
 
 
 if __name__ == "__main__":

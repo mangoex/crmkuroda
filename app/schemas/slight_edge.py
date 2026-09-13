@@ -1,14 +1,15 @@
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
+from decimal import Decimal
 
 class ActivityConfigItem(BaseModel):
     activity: str = Field(..., description="Nombre de la actividad/disciplina.")
     points: int = Field(..., ge=1, description="Peso en puntos asignados a la actividad.")
 
 class SlightEdgePlanCreate(BaseModel):
-    monthly_income_goal: float = Field(..., ge=0.0)
-    ticket_average: float = Field(..., ge=0.0)
-    conversion_rate: float = Field(..., ge=0.0, le=100.0)
+    monthly_income_goal: Decimal = Field(..., ge=0.0)
+    ticket_average: Decimal = Field(..., ge=0.0)
+    conversion_rate: Decimal = Field(..., ge=0.0, le=100.0)
     activities_config: List[ActivityConfigItem]
     daily_points_goal: int = Field(default=10, ge=1)
 
