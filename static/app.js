@@ -2477,6 +2477,16 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             const res = await apiRequest("/api/v1/inventario-abcf/");
             state.inventario_abcf = res.data || [];
         }
+
+        // Asegurar que las promociones estén disponibles como catálogo de respaldo de precios
+        if (!state.promociones || state.promociones.length === 0) {
+            try {
+                const promoRes = await apiRequest("/api/v1/promociones/");
+                state.promociones = promoRes.data || [];
+            } catch (promoErr) {
+                console.warn("No se pudieron pre-cargar promociones de respaldo para Inventario D:", promoErr);
+            }
+        }
         
         let inventario = [...state.inventario_abcf];
 
@@ -2695,7 +2705,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         const priceCatalogMap = new Map();
         if (state.inventario_abcf && Array.isArray(state.inventario_abcf)) {
             state.inventario_abcf.forEach(item => {
-                const sku = getInventoryProductKey(item);
+                const sku = String(getInventoryProductKey(item) || "").trim().toUpperCase();
                 const cp = Number(item.cantidad_propia || 0);
                 const ec = Number(item.existencia_consignacion || 0);
                 const p = Number(item.costo_promedio_unitario || 0) ||
@@ -2708,7 +2718,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         }
         if (state.promociones && Array.isArray(state.promociones)) {
             state.promociones.forEach(pr => {
-                const sku = String(pr.codigo_material || "").trim();
+                const sku = String(pr.codigo_material || "").trim().toUpperCase();
                 const p = Number(pr.precio_promocion || pr.precio_efectivo_promocion || pr.costo_promedio || 0);
                 if (sku && p > 0 && !priceCatalogMap.has(sku)) {
                     priceCatalogMap.set(sku, p);
@@ -2724,6 +2734,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         pageItems.forEach(i => {
             const tr = document.createElement("tr");
             const skuKey = getInventoryProductKey(i);
+            const skuKeyUpper = String(skuKey || "").trim().toUpperCase();
             const imageSearchUrl = buildProductImageSearchUrl({
                 codigo_material: skuKey,
                 descripcion_material: getInventoryDescription(i),
@@ -2738,8 +2749,8 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                     costoUnit = Number(i.importe_inventario_propio) / cantPropia;
                 } else if (cantConsig > 0 && Number(i.valor_consignacion_proveedor || 0) > 0) {
                     costoUnit = Number(i.valor_consignacion_proveedor) / cantConsig;
-                } else if (skuKey && priceCatalogMap.has(skuKey)) {
-                    costoUnit = priceCatalogMap.get(skuKey);
+                } else if (skuKeyUpper && priceCatalogMap.has(skuKeyUpper)) {
+                    costoUnit = priceCatalogMap.get(skuKeyUpper);
                 }
             }
 
