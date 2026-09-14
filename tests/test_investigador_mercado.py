@@ -861,5 +861,135 @@ async def test_investigar_mercado_modo_combinado_prioriza_y_conserva_todos():
         assert tiendas[2] == "Mercado Libre México"
 
 
+# ---------------------------------------------------------------------------
+# TDD Fase Roja: Resolución y Priorización de Precios Reales (Promociones / Cotizaciones)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_buscar_productos_prioriza_precio_promocion_sobre_inventario_cero():
+    """
+    SBD Criterio: Si un producto existe en inventario pero su precio/costo es 0 o estimado,
+    y tiene una promoción activa (ej. FORTISG15 con $5,685.00 MXN), debe priorizar y
+    adoptar el precio real de promoción y no descartarlo.
+    """
+    from app.api.v1.investigador_mercado import buscar_productos_catalogo
+    from app.models.inventario_abcf import InventarioAbcf
+    from app.models.promocion import Promocion
+    from unittest.mock import MagicMock
+
+    # Simular producto en inventario con costo 0 (o nulo) y 1 pieza
+    inv_item = InventarioAbcf(
+        id=1,
+        codigo_material="FORTISG15",
+        descripcion_material="CALENT CALOREX FORTIS DEPOSITO G15 LP",
+        cantidad_propia=1.0,
+        existencia_consignacion=0.0,
+        costo_promedio_unitario=0.0,
+        importe_inventario_propio=0.0,
+        abc_f="D5",
+        nombre_centro="MK04",
+        almacen="ME04"
+    )
+
+    # Simular promoción activa con precio $5,685.00 y 3 piezas
+    promo_item = Promocion(
+        id=501,
+        centro="MK01",
+        codigo_material="FORTISG15",
+        descripcion_material="CALENT CALOREX FORTIS DEPOSITO G15 LP",
+        precio_promocion=5685.00,
+        costo_promedio=3597.95,
+        costo_estandar=3597.95,
+        inventario_disponible=3.0,
+        margen_promocion=26.92,
+        indicador_abc="D5"
+    )
+
+    class MockScalars:
+        def __init__(self, data):
+            self._data = data
+        def all(self):
+            return self._data
+
+    class MockResult:
+        def __init__(self, data):
+            self._data = data
+        def scalars(self):
+            return MockScalars(self._data)
+
+    mock_db = AsyncMock()
+    # Simular dos llamadas sucesivas de db.execute:
+    # 1. select(InventarioAbcf) -> [inv_item]
+    # 2. select(Promocion) -> [promo_item]
+    # 3. select(CotizacionItem) -> []
+    mock_db.execute.side_effect = [
+        MockResult([inv_item]),
+        MockResult([promo_item]),
+        MockResult([]),
+    ]
+
+    productos = await buscar_productos_catalogo(q="FORTISG15", limit=15, db=mock_db)
+
+    assert len(productos) == 1
+    p = productos[0]
+    assert p.codigo_material == "FORTISG15"
+    # El precio DEBE ser el precio real de promoción ($5,685.00) y NO $0.00
+    assert p.precio_venta == 5685.00
+    assert p.costo_promedio == 3597.95
+    assert p.es_promocion is True
+    assert p.precio_promocion == 5685.00
+    assert p.origen == "promocion"
+
+
+@pytest.mark.asyncio
+async def test_buscar_productos_repara_costo_con_importe_e_inventario():
+    """
+    SBD Criterio: Si el costo_promedio_unitario es nulo o 0, pero existe importe_inventario_propio
+    y cantidad_propia, debe calcular determinísticamente el costo unitario (importe / cantidad).
+    """
+    from app.api.v1.investigador_mercado import buscar_productos_catalogo
+    from app.models.inventario_abcf import InventarioAbcf
+
+    inv_item = InventarioAbcf(
+        id=2,
+        codigo_material="CALENT-G30",
+        descripcion_material="CALENTADOR DEPOSITO G30",
+        cantidad_propia=2.0,
+        existencia_consignacion=0.0,
+        costo_promedio_unitario=0.0,
+        importe_inventario_propio=8000.00,  # 8000 / 2 = 4000 de costo
+        abc_f="B",
+        nombre_centro="MK01"
+    )
+
+    class MockScalars:
+        def __init__(self, data):
+            self._data = data
+        def all(self):
+            return self._data
+
+    class MockResult:
+        def __init__(self, data):
+            self._data = data
+        def scalars(self):
+            return MockScalars(self._data)
+
+    mock_db = AsyncMock()
+    mock_db.execute.side_effect = [
+        MockResult([inv_item]),
+        MockResult([]),  # Sin promociones
+        MockResult([]),  # Sin cotizaciones
+    ]
+
+    productos = await buscar_productos_catalogo(q="CALENT-G30", limit=15, db=mock_db)
+
+    assert len(productos) == 1
+    p = productos[0]
+    assert p.costo_promedio == 4000.00
+    # Margen estimado 1.38 * 4000 = 5520.00
+    assert p.precio_venta == 5520.00
+
+
+
 
 

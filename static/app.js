@@ -7973,6 +7973,9 @@ function clearSelectedMarketProduct() {
     const card = document.getElementById("market-product-selected-card");
     if (card) card.classList.add("hidden");
     
+    const promoBadge = document.getElementById("market-sel-prod-promo-badge");
+    if (promoBadge) promoBadge.classList.add("hidden");
+    
     const searchInput = document.getElementById("market-product-search");
     if (searchInput) {
         searchInput.value = "";
@@ -8023,14 +8026,21 @@ if (marketProductSearchInput && marketProductDropdown) {
                 productos.forEach(p => {
                     const itemDiv = document.createElement("div");
                     itemDiv.className = "market-product-item";
+                    const isPromo = Boolean(p.es_promocion || p.origen === "promocion");
+                    const priceLabel = isPromo ? "Precio Promo" : (p.origen === "cotizacion" ? "P. Cotizado" : "P. Lista");
+                    const promoBadge = isPromo ? '<span class="badge" style="background: rgba(236,72,153,0.15); color: #ec4899; font-size: 10px; font-weight: 700; margin-left: 6px;"><i class="fa-solid fa-tag"></i> PROMO</span>' : '';
+
                     itemDiv.innerHTML = `
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <strong>${p.codigo_material}</strong>
+                            <div style="display: flex; align-items: center;">
+                                <strong>${p.codigo_material}</strong>
+                                ${promoBadge}
+                            </div>
                             <span class="badge" style="font-size: 10px;">${p.abc_f}</span>
                         </div>
                         <div style="font-size: 12px; margin-top: 2px;">${p.descripcion_material}</div>
                         <div style="font-size: 11px; color: hsl(var(--text-secondary)); margin-top: 4px;">
-                            P. Lista: <span style="color: #10b981; font-weight: 600;">$${p.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span> | 
+                            ${priceLabel}: <span style="color: #10b981; font-weight: 600;">$${p.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span> | 
                             Costo: $${p.costo_promedio.toLocaleString('es-MX', { minimumFractionDigits: 2 })} | 
                             Stock: ${p.stock_disponible} pzas
                         </div>
@@ -8070,6 +8080,20 @@ function selectMarketProduct(p) {
     document.getElementById("market-sel-prod-stock").textContent = `${p.stock_disponible} pzas`;
     document.getElementById("market-sel-prod-abc").textContent = `Mat. ${p.abc_f}`;
     
+    const isPromo = Boolean(p.es_promocion || p.origen === "promocion");
+    const promoBadge = document.getElementById("market-sel-prod-promo-badge");
+    if (promoBadge) {
+        if (isPromo) {
+            promoBadge.classList.remove("hidden");
+        } else {
+            promoBadge.classList.add("hidden");
+        }
+    }
+    const priceLabel = document.getElementById("market-sel-prod-price-label");
+    if (priceLabel) {
+        priceLabel.textContent = isPromo ? "Precio Promo Actual:" : (p.origen === "cotizacion" ? "P. Cotizado Reciente:" : "P. Lista Actual:");
+    }
+    
     document.getElementById("market-product-selected-card").classList.remove("hidden");
     marketProductSearchInput.value = `${p.codigo_material} - ${p.descripcion_material}`;
     marketProductDropdown.classList.add("hidden");
@@ -8077,6 +8101,7 @@ function selectMarketProduct(p) {
     const btnClear = document.getElementById("btn-clear-market-product-input");
     if (btnClear) btnClear.classList.remove("hidden");
 }
+
 
 // Competitors Chip Toggle & Adding custom chips
 function updateMarketStrictModeUI() {
