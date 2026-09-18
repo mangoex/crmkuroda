@@ -163,6 +163,224 @@
             <!-- Dashboard Sections -->
             <div class="content-body">
                 
+                <!-- ============================================================
+                     NUEVA VISTA MÓVIL EXCLUSIVA DEL VENDEDOR (UI/UX 2026)
+                     ============================================================ -->
+                <div id="seller-mobile-view" class="seller-mobile-view hidden">
+                    
+                    <!-- Header Superior Móvil -->
+                    <header class="seller-mobile-header" id="seller-mobile-header">
+                        <div class="seller-mobile-user-row">
+                            <div class="seller-mobile-avatar-col">
+                                <div class="seller-mobile-avatar" id="seller-mobile-avatar">
+                                    <span id="seller-mobile-initials">VK</span>
+                                </div>
+                                <div class="seller-mobile-greeting">
+                                    <span class="seller-mobile-sub">Asesor Comercial</span>
+                                    <h1 id="seller-mobile-name">Hola, Vendedor</h1>
+                                </div>
+                            </div>
+                            <div class="seller-mobile-top-actions">
+                                <button type="button" class="seller-mobile-icon-btn" id="seller-mobile-theme-btn" title="Cambiar tema">
+                                    <i class="fa-solid fa-moon" id="seller-mobile-theme-icon"></i>
+                                </button>
+                                <button type="button" class="seller-mobile-icon-btn" id="seller-mobile-reminders-btn" title="Recordatorios de seguimiento">
+                                    <i class="fa-solid fa-bell"></i>
+                                    <span id="seller-mobile-reminders-badge" class="seller-mobile-badge hidden">0</span>
+                                </button>
+                                <button type="button" class="seller-mobile-icon-btn danger" id="seller-mobile-logout-btn" title="Cerrar sesión">
+                                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <!-- TAB 1: SEGUIMIENTO DE ACTIVIDADES -->
+                    <div id="seller-mobile-tab-actividades" class="seller-mobile-tab active animate-fade-in">
+                        
+                        <!-- Tarjeta Hero de Cumplimiento de Meta (Estilo Imagen 3) -->
+                        <div class="seller-mobile-hero-card">
+                            <div class="seller-mobile-hero-header">
+                                <div class="seller-mobile-hero-title">
+                                    <i class="fa-solid fa-bullseye text-accent"></i>
+                                    <span id="seller-mobile-goal-title">Meta Comercial</span>
+                                </div>
+                                <div class="seller-mobile-period-pills" role="group">
+                                    <button type="button" class="seller-mobile-pill active" data-period="day">Día</button>
+                                    <button type="button" class="seller-mobile-pill" data-period="week">Semana</button>
+                                    <button type="button" class="seller-mobile-pill" data-period="month">Mes</button>
+                                </div>
+                            </div>
+
+                            <div class="seller-mobile-hero-content">
+                                <div class="seller-mobile-ring-wrap">
+                                    <div class="seller-mobile-progress-ring" id="seller-mobile-progress-ring" style="--progress: 0%;">
+                                        <div class="seller-mobile-ring-inner">
+                                            <strong id="seller-mobile-progress-pct">0%</strong>
+                                            <small>Logrado</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="seller-mobile-hero-stats">
+                                    <div class="seller-mobile-stat-row">
+                                        <span class="label">Facturado:</span>
+                                        <strong class="value highlight" id="seller-mobile-invoiced-val">$0.00</strong>
+                                    </div>
+                                    <div class="seller-mobile-stat-row">
+                                        <span class="label">Meta:</span>
+                                        <span class="value" id="seller-mobile-target-val">$0.00</span>
+                                    </div>
+                                    <div class="seller-mobile-stat-row">
+                                        <span class="label" id="seller-mobile-remaining-label">Falta:</span>
+                                        <span class="value" id="seller-mobile-remaining-val">$0.00</span>
+                                    </div>
+                                    <div class="seller-mobile-hero-badge" id="seller-mobile-days-left">
+                                        <i class="fa-regular fa-calendar-days"></i> <span>0 días restantes</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3 Micro Métricas Rápidas -->
+                        <div class="seller-mobile-quick-stats">
+                            <div class="seller-mobile-stat-chip">
+                                <div class="stat-icon-mini blue"><i class="fa-solid fa-file-lines"></i></div>
+                                <div>
+                                    <strong id="seller-mobile-quotes-count">0</strong>
+                                    <span>Cotizaciones</span>
+                                </div>
+                            </div>
+                            <div class="seller-mobile-stat-chip">
+                                <div class="stat-icon-mini green"><i class="fa-solid fa-receipt"></i></div>
+                                <div>
+                                    <strong id="seller-mobile-invoiced-count">0</strong>
+                                    <span>Facturadas</span>
+                                </div>
+                            </div>
+                            <div class="seller-mobile-stat-chip">
+                                <div class="stat-icon-mini purple"><i class="fa-solid fa-percent"></i></div>
+                                <div>
+                                    <strong id="seller-mobile-conversion-pct">0%</strong>
+                                    <span>Conversión</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Panel de Hábitos Comerciales Rápidos (La Ventaja) -->
+                        <div class="seller-mobile-card seller-mobile-habits-card">
+                            <div class="seller-mobile-card-header">
+                                <div class="title-with-icon">
+                                    <i class="fa-solid fa-bolt text-warning"></i>
+                                    <h3>Hábitos de Hoy</h3>
+                                </div>
+                                <span class="badge-mini">La Ventaja</span>
+                            </div>
+                            <div class="seller-mobile-habits-grid" id="seller-mobile-habits-list">
+                                <!-- Botones de hábitos cargados dinámicamente con +1 rápido -->
+                            </div>
+                        </div>
+
+                        <!-- Sección de Seguimiento a Clientes / Cotizaciones (Estilo Imagen 3) -->
+                        <div class="seller-mobile-card seller-mobile-followup-card">
+                            <div class="seller-mobile-card-header">
+                                <div class="title-with-icon">
+                                    <i class="fa-solid fa-user-clock text-primary"></i>
+                                    <h3>Seguimiento Prioritario</h3>
+                                </div>
+                                <span class="badge-counter" id="seller-mobile-pending-badge">0</span>
+                            </div>
+
+                            <!-- Buscador táctil de seguimiento -->
+                            <div class="seller-mobile-search-bar">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="search" id="seller-mobile-activity-search" placeholder="Buscar cliente o cotización...">
+                            </div>
+
+                            <!-- Filtros rápidos de chip -->
+                            <div class="seller-mobile-filter-chips">
+                                <button type="button" class="seller-filter-chip active" data-activity-filter="all">Todos</button>
+                                <button type="button" class="seller-filter-chip" data-activity-filter="urgent">🔥 Urgentes</button>
+                                <button type="button" class="seller-filter-chip" data-activity-filter="expiring">Por Vencer</button>
+                            </div>
+
+                            <!-- Feed de tarjetas de seguimiento táctiles -->
+                            <div class="seller-mobile-feed" id="seller-mobile-activity-feed">
+                                <!-- Loaded dynamically -->
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- TAB 2: CATÁLOGO DE PROMOCIONES (Estilo Imagen 1) -->
+                    <div id="seller-mobile-tab-promociones" class="seller-mobile-tab hidden animate-fade-in">
+                        
+                        <!-- Hero Banner Comercial (Estilo Imagen 1) -->
+                        <div class="seller-mobile-promo-banner">
+                            <div class="promo-banner-badge">
+                                <i class="fa-solid fa-crown"></i> FOCO COMERCIAL
+                            </div>
+                            <h2>Promociones Relevantes</h2>
+                            <p>Márgenes preferenciales y alta rotación de inventario para tus clientes</p>
+                        </div>
+
+                        <!-- Buscador de promociones -->
+                        <div class="seller-mobile-search-bar">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="search" id="seller-mobile-promo-search" placeholder="Buscar código, producto, marca...">
+                        </div>
+
+                        <!-- Chips horizontales de categorías / proveedores -->
+                        <div class="seller-mobile-chip-scroll" id="seller-mobile-promo-chips">
+                            <button type="button" class="seller-filter-chip active" data-promo-filter="all">Todas</button>
+                            <button type="button" class="seller-filter-chip star-chip" data-promo-filter="relevantes">⭐ Relevantes</button>
+                        </div>
+
+                        <!-- Feed de Tarjetas de Promoción (Estilo Imagen 1) -->
+                        <div class="seller-mobile-promo-grid" id="seller-mobile-promo-grid">
+                            <!-- Loaded dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: SEGUIMIENTO DE ENTREGAS Y PEDIDOS (Estilo Imagen 3) -->
+                    <div id="seller-mobile-tab-entregas" class="seller-mobile-tab hidden animate-fade-in">
+                        
+                        <div class="seller-mobile-section-header">
+                            <div>
+                                <h2>Seguimiento de Entregas</h2>
+                                <p class="text-sub">Estatus de pedidos en almacén y sobrepedidos</p>
+                            </div>
+                        </div>
+
+                        <!-- Semáforo Logístico Chips -->
+                        <div class="seller-mobile-status-chips">
+                            <button type="button" class="seller-status-chip active" data-delivery-filter="all">
+                                <span>Todas</span> <strong id="seller-deliv-count-all">0</strong>
+                            </button>
+                            <button type="button" class="seller-status-chip chip-green" data-delivery-filter="verde">
+                                <span class="status-dot green"></span> <span>En Almacén</span> <strong id="seller-deliv-count-verde">0</strong>
+                            </button>
+                            <button type="button" class="seller-status-chip chip-yellow" data-delivery-filter="amarillo">
+                                <span class="status-dot yellow"></span> <span>En Tránsito</span> <strong id="seller-deliv-count-amarillo">0</strong>
+                            </button>
+                            <button type="button" class="seller-status-chip chip-red" data-delivery-filter="rojo">
+                                <span class="status-dot red"></span> <span>Atención</span> <strong id="seller-deliv-count-rojo">0</strong>
+                            </button>
+                        </div>
+
+                        <!-- Buscador de Entregas -->
+                        <div class="seller-mobile-search-bar">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="search" id="seller-mobile-delivery-search" placeholder="Buscar por cliente, factura o pedido...">
+                        </div>
+
+                        <!-- Feed de Tarjetas de Entrega (Estilo Imagen 3) -->
+                        <div class="seller-mobile-delivery-feed" id="seller-mobile-delivery-feed">
+                            <!-- Loaded dynamically -->
+                        </div>
+                    </div>
+
+                </div>
+
                 <!-- Section 1: Summary / Dashboard -->
                 <section id="section-summary" class="dashboard-section active animate-fade-in">
                     <div id="seller-home-dashboard" class="seller-home-dashboard hidden">
@@ -3497,6 +3715,30 @@
             </div>
         </div>
     </div>
+
+    <!-- ============================================================
+         FLOATING DOCK EXCLUSIVO PARA VENDEDOR MÓVIL (Estilo Imagen 2)
+         ============================================================ -->
+    <nav class="seller-mobile-dock hidden" id="seller-mobile-dock" aria-label="Navegación móvil del vendedor">
+        <button type="button" class="seller-dock-item active" data-seller-tab="actividades">
+            <div class="dock-icon-wrap">
+                <i class="fa-solid fa-list-check"></i>
+            </div>
+            <span>Actividades</span>
+        </button>
+        <button type="button" class="seller-dock-item" data-seller-tab="promociones">
+            <div class="dock-icon-wrap">
+                <i class="fa-solid fa-fire"></i>
+            </div>
+            <span>Promociones</span>
+        </button>
+        <button type="button" class="seller-dock-item" data-seller-tab="entregas">
+            <div class="dock-icon-wrap">
+                <i class="fa-solid fa-truck-fast"></i>
+            </div>
+            <span>Entregas</span>
+        </button>
+    </nav>
 
     <!-- Mobile Bottom Navigation -->
     <nav class="mobile-bottom-nav">
