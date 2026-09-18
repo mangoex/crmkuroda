@@ -17,7 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Custom Style Sheet -->
-    <link rel="stylesheet" href="/static/style.css?v=1.6.0">
+    <link rel="stylesheet" href="/static/style.css?v=2.0.0">
 </head>
 <body class="light-mode">
     <script>
@@ -67,6 +67,11 @@
             </form>
             <div class="login-footer">
                 <p>Acceso restringido para personal autorizado</p>
+            </div>
+            <div style="margin-top: 14px; text-align: center; border-top: 1px dashed rgba(var(--glass-border), 0.7); padding-top: 14px;">
+                <button type="button" id="btn-preview-seller-mobile" style="background: rgba(2, 132, 199, 0.08); border: 1px solid rgba(2, 132, 199, 0.35); color: #0284c7; padding: 10px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; width: 100%; justify-content: center; transition: all 0.2s ease;">
+                    <i class="fa-solid fa-mobile-screen"></i> Ver Propuesta Móvil Vendedor
+                </button>
             </div>
         </div>
     </div>
@@ -166,7 +171,7 @@
                 <!-- ============================================================
                      NUEVA VISTA MÓVIL EXCLUSIVA DEL VENDEDOR (UI/UX 2026)
                      ============================================================ -->
-                <div id="seller-mobile-view" class="seller-mobile-view hidden">
+                <div id="seller-mobile-view" class="seller-mobile-view">
                     
                     <!-- Header Superior Móvil -->
                     <header class="seller-mobile-header" id="seller-mobile-header">
@@ -3719,7 +3724,7 @@
     <!-- ============================================================
          FLOATING DOCK EXCLUSIVO PARA VENDEDOR MÓVIL (Estilo Imagen 2)
          ============================================================ -->
-    <nav class="seller-mobile-dock hidden" id="seller-mobile-dock" aria-label="Navegación móvil del vendedor">
+    <nav class="seller-mobile-dock" id="seller-mobile-dock" aria-label="Navegación móvil del vendedor">
         <button type="button" class="seller-dock-item active" data-seller-tab="actividades">
             <div class="dock-icon-wrap">
                 <i class="fa-solid fa-list-check"></i>
@@ -3765,6 +3770,6 @@
     </nav>
 
     <!-- Application Script -->
-    <script src="/static/app.js?v=1.6.5"></script>
+    <script src="/static/app.js?v=2.0.0"></script>
 </body>
 </html>

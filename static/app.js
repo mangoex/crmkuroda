@@ -789,7 +789,8 @@ async function initSession() {
         state.currentSection = initialSec;
         await switchSection(initialSec);
         await loadPendingReminders();
-        if (state.user?.rol === "vendedor" && typeof initSellerMobileView === "function") {
+        const isVendedorUser = (state.user?.rol || "").toLowerCase().trim() === "vendedor";
+        if (isVendedorUser && typeof initSellerMobileView === "function") {
             initSellerMobileView();
         }
     } else {
@@ -11595,12 +11596,17 @@ let sellerMobileDeliveryFilter = "all";
 let sellerMobileSearchDebounce = null;
 let sellerMobileHabitsCache = {};
 
+function isSellerRole(user = state.user) {
+    if (!user || !user.rol) return false;
+    return String(user.rol).toLowerCase().trim() === "vendedor";
+}
+
 function isSellerMobile() {
-    return state.user && state.user.rol === "vendedor" && window.innerWidth <= 768;
+    return isSellerRole() && window.innerWidth <= 768;
 }
 
 function initSellerMobileView() {
-    if (!state.user || state.user.rol !== "vendedor") return;
+    if (!isSellerRole()) return;
 
     const sellerName = state.user.nombre_completo || state.user.email || "Vendedor";
     const nameEl = document.getElementById("seller-mobile-name");
@@ -11764,7 +11770,7 @@ function switchSellerMobileTab(tabId) {
 }
 
 async function renderSellerMobileActividades(cachedParams = null) {
-    if (!state.user || state.user.rol !== "vendedor") return;
+    if (!isSellerRole()) return;
 
     const period = getSellerGoalPeriodConfig(state.sellerGoalPeriod || "day");
     const goalProgress = cachedParams?.goalProgress || state.sellerGoalProgress;
@@ -12179,4 +12185,188 @@ async function renderSellerMobileEntregas() {
         `;
     }).join("");
 }
+
+/* ==========================================================================
+   SELLER MOBILE PREVIEW & DEMO MODE
+   Permite visualizar y probar la UI/UX móvil del vendedor inmediatamente
+   en teléfonos celulares y vistas previas locales.
+   ========================================================================== */
+
+function loadSellerMobilePreview() {
+    const sampleQuotes = [
+        {
+            folio: 'COT-2026-089',
+            cliente_nombre: 'Constructora del Pacífico S.A.',
+            cliente_telefono: '6671234567',
+            producto_destacado: 'Tubería PVC Sanitaria 4"',
+            total: 48500,
+            fecha_registro: new Date().toISOString(),
+            estado: 'Pendiente',
+            seguimiento_urgente: true
+        },
+        {
+            folio: 'COT-2026-092',
+            cliente_nombre: 'Plomería y Materiales San Carlos',
+            cliente_telefono: '6679876543',
+            producto_destacado: 'Válvula Esfera Roscable 2"',
+            total: 19200,
+            fecha_registro: new Date(Date.now() - 86400000 * 2).toISOString(),
+            estado: 'Seguimiento',
+            seguimiento_urgente: false
+        },
+        {
+            folio: 'COT-2026-095',
+            cliente_nombre: 'Desarrollos Urbanos del Humaya',
+            cliente_telefono: '6675551234',
+            producto_destacado: 'Calentador Solar 150L',
+            total: 86000,
+            fecha_registro: new Date(Date.now() - 86400000 * 4).toISOString(),
+            estado: 'Pendiente',
+            seguimiento_urgente: true
+        }
+    ];
+
+    const samplePromos = [
+        {
+            codigo_material: 'TUB-PVC-40',
+            descripcion_material: 'Tubo Sanitario PVC 4" x 6m Reforzado C-40',
+            proveedor: 'Amanco Wavin',
+            familia: 'Tubería',
+            precio_promocion: 385.50,
+            moneda: 'MXN',
+            margen_promocion: 28.5,
+            es_relevante: true
+        },
+        {
+            codigo_material: 'VAL-ESF-20',
+            descripcion_material: 'Válvula de Esfera Latón 2" Paso Completo',
+            proveedor: 'Urrea Tecnología',
+            familia: 'Válvulas',
+            precio_promocion: 540.00,
+            moneda: 'MXN',
+            margen_promocion: 32.0,
+            es_relevante: true
+        },
+        {
+            codigo_material: 'CAL-SOL-150',
+            descripcion_material: 'Calentador Solar Gravedad 150L Acero Inox',
+            proveedor: 'Era Solar',
+            familia: 'Calentadores',
+            precio_promocion: 5890.00,
+            moneda: 'MXN',
+            margen_promocion: 24.0,
+            es_relevante: false
+        }
+    ];
+
+    const sampleDeliveries = [
+        {
+            factura: 'F-45890',
+            id_pedido_erp: 'PED-9021',
+            cliente_nombre: 'Constructora Culiacán Centro',
+            producto_sku: 'PVC-SAN-110',
+            producto_desc: 'Codo PVC Sanitario 4" x 90°',
+            cantidad_pendiente: 45,
+            dias_disponible: 1,
+            estado_crm: 'Verde (Listo)',
+            motivo_estado: 'Material disponible en Almacén Matriz'
+        },
+        {
+            factura: 'F-45912',
+            id_pedido_erp: 'PED-9044',
+            cliente_nombre: 'Residencial Montebello',
+            producto_sku: 'CPVC-075',
+            producto_desc: 'Tubo CPVC FlowGuard 3/4" x 3m',
+            cantidad_pendiente: 20,
+            dias_disponible: 4,
+            estado_crm: 'Amarillo (Tránsito)',
+            motivo_estado: 'En ruta de reparto local'
+        },
+        {
+            factura: '10955',
+            id_pedido_erp: 'PED-7782',
+            cliente_nombre: 'Hospital Santa María',
+            producto_sku: 'URR-5020',
+            producto_desc: 'Mezcladora Urrea Monomando',
+            cantidad_pendiente: 12,
+            estado_crm: 'Rojo (Atención)',
+            motivo_estado: 'Backorder con proveedor'
+        }
+    ];
+
+    state.user = {
+        id: 'vendedor-demo',
+        nombre_completo: 'Carlos Mendoza',
+        email: 'carlos.mendoza@kuroda.com',
+        rol: 'vendedor'
+    };
+    state.cotizaciones = sampleQuotes;
+    state.promociones = samplePromos;
+    state.porEntregar = sampleDeliveries.slice(0, 2);
+    state.sobrepedidos = sampleDeliveries.slice(2);
+    state.sellerGoalProgress = {
+        meta: 250000,
+        venta_facturada: 187500
+    };
+
+    document.body.setAttribute('data-role', 'vendedor');
+    document.body.classList.add('role-vendedor');
+    
+    if (DOM.authContainer) DOM.authContainer.classList.add('hidden');
+    if (DOM.dashboardContainer) DOM.dashboardContainer.classList.remove('hidden');
+
+    initSellerMobileView();
+    renderSellerMobileActividades({
+        quotes: sampleQuotes,
+        goalProgress: state.sellerGoalProgress,
+        plan: {
+            activities_config: [
+                { activity: "Llamadas de prospección", target: 8 },
+                { activity: "Visitas a obra", target: 4 }
+            ]
+        },
+        logToday: {
+            completed_activities: {
+                "Llamadas de prospección": 5,
+                "Visitas a obra": 2
+            }
+        }
+    });
+
+    if (typeof showToast === 'function') {
+        showToast('Vista móvil de vendedor activada en modo propuesta / demo.', 'info');
+    }
+}
+window.loadSellerMobilePreview = loadSellerMobilePreview;
+
+function checkSellerMobileAutoPreview() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        if (
+            params.get("preview") === "vendedor" ||
+            params.get("preview") === "seller" ||
+            params.get("preview") === "1" ||
+            params.get("demo") === "vendedor" ||
+            params.get("demo") === "1" ||
+            params.get("rol") === "vendedor"
+        ) {
+            loadSellerMobilePreview();
+        }
+    } catch (e) {}
+
+    const previewBtn = document.getElementById("btn-preview-seller-mobile");
+    if (previewBtn) {
+        previewBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            loadSellerMobilePreview();
+        });
+    }
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", checkSellerMobileAutoPreview);
+} else {
+    checkSellerMobileAutoPreview();
+}
+
 
