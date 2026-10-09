@@ -197,8 +197,23 @@ async def upload_promociones(
                     "costo_promedio": _header_index(headers, "costo promedio unitario", "costo promedio", "costo prom unitario", "costo prom"),
                     "costo_promedio_moneda": _header_index(headers, "costo promedio unitario moneda de venta", "costo promedio moneda", "costo promedio moneda de venta"),
                     "costo_estandar": _header_index(headers, "costo estandar", "costo std"),
-                    "precio_promocion": _header_index(headers, "precio efectivo promocion", "precio promocion", "precio promo", "precio prom", "precio de promocion", "precio especial"),
+                    "precio_promocion": _header_index(
+                        headers,
+                        "precio efectivo de promocion con iva",
+                        "precio efectivo promocion con iva",
+                        "precio efectivo con iva",
+                        "precio promocion con iva",
+                        "precio de promocion con iva",
+                        "precio con iva",
+                        "precio efectivo promocion",
+                        "precio promocion",
+                        "precio promo",
+                        "precio prom",
+                        "precio de promocion",
+                        "precio especial",
+                    ),
                     "moneda": _header_index(headers, "moneda", "divisa"),
+                    "valido_desde": _header_index(headers, "valido desde promocion", "valido desde", "fecha inicio", "vigencia desde", "inicio vigencia"),
                     "valido_hasta": _header_index(headers, "valido hasta promocion", "valido hasta", "fecha fin", "vigencia hasta", "vigencia"),
                     "costo_estandar_promocion": _header_index(headers, "costo estandar promocion", "costo estandar promo", "costo std promo"),
                     "margen_promocion": _header_index(headers, "margen promocion", "margen promo", "margen"),
@@ -246,8 +261,23 @@ async def upload_promociones(
                     "costo_promedio": _header_index(headers, "costo promedio unitario", "costo promedio", "costo prom unitario", "costo prom"),
                     "costo_promedio_moneda": _header_index(headers, "costo promedio unitario moneda de venta", "costo promedio moneda", "costo promedio moneda de venta"),
                     "costo_estandar": _header_index(headers, "costo estandar", "costo std"),
-                    "precio_promocion": _header_index(headers, "precio efectivo promocion", "precio promocion", "precio promo", "precio prom", "precio de promocion", "precio especial"),
+                    "precio_promocion": _header_index(
+                        headers,
+                        "precio efectivo de promocion con iva",
+                        "precio efectivo promocion con iva",
+                        "precio efectivo con iva",
+                        "precio promocion con iva",
+                        "precio de promocion con iva",
+                        "precio con iva",
+                        "precio efectivo promocion",
+                        "precio promocion",
+                        "precio promo",
+                        "precio prom",
+                        "precio de promocion",
+                        "precio especial",
+                    ),
                     "moneda": _header_index(headers, "moneda", "divisa"),
+                    "valido_desde": _header_index(headers, "valido desde promocion", "valido desde", "fecha inicio", "vigencia desde", "inicio vigencia"),
                     "valido_hasta": _header_index(headers, "valido hasta promocion", "valido hasta", "fecha fin", "vigencia hasta", "vigencia"),
                     "costo_estandar_promocion": _header_index(headers, "costo estandar promocion", "costo estandar promo", "costo std promo"),
                     "margen_promocion": _header_index(headers, "margen promocion", "margen promo", "margen"),
@@ -296,23 +326,37 @@ async def upload_promociones(
                 es_relevante_item = True
                 relevantes_preservados.add(cod_mat_str)
 
+            precio_idx = indices.get("precio_promocion")
+            precio_promo_val = _as_float(_row_value(row, precio_idx, 9 if not indices else None))
+
+            # Filtro de integridad y sanitización comercial:
+            # Descartar filas con precio nulo o <= 0 (evita productos de $0.00 / gratuitos por corrupción de datos)
+            if precio_promo_val is None or precio_promo_val <= 0:
+                continue
+
+            val_desde_idx = indices.get("valido_desde")
+            val_hasta_idx = indices.get("valido_hasta")
+            valido_desde_val = _as_datetime(_row_value(row, val_desde_idx))
+            valido_hasta_val = _as_datetime(_row_value(row, val_hasta_idx, 11 if not indices else None))
+
             promocion = Promocion(
                 centro=str(centro_val).strip() if centro_val is not None else None,
-                descrip_gpo_materiales=str(_row_value(row, indices.get("descrip_gpo_materiales"), 1)).strip() if _row_value(row, indices.get("descrip_gpo_materiales"), 1) is not None else None,
-                indicador_abc=str(_row_value(row, indices.get("indicador_abc"), 2)).strip() if _row_value(row, indices.get("indicador_abc"), 2) is not None else None,
+                descrip_gpo_materiales=str(_row_value(row, indices.get("descrip_gpo_materiales"), 1 if not indices else None)).strip() if _row_value(row, indices.get("descrip_gpo_materiales"), 1 if not indices else None) is not None else None,
+                indicador_abc=str(_row_value(row, indices.get("indicador_abc"), 2 if not indices else None)).strip() if _row_value(row, indices.get("indicador_abc"), 2 if not indices else None) is not None else None,
                 codigo_material=cod_mat_str,
-                descripcion_material=str(_row_value(row, indices.get("descripcion_material"), 4)).strip() if _row_value(row, indices.get("descripcion_material"), 4) is not None else None,
-                unidad_medida=str(_row_value(row, indices.get("unidad_medida"), 5)).strip() if _row_value(row, indices.get("unidad_medida"), 5) is not None else None,
-                costo_promedio=_as_float(_row_value(row, indices.get("costo_promedio"), 6)),
-                costo_promedio_moneda=_as_float(_row_value(row, indices.get("costo_promedio_moneda"), 7)),
-                costo_estandar=_as_float(_row_value(row, indices.get("costo_estandar"), 8)),
-                precio_promocion=_as_float(_row_value(row, indices.get("precio_promocion"), 9)),
-                moneda=str(_row_value(row, indices.get("moneda"), 10)).strip() if _row_value(row, indices.get("moneda"), 10) is not None else None,
-                valido_hasta=_as_datetime(_row_value(row, indices.get("valido_hasta"), 11)),
-                costo_estandar_promocion=_as_float(_row_value(row, indices.get("costo_estandar_promocion"), 12)),
-                margen_promocion=_as_float(_row_value(row, indices.get("margen_promocion"), 13)),
-                proveedor=str(_row_value(row, indices.get("proveedor"), 14)).strip() if _row_value(row, indices.get("proveedor"), 14) is not None else None,
-                inventario_disponible=_as_float(_row_value(row, indices.get("inventario_disponible"), 15)),
+                descripcion_material=str(_row_value(row, indices.get("descripcion_material"), 4 if not indices else None)).strip() if _row_value(row, indices.get("descripcion_material"), 4 if not indices else None) is not None else None,
+                unidad_medida=str(_row_value(row, indices.get("unidad_medida"), 5 if not indices else None)).strip() if _row_value(row, indices.get("unidad_medida"), 5 if not indices else None) is not None else None,
+                costo_promedio=_as_float(_row_value(row, indices.get("costo_promedio"), 6 if not indices else None)),
+                costo_promedio_moneda=_as_float(_row_value(row, indices.get("costo_promedio_moneda"), 7 if not indices else None)),
+                costo_estandar=_as_float(_row_value(row, indices.get("costo_estandar"), 8 if not indices else None)),
+                precio_promocion=precio_promo_val,
+                moneda=str(_row_value(row, indices.get("moneda"), 10 if not indices else None)).strip() if _row_value(row, indices.get("moneda"), 10 if not indices else None) is not None else None,
+                valido_desde=valido_desde_val,
+                valido_hasta=valido_hasta_val,
+                costo_estandar_promocion=_as_float(_row_value(row, indices.get("costo_estandar_promocion"), 12 if not indices else None)),
+                margen_promocion=_as_float(_row_value(row, indices.get("margen_promocion"), 13 if not indices else None)),
+                proveedor=str(_row_value(row, indices.get("proveedor"), 14 if not indices else None)).strip() if _row_value(row, indices.get("proveedor"), 14 if not indices else None) is not None else None,
+                inventario_disponible=_as_float(_row_value(row, indices.get("inventario_disponible"), 15 if not indices else None)),
                 es_relevante=es_relevante_item,
             )
             batch.append(promocion)

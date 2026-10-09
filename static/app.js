@@ -3736,7 +3736,7 @@ async function loadPromocionesData(forceRefresh = false) {
                 <td><strong>$${(p.precio_promocion || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong> ${p.moneda || ''}</td>
                 <td>${p.margen_promocion ? (p.margen_promocion).toFixed(2) : '-'}</td>
                 <td>${p.inventario_disponible !== null && p.inventario_disponible !== undefined ? p.inventario_disponible : '-'}</td>
-                <td>${p.valido_hasta ? p.valido_hasta.split('T')[0] : '-'}</td>
+                <td>${p.valido_hasta ? (p.valido_desde ? `${p.valido_desde.split('T')[0]} al ${p.valido_hasta.split('T')[0]}` : p.valido_hasta.split('T')[0]) : (p.valido_desde ? `Desde ${p.valido_desde.split('T')[0]}` : '-')}</td>
                 <td>
                     <button type="button" class="btn btn-primary btn-sm btn-promo-clients" onclick="openPromoClientsModal(${p.id})">
                         <i class="fa-solid fa-users"></i> Ver Clientes
