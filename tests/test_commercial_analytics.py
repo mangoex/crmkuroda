@@ -462,6 +462,36 @@ class CommercialAnalyticsTest(unittest.TestCase):
         self.assertEqual(normalize_channel("OCURRE"), "Ocurre")
         self.assertEqual(normalize_channel("MERCANCIA RESGUARDO"), "Mercancía Resguardo")
 
+    def test_dashboard_channel_summary_resolves_delivery_channels_and_avoids_canal_sin_clave(self):
+        rows = aggregate_channel_summary_rows(
+            [
+                ("ENTREGA INMEDIATA", 500, Decimal("700000"), 500, Decimal("687682.90")),
+                ("SOBREPEDIDO", 490, Decimal("650000"), 490, Decimal("626731.79")),
+                ("PIDE Y RECOGE", 11, Decimal("12000"), 11, Decimal("9841.13")),
+                ("Sin clave", 383, Decimal("1159406.52"), 0, Decimal("0")),
+                ("01", 12, Decimal("10000"), 0, Decimal("0")),
+            ]
+        )
+        by_channel = {row["canal"]: row for row in rows}
+        self.assertIn("Entrega Inmediata", by_channel)
+        self.assertEqual(by_channel["Entrega Inmediata"]["codigo_canal"], "EI")
+        self.assertEqual(by_channel["Entrega Inmediata"]["etiqueta"], "Entrega Inmediata")
+
+        self.assertIn("Sobrepedido", by_channel)
+        self.assertEqual(by_channel["Sobrepedido"]["codigo_canal"], "SP")
+        self.assertEqual(by_channel["Sobrepedido"]["etiqueta"], "Sobrepedido")
+
+        self.assertIn("Pide y Recoge", by_channel)
+        self.assertEqual(by_channel["Pide y Recoge"]["codigo_canal"], "PR")
+        self.assertEqual(by_channel["Pide y Recoge"]["etiqueta"], "Pide y Recoge")
+
+        self.assertIn("Sin clasificar", by_channel)
+        self.assertEqual(by_channel["Sin clasificar"]["codigo_canal"], "Sin clave")
+        self.assertEqual(by_channel["Sin clasificar"]["etiqueta"], "Sin clasificar")
+        self.assertNotEqual(by_channel["Sin clasificar"]["etiqueta"], "Canal Sin clave")
+        self.assertEqual(by_channel["Sin clasificar"]["cotizaciones"], 395)
+
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -115,6 +115,7 @@ async def get_promociones_relevantes(db: AsyncSession = Depends(get_db)):
 @router.put("/{promocion_id}/toggle-relevante", status_code=status.HTTP_200_OK)
 async def toggle_promocion_relevante(
     promocion_id: int,
+    codigo_material: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(require_admin)
 ):
@@ -123,6 +124,12 @@ async def toggle_promocion_relevante(
     promocion = (
         await db.execute(select(Promocion).where(Promocion.id == promocion_id))
     ).scalars().first()
+    if not promocion and codigo_material and codigo_material.strip():
+        promocion = (
+            await db.execute(
+                select(Promocion).where(Promocion.codigo_material == codigo_material.strip())
+            )
+        ).scalars().first()
     if not promocion:
         raise HTTPException(status_code=404, detail="La promoción no existe.")
 
@@ -271,6 +278,9 @@ async def upload_promociones(
         rows_added = 0
         batch = []
         BATCH_SIZE = 1000
+        has_detected_headers = any(v is not None for v in indices.values())
+        prov_fallback = None if has_detected_headers else 14
+        inv_fallback = None if has_detected_headers else 15
 
         for row in rows_to_process:
             if not row:
@@ -296,6 +306,9 @@ async def upload_promociones(
                 es_relevante_item = True
                 relevantes_preservados.add(cod_mat_str)
 
+            prov_raw = _row_value(row, indices.get("proveedor"), prov_fallback)
+            inv_raw = _row_value(row, indices.get("inventario_disponible"), inv_fallback)
+
             promocion = Promocion(
                 centro=str(centro_val).strip() if centro_val is not None else None,
                 descrip_gpo_materiales=str(_row_value(row, indices.get("descrip_gpo_materiales"), 1)).strip() if _row_value(row, indices.get("descrip_gpo_materiales"), 1) is not None else None,
@@ -311,8 +324,8 @@ async def upload_promociones(
                 valido_hasta=_as_datetime(_row_value(row, indices.get("valido_hasta"), 11)),
                 costo_estandar_promocion=_as_float(_row_value(row, indices.get("costo_estandar_promocion"), 12)),
                 margen_promocion=_as_float(_row_value(row, indices.get("margen_promocion"), 13)),
-                proveedor=str(_row_value(row, indices.get("proveedor"), 14)).strip() if _row_value(row, indices.get("proveedor"), 14) is not None else None,
-                inventario_disponible=_as_float(_row_value(row, indices.get("inventario_disponible"), 15)),
+                proveedor=str(prov_raw).strip() if prov_raw is not None and str(prov_raw).strip() else None,
+                inventario_disponible=_as_float(inv_raw),
                 es_relevante=es_relevante_item,
             )
             batch.append(promocion)

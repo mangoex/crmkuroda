@@ -580,7 +580,58 @@ class CommercialApiWorkflowTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("1", result["message"])
         self.assertEqual(database.commits, 1)
 
+    async def test_summary_import_multi_row_skips_totals_and_handles_optional_columns(self):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "ENERO"
+        ws.append([
+            "Fecha de Registro", "Numero de Cotizacion", "Canal", "Vendedor",
+            "Nombre del Vendedor", "Numero del Cliente", "Nombre del Cliente",
+            "Numero de Telefono", "Numero de Celular", "Direccion Correo Electronico",
+            "Importe Cotizado c/IVA", "Numero de Factura", "Fecha de Factura",
+            "Venta perdida?", "Comentarios"
+        ])
+        ws.append([
+            datetime(2026, 1, 5), 416665230.0, 1.0, "C01", "LORENA PERAZA",
+            400191.0, "ALAN RENE SOTO YEPIZ", 6622120479.0, None,
+            "facturacion@arsyseguridad.com", "12,187.75", None, None, "Si", "Precio"
+        ])
+        ws.append([
+            datetime(2026, 1, 6), 416665683.0, 2.0, "C01", "LORENA PERAZA",
+            17951.0, "PASAJE DE ELECTRONICA EL", None, None,
+            "lnavarrete@apeplazas.com", "13,243.44", "1355407435", datetime(2026, 1, 7), "No", None
+        ])
+        ws.append([
+            "**TOTAL VENDEDOR**", None, None, None, None, None, None, None, None, None,
+            "25,431.19", None, None, None, None
+        ])
+        ws.append([
+            "**TOTAL GENERAL**", None, None, None, None, None, None, None, None, None,
+            "25,431.19", None, None, None, None
+        ])
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        database = FakeDatabase([FakeScalarResult([]), FakeScalarResult([])])
+
+        with (
+            patch("app.core.database.SessionLocal", return_value=FakeSessionLocal(database)),
+            patch("app.services.actualizaciones_datos.registrar_actualizacion_datos", new=AsyncMock()),
+        ):
+            error = await process_excel_background(buffer.getvalue(), uuid4())
+
+        self.assertIsNone(error)
+        self.assertEqual(len(database.added_many), 2)
+        self.assertEqual(database.added_many[0].numero_cotizacion, "416665230")
+        self.assertEqual(float(database.added_many[0].total), 12187.75)
+        self.assertEqual(database.added_many[0].venta_perdida, "Si")
+        self.assertEqual(database.added_many[0].comentarios, "Precio")
+        self.assertEqual(database.added_many[1].numero_cotizacion, "416665683")
+        self.assertEqual(float(database.added_many[1].total), 13243.44)
+        self.assertEqual(float(database.added_many[1].importe_facturado), 13243.44)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

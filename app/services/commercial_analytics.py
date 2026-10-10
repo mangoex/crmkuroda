@@ -268,42 +268,116 @@ def aggregate_channels(
     return sorted(result, key=lambda item: item["importe_facturado"], reverse=True)
 
 
+CANONICAL_CHANNEL_CODES: dict[str, str] = {
+    "Market place": "400550",
+    "Apartados": "400260",
+    "Envío a Domicilio": "DOM",
+    "Entrega Inmediata": "EI",
+    "Pide y Recoge": "PR",
+    "Sobrepedido": "SP",
+    "Cte Reco en Otra Suc": "CROS",
+    "Envío por Paquetería": "PAQ",
+    "Ocurre": "OCU",
+    "Mercancía Resguardo": "RES",
+    "Kuroda Turbo": "TURBO",
+    "Material D": "MAT-D",
+    "Promociones": "PROMO",
+}
+
+
 def aggregate_channel_summary_rows(
     rows: Iterable[tuple[Any, Any, Any, Any, Any]],
     configured: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """Format database-level channel totals without loading each quote in memory."""
     configured = configured or {}
-    result = []
-    total_invoiced = sum((decimal_value(row[4]) for row in rows), Decimal("0"))
+    rows_list = list(rows)
+    configured_lookup = {normalize_text(k): v for k, v in configured.items()}
+    reverse_configured = {normalize_text(v): str(k).strip() for k, v in configured.items() if str(k).strip()}
 
-    for raw_code, quote_count, quoted_total, invoiced_operations, invoiced_total in rows:
+    has_canonical_rows = any(
+        normalize_channel(str(r[0] or "").strip(), configured) != "Sin clasificar"
+        and normalize_text(str(r[0] or "").strip()) not in ("400550", "400260")
+        for r in rows_list
+    )
+
+    grouped: dict[tuple[str | None, str, str], dict[str, Any]] = {}
+    total_invoiced = Decimal("0")
+
+    for raw_code, quote_count, quoted_total, invoiced_operations, invoiced_total in rows_list:
         code = str(raw_code or "").strip()
-        if code in ("400550", "Market place", "Marketplace", "MARKET PLACE"):
+        norm_code = normalize_text(code)
+        operations = int(invoiced_operations or 0)
+        invoiced = decimal_value(invoiced_total)
+
+        if not code or norm_code in ("", "SIN CLAVE", "SIN CANAL", "SIN CLASIFICAR", "NONE", "NULL"):
+            channel_code: str | None = "Sin clave" if code else None
+            business_name = "Sin clasificar"
+            display_name = "Sin clasificar"
+        elif code in ("400550", "Market place", "Marketplace", "MARKET PLACE") or norm_code in ("400550", "MARKET PLACE", "MARKETPLACE"):
             channel_code = "400550"
             business_name = "Market place"
             display_name = "Market place"
-        elif code in ("400260", "Apartados", "Apartado", "APARTADOS"):
+        elif code in ("400260", "Apartados", "Apartado", "APARTADOS") or norm_code in ("400260", "APARTADOS", "APARTADO"):
             channel_code = "400260"
             business_name = "Apartados"
             display_name = "Apartados"
         else:
-            channel_code = code or None
             business_name = normalize_channel(code, configured)
-            display_name = business_name if business_name != "Sin clasificar" else (
-                f"Canal {code}" if code else "Sin clave"
-            )
-        quotes = int(quote_count or 0)
-        operations = int(invoiced_operations or 0)
-        invoiced = decimal_value(invoiced_total)
-        result.append(
+            if business_name == "Sin clasificar":
+                if has_canonical_rows and operations == 0 and invoiced == Decimal("0"):
+                    channel_code = "Sin clave"
+                    display_name = "Sin clasificar"
+                else:
+                    channel_code = code
+                    display_name = f"Canal {code}"
+            else:
+                display_name = business_name
+                if norm_code in configured_lookup:
+                    channel_code = code
+                elif normalize_text(business_name) in reverse_configured:
+                    channel_code = reverse_configured[normalize_text(business_name)]
+                else:
+                    channel_code = CANONICAL_CHANNEL_CODES.get(business_name, code)
+
+        key = (channel_code, business_name, display_name)
+        entry = grouped.setdefault(
+            key,
             {
                 "codigo_canal": channel_code,
                 "canal": business_name,
                 "etiqueta": display_name,
+                "cotizaciones": 0,
+                "operaciones_facturadas": 0,
+                "importe_cotizado": Decimal("0"),
+                "importe_facturado": Decimal("0"),
+            },
+        )
+        quotes = int(quote_count or 0)
+        operations = int(invoiced_operations or 0)
+        quoted = decimal_value(quoted_total)
+        invoiced = decimal_value(invoiced_total)
+
+        entry["cotizaciones"] += quotes
+        entry["operaciones_facturadas"] += operations
+        entry["importe_cotizado"] += quoted
+        entry["importe_facturado"] += invoiced
+        total_invoiced += invoiced
+
+    result = []
+    for entry in grouped.values():
+        quotes = entry["cotizaciones"]
+        operations = entry["operaciones_facturadas"]
+        invoiced = entry["importe_facturado"]
+        quoted = entry["importe_cotizado"]
+        result.append(
+            {
+                "codigo_canal": entry["codigo_canal"],
+                "canal": entry["canal"],
+                "etiqueta": entry["etiqueta"],
                 "cotizaciones": quotes,
                 "operaciones_facturadas": operations,
-                "importe_cotizado": Decimal(decimal_value(quoted_total)),
+                "importe_cotizado": Decimal(quoted),
                 "importe_facturado": Decimal(invoiced),
                 "conversion": round(operations / quotes * 100, 2) if quotes else 0,
                 "ticket_promedio": Decimal(invoiced / operations) if operations else 0,

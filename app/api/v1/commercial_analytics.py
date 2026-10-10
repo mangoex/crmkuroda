@@ -149,10 +149,13 @@ async def main_dashboard_channel_summary(
         Cotizacion.importe_facturado > 0,
     )
     clean_num_cli = func.coalesce(func.trim(Cotizacion.numero_cliente), "")
+    clean_plazo = func.nullif(func.trim(Cotizacion.plazo_entrega), "")
+    clean_canal = func.nullif(func.trim(Cotizacion.canal), "")
     effective_channel = case(
-        (or_(clean_num_cli == "400550", clean_num_cli == "0000400550", clean_num_cli.like("%400550")), "Market place"),
-        (or_(clean_num_cli == "400260", clean_num_cli == "0000400260", clean_num_cli.like("%400260")), "Apartados"),
-        else_=func.coalesce(Cotizacion.canal, "Sin clave"),
+        (or_(clean_num_cli == "400550", clean_num_cli == "0000400550", clean_num_cli.like("%400550")), "400550"),
+        (or_(clean_num_cli == "400260", clean_num_cli == "0000400260", clean_num_cli.like("%400260")), "400260"),
+        (clean_plazo.is_not(None), clean_plazo),
+        else_=func.coalesce(clean_canal, "Sin clave"),
     )
     statement = select(
         effective_channel.label("canal"),

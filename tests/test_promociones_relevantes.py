@@ -225,6 +225,35 @@ class TestPromocionesRelevantesTDD(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(response["data"]), 1)
         self.assertTrue(response["data"][0]["es_relevante"])
 
+    async def test_toggle_promocion_relevante_fallback_by_codigo_material(self):
+        """Si el ID cambió tras recargar el Excel, resuelve la promoción por codigo_material."""
+        from app.api.v1.promociones import toggle_promocion_relevante
+
+        promo = Promocion(
+            id=650,
+            centro="MK01",
+            codigo_material="CV00043",
+            descripcion_material=" CALENTADOR SOLAR ",
+            precio_promocion=3999.0,
+            es_relevante=False,
+        )
+        # First query (by old id=12) returns empty, second query (by codigo_material) returns promo, third query (current relevantes) returns []
+        db = FakeSession([
+            FakeScalarResult([]),
+            FakeScalarResult([promo]),
+            FakeScalarResult([]),
+        ])
+
+        response = await toggle_promocion_relevante(
+            promocion_id=12,
+            codigo_material="CV00043",
+            db=db,
+            current_user=self.admin_user,
+        )
+        self.assertEqual(response["status"], "success")
+        self.assertTrue(promo.es_relevante)
+        self.assertEqual(response["data"]["id"], 650)
+
 
 class TestPromocionesUIContracts(unittest.TestCase):
 

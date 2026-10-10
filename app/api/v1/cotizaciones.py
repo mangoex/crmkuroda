@@ -993,7 +993,6 @@ def _excel_number(value) -> float:
 
 QUOTE_IMPORT_REQUIRED_HEADERS = {
     "fecha_registro": "FECHA DE REGISTRO",
-    "organizacion_ventas": "ORGANIZACION DE VENTAS",
     "numero_cotizacion": "NUMERO DE COTIZACION",
     "vendedor_codigo": "VENDEDOR",
     "vendedor_nombre": "NOMBRE DEL VENDEDOR",
@@ -1005,11 +1004,17 @@ QUOTE_IMPORT_REQUIRED_HEADERS = {
     "numero_factura": "NUMERO DE FACTURA",
     "fecha_factura": "FECHA DE FACTURA",
     "importe_cotizado": "IMPORTE COTIZADO C/IVA",
-    "importe_facturado": "IMPORTE FACTURADO C/IVA",
-    "porcentaje_importe": "PORCENTAJE DE IMPORTE",
-    "materiales_cotizados": "MATERIALES COTIZADOS",
-    "materiales_facturados": "MATERIALES FACTURADOS",
-    "porcentaje_materiales": "PORCENTAJE DE MATERIALES",
+}
+QUOTE_IMPORT_OPTIONAL_HEADERS = {
+    "organizacion_ventas": ("ORGANIZACION DE VENTAS", "ORG VENTAS", "CENTRO", "SUCURSAL"),
+    "importe_facturado": ("IMPORTE FACTURADO C/IVA", "IMPORTE FACTURADO CON IVA", "IMPORTE FACTURADO", "IMPORTE CON IVA"),
+    "porcentaje_importe": ("PORCENTAJE DE IMPORTE",),
+    "materiales_cotizados": ("MATERIALES COTIZADOS",),
+    "materiales_facturados": ("MATERIALES FACTURADOS",),
+    "porcentaje_materiales": ("PORCENTAJE DE MATERIALES",),
+    "plazo_entrega": ("PLAZO DE ENTREGA", "TIPO DE ENTREGA"),
+    "venta_perdida": ("VENTA PERDIDA?", "VENTA PERDIDA"),
+    "comentarios": ("COMENTARIOS", "COMENTARIO"),
 }
 QUOTE_IMPORT_CHANNEL_HEADER = "TIPO DE ENTREGA"
 QUOTE_IMPORT_LEGACY_CHANNEL_HEADER = "CANAL"
@@ -1065,7 +1070,7 @@ def _resolve_sheet_columns(worksheet) -> tuple[dict[str, Optional[int]], str]:
             if norm:
                 headers[norm] = idx
 
-    def find_idx(candidates: list[str]) -> Optional[int]:
+    def find_idx(candidates: list[str], exclude_substrings: tuple[str, ...] = ()) -> Optional[int]:
         # 1. Coincidencia exacta normalizada
         for c in candidates:
             c_norm = normalize_text(c)
@@ -1076,21 +1081,38 @@ def _resolve_sheet_columns(worksheet) -> tuple[dict[str, Optional[int]], str]:
             c_norm = normalize_text(c)
             if len(c_norm) >= 4:
                 for h_name, h_idx in headers.items():
+                    if any(excl in h_name for excl in exclude_substrings):
+                        continue
                     if c_norm in h_name:
                         return h_idx
         return None
 
     col_map = {
         "numero_cotizacion": find_idx(["NUMERO DE COTIZACION", "NUMERO COTIZACION", "FOLIO COTIZACION", "FOLIO DE COTIZACION", "COTIZACION", "NUMERO_COTIZACION", "DOC. VENTAS", "DOCUMENTO VENTAS"]),
-        "codigo_material": find_idx(["CODIGO DE MATERIAL", "CODIGO MATERIAL", "CODIGO DEL MATERIAL", "CODIGO_MATERIAL", "CODIGO", "SKU", "CLAVE MATERIAL", "ARTICULO", "MATERIAL"]),
+        "codigo_material": find_idx(
+            ["CODIGO DE MATERIAL", "CODIGO MATERIAL", "CODIGO DEL MATERIAL", "CODIGO_MATERIAL", "CODIGO", "SKU", "CLAVE MATERIAL", "ARTICULO", "MATERIAL"],
+            exclude_substrings=("MATERIALES COTIZADOS", "MATERIALES FACTURADOS", "PORCENTAJE DE MATERIALES", "GRUPO DE MATERIALES", "GPO MATERIALES", "DESCRIPCION"),
+        ),
         "descripcion": find_idx(["DESCRIPCION DEL MATERIAL", "DESCRIPCION DE MATERIAL", "DESCRIPCION MATERIAL", "DESCRIPCION", "CONCEPTO", "NOMBRE MATERIAL"]),
         "precio": find_idx(["PRECIO DE VENTA", "PRECIO UNITARIO", "PRECIO", "IMPORTE COTIZADO", "IMPORTE", "VALOR NETO", "TOTAL"]),
         "unidad_medida": find_idx(["UNIDAD DE MEDIDA", "UNIDAD DE MEDIDA BASE", "UNIDAD MEDIDA", "UMB", "UDM", "UNIDAD"]),
         "indicador_abcf": find_idx(["INDICADOR ABC+FRECUENCIA DE VENTA", "ABC+F", "ABCF", "INDICADOR ABC", "ABC"]),
-        "cliente_nombre": find_idx(["NOMBRE DEL CLIENTE", "NOMBRE DE CLIENTE", "CLIENTE NOMBRE", "NOMBRE CLIENTE", "CLIENTE", "SOLICITANTE", "NOMBRE SOLICITANTE", "RAZON SOCIAL", "EMPRESA", "CUENTA", "DESTINATARIO", "CLIENTE/PROSPECTO", "PROSPECTO"]),
-        "numero_cliente": find_idx(["NUMERO DEL CLIENTE", "NUMERO DE CLIENTE", "NUM CLIENTE", "CODIGO CLIENTE", "CODIGO DEL CLIENTE", "CLIENTE ID", "ID CLIENTE", "COD. CLIENTE", "NO. CLIENTE", "SOLICITANTE ID", "NO CLIENTE", "NO. DE CLIENTE", "CVE CLIENTE"]),
-        "vendedor_nombre": find_idx(["NOMBRE DEL VENDEDOR", "NOMBRE DE VENDEDOR", "VENDEDOR NOMBRE", "NOMBRE VENDEDOR", "ASESOR NOMBRE", "NOMBRE ASESOR", "NOMBRE DEL ASESOR", "EJECUTIVO", "AGENTE", "RESPONSABLE", "ASESOR", "VENDEDOR"]),
-        "vendedor_codigo": find_idx(["NUMERO DE VENDEDOR", "NUMERO VENDEDOR", "CODIGO VENDEDOR", "CODIGO DE VENDEDOR", "CLAVE VENDEDOR", "NUM ASESOR", "CVE ASESOR", "CVE VENDEDOR", "USR VENDEDOR", "VENDEDOR ID", "ID VENDEDOR", "VENDEDOR"]),
+        "cliente_nombre": find_idx(
+            ["NOMBRE DEL CLIENTE", "NOMBRE DE CLIENTE", "CLIENTE NOMBRE", "NOMBRE CLIENTE", "CLIENTE", "SOLICITANTE", "NOMBRE SOLICITANTE", "RAZON SOCIAL", "EMPRESA", "CUENTA", "DESTINATARIO", "CLIENTE/PROSPECTO", "PROSPECTO"],
+            exclude_substrings=("NUMERO", "CODIGO", "CLAVE", "ID ", " ID", "NO.", "CVE"),
+        ),
+        "numero_cliente": find_idx(
+            ["NUMERO DEL CLIENTE", "NUMERO DE CLIENTE", "NUM CLIENTE", "CODIGO CLIENTE", "CODIGO DEL CLIENTE", "CLIENTE ID", "ID CLIENTE", "COD. CLIENTE", "NO. CLIENTE", "SOLICITANTE ID", "NO CLIENTE", "NO. DE CLIENTE", "CVE CLIENTE"],
+            exclude_substrings=("NOMBRE", "RAZON SOCIAL"),
+        ),
+        "vendedor_nombre": find_idx(
+            ["NOMBRE DEL VENDEDOR", "NOMBRE DE VENDEDOR", "VENDEDOR NOMBRE", "NOMBRE VENDEDOR", "ASESOR NOMBRE", "NOMBRE ASESOR", "NOMBRE DEL ASESOR", "EJECUTIVO", "AGENTE", "RESPONSABLE", "ASESOR", "VENDEDOR"],
+            exclude_substrings=("NUMERO", "CODIGO", "CLAVE", "GRUPO", "ID ", " ID", "CVE"),
+        ),
+        "vendedor_codigo": find_idx(
+            ["NUMERO DE VENDEDOR", "NUMERO VENDEDOR", "CODIGO VENDEDOR", "CODIGO DE VENDEDOR", "CLAVE VENDEDOR", "NUM ASESOR", "CVE ASESOR", "CVE VENDEDOR", "USR VENDEDOR", "VENDEDOR ID", "ID VENDEDOR", "VENDEDOR"],
+            exclude_substrings=("NOMBRE",),
+        ),
         "grupo_vendedores": find_idx(["GRUPO DE VENDEDORES", "GRUPO VENDEDORES", "GRUPO"]),
         "canal": find_idx(["CANAL DE DISTRIBUCION", "CANAL"]),
         "plazo_entrega": find_idx(["PLAZO DE ENTREGA", "TIPO DE ENTREGA", "ENTREGA"]),
@@ -1148,7 +1170,7 @@ def _detect_multi_sheet_worksheets(workbook) -> Optional[tuple[any, dict[str, Op
 
         if sheet_type == "HEADER" or "VENTA" in title_norm:
             header_candidates.append((ws, col_map))
-        elif sheet_type == "DETAIL" or any(k in title_norm for k in ("COTIZACION", "DETALLE", "PARTIDA", "DESCRIPCION", "MATERIAL", "PRODUCTO")):
+        elif sheet_type == "DETAIL" or (col_map["codigo_material"] is not None and any(k in title_norm for k in ("COTIZACION", "DETALLE", "PARTIDA", "DESCRIPCION", "MATERIAL", "PRODUCTO"))):
             detail_candidates.append((ws, col_map))
         elif sheet_type == "BOTH":
             # Puede fungir de cabecera si otra hoja es detalle, o de detalle si otra es cabecera
@@ -1157,7 +1179,7 @@ def _detect_multi_sheet_worksheets(workbook) -> Optional[tuple[any, dict[str, Op
 
     for h_ws, h_cols in header_candidates:
         for d_ws, d_cols in detail_candidates:
-            if h_ws != d_ws:
+            if h_ws != d_ws and d_cols.get("codigo_material") is not None:
                 return h_ws, h_cols, d_ws, d_cols
 
     return None
@@ -1310,7 +1332,7 @@ def generate_excel_template_bytes() -> bytes:
 
 
 
-def _quote_import_column_indices(worksheet) -> dict[str, int]:
+def _quote_import_column_indices(worksheet) -> dict[str, Optional[int]]:
     """Resuelve el layout por encabezado y prioriza el canal del formato nuevo."""
     headers = {}
     header_row = next(worksheet.iter_rows(min_row=1, max_row=1, values_only=True), ())
@@ -1335,15 +1357,23 @@ def _quote_import_column_indices(worksheet) -> dict[str, int]:
     if missing:
         raise ValueError("Faltan columnas requeridas: " + ", ".join(missing))
 
-    indices = {
+    indices: dict[str, Optional[int]] = {
         field: headers[label]
         for field, label in QUOTE_IMPORT_REQUIRED_HEADERS.items()
     }
     indices["canal"] = headers[channel_header]
+    indices["canal_fallback"] = headers.get(QUOTE_IMPORT_LEGACY_CHANNEL_HEADER)
+    for field, candidate_labels in QUOTE_IMPORT_OPTIONAL_HEADERS.items():
+        matched_idx = None
+        for label in candidate_labels:
+            if label in headers:
+                matched_idx = headers[label]
+                break
+        indices[field] = matched_idx
     return indices
 
 
-def _find_all_quote_worksheets(workbook) -> list[tuple[any, dict[str, int]]]:
+def _find_all_quote_worksheets(workbook) -> list[tuple[any, dict[str, Optional[int]]]]:
     """Busca todas las hojas válidas que contienen la estructura de cotizaciones (ej. múltiples meses)."""
     valid_sheets = []
     last_error = None
@@ -1363,7 +1393,7 @@ def _find_all_quote_worksheets(workbook) -> list[tuple[any, dict[str, int]]]:
     raise ValueError("No se encontraron hojas válidas en el archivo Excel.")
 
 
-def _find_quote_worksheet(workbook) -> tuple[any, dict[str, int]]:
+def _find_quote_worksheet(workbook) -> tuple[any, dict[str, Optional[int]]]:
     """Busca automáticamente la primera hoja que contiene la estructura completa de cotizaciones."""
     return _find_all_quote_worksheets(workbook)[0]
 
@@ -1434,6 +1464,14 @@ def _merge_quote_fields(existing: Cotizacion, incoming: dict) -> dict:
     existing_org = getattr(existing, "organizacion_ventas", None)
     if not incoming.get("organizacion_ventas") and existing_org:
         merged["organizacion_ventas"] = existing_org
+
+    existing_vp = getattr(existing, "venta_perdida", None)
+    if not incoming.get("venta_perdida") and existing_vp:
+        merged["venta_perdida"] = existing_vp
+
+    existing_com = getattr(existing, "comentarios", None)
+    if not incoming.get("comentarios") and existing_com:
+        merged["comentarios"] = existing_com
 
     # 4. Preservar datos de contacto si los nuevos vienen vacíos
     existing_contacts = getattr(existing, "datos_contacto", None) or {}
@@ -1721,6 +1759,7 @@ async def update_cotizacion(
 
 
 async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
+    import math
     from app.core.database import SessionLocal
     from app.models.cotizacion import Cotizacion
     from app.models.cotizacion_detalle import CotizacionItem
@@ -1735,22 +1774,52 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
     async with SessionLocal() as db:
         try:
             wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True, read_only=True)
-            
+
+            def _cell(row, idx):
+                return row[idx] if (idx is not None and 0 <= idx < len(row)) else None
+
             def safe_float(v):
+                if v is None:
+                    return 0.0
+                if isinstance(v, (int, float)):
+                    fval = float(v)
+                    return 0.0 if (math.isnan(fval) or math.isinf(fval)) else fval
                 try:
-                    return float(v) if v is not None else 0.0
+                    cleaned = str(v).replace("$", "").replace(",", "").replace("%", "").strip()
+                    if not cleaned:
+                        return 0.0
+                    fval = float(cleaned)
+                    return 0.0 if (math.isnan(fval) or math.isinf(fval)) else fval
                 except (ValueError, TypeError):
                     return 0.0
 
             def safe_date(v):
-                if hasattr(v, 'date'):
+                if v is None:
+                    return None
+                if hasattr(v, "date"):
                     return v.date()
+                if isinstance(v, date):
+                    return v
                 if isinstance(v, str):
-                    try:
-                        return datetime.strptime(v.strip().split(' ')[0], '%Y-%m-%d').date()
-                    except Exception:
-                        pass
-                return v
+                    raw = v.strip().split(" ")[0]
+                    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d", "%m/%d/%Y"):
+                        try:
+                            return datetime.strptime(raw, fmt).date()
+                        except ValueError:
+                            continue
+                return None
+
+            def _clamp_decimal(val, max_abs=99999999.99, scale=2):
+                if val is None:
+                    return None
+                try:
+                    fval = float(val)
+                    if math.isnan(fval) or math.isinf(fval):
+                        return None
+                    clamped = max(-max_abs, min(max_abs, fval))
+                    return Decimal(str(round(clamped, scale)))
+                except Exception:
+                    return None
 
             users_res = await db.execute(select(Usuario))
             users = users_res.scalars().all()
@@ -1816,20 +1885,20 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                 for row in ws_cot.iter_rows(min_row=2, values_only=True):
                     if not row:
                         continue
-                    num_cot = _excel_identifier(row[cot_idx_num]) if cot_idx_num is not None else None
-                    if not num_cot:
+                    num_cot = _excel_identifier(_cell(row, cot_idx_num))
+                    if not num_cot or num_cot.upper().startswith("*") or "TOTAL" in num_cot.upper():
                         continue
 
-                    sku = _excel_identifier(row[cot_idx_sku]) if cot_idx_sku is not None else None
+                    sku = _excel_identifier(_cell(row, cot_idx_sku))
                     if not sku:
                         continue
 
-                    precio = safe_float(row[cot_idx_prc]) if cot_idx_prc is not None else 0.0
-                    fecha_reg = safe_date(row[cot_idx_fec]) if cot_idx_fec is not None else None
-                    org_v = _excel_identifier(row[cot_idx_org]) if cot_idx_org is not None else None
-                    abc = _excel_identifier(row[cot_idx_abc]) if cot_idx_abc is not None else None
-                    desc = _excel_identifier(row[cot_idx_des]) if cot_idx_des is not None else None
-                    udm = _excel_identifier(row[cot_idx_udm]) if cot_idx_udm is not None else None
+                    precio = safe_float(_cell(row, cot_idx_prc))
+                    fecha_reg = safe_date(_cell(row, cot_idx_fec))
+                    org_v = _excel_identifier(_cell(row, cot_idx_org))
+                    abc = _excel_identifier(_cell(row, cot_idx_abc))
+                    desc = _excel_identifier(_cell(row, cot_idx_des))
+                    udm = _excel_identifier(_cell(row, cot_idx_udm))
 
                     if num_cot not in quotes_data:
                         quotes_data[num_cot] = {
@@ -1842,30 +1911,30 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
 
                     # Extraer metadatos opcionales si vienen en la hoja detalle
                     if cot_idx_cli_nom is not None and not quotes_data[num_cot].get("cliente_nombre"):
-                        c_cli = _excel_identifier(row[cot_idx_cli_nom])
+                        c_cli = _excel_identifier(_cell(row, cot_idx_cli_nom))
                         if c_cli:
                             quotes_data[num_cot]["cliente_nombre"] = c_cli
                     if cot_idx_cli_num is not None and not quotes_data[num_cot].get("numero_cliente"):
-                        c_num = _excel_identifier(row[cot_idx_cli_num])
+                        c_num = _excel_identifier(_cell(row, cot_idx_cli_num))
                         if c_num:
                             quotes_data[num_cot]["numero_cliente"] = c_num
                     if cot_idx_vend_nom is not None and not quotes_data[num_cot].get("vendedor_nombre"):
-                        c_vnom = _excel_identifier(row[cot_idx_vend_nom])
+                        c_vnom = _excel_identifier(_cell(row, cot_idx_vend_nom))
                         if c_vnom:
                             quotes_data[num_cot]["vendedor_nombre"] = c_vnom
                     if cot_idx_vend_cod is not None and not quotes_data[num_cot].get("vendedor_codigo"):
-                        c_vcod = _excel_identifier(row[cot_idx_vend_cod])
+                        c_vcod = _excel_identifier(_cell(row, cot_idx_vend_cod))
                         if c_vcod:
                             quotes_data[num_cot]["vendedor_codigo"] = c_vcod
                     if cot_idx_canal is not None and not quotes_data[num_cot].get("canal"):
-                        c_can = _excel_identifier(row[cot_idx_canal])
+                        c_can = _excel_identifier(_cell(row, cot_idx_canal))
                         if c_can:
                             quotes_data[num_cot]["canal"] = c_can
 
                     if cot_idx_tel is not None or cot_idx_cel is not None or cot_idx_email is not None:
-                        tel_val = _excel_identifier(row[cot_idx_tel]) if cot_idx_tel is not None else None
-                        cel_val = _excel_identifier(row[cot_idx_cel]) if cot_idx_cel is not None else None
-                        em_val = _excel_identifier(row[cot_idx_email]) if cot_idx_email is not None else None
+                        tel_val = _excel_identifier(_cell(row, cot_idx_tel))
+                        cel_val = _excel_identifier(_cell(row, cot_idx_cel))
+                        em_val = _excel_identifier(_cell(row, cot_idx_email))
                         if "contact_data" not in quotes_data[num_cot]:
                             quotes_data[num_cot]["contact_data"] = {}
                         if tel_val and not quotes_data[num_cot]["contact_data"].get("telefono"):
@@ -1923,36 +1992,38 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                 for row in ws_ventas.iter_rows(min_row=2, values_only=True):
                     if not row:
                         continue
-                    fac_fol = _excel_identifier(row[v_idx_fac_fol]) if v_idx_fac_fol is not None else None
-                    cot_fol = _excel_identifier(row[v_idx_cot_fol]) if v_idx_cot_fol is not None else None
+                    fac_fol = _excel_identifier(_cell(row, v_idx_fac_fol))
+                    cot_fol = _excel_identifier(_cell(row, v_idx_cot_fol))
                     if not fac_fol and not cot_fol:
                         continue
 
                     target_folio = cot_fol or fac_fol
+                    if target_folio.upper().startswith("*") or "TOTAL" in target_folio.upper():
+                        continue
 
-                    fec_fac = safe_date(row[v_idx_fec_fac]) if v_idx_fec_fac is not None else None
-                    fec_reg = safe_date(row[v_idx_fec_reg]) if v_idx_fec_reg is not None else None
-                    cli_num = _excel_identifier(row[v_idx_cli_num]) if v_idx_cli_num is not None else None
-                    plazo = _excel_identifier(row[v_idx_plazo]) if v_idx_plazo is not None else None
-                    cli_nom = _excel_identifier(row[v_idx_cli_nom]) if v_idx_cli_nom is not None else None
+                    fec_fac = safe_date(_cell(row, v_idx_fec_fac))
+                    fec_reg = safe_date(_cell(row, v_idx_fec_reg))
+                    cli_num = _excel_identifier(_cell(row, v_idx_cli_num))
+                    plazo = _excel_identifier(_cell(row, v_idx_plazo))
+                    cli_nom = _excel_identifier(_cell(row, v_idx_cli_nom))
 
-                    hora_val = row[v_idx_hora] if v_idx_hora is not None else None
+                    hora_val = _cell(row, v_idx_hora)
                     hora_str = str(hora_val) if hora_val is not None else None
-                    margen_val = safe_float(row[v_idx_margen]) if v_idx_margen is not None else None
-                    grp_vend = _excel_identifier(row[v_idx_grp_vend]) if v_idx_grp_vend is not None else None
-                    vend_nom = _excel_identifier(row[v_idx_vend_nom]) if v_idx_vend_nom is not None else None
-                    vend_cod = _excel_identifier(row[v_idx_vend_cod]) if v_idx_vend_cod is not None else None
-                    canal_val = _excel_identifier(row[v_idx_canal]) if v_idx_canal is not None else None
-                    org_val = _excel_identifier(row[v_idx_org]) if v_idx_org is not None else None
+                    margen_val = safe_float(_cell(row, v_idx_margen)) if v_idx_margen is not None else None
+                    grp_vend = _excel_identifier(_cell(row, v_idx_grp_vend))
+                    vend_nom = _excel_identifier(_cell(row, v_idx_vend_nom))
+                    vend_cod = _excel_identifier(_cell(row, v_idx_vend_cod))
+                    canal_val = _excel_identifier(_cell(row, v_idx_canal))
+                    org_val = _excel_identifier(_cell(row, v_idx_org))
 
                     # Datos de la partida facturada (si la hoja Ventas trae desglose)
-                    v_sku = _excel_identifier(row[v_idx_sku]) if v_idx_sku is not None else None
-                    v_desc = _excel_identifier(row[v_idx_des]) if v_idx_des is not None else None
-                    v_abcf = _excel_identifier(row[v_idx_abcf]) if v_idx_abcf is not None else None
-                    v_cant_raw = safe_float(row[v_idx_cant_fac]) if v_idx_cant_fac is not None else 1.0
+                    v_sku = _excel_identifier(_cell(row, v_idx_sku))
+                    v_desc = _excel_identifier(_cell(row, v_idx_des))
+                    v_abcf = _excel_identifier(_cell(row, v_idx_abcf))
+                    v_cant_raw = safe_float(_cell(row, v_idx_cant_fac)) if v_idx_cant_fac is not None else 1.0
                     v_imp_raw = (
-                        safe_float(row[v_idx_imp_fac]) if v_idx_imp_fac is not None
-                        else (safe_float(row[v_idx_tot]) if v_idx_tot is not None else 0.0)
+                        safe_float(_cell(row, v_idx_imp_fac)) if v_idx_imp_fac is not None
+                        else (safe_float(_cell(row, v_idx_tot)) if v_idx_tot is not None else 0.0)
                     )
 
                     dec_cant_fac = Decimal(str(round(v_cant_raw, 3))) if v_cant_raw is not None else Decimal("1.000")
@@ -1967,7 +2038,7 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                             "plazo_entrega": plazo,
                             "numero_factura": fac_fol,
                             "hora_facturacion": hora_str,
-                            "margen": Decimal(str(round(margen_val, 3))) if margen_val is not None else None,
+                            "margen": _clamp_decimal(margen_val, max_abs=9999999.999, scale=3) if margen_val is not None else None,
                             "margen_items": [(margen_val, float(dec_imp_fac))] if margen_val is not None else [],
                             "grupo_vendedores": grp_vend,
                             "vendedor_nombre": vend_nom,
@@ -1979,9 +2050,9 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                         }
 
                         if v_idx_tel is not None or v_idx_cel is not None or v_idx_email is not None:
-                            tel_v = _excel_identifier(row[v_idx_tel]) if v_idx_tel is not None else None
-                            cel_v = _excel_identifier(row[v_idx_cel]) if v_idx_cel is not None else None
-                            em_v = _excel_identifier(row[v_idx_email]) if v_idx_email is not None else None
+                            tel_v = _excel_identifier(_cell(row, v_idx_tel))
+                            cel_v = _excel_identifier(_cell(row, v_idx_cel))
+                            em_v = _excel_identifier(_cell(row, v_idx_email))
                             v_info["contact_data"] = {
                                 "telefono": tel_v,
                                 "celular": cel_v,
@@ -2023,7 +2094,7 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                     if m_items:
                         total_weight = sum(max(w, 1.0) for _, w in m_items)
                         weighted_margin = sum(m * max(w, 1.0) for m, w in m_items) / total_weight
-                        v_item["margen"] = Decimal(str(round(weighted_margin, 3)))
+                        v_item["margen"] = _clamp_decimal(weighted_margin, max_abs=9999999.999, scale=3)
 
                 BATCH_QUOTES = 2000
                 quote_keys = list(dict.fromkeys(list(quotes_data.keys()) + list(ventas_by_cot.keys())))
@@ -2180,13 +2251,13 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                         if v_info.get("numero_factura") or facturados_skus:
                             if cotizados_skus:
                                 intersect = set(facturados_skus) & set(cotizados_skus)
-                                pct_mat = Decimal(str(round((len(intersect) / len(set(cotizados_skus))) * 100, 2)))
+                                pct_mat = _clamp_decimal((len(intersect) / len(set(cotizados_skus))) * 100, scale=2)
                             elif facturados_skus:
                                 pct_mat = Decimal("100.00")
 
                         pct_imp = None
                         if importe_fac is not None and total_val > 0:
-                            pct_imp = Decimal(str(round((float(importe_fac) / float(total_val)) * 100, 2)))
+                            pct_imp = _clamp_decimal((float(importe_fac) / float(total_val)) * 100, scale=2)
 
                         items_json = [
                             {
@@ -2271,10 +2342,10 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                             chunk_del = batch_quote_ids[i : i + 1000]
                             await db.execute(delete(CotizacionItem).where(CotizacionItem.cotizacion_id.in_(chunk_del)))
 
-                    # Insertar partidas de este lote
+                    # Insertar partidas de este lote (lotes de 1000 para no exceder 32,767 parámetros en asyncpg)
                     if batch_items:
-                        for i in range(0, len(batch_items), 5000):
-                            chunk_ins = batch_items[i : i + 5000]
+                        for i in range(0, len(batch_items), 1000):
+                            chunk_ins = batch_items[i : i + 1000]
                             await db.execute(insert(CotizacionItem), chunk_ins)
 
                     # Commit incremental para rotar logs WAL y liberar espacio de disco
@@ -2292,81 +2363,107 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                     for row in ws.iter_rows(min_row=2, values_only=True):
                         if not row:
                             continue
-                        num_cot_val = _excel_identifier(row[column_indices["numero_cotizacion"]])
-                        if not num_cot_val:
+                        num_cot_val = _excel_identifier(_cell(row, column_indices.get("numero_cotizacion")))
+                        if not num_cot_val or num_cot_val.upper().startswith("*") or "TOTAL" in num_cot_val.upper():
                             continue
 
                         if num_cot_val in seen_numbers:
                             continue
                         seen_numbers.add(num_cot_val)
 
-                    fecha_reg = safe_date(row[column_indices["fecha_registro"]])
-                    org_ventas = _excel_identifier(row[column_indices["organizacion_ventas"]])
-                    canal_val = _excel_identifier(row[column_indices["canal"]])
-                    vend_codigo = _excel_identifier(row[column_indices["vendedor_codigo"]])
-                    vend_nombre = _excel_identifier(row[column_indices["vendedor_nombre"]])
-                    num_cliente = _excel_identifier(row[column_indices["numero_cliente"]])
-                    cliente_nombre = _excel_identifier(row[column_indices["cliente_nombre"]])
-                    telefono = _excel_identifier(row[column_indices["telefono"]])
-                    celular = _excel_identifier(row[column_indices["celular"]])
-                    email = _excel_identifier(row[column_indices["email"]])
-                    num_factura = _excel_identifier(row[column_indices["numero_factura"]])
-                    fecha_fac = safe_date(row[column_indices["fecha_factura"]])
+                        fecha_reg = safe_date(_cell(row, column_indices.get("fecha_registro")))
+                        org_ventas = _excel_identifier(_cell(row, column_indices.get("organizacion_ventas")))
+                        canal_val = (
+                            _excel_identifier(_cell(row, column_indices.get("canal")))
+                            or _excel_identifier(_cell(row, column_indices.get("canal_fallback")))
+                        )
+                        plazo_val = _excel_identifier(_cell(row, column_indices.get("plazo_entrega")))
+                        vend_codigo = _excel_identifier(_cell(row, column_indices.get("vendedor_codigo")))
+                        vend_nombre = _excel_identifier(_cell(row, column_indices.get("vendedor_nombre")))
+                        num_cliente = _excel_identifier(_cell(row, column_indices.get("numero_cliente")))
+                        cliente_nombre = _excel_identifier(_cell(row, column_indices.get("cliente_nombre")))
+                        telefono = _excel_identifier(_cell(row, column_indices.get("telefono")))
+                        celular = _excel_identifier(_cell(row, column_indices.get("celular")))
+                        email = _excel_identifier(_cell(row, column_indices.get("email")))
+                        num_factura = _excel_identifier(_cell(row, column_indices.get("numero_factura")))
+                        fecha_fac = safe_date(_cell(row, column_indices.get("fecha_factura")))
 
-                    importe_cot = safe_float(row[column_indices["importe_cotizado"]])
-                    importe_fac = safe_float(row[column_indices["importe_facturado"]])
-                    pct_importe = safe_float(row[column_indices["porcentaje_importe"]])
-                    mat_cot = _excel_identifier(row[column_indices["materiales_cotizados"]])
-                    mat_fac = _excel_identifier(row[column_indices["materiales_facturados"]])
-                    pct_mat = safe_float(row[column_indices["porcentaje_materiales"]])
+                        importe_cot = safe_float(_cell(row, column_indices.get("importe_cotizado")))
+                        imp_fac_idx = column_indices.get("importe_facturado")
+                        importe_fac = (
+                            safe_float(_cell(row, imp_fac_idx))
+                            if imp_fac_idx is not None
+                            else (importe_cot if num_factura else 0.0)
+                        )
+                        pct_imp_idx = column_indices.get("porcentaje_importe")
+                        pct_importe = (
+                            safe_float(_cell(row, pct_imp_idx))
+                            if pct_imp_idx is not None
+                            else (round((importe_fac / importe_cot) * 100, 2) if (importe_fac and importe_cot > 0) else 0.0)
+                        )
+                        mat_cot = _excel_identifier(_cell(row, column_indices.get("materiales_cotizados")))
+                        mat_fac = _excel_identifier(_cell(row, column_indices.get("materiales_facturados")))
+                        pct_mat = safe_float(_cell(row, column_indices.get("porcentaje_materiales")))
+                        venta_perdida = _excel_identifier(_cell(row, column_indices.get("venta_perdida")))
+                        comentarios = _excel_identifier(_cell(row, column_indices.get("comentarios")))
 
-                    vendedor_id = (
-                        users_by_code.get(_normalize_seller_text(vend_codigo))
-                        or users_by_name.get(_normalize_seller_text(vend_nombre))
-                    )
+                        vendedor_id = (
+                            (users_by_code.get(_normalize_seller_text(vend_codigo)) if vend_codigo else None)
+                            or (users_by_name.get(_normalize_seller_text(vend_nombre)) if vend_nombre else None)
+                            or (users_by_name.get(_normalize_seller_text(vend_codigo)) if vend_codigo else None)
+                            or (users_by_code.get(_normalize_seller_text(vend_nombre)) if vend_nombre else None)
+                        )
 
-                    imported_values = {
-                        "numero_cotizacion": num_cot_val,
-                        "fecha_registro": fecha_reg,
-                        "organizacion_ventas": org_ventas,
-                        "canal": canal_val,
-                        "vendedor_id": vendedor_id,
-                        "vendedor_nombre": vend_nombre,
-                        "numero_cliente": num_cliente,
-                        "cliente_nombre": cliente_nombre or "Cliente Desconocido",
-                        "datos_contacto": {"email": email, "telefono": telefono, "celular": celular},
-                        "items": [],
-                        "numero_factura": num_factura,
-                        "fecha_factura": fecha_fac,
-                        "total": Decimal(str(round(importe_cot, 2))),
-                        "importe_facturado": Decimal(str(round(importe_fac, 2))) if importe_fac else None,
-                        "porcentaje_importe": Decimal(str(round(pct_importe, 2))) if pct_importe else None,
-                        "materiales_cotizados": mat_cot,
-                        "materiales_facturados": mat_fac,
-                        "porcentaje_materiales": Decimal(str(round(pct_mat, 2))) if pct_mat else None,
-                    }
-                    existing_quote = existing_by_number.get(num_cot_val)
-                    if existing_quote is not None:
-                        merged_values = _merge_quote_fields(existing_quote, imported_values)
-                        _apply_imported_quote_values(existing_quote, merged_values)
-                        retained_ids.add(existing_quote.id)
-                    else:
-                        new_id = uuid4()
-                        new_quotes.append(Cotizacion(id=new_id, **imported_values))
-                        retained_ids.add(new_id)
+                        imported_values = {
+                            "numero_cotizacion": num_cot_val,
+                            "fecha_registro": fecha_reg,
+                            "organizacion_ventas": org_ventas,
+                            "canal": canal_val,
+                            "plazo_entrega": plazo_val,
+                            "grupo_vendedores": vend_codigo,
+                            "vendedor_id": vendedor_id,
+                            "vendedor_nombre": vend_nombre,
+                            "numero_cliente": num_cliente,
+                            "cliente_nombre": cliente_nombre or (f"Cliente #{num_cliente}" if num_cliente else "Cliente Desconocido"),
+                            "datos_contacto": {"email": email, "telefono": telefono, "celular": celular},
+                            "items": [],
+                            "numero_factura": num_factura,
+                            "fecha_factura": fecha_fac,
+                            "total": _clamp_decimal(importe_cot, max_abs=9999999999.99, scale=2) or Decimal("0.00"),
+                            "importe_facturado": _clamp_decimal(importe_fac, max_abs=9999999999.99, scale=2) if importe_fac else None,
+                            "porcentaje_importe": _clamp_decimal(pct_importe, scale=2) if pct_importe else None,
+                            "materiales_cotizados": mat_cot,
+                            "materiales_facturados": mat_fac,
+                            "porcentaje_materiales": _clamp_decimal(pct_mat, scale=2) if pct_mat else None,
+                        }
+                        if venta_perdida:
+                            imported_values["venta_perdida"] = venta_perdida
+                        if comentarios:
+                            imported_values["comentarios"] = comentarios
+
+                        existing_quote = existing_by_number.get(num_cot_val)
+                        if existing_quote is not None:
+                            merged_values = _merge_quote_fields(existing_quote, imported_values)
+                            _apply_imported_quote_values(existing_quote, merged_values)
+                            retained_ids.add(existing_quote.id)
+                        else:
+                            new_id = uuid4()
+                            new_quotes.append(Cotizacion(id=new_id, **imported_values))
+                            retained_ids.add(new_id)
 
                 BATCH_SIZE = 1000
                 for i in range(0, len(new_quotes), BATCH_SIZE):
                     db.add_all(new_quotes[i : i + BATCH_SIZE])
                     await db.flush()
 
-            # Limpieza de registros obsoletos
-            stale_ids = _stale_imported_quote_ids(existing_quotes, retained_ids)
-            if stale_ids:
-                stale_list = list(stale_ids)
-                for i in range(0, len(stale_list), 1000):
-                    chunk = stale_list[i : i + 1000]
-                    await db.execute(delete(Cotizacion).where(Cotizacion.id.in_(chunk)))
+            # Limpieza de registros obsoletos (solo si se retuvo al menos una cotización válida)
+            if retained_ids:
+                stale_ids = _stale_imported_quote_ids(existing_quotes, retained_ids)
+                if stale_ids:
+                    stale_list = list(stale_ids)
+                    for i in range(0, len(stale_list), 1000):
+                        chunk = stale_list[i : i + 1000]
+                        await db.execute(delete(Cotizacion).where(Cotizacion.id.in_(chunk)))
 
             await registrar_actualizacion_datos(db, "cotizaciones", uploaded_by_id)
             await db.commit()
@@ -2378,4 +2475,5 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
             err = f"Error procesando cotizaciones: {str(e)}"
             print(err)
             return err
+
 

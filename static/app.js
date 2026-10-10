@@ -926,7 +926,7 @@ async function loadSectionData(sectionId) {
         } else if (sectionId === "metas") {
             await loadCommercialGoalsData();
         } else if (sectionId === "promociones") {
-            await loadPromocionesData();
+            await loadPromocionesData(true);
         } else if (sectionId === "inventario-abcf") {
             await loadInventarioAbcfData();
         } else if (sectionId === "sobrepedidos") {
@@ -2037,8 +2037,12 @@ window.goToPromocion = function(sku) {
 
 function renderSellerPromos(promociones, search) {
     const today = new Date();
+    let basePromos = (promociones || []).filter(p => !p.valido_hasta || new Date(p.valido_hasta) >= today || p.es_relevante);
+    if (basePromos.length === 0 && (promociones || []).length > 0) {
+        basePromos = promociones;
+    }
     const activePromos = filterSellerDashboardItems(
-        promociones.filter(p => !p.valido_hasta || new Date(p.valido_hasta) >= today),
+        basePromos,
         search
     );
 
@@ -3492,15 +3496,27 @@ async function loadPromocionesData(forceRefresh = false) {
         }
 
         // Filter Status
+        const futureDatedCount = (state.promociones || []).filter(p => {
+            if (!p.valido_hasta) return true;
+            return new Date(p.valido_hasta) >= today;
+        }).length;
+        const catalogAllActive = (state.promociones || []).length > 0 && futureDatedCount < 4;
+
         if (statusFilter === "relevantes") {
             promociones = promociones.filter(p => !!p.es_relevante);
         } else if (statusFilter !== "todas") {
-            promociones = promociones.filter(p => {
-                if (!p.valido_hasta) return statusFilter === "activas";
-                const vDate = new Date(p.valido_hasta);
-                const isActive = vDate >= today;
-                return statusFilter === "activas" ? isActive : !isActive;
-            });
+            if (statusFilter === "activas" && catalogAllActive) {
+                // Cuando el catálogo subido tiene vigencias previas a la fecha del sistema, mostrar todo el catálogo cargado
+                promociones = [...promociones];
+            } else {
+                promociones = promociones.filter(p => {
+                    if (statusFilter === "activas" && p.es_relevante) return true;
+                    if (!p.valido_hasta) return statusFilter === "activas";
+                    const vDate = new Date(p.valido_hasta);
+                    const isActive = vDate >= today;
+                    return statusFilter === "activas" ? isActive : !isActive;
+                });
+            }
         }
         
         if (proveedorFilter !== "todos") {
@@ -3525,10 +3541,10 @@ async function loadPromocionesData(forceRefresh = false) {
         }
 
         // --- CALCULAR Y RENDERIZAR KPIs DE PROMOCIONES ---
-        const activePromos = statusFilter === "activas" ? promociones : (state.promociones || []).filter(p => {
-            if (!p.valido_hasta) return true;
+        const activePromos = statusFilter === "activas" ? promociones : (catalogAllActive ? (state.promociones || []) : (state.promociones || []).filter(p => {
+            if (!p.valido_hasta || p.es_relevante) return true;
             return new Date(p.valido_hasta) >= today;
-        });
+        }));
 
         const catMap = {};
         activePromos.forEach(p => {
@@ -3668,13 +3684,14 @@ async function loadPromocionesData(forceRefresh = false) {
         const pag = createPaginationControls('promoCurrentPage', totalItems, loadPromocionesData, 25);
         const pageItems = promociones.slice(pag.startIndex, pag.endIndex);
         
-        const canManagePromos = state.user && ["admin", "gerente", "marketing"].includes(state.user.rol);
+        const userRole = String(state.user?.rol || "").toLowerCase();
+        const canManagePromos = ["admin", "gerente", "marketing", "coordinador"].includes(userRole);
 
         pageItems.forEach(p => {
             const tr = document.createElement("tr");
             const imageSearchUrl = buildProductImageSearchUrl(p);
             let isActive = true;
-            if (p.valido_hasta) {
+            if (p.valido_hasta && !catalogAllActive && !p.es_relevante) {
                 const vDate = new Date(p.valido_hasta);
                 isActive = vDate >= today;
             }
@@ -3690,13 +3707,15 @@ async function loadPromocionesData(forceRefresh = false) {
             const starColor = isRelevante ? "#f59e0b" : "#94a3b8";
             const starClass = isRelevante ? "fa-solid fa-star" : "fa-regular fa-star";
             const starScale = isRelevante ? "scale(1.2)" : "scale(1)";
+            const safeSku = escapeHTML(p.codigo_material || "");
 
             tr.innerHTML = `
                 <td style="text-align: center; vertical-align: middle;">
                     <button type="button" class="btn-star-relevante ${isRelevante ? 'active' : ''}" 
                             data-promo-id="${p.id}"
+                            data-promo-sku="${safeSku}"
                             data-is-relevante="${isRelevante ? '1' : '0'}"
-                            onclick="${canManagePromos ? `togglePromoRelevante(${p.id}, ${isRelevante})` : ''}"
+                            onclick="${canManagePromos ? `togglePromoRelevante(${p.id}, ${isRelevante}, '${safeSku}')` : ''}"
                             title="${starTitle}"
                             style="background: none; border: none; cursor: ${starCursor}; font-size: 1.15rem; color: ${starColor}; transform: ${starScale}; padding: 4px 6px; transition: transform 0.15s ease, color 0.15s ease;">
                         <i class="${starClass}"></i>
@@ -3735,8 +3754,9 @@ async function loadPromocionesData(forceRefresh = false) {
     }
 }
 
-window.togglePromoRelevante = async function(promoId, isCurrentlyRelevante) {
-    if (!state.user || !["admin", "gerente", "marketing"].includes(state.user.rol)) {
+window.togglePromoRelevante = async function(promoId, isCurrentlyRelevante, codigoMaterial = "") {
+    const userRole = String(state.user?.rol || "").toLowerCase();
+    if (!state.user || !["admin", "gerente", "marketing", "coordinador"].includes(userRole)) {
         showToast("Solo administradores y gerentes pueden marcar promociones relevantes.", "error");
         return;
     }
@@ -3750,27 +3770,39 @@ window.togglePromoRelevante = async function(promoId, isCurrentlyRelevante) {
         }
     }
 
+    const existingTarget = (state.promociones || []).find(p => p.id === promoId);
+    const sku = String(codigoMaterial || existingTarget?.codigo_material || "").trim();
+    const querySuffix = sku ? `?codigo_material=${encodeURIComponent(sku)}` : "";
+
     try {
-        const res = await apiRequest(`/api/v1/promociones/${promoId}/toggle-relevante`, { method: "POST" });
+        const res = await apiRequest(`/api/v1/promociones/${promoId}/toggle-relevante${querySuffix}`, { method: "POST" });
         if (res && res.status === "success") {
-            const isNowRelevante = !isCurrentlyRelevante;
+            const isNowRelevante = res.data?.es_relevante !== undefined ? !!res.data.es_relevante : !isCurrentlyRelevante;
             showToast(res.message || (isNowRelevante ? "Promoción marcada como relevante (Top 4)." : "Promoción retirada de relevantes."), "success");
             
             // Actualizar localmente state.promociones
             if (state.promociones) {
-                const target = state.promociones.find(p => p.id === promoId);
+                const target = state.promociones.find(p => p.id === promoId || (sku && String(p.codigo_material || "").trim() === sku));
                 if (target) {
                     target.es_relevante = isNowRelevante;
+                    if (res.data?.id) target.id = res.data.id;
                 }
             }
             
-            // Re-renderizar la tabla de promociones
+            // Re-renderizar la tabla de promociones y el marco de destacados
             if (typeof loadPromocionesData === "function") {
-                loadPromocionesData();
+                await loadPromocionesData(false);
+            }
+            if (typeof renderSellerPromosDestacadas === "function") {
+                renderSellerPromosDestacadas(state.promociones || []);
             }
         }
     } catch (err) {
         const errorDetail = err?.data?.detail || err.message || "Error al actualizar relevancia de la promoción.";
+        // Si los IDs quedaron desactualizados en memoria tras una recarga, refrescar catálogo desde servidor
+        if (err?.status === 404 || String(errorDetail).toLowerCase().includes("no existe")) {
+            await loadPromocionesData(true);
+        }
         showToast(errorDetail, "error");
     }
 };
@@ -3803,9 +3835,12 @@ if (DOM.uploadPromocionesForm) {
                 showToast(data.message, "success");
                 DOM.uploadPromocionesForm.reset();
                 markLastUpload("promociones");
-                loadPromocionesData();
+                await loadPromocionesData(true);
+                if (typeof renderSellerPromosDestacadas === "function") {
+                    renderSellerPromosDestacadas(state.promociones || []);
+                }
             } else {
-                throw new Error(data.message || "Error al subir el archivo");
+                throw new Error(data.detail || data.message || "Error al subir el archivo");
             }
         } catch (e) {
             showToast(e.message, "error");
@@ -4594,9 +4629,9 @@ function renderDashboardCharts(filtered) {
     // 4. Chart Channel (Doughnut)
     const groupedChannel = {};
     filtered.forEach(q => {
-        let channel = q.canal || "Sin especificar";
-        if (channel === "1.0") channel = "Canal 1 (Directo)";
-        else if (channel === "2.0") channel = "Canal 2 (Telemarketing)";
+        let channel = q.plazo_entrega || q.canal || "Sin especificar";
+        if (channel === "1.0" || channel === "01" || channel === "1") channel = "Canal 1 (Directo)";
+        else if (channel === "2.0" || channel === "02" || channel === "2") channel = "Canal 2 (Telemarketing)";
         groupedChannel[channel] = (groupedChannel[channel] || 0) + 1;
     });
 
@@ -4667,7 +4702,7 @@ function renderQuotesTableFiltered() {
             
             const dateStr = c.fecha_registro || '-';
             const quoteNum = c.numero_cotizacion || '-';
-            const canal = c.canal || '-';
+            const canal = c.plazo_entrega || c.canal || '-';
             const lost = isQuoteLost(c);
             
             // Detección y preparación de WhatsApp
@@ -6880,7 +6915,7 @@ function renderClientHistoryRows(startIndex, count) {
             <tr>
                 <td><strong>${escapeHTML(op.numero_cotizacion || 'Sin #')}</strong></td>
                 <td>${op.fecha_registro ? escapeHTML(op.fecha_registro.split('T')[0]) : '-'}</td>
-                <td>${escapeHTML(op.canal || '-')}</td>
+                <td>${escapeHTML(op.plazo_entrega || op.canal || '-')}</td>
                 <td>$${cotTotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 <td>${facTotal > 0 ? '$' + facTotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (op.numero_factura ? ` <small class="text-muted">(${escapeHTML(op.numero_factura)})</small>` : '') : '-'}</td>
                 <td><span class="badge ${badgeClass}">${escapeHTML(op.estado || 'Pendiente')}</span></td>
@@ -10601,22 +10636,33 @@ document.addEventListener("DOMContentLoaded", () => {
                     body: formData
                 });
                 
-                const result = await response.json();
+                const rawText = await response.text();
+                let result = {};
+                try {
+                    result = rawText ? JSON.parse(rawText) : {};
+                } catch (_parseErr) {
+                    result = { detail: rawText || `Error HTTP ${response.status}` };
+                }
                 
                 if (response.ok) {
                     showToast(result.message || "Cotizaciones cargadas exitosamente.", "success");
                     markLastUpload("cotizaciones");
                     await loadLastUploadLabels();
                     await loadSummaryData(); // Reload table
+                    if (state.currentSection === "cotizaciones" && typeof loadCotizacionesData === "function") {
+                        await loadCotizacionesData(true);
+                    }
                 } else {
-                    showToast(result.detail || "Error al cargar cotizaciones.", "error");
+                    showToast(result.detail || result.message || "Error al cargar cotizaciones.", "error");
                 }
             } catch (error) {
                 console.error("Error uploading excel:", error);
-                showToast("Ocurrió un error en la conexión con el servidor.", "error");
+                showToast(error.message || "Ocurrió un error en la conexión con el servidor.", "error");
             } finally {
-                btnUpload.disabled = false;
-                btnUpload.innerHTML = originalHtml;
+                if (btnUpload) {
+                    btnUpload.disabled = false;
+                    btnUpload.innerHTML = originalHtml;
+                }
                 e.target.value = ""; // Reset input
             }
         });
