@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import delete
+from sqlalchemy import delete, or_
 import io
 import openpyxl
 from typing import Optional
@@ -9,12 +9,85 @@ from typing import Optional
 from app.core.database import get_db
 from app.core.security import RoleChecker, get_current_user
 from app.models.inventario_abcf import InventarioAbcf
+from app.models.promocion import Promocion
+from app.models.cotizacion import Cotizacion
 from app.models.usuario import Usuario
 from app.services.actualizaciones_datos import registrar_actualizacion_datos
 
 router = APIRouter()
 
 require_admin = RoleChecker(["admin", "gerente", "compras"])
+
+
+async def get_reference_pricing_catalog(db: AsyncSession) -> dict[str, float]:
+    """
+    Construye un catálogo consolidado de respaldo de precios {codigo_material_upper: precio}
+    cruzando en orden de prioridad:
+    1. Catálogo maestro embebido oficial (Inventario MKS D.XLSX).
+    2. Registros vigentes de Promoción (precio_promocion o costo_promedio > 0).
+    3. Histórico de Cotizaciones (precio_unitario en items JSON).
+    4. Base de datos actual de InventarioAbcf (si ya tenía precios válidos).
+    """
+    catalog: dict[str, float] = {}
+
+    # 1. Catálogo maestro oficial embebido (base de partida)
+    try:
+        from seed_inventario import get_master_catalog_prices
+        master_prices = get_master_catalog_prices()
+        if master_prices:
+            catalog.update(master_prices)
+    except Exception:
+        pass
+
+    # 2. Cotizaciones históricas
+    try:
+        quote_res = await db.execute(
+            select(Cotizacion.items).where(Cotizacion.items.isnot(None))
+        )
+        for row in quote_res.all():
+            items = row[0]
+            if isinstance(items, list):
+                for it in items:
+                    if isinstance(it, dict):
+                        sku = str(it.get("producto") or it.get("codigo_material") or "").strip().upper()
+                        p = float(it.get("precio_unitario") or 0.0)
+                        if sku and p > 0:
+                            catalog[sku] = p
+    except Exception:
+        pass
+
+    # 3. Base de datos actual InventarioAbcf
+    try:
+        inv_res = await db.execute(
+            select(InventarioAbcf.codigo_material, InventarioAbcf.costo_promedio_unitario).where(
+                InventarioAbcf.costo_promedio_unitario.isnot(None),
+                InventarioAbcf.costo_promedio_unitario > 0
+            )
+        )
+        for row in inv_res.all():
+            sku = str(row[0] or "").strip().upper()
+            p = float(row[1] or 0.0)
+            if sku and p > 0:
+                catalog[sku] = p
+    except Exception:
+        pass
+
+    # 4. Promociones vigentes (máxima prioridad de precio comercial)
+    try:
+        promo_res = await db.execute(
+            select(Promocion.codigo_material, Promocion.precio_promocion, Promocion.costo_promedio).where(
+                or_(Promocion.precio_promocion > 0, Promocion.costo_promedio > 0)
+            )
+        )
+        for row in promo_res.all():
+            sku = str(row[0] or "").strip().upper()
+            p = float(row[1] or 0.0) or float(row[2] or 0.0)
+            if sku and p > 0:
+                catalog[sku] = p
+    except Exception:
+        pass
+
+    return catalog
 
 
 def _normalize_header(value) -> str:
@@ -47,10 +120,35 @@ def _as_float(value, default=None):
     except ValueError:
         return default
 
+
 @router.get("/")
 async def list_inventario(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(InventarioAbcf))
     inventarios = result.scalars().all()
+    if not inventarios:
+        return {"status": "success", "data": []}
+
+    # Auto-curación en caliente: si hay registros sin precio, resolverlos con el catálogo de referencia
+    unpriced = [i for i in inventarios if not i.costo_promedio_unitario or i.costo_promedio_unitario <= 0]
+    if unpriced:
+        ref_catalog = await get_reference_pricing_catalog(db)
+        repaired_any = False
+        for i in unpriced:
+            sku_key = str(i.codigo_material or "").strip().upper()
+            if sku_key in ref_catalog:
+                p = ref_catalog[sku_key]
+                i.costo_promedio_unitario = p
+                if (not i.importe_inventario_propio or i.importe_inventario_propio <= 0) and i.cantidad_propia and i.cantidad_propia > 0:
+                    i.importe_inventario_propio = round(p * i.cantidad_propia, 2)
+                if (not i.valor_consignacion_proveedor or i.valor_consignacion_proveedor <= 0) and i.existencia_consignacion and i.existencia_consignacion > 0:
+                    i.valor_consignacion_proveedor = round(p * i.existencia_consignacion, 2)
+                repaired_any = True
+        if repaired_any:
+            try:
+                await db.commit()
+            except Exception:
+                pass
+
     return {"status": "success", "data": [i.to_dict() for i in inventarios]}
 
 @router.post("/upload", status_code=status.HTTP_201_CREATED)
@@ -66,19 +164,43 @@ async def upload_inventario(
     
     try:
         wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
-        # Eliminar inventario anterior
-        await db.execute(delete(InventarioAbcf))
+        # Pre-cargar catálogo de respaldo antes de modificar nada en base de datos
+        reference_catalog = await get_reference_pricing_catalog(db)
         
-        rows_added = 0
+        items_to_add = []
+        seen_keys = set()
         
         for ws in wb.worksheets:
             if ws.sheet_state == 'hidden':
                 continue
 
-            header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), ())
-            headers = [_normalize_header(value) for value in header_row]
+            headers = []
+            indices = {}
+            start_data_row = 2
+
+            # Tolerar encabezados en filas 1 a 6 (en caso de títulos de reporte SAP previos)
+            for cand_row_idx, cand_row in enumerate(ws.iter_rows(min_row=1, max_row=6, values_only=True), start=1):
+                cand_headers = [_normalize_header(value) for value in cand_row]
+                cand_cod = _header_index(
+                    cand_headers,
+                    "codigo material", "clave material", "codigo producto", "clave producto", "sku", "material", "articulo", "codigo"
+                )
+                cand_centro = _header_index(
+                    cand_headers,
+                    "centro", "sucursal", "centro distribucion", "nombre centro", "ce"
+                )
+                if cand_cod is not None and cand_centro is not None:
+                    headers = cand_headers
+                    start_data_row = cand_row_idx + 1
+                    break
+
+            if not headers:
+                header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), ())
+                headers = [_normalize_header(value) for value in header_row]
+                start_data_row = 2
+
             indices = {
-                "centro": _header_index(headers, "centro", "sucursal", "centro distribucion", "nombre centro"),
+                "centro": _header_index(headers, "centro", "sucursal", "centro distribucion", "nombre centro", "ce", "planta"),
                 "almacen": _header_index(headers, "almacen", "almacen origen"),
                 "numero_proveedor": _header_index(headers, "numero proveedor", "codigo proveedor", "proveedor codigo", "numero de proveedor"),
                 "nombre_proveedor": _header_index(headers, "nombre proveedor", "proveedor", "razon social proveedor", "nombre del proveedor"),
@@ -93,10 +215,10 @@ async def upload_inventario(
                     "indicador abcf frecuencia de venta",
                     "d",
                 ),
-                "codigo_material": _header_index(headers, "codigo material", "clave material", "codigo producto", "clave producto", "sku"),
+                "codigo_material": _header_index(headers, "codigo material", "clave material", "codigo producto", "clave producto", "sku", "material", "articulo", "codigo"),
                 "descripcion_material": _header_index(headers, "descripcion del material", "descripcion material", "descripcion producto", "descripcion", "producto"),
-                "cantidad_propia": _header_index(headers, "cantidad propia", "cant propia", "inventario disponible", "existencia propia", "disponible"),
-                "existencia_consignacion": _header_index(headers, "existencia consignacion", "inv consig", "inventario consignacion", "existencia en consignacion de proveedore", "existencia en consignacion de proveedores"),
+                "cantidad_propia": _header_index(headers, "cantidad propia", "cant propia", "inventario disponible", "existencia propia", "disponible", "libre utilizacion", "libre utilización", "existencia", "stock"),
+                "existencia_consignacion": _header_index(headers, "existencia consignacion", "inv consig", "inventario consignacion", "existencia en consignacion de proveedore", "existencia en consignacion de proveedores", "consignacion", "consignación", "stock consignacion"),
                 "entregas_pendientes": _header_index(headers, "entregas pendientes"),
                 "existencia_transito": _header_index(headers, "existencia transito", "transito"),
                 "existencia_bloqueada": _header_index(headers, "existencia bloqueada", "bloqueada"),
@@ -156,6 +278,12 @@ async def upload_inventario(
                     "precio vta",
                     "importe venta",
                     "importe unitario",
+                    "val neto",
+                    "valor neto",
+                    "cto unit",
+                    "cto unitario",
+                    "precio ref",
+                    "precio referencia",
                 ),
                 "importe_inventario_propio": _header_index(
                     headers,
@@ -170,6 +298,8 @@ async def upload_inventario(
                     "importe",
                     "valor inventario",
                     "valor propio",
+                    "val inventario",
+                    "imp inventario",
                 ),
                 "valor_consignacion_proveedor": _header_index(
                     headers,
@@ -180,6 +310,7 @@ async def upload_inventario(
                     "importe consignacion",
                     "importe consignado",
                     "consignacion importe",
+                    "valor consignado",
                 ),
                 "ubicacion": _header_index(headers, "ubicacion", "localizacion"),
                 "grupo_materiales": _header_index(headers, "grupo materiales"),
@@ -192,12 +323,7 @@ async def upload_inventario(
             if indices["codigo_material"] is None or indices["centro"] is None:
                 continue
 
-            seen_keys = getattr(wb, "_seen_inventario_keys", None)
-            if seen_keys is None:
-                seen_keys = set()
-                wb._seen_inventario_keys = seen_keys
-
-            iter_rows = ws.iter_rows(min_row=2, values_only=True)
+            iter_rows = ws.iter_rows(min_row=start_data_row, values_only=True)
             for row in iter_rows:
                 if not row or not _row_value(row, indices["centro"], 0):
                     continue
@@ -222,14 +348,22 @@ async def upload_inventario(
                     imp_propio = _as_float(_row_value(row, indices["importe_inventario_propio"], 15))
                     val_consig = _as_float(_row_value(row, indices["valor_consignacion_proveedor"], 16))
 
-                    if c_unitario is None or c_unitario == 0.0:
+                    sku_key = str(cod_mat or "").strip().upper()
+
+                    # Resolución y blindaje de precio unitario
+                    if c_unitario is None or c_unitario <= 0.0:
                         if imp_propio and imp_propio > 0 and c_propia > 0:
                             c_unitario = round(imp_propio / c_propia, 2)
                         elif val_consig and val_consig > 0 and e_consig > 0:
                             c_unitario = round(val_consig / e_consig, 2)
+                        elif sku_key in reference_catalog:
+                            c_unitario = reference_catalog[sku_key]
 
-                    if (imp_propio is None or imp_propio == 0.0) and c_unitario and c_unitario > 0 and c_propia > 0:
+                    # Auto-completar importes totales si vinieron en 0 o vacíos
+                    if (imp_propio is None or imp_propio <= 0.0) and c_unitario and c_unitario > 0 and c_propia > 0:
                         imp_propio = round(c_unitario * c_propia, 2)
+                    if (val_consig is None or val_consig <= 0.0) and c_unitario and c_unitario > 0 and e_consig > 0:
+                        val_consig = round(c_unitario * e_consig, 2)
                         
                     inv = InventarioAbcf(
                         nombre_centro=centro_val,
@@ -256,16 +390,26 @@ async def upload_inventario(
                         abc=str(_row_value(row, indices["abc"], 21)) if _row_value(row, indices["abc"], 21) is not None else None,
                         fecha_ultimo_inventario=str(_row_value(row, indices["fecha_ultimo_inventario"], 22)) if _row_value(row, indices["fecha_ultimo_inventario"], 22) is not None else None
                     )
-                    db.add(inv)
-                    rows_added += 1
+                    items_to_add.append(inv)
                 except Exception as row_error:
                     print(f"Error parseando fila: {row_error}")
                     continue
+
+        if not items_to_add:
+            raise HTTPException(status_code=400, detail="No se encontraron registros válidos de inventario en el archivo.")
+
+        # Reemplazo atómico seguro: solo ahora eliminamos los registros anteriores
+        await db.execute(delete(InventarioAbcf))
+        for inv in items_to_add:
+            db.add(inv)
             
         await registrar_actualizacion_datos(db, "inventario-abcf", current_user.id)
         await db.commit()
-        return {"status": "success", "message": f"Se han cargado {rows_added} registros de inventario exitosamente."}
+        return {"status": "success", "message": f"Se han cargado {len(items_to_add)} registros de inventario exitosamente."}
         
+    except HTTPException:
+        await db.rollback()
+        raise
     except Exception as e:
         await db.rollback()
         print(f"Error general procesando archivo de inventario: {e}")

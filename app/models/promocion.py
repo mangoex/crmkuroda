@@ -19,6 +19,7 @@ class Promocion(Base):
     costo_estandar = Column(Float)
     precio_promocion = Column(Float)
     moneda = Column(String)
+    valido_desde = Column(DateTime, nullable=True)
     valido_hasta = Column(DateTime)
     costo_estandar_promocion = Column(Float)
     margen_promocion = Column(Float)
@@ -42,6 +43,7 @@ class Promocion(Base):
             "margen_promocion": self.margen_promocion,
             "proveedor": self.proveedor,
             "inventario_disponible": self.inventario_disponible,
+            "valido_desde": self.valido_desde.isoformat() if self.valido_desde else None,
             "valido_hasta": self.valido_hasta.isoformat() if self.valido_hasta else None,
             "es_relevante": bool(self.es_relevante)
         }

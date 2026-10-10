@@ -30,6 +30,33 @@ def find_inventario_excel():
     return None
 
 
+_master_catalog_cache = None
+
+
+def get_master_catalog_prices() -> dict[str, float]:
+    """Retorna un mapa en caché {codigo_material_upper: precio} desde el catálogo maestro de inventario."""
+    global _master_catalog_cache
+    if _master_catalog_cache is not None:
+        return _master_catalog_cache
+
+    price_map = {}
+    excel_path = find_inventario_excel()
+    if excel_path and os.path.exists(excel_path):
+        try:
+            wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
+            records = parse_inventario_rows_from_workbook(wb)
+            for r in records:
+                sku = str(r.get("codigo_material") or "").strip().upper()
+                price = r.get("costo_promedio_unitario")
+                if sku and price and price > 0 and sku not in price_map:
+                    price_map[sku] = float(price)
+        except Exception as e:
+            logger.warning(f"No se pudo cargar catálogo maestro de precios desde Excel: {e}")
+
+    _master_catalog_cache = price_map
+    return price_map
+
+
 def parse_inventario_rows_from_workbook(wb) -> list[dict]:
     """Extrae y parsea filas con precios y ubicaciones desde un libro openpyxl."""
     records = []

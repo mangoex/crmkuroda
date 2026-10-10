@@ -789,6 +789,10 @@ async function initSession() {
         state.currentSection = initialSec;
         await switchSection(initialSec);
         await loadPendingReminders();
+        const isVendedorUser = (state.user?.rol || "").toLowerCase().trim() === "vendedor";
+        if (isVendedorUser && typeof initSellerMobileView === "function") {
+            initSellerMobileView();
+        }
     } else {
         DOM.authContainer?.classList.remove("hidden");
         DOM.dashboardContainer?.classList.add("hidden");
@@ -1409,7 +1413,10 @@ function formatSellerMoney(value) {
 
 function quoteAgeDays(quote, refDate = new Date()) {
     if (!quote.fecha_registro) return 999;
-    const quoteDate = new Date(`${quote.fecha_registro}T12:00:00`);
+    const raw = String(quote.fecha_registro).trim();
+    const dateStr = raw.includes("T") ? raw.split("T")[0] : raw.split(" ")[0];
+    const quoteDate = new Date(`${dateStr}T12:00:00`);
+    if (Number.isNaN(quoteDate.getTime())) return 0;
     const today = new Date(refDate);
     today.setHours(12, 0, 0, 0);
     return Math.max(0, Math.floor((today - quoteDate) / (1000 * 60 * 60 * 24)));
@@ -2215,6 +2222,9 @@ async function renderSellerHomeDashboard({ metas, quotes, promociones, goalProgr
     renderSellerPromos(promociones, search);
     renderSellerDashboardInsights(quotes, period, periodGoal, invoicedTotal, percent, logToday);
     await loadAndRenderSellerAnalytics();
+    if (typeof renderSellerMobileActividades === "function") {
+        renderSellerMobileActividades({ metas, quotes, promociones, goalProgress, plan, logToday, periodGoal, invoicedTotal, percent, remaining, period });
+    }
 }
 
 const SELLER_STRATEGIC_CHANNELS = ["Apartados", "Kuroda Turbo", "Material D", "Promociones", "Market place"];
@@ -2481,6 +2491,16 @@ async function loadInventarioAbcfData(forceRefresh = false) {
             const res = await apiRequest("/api/v1/inventario-abcf/");
             state.inventario_abcf = res.data || [];
         }
+
+        // Asegurar que las promociones estén disponibles como catálogo de respaldo de precios
+        if (!state.promociones || state.promociones.length === 0) {
+            try {
+                const promoRes = await apiRequest("/api/v1/promociones/");
+                state.promociones = promoRes.data || [];
+            } catch (promoErr) {
+                console.warn("No se pudieron pre-cargar promociones de respaldo para Inventario D:", promoErr);
+            }
+        }
         
         let inventario = [...state.inventario_abcf];
 
@@ -2699,7 +2719,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         const priceCatalogMap = new Map();
         if (state.inventario_abcf && Array.isArray(state.inventario_abcf)) {
             state.inventario_abcf.forEach(item => {
-                const sku = getInventoryProductKey(item);
+                const sku = String(getInventoryProductKey(item) || "").trim().toUpperCase();
                 const cp = Number(item.cantidad_propia || 0);
                 const ec = Number(item.existencia_consignacion || 0);
                 const p = Number(item.costo_promedio_unitario || 0) ||
@@ -2712,7 +2732,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         }
         if (state.promociones && Array.isArray(state.promociones)) {
             state.promociones.forEach(pr => {
-                const sku = String(pr.codigo_material || "").trim();
+                const sku = String(pr.codigo_material || "").trim().toUpperCase();
                 const p = Number(pr.precio_promocion || pr.precio_efectivo_promocion || pr.costo_promedio || 0);
                 if (sku && p > 0 && !priceCatalogMap.has(sku)) {
                     priceCatalogMap.set(sku, p);
@@ -2728,6 +2748,7 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         pageItems.forEach(i => {
             const tr = document.createElement("tr");
             const skuKey = getInventoryProductKey(i);
+            const skuKeyUpper = String(skuKey || "").trim().toUpperCase();
             const imageSearchUrl = buildProductImageSearchUrl({
                 codigo_material: skuKey,
                 descripcion_material: getInventoryDescription(i),
@@ -2742,8 +2763,8 @@ async function loadInventarioAbcfData(forceRefresh = false) {
                     costoUnit = Number(i.importe_inventario_propio) / cantPropia;
                 } else if (cantConsig > 0 && Number(i.valor_consignacion_proveedor || 0) > 0) {
                     costoUnit = Number(i.valor_consignacion_proveedor) / cantConsig;
-                } else if (skuKey && priceCatalogMap.has(skuKey)) {
-                    costoUnit = priceCatalogMap.get(skuKey);
+                } else if (skuKeyUpper && priceCatalogMap.has(skuKeyUpper)) {
+                    costoUnit = priceCatalogMap.get(skuKeyUpper);
                 }
             }
 
@@ -3734,7 +3755,7 @@ async function loadPromocionesData(forceRefresh = false) {
                 <td><strong>$${(p.precio_promocion || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong> ${p.moneda || ''}</td>
                 <td>${p.margen_promocion ? (p.margen_promocion).toFixed(2) : '-'}</td>
                 <td>${p.inventario_disponible !== null && p.inventario_disponible !== undefined ? p.inventario_disponible : '-'}</td>
-                <td>${p.valido_hasta ? p.valido_hasta.split('T')[0] : '-'}</td>
+                <td>${p.valido_hasta ? (p.valido_desde ? `${p.valido_desde.split('T')[0]} al ${p.valido_hasta.split('T')[0]}` : p.valido_hasta.split('T')[0]) : (p.valido_desde ? `Desde ${p.valido_desde.split('T')[0]}` : '-')}</td>
                 <td>
                     <button type="button" class="btn btn-primary btn-sm btn-promo-clients" onclick="openPromoClientsModal(${p.id})">
                         <i class="fa-solid fa-users"></i> Ver Clientes
@@ -8008,6 +8029,9 @@ function clearSelectedMarketProduct() {
     const card = document.getElementById("market-product-selected-card");
     if (card) card.classList.add("hidden");
     
+    const promoBadge = document.getElementById("market-sel-prod-promo-badge");
+    if (promoBadge) promoBadge.classList.add("hidden");
+    
     const searchInput = document.getElementById("market-product-search");
     if (searchInput) {
         searchInput.value = "";
@@ -8058,14 +8082,21 @@ if (marketProductSearchInput && marketProductDropdown) {
                 productos.forEach(p => {
                     const itemDiv = document.createElement("div");
                     itemDiv.className = "market-product-item";
+                    const isPromo = Boolean(p.es_promocion || p.origen === "promocion");
+                    const priceLabel = isPromo ? "Precio Promo" : (p.origen === "cotizacion" ? "P. Cotizado" : "P. Lista");
+                    const promoBadge = isPromo ? '<span class="badge" style="background: rgba(236,72,153,0.15); color: #ec4899; font-size: 10px; font-weight: 700; margin-left: 6px;"><i class="fa-solid fa-tag"></i> PROMO</span>' : '';
+
                     itemDiv.innerHTML = `
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <strong>${p.codigo_material}</strong>
+                            <div style="display: flex; align-items: center;">
+                                <strong>${p.codigo_material}</strong>
+                                ${promoBadge}
+                            </div>
                             <span class="badge" style="font-size: 10px;">${p.abc_f}</span>
                         </div>
                         <div style="font-size: 12px; margin-top: 2px;">${p.descripcion_material}</div>
                         <div style="font-size: 11px; color: hsl(var(--text-secondary)); margin-top: 4px;">
-                            P. Lista: <span style="color: #10b981; font-weight: 600;">$${p.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span> | 
+                            ${priceLabel}: <span style="color: #10b981; font-weight: 600;">$${p.precio_venta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span> | 
                             Costo: $${p.costo_promedio.toLocaleString('es-MX', { minimumFractionDigits: 2 })} | 
                             Stock: ${p.stock_disponible} pzas
                         </div>
@@ -8105,6 +8136,20 @@ function selectMarketProduct(p) {
     document.getElementById("market-sel-prod-stock").textContent = `${p.stock_disponible} pzas`;
     document.getElementById("market-sel-prod-abc").textContent = `Mat. ${p.abc_f}`;
     
+    const isPromo = Boolean(p.es_promocion || p.origen === "promocion");
+    const promoBadge = document.getElementById("market-sel-prod-promo-badge");
+    if (promoBadge) {
+        if (isPromo) {
+            promoBadge.classList.remove("hidden");
+        } else {
+            promoBadge.classList.add("hidden");
+        }
+    }
+    const priceLabel = document.getElementById("market-sel-prod-price-label");
+    if (priceLabel) {
+        priceLabel.textContent = isPromo ? "Precio Promo Actual:" : (p.origen === "cotizacion" ? "P. Cotizado Reciente:" : "P. Lista Actual:");
+    }
+    
     document.getElementById("market-product-selected-card").classList.remove("hidden");
     marketProductSearchInput.value = `${p.codigo_material} - ${p.descripcion_material}`;
     marketProductDropdown.classList.add("hidden");
@@ -8112,6 +8157,7 @@ function selectMarketProduct(p) {
     const btnClear = document.getElementById("btn-clear-market-product-input");
     if (btnClear) btnClear.classList.remove("hidden");
 }
+
 
 // Competitors Chip Toggle & Adding custom chips
 function updateMarketStrictModeUI() {
@@ -11580,3 +11626,793 @@ function setupClientesEventListeners() {
         document.getElementById("modal-confirm-delete-cliente")?.classList.add("hidden");
     });
 }
+
+/* ==========================================================================
+   SELLER MOBILE UI/UX MODULE (2026)
+   Diseño exclusivo para rol vendedor en móvil con 3 pilares:
+   1. Actividades (Seguimiento, Agenda, WhatsApp/Call)
+   2. Promociones (Catálogo visual, Margen, Compartir)
+   3. Entregas (Semáforo de estatus, Logística y Almacén)
+   ========================================================================== */
+
+let sellerMobileActiveTab = "actividades";
+let sellerMobileActivityFilter = "all";
+let sellerMobilePromoFilter = "all";
+let sellerMobileDeliveryFilter = "all";
+let sellerMobileSearchDebounce = null;
+let sellerMobileHabitsCache = {};
+
+function isSellerRole(user = state.user) {
+    if (!user || !user.rol) return false;
+    return String(user.rol).toLowerCase().trim() === "vendedor";
+}
+
+function isSellerMobile() {
+    return isSellerRole() && window.innerWidth <= 768;
+}
+
+function initSellerMobileView() {
+    if (!isSellerRole()) return;
+
+    const sellerName = state.user.nombre_completo || state.user.email || "Vendedor";
+    const nameEl = document.getElementById("seller-mobile-name");
+    const initEl = document.getElementById("seller-mobile-initials");
+    if (nameEl) nameEl.textContent = `Hola, ${sellerName.split(" ")[0] || sellerName}`;
+    if (initEl) initEl.textContent = getInitials(sellerName);
+
+    // Dock tab listeners
+    const dockButtons = document.querySelectorAll("#seller-mobile-dock .seller-dock-item");
+    dockButtons.forEach(btn => {
+        btn.addEventListener("click", () => {
+            const tab = btn.getAttribute("data-seller-tab");
+            if (tab) switchSellerMobileTab(tab);
+        });
+    });
+
+    // Period buttons inside mobile hero card
+    const periodButtons = document.querySelectorAll(".seller-mobile-hero-card .seller-mobile-pill");
+    periodButtons.forEach(btn => {
+        btn.addEventListener("click", async () => {
+            const period = btn.getAttribute("data-period");
+            if (period) {
+                state.sellerGoalPeriod = period;
+                periodButtons.forEach(b => b.classList.toggle("active", b === btn));
+                await refreshSellerGoalProgress();
+                renderSellerMobileActividades();
+            }
+        });
+    });
+
+    // Activity filter chips
+    const activityChips = document.querySelectorAll("#seller-mobile-tab-actividades .seller-filter-chip");
+    activityChips.forEach(chip => {
+        chip.addEventListener("click", () => {
+            activityChips.forEach(c => c.classList.remove("active"));
+            chip.classList.add("active");
+            sellerMobileActivityFilter = chip.getAttribute("data-activity-filter") || "all";
+            renderSellerMobileActividades();
+        });
+    });
+
+    // Activity search input
+    const actSearch = document.getElementById("seller-mobile-activity-search");
+    if (actSearch) {
+        actSearch.addEventListener("input", () => {
+            clearTimeout(sellerMobileSearchDebounce);
+            sellerMobileSearchDebounce = setTimeout(() => {
+                renderSellerMobileActividades();
+            }, 250);
+        });
+    }
+
+    // Promo filter chips
+    const promoChips = document.querySelectorAll("#seller-mobile-promo-chips .seller-filter-chip");
+    promoChips.forEach(chip => {
+        chip.addEventListener("click", () => {
+            promoChips.forEach(c => c.classList.remove("active"));
+            chip.classList.add("active");
+            sellerMobilePromoFilter = chip.getAttribute("data-promo-filter") || "all";
+            renderSellerMobilePromociones();
+        });
+    });
+
+    // Promo search input
+    const promoSearch = document.getElementById("seller-mobile-promo-search");
+    if (promoSearch) {
+        promoSearch.addEventListener("input", () => {
+            clearTimeout(sellerMobileSearchDebounce);
+            sellerMobileSearchDebounce = setTimeout(() => {
+                renderSellerMobilePromociones();
+            }, 250);
+        });
+    }
+
+    // Delivery filter chips
+    const delivChips = document.querySelectorAll("#seller-mobile-tab-entregas .seller-status-chip");
+    delivChips.forEach(chip => {
+        chip.addEventListener("click", () => {
+            delivChips.forEach(c => c.classList.remove("active"));
+            chip.classList.add("active");
+            sellerMobileDeliveryFilter = chip.getAttribute("data-delivery-filter") || "all";
+            renderSellerMobileEntregas();
+        });
+    });
+
+    // Delivery search input
+    const delivSearch = document.getElementById("seller-mobile-delivery-search");
+    if (delivSearch) {
+        delivSearch.addEventListener("input", () => {
+            clearTimeout(sellerMobileSearchDebounce);
+            sellerMobileSearchDebounce = setTimeout(() => {
+                renderSellerMobileEntregas();
+            }, 250);
+        });
+    }
+
+    // Top actions
+    const themeBtn = document.getElementById("seller-mobile-theme-btn");
+    if (themeBtn) {
+        themeBtn.addEventListener("click", () => {
+            const isLight = document.body.classList.toggle("light-mode");
+            document.body.classList.toggle("dark-mode", !isLight);
+            const icon = document.getElementById("seller-mobile-theme-icon");
+            if (icon) {
+                icon.className = isLight ? "fa-solid fa-moon" : "fa-solid fa-sun";
+            }
+        });
+    }
+
+    const logoutBtn = document.getElementById("seller-mobile-logout-btn");
+    if (logoutBtn) {
+        logoutBtn.addEventListener("click", () => {
+            if (typeof logoutUser === "function") logoutUser();
+            else if (DOM.logoutBtn) DOM.logoutBtn.click();
+        });
+    }
+
+    const remBtn = document.getElementById("seller-mobile-reminders-btn");
+    if (remBtn) {
+        remBtn.addEventListener("click", () => {
+            switchSellerMobileTab("actividades");
+            const feed = document.getElementById("seller-mobile-activity-feed");
+            if (feed) feed.scrollIntoView({ behavior: "smooth" });
+        });
+    }
+
+    // Initial tab switch
+    switchSellerMobileTab(sellerMobileActiveTab);
+}
+
+function switchSellerMobileTab(tabId) {
+    sellerMobileActiveTab = tabId;
+
+    // Update Dock buttons
+    document.querySelectorAll("#seller-mobile-dock .seller-dock-item").forEach(btn => {
+        btn.classList.toggle("active", btn.getAttribute("data-seller-tab") === tabId);
+    });
+
+    // Update Tabs visibility
+    const tabs = {
+        actividades: document.getElementById("seller-mobile-tab-actividades"),
+        promociones: document.getElementById("seller-mobile-tab-promociones"),
+        entregas: document.getElementById("seller-mobile-tab-entregas")
+    };
+
+    Object.entries(tabs).forEach(([key, el]) => {
+        if (el) {
+            el.classList.toggle("active", key === tabId);
+            el.classList.toggle("hidden", key !== tabId);
+        }
+    });
+
+    // Load and render relevant tab
+    if (tabId === "actividades") {
+        renderSellerMobileActividades();
+    } else if (tabId === "promociones") {
+        renderSellerMobilePromociones();
+    } else if (tabId === "entregas") {
+        renderSellerMobileEntregas();
+    }
+}
+
+async function renderSellerMobileActividades(cachedParams = null) {
+    if (!isSellerRole()) return;
+
+    const period = getSellerGoalPeriodConfig(state.sellerGoalPeriod || "day");
+    const goalProgress = cachedParams?.goalProgress || state.sellerGoalProgress;
+    const quotes = cachedParams?.quotes || state.cotizaciones || [];
+
+    const monthlyGoal = getCurrentMonthlyGoal(state.metas || []);
+    const fallbackPeriodGoal = monthlyGoal * period.targetFactor;
+    const fallbackInvoicedTotal = quotes
+        .filter(q => q.numero_factura)
+        .filter(q => {
+            const quoteDate = parseLocalDate(q.fecha_registro || q.fecha_factura);
+            return quoteDate && quoteDate >= period.start && quoteDate <= period.end;
+        })
+        .reduce((sum, q) => sum + getInvoiceAmount(q), 0);
+
+    const periodGoal = Number(goalProgress?.meta ?? fallbackPeriodGoal);
+    const invoicedTotal = Number(goalProgress?.venta_facturada ?? fallbackInvoicedTotal);
+    const percent = periodGoal > 0 ? Math.min(100, Math.round((invoicedTotal / periodGoal) * 100)) : 0;
+    const remaining = Math.max(0, periodGoal - invoicedTotal);
+
+    // Sync Hero card
+    const ring = document.getElementById("seller-mobile-progress-ring");
+    if (ring) ring.style.setProperty("--progress", `${percent}%`);
+    const pctEl = document.getElementById("seller-mobile-progress-pct");
+    if (pctEl) pctEl.textContent = `${percent}%`;
+    const invEl = document.getElementById("seller-mobile-invoiced-val");
+    if (invEl) invEl.textContent = formatSellerMoney(invoicedTotal);
+    const tgtEl = document.getElementById("seller-mobile-target-val");
+    if (tgtEl) tgtEl.textContent = formatSellerMoney(periodGoal);
+    const remEl = document.getElementById("seller-mobile-remaining-val");
+    if (remEl) remEl.textContent = formatSellerMoney(remaining);
+    const daysEl = document.getElementById("seller-mobile-days-left");
+    if (daysEl) daysEl.innerHTML = `<i class="fa-regular fa-calendar-days"></i> <span>${period.remainingLabel}</span>`;
+
+    // Sync period pill buttons
+    document.querySelectorAll(".seller-mobile-hero-card .seller-mobile-pill").forEach(btn => {
+        btn.classList.toggle("active", btn.getAttribute("data-period") === (state.sellerGoalPeriod || "day"));
+    });
+
+    // 3 Quick micro-metrics
+    const periodQuotes = quotes.filter(q => {
+        const quoteDate = parseLocalDate(q.fecha_registro || q.fecha_factura);
+        return quoteDate && quoteDate >= period.start && quoteDate <= period.end;
+    });
+    const periodInvoicedQuotes = periodQuotes.filter(q => q.numero_factura || Number(q.importe_facturado || 0) > 0);
+    const totalQuotesCount = periodQuotes.length;
+    const invoicedQuotesCount = periodInvoicedQuotes.length;
+    const conversionRate = totalQuotesCount > 0 ? (invoicedQuotesCount / totalQuotesCount) * 100 : 0;
+
+    const qCountEl = document.getElementById("seller-mobile-quotes-count");
+    if (qCountEl) qCountEl.textContent = totalQuotesCount.toLocaleString("es-MX");
+    const invCountEl = document.getElementById("seller-mobile-invoiced-count");
+    if (invCountEl) invCountEl.textContent = invoicedQuotesCount.toLocaleString("es-MX");
+    const convEl = document.getElementById("seller-mobile-conversion-pct");
+    if (convEl) convEl.textContent = `${conversionRate.toFixed(1)}%`;
+
+    // Hábitos de La Ventaja
+    renderSellerMobileHabits(cachedParams?.plan, cachedParams?.logToday);
+
+    // Seguimiento Prioritario
+    renderSellerMobileFollowups(quotes);
+}
+
+async function renderSellerMobileHabits(cachedPlan = null, cachedLog = null) {
+    const container = document.getElementById("seller-mobile-habits-list");
+    if (!container) return;
+
+    let plan = cachedPlan || state.slightEdgePlan;
+    let logToday = cachedLog;
+
+    if (!plan && state.user?.id) {
+        try {
+            const planRes = await apiRequest(`/api/slight-edge/plan/${state.user.id}`);
+            plan = planRes.data || null;
+            state.slightEdgePlan = plan;
+        } catch (e) {}
+    }
+
+    if (!logToday && state.user?.id) {
+        try {
+            const todayStr = new Date().toISOString().split("T")[0];
+            const logRes = await apiRequest(`/api/slight-edge/log/${state.user.id}?date_str=${todayStr}`);
+            logToday = logRes.data || null;
+        } catch (e) {}
+    }
+
+    const activities = plan?.activities_config || [
+        { activity: "Llamadas de prospección", target: 5 },
+        { activity: "Visitas a clientes", target: 3 }
+    ];
+
+    sellerMobileHabitsCache = logToday?.completed_activities || {};
+
+    container.innerHTML = activities.slice(0, 4).map(act => {
+        const name = act.activity || "Actividad";
+        const count = Number(sellerMobileHabitsCache[name] || 0);
+        const target = Number(act.target || 0);
+        return `
+            <div class="seller-habit-item">
+                <div class="seller-habit-info">
+                    <strong>${escapeHTML(name)}</strong>
+                    <span><b>${count}</b>${target > 0 ? ` de ${target}` : ''} hoy</span>
+                </div>
+                <button type="button" class="seller-habit-btn" onclick="incrementSellerHabit('${escapeHTML(name)}')" title="Registrar +1">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+            </div>
+        `;
+    }).join("");
+}
+
+window.incrementSellerHabit = async function(activityName) {
+    if (!state.user?.id) return;
+    const current = Number(sellerMobileHabitsCache[activityName] || 0);
+    const updated = current + 1;
+    sellerMobileHabitsCache[activityName] = updated;
+
+    // Optimistic UI update
+    renderSellerMobileHabits(state.slightEdgePlan, { completed_activities: sellerMobileHabitsCache });
+    showToast(`+1 ${activityName} registrado`, "success");
+
+    try {
+        const todayStr = new Date().toISOString().split("T")[0];
+        await apiRequest(`/api/slight-edge/log/${state.user.id}`, {
+            method: "POST",
+            body: JSON.stringify({
+                date_str: todayStr,
+                completed_activities: sellerMobileHabitsCache
+            })
+        });
+    } catch (err) {
+        console.warn("Error guardando hábito móvil:", err);
+    }
+};
+
+function renderSellerMobileFollowups(quotes) {
+    const feed = document.getElementById("seller-mobile-activity-feed");
+    const badge = document.getElementById("seller-mobile-pending-badge");
+    if (!feed) return;
+
+    const search = (document.getElementById("seller-mobile-activity-search")?.value || "").toLowerCase().trim();
+    let pending = (quotes || []).filter(isPendingQuote).sort((a, b) => quoteAgeDays(b) - quoteAgeDays(a));
+
+    if (badge) badge.textContent = pending.length;
+
+    // Filter by search
+    if (search) {
+        pending = pending.filter(q => {
+            const name = String(q.cliente_nombre || "").toLowerCase();
+            const folio = String(q.numero_cotizacion || "").toLowerCase();
+            return name.includes(search) || folio.includes(search);
+        });
+    }
+
+    // Filter by chip
+    if (sellerMobileActivityFilter === "urgent") {
+        pending = pending.filter(q => {
+            const age = quoteAgeDays(q);
+            const remaining = Math.max(0, 30 - age);
+            return remaining <= 2 || age >= 28;
+        });
+    } else if (sellerMobileActivityFilter === "expiring") {
+        pending = pending.filter(q => {
+            const remaining = Math.max(0, 30 - quoteAgeDays(q));
+            return remaining <= 7;
+        });
+    }
+
+    if (pending.length === 0) {
+        feed.innerHTML = `
+            <div class="seller-empty-state" style="text-align: center; padding: 24px; color: #94a3b8; font-size: 13px;">
+                <i class="fa-solid fa-circle-check" style="font-size: 28px; color: #10b981; margin-bottom: 8px; display: block;"></i>
+                No hay cotizaciones pendientes con este criterio.
+            </div>
+        `;
+        return;
+    }
+
+    feed.innerHTML = pending.slice(0, 15).map(quote => {
+        let age = quoteAgeDays(quote);
+        if (!Number.isFinite(age)) age = 0;
+        const remaining = Math.max(0, 30 - age);
+        const isUrgent = remaining <= 2 || age >= 28;
+        const customerName = escapeHTML(quote.cliente_nombre || "Cliente sin nombre");
+        const initials = getInitials(quote.cliente_nombre);
+        const folio = escapeHTML(quote.numero_cotizacion || "Sin folio");
+        const amount = formatSellerMoney(quote.total);
+
+        // Teléfono
+        const rawPhone = quote.datos_contacto?.contacto_preferente || quote.datos_contacto?.celular || quote.datos_contacto?.telefono || "";
+        const cleanPhone = String(rawPhone).replace(/\D/g, "");
+        const waText = encodeURIComponent(`Hola ${quote.cliente_nombre || 'estimado cliente'}, te saludo de Casa Kuroda respecto a tu cotización ${quote.numero_cotizacion || ''} por ${amount}. ¿Tienes alguna duda o te gustaría que coordinemos el surtido?`);
+
+        return `
+            <div class="seller-lead-card ${isUrgent ? 'urgent' : ''}">
+                <div class="seller-lead-header">
+                    <div class="seller-lead-customer">
+                        <div class="seller-lead-avatar">${initials}</div>
+                        <div class="seller-lead-info">
+                            <strong>${customerName}</strong>
+                            <span>Folio: ${folio}</span>
+                        </div>
+                    </div>
+                    <span class="seller-lead-badge ${isUrgent ? 'danger' : remaining <= 7 ? 'warning' : 'normal'}">
+                        ${isUrgent ? 'Vence hoy' : `En ${remaining}d`}
+                    </span>
+                </div>
+                <div class="seller-lead-body">
+                    <span style="font-size: 12px; color: hsl(var(--text-secondary));">Monto cotizado</span>
+                    <strong class="quote-amount">${amount}</strong>
+                </div>
+                <div class="seller-lead-actions">
+                    <a class="seller-btn-wa" href="${cleanPhone ? `https://wa.me/${cleanPhone}?text=${waText}` : `https://wa.me/?text=${waText}`}" target="_blank" rel="noopener">
+                        <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                    </a>
+                    <a class="seller-btn-call" href="${cleanPhone ? `tel:${cleanPhone}` : '#'}" onclick="${cleanPhone ? '' : 'alert(\'No hay teléfono registrado para este cliente.\'); return false;'}">
+                        <i class="fa-solid fa-phone"></i> Llamar
+                    </a>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+async function renderSellerMobilePromociones() {
+    const grid = document.getElementById("seller-mobile-promo-grid");
+    if (!grid) return;
+
+    if (!state.promociones || state.promociones.length === 0) {
+        grid.innerHTML = '<div style="text-align: center; padding: 24px; color: #94a3b8;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 20px;"></i><p>Cargando promociones...</p></div>';
+        try {
+            await loadPromocionesData();
+        } catch (e) {}
+    }
+
+    const search = (document.getElementById("seller-mobile-promo-search")?.value || "").toLowerCase().trim();
+    let promos = [...(state.promociones || [])];
+
+    // Filter by chip
+    if (sellerMobilePromoFilter === "relevantes") {
+        promos = promos.filter(p => !!p.es_relevante);
+    } else if (sellerMobilePromoFilter !== "all") {
+        promos = promos.filter(p => (p.proveedor || "") === sellerMobilePromoFilter || (p.familia || "") === sellerMobilePromoFilter);
+    }
+
+    // Filter by search
+    if (search) {
+        promos = promos.filter(p => {
+            const sku = String(p.codigo_material || "").toLowerCase();
+            const desc = String(p.descripcion_material || "").toLowerCase();
+            const prov = String(p.proveedor || "").toLowerCase();
+            return sku.includes(search) || desc.includes(search) || prov.includes(search);
+        });
+    }
+
+    if (promos.length === 0) {
+        grid.innerHTML = '<div style="text-align: center; padding: 30px; color: #94a3b8;"><i class="fa-solid fa-tags" style="font-size: 28px; margin-bottom: 8px;"></i><p>No se encontraron promociones con ese criterio.</p></div>';
+        return;
+    }
+
+    grid.innerHTML = promos.slice(0, 20).map(p => {
+        const sku = escapeHTML(p.codigo_material || "");
+        const desc = escapeHTML(p.descripcion_material || "Producto en Promoción");
+        const prov = escapeHTML(p.proveedor || "Kuroda");
+        const precio = Number(p.precio_promocion || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const margen = p.margen_promocion !== null && p.margen_promocion !== undefined ? Number(p.margen_promocion).toFixed(1) : null;
+        const waMsg = encodeURIComponent(`Hola, te comparto una excelente promoción en Casa Kuroda:\n📦 *${p.descripcion_material || sku}*\n🏷️ Código: ${sku}\n💰 Precio especial: $${precio} ${p.moneda || 'MXN'}\n¡Aprovecha antes de que se agote!`);
+
+        return `
+            <div class="seller-promo-item-card">
+                <div class="seller-promo-item-top">
+                    <span class="seller-promo-sku-tag"><i class="fa-solid fa-barcode"></i> ${sku || 'PROMO'}</span>
+                    ${margen ? `<span class="seller-promo-margin-badge"><i class="fa-solid fa-arrow-trend-up"></i> ${margen}% Margen</span>` : ''}
+                </div>
+                <h4 class="seller-promo-item-title">${desc}</h4>
+                <div class="seller-promo-item-meta">
+                    <span class="seller-promo-provider"><i class="fa-solid fa-building"></i> ${prov}</span>
+                    <div class="seller-promo-price-box">
+                        <span class="price-label">Precio Promo</span>
+                        <strong class="price-amount">$${precio} <small style="font-size: 11px;">${escapeHTML(p.moneda || 'MXN')}</small></strong>
+                    </div>
+                </div>
+                <a class="seller-btn-share-promo" href="https://wa.me/?text=${waMsg}" target="_blank" rel="noopener">
+                    <i class="fa-brands fa-whatsapp"></i> Compartir promo por WhatsApp
+                </a>
+            </div>
+        `;
+    }).join("");
+}
+
+async function renderSellerMobileEntregas() {
+    const feed = document.getElementById("seller-mobile-delivery-feed");
+    if (!feed) return;
+
+    if (!state.porEntregar || state.porEntregar.length === 0) {
+        feed.innerHTML = '<div style="text-align: center; padding: 24px; color: #94a3b8;"><i class="fa-solid fa-spinner fa-spin" style="font-size: 20px;"></i><p>Cargando entregas...</p></div>';
+        try {
+            await loadPorEntregarData();
+            await loadSobrepedidosData();
+        } catch (e) {}
+    }
+
+    const search = (document.getElementById("seller-mobile-delivery-search")?.value || "").toLowerCase().trim();
+    const items = [];
+
+    // Por Entregar (VL06O)
+    (state.porEntregar || []).forEach(r => {
+        let color = "verde";
+        const crmState = String(r.estado_crm || "").toLowerCase();
+        if (crmState.includes("amarillo")) color = "amarillo";
+        else if (crmState.includes("rojo")) color = "rojo";
+
+        items.push({
+            tipo: "por-entregar",
+            color,
+            folio: r.factura ? `Factura #${r.factura}` : (r.id_pedido_erp ? `Pedido #${r.id_pedido_erp}` : "Entrega"),
+            cliente: r.cliente_nombre || "Cliente sin nombre",
+            sku: r.producto_sku || "",
+            producto: r.producto_desc || "Material Kuroda",
+            cantidad: Number(r.cantidad_pendiente || 1),
+            dias: Number(r.dias_disponible || 0),
+            motivo: r.motivo_estado || (color === "verde" ? "Listo en Almacén" : "En Tránsito"),
+            statusLabel: color === "verde" ? "En Almacén" : color === "amarillo" ? "En Tránsito" : "Demorado"
+        });
+    });
+
+    // Sobrepedidos
+    (state.sobrepedidos || []).forEach(r => {
+        let color = "rojo";
+        const crmState = String(r.estado_crm || "").toLowerCase();
+        if (crmState.includes("verde")) color = "verde";
+        else if (crmState.includes("amarillo")) color = "amarillo";
+
+        items.push({
+            tipo: "sobrepedido",
+            color,
+            folio: r.factura ? `Factura #${r.factura}` : (r.id_pedido_erp ? `Pedido #${r.id_pedido_erp}` : "Sobrepedido"),
+            cliente: r.cliente_nombre || "Cliente sin nombre",
+            sku: r.producto_sku || "",
+            producto: r.producto_desc || "Material Kuroda",
+            cantidad: Number(r.cantidad_pendiente || 1),
+            dias: 0,
+            motivo: r.motivo_estado || "Sobrepedido de compras",
+            statusLabel: "Sobrepedido"
+        });
+    });
+
+    // Calculate count totals for chips
+    const counts = { all: items.length, verde: 0, amarillo: 0, rojo: 0 };
+    items.forEach(it => {
+        if (counts[it.color] !== undefined) counts[it.color]++;
+    });
+
+    const cntAll = document.getElementById("seller-deliv-count-all");
+    const cntVerde = document.getElementById("seller-deliv-count-verde");
+    const cntAmarillo = document.getElementById("seller-deliv-count-amarillo");
+    const cntRojo = document.getElementById("seller-deliv-count-rojo");
+    if (cntAll) cntAll.textContent = counts.all;
+    if (cntVerde) cntVerde.textContent = counts.verde;
+    if (cntAmarillo) cntAmarillo.textContent = counts.amarillo;
+    if (cntRojo) cntRojo.textContent = counts.rojo;
+
+    let filtered = items;
+
+    // Filter by color chip
+    if (sellerMobileDeliveryFilter !== "all") {
+        filtered = filtered.filter(it => it.color === sellerMobileDeliveryFilter);
+    }
+
+    // Filter by search
+    if (search) {
+        filtered = filtered.filter(it => {
+            const cl = it.cliente.toLowerCase();
+            const fol = it.folio.toLowerCase();
+            const pr = it.producto.toLowerCase();
+            const sk = it.sku.toLowerCase();
+            return cl.includes(search) || fol.includes(search) || pr.includes(search) || sk.includes(search);
+        });
+    }
+
+    if (filtered.length === 0) {
+        feed.innerHTML = '<div style="text-align: center; padding: 30px; color: #94a3b8;"><i class="fa-solid fa-truck-fast" style="font-size: 28px; margin-bottom: 8px;"></i><p>No se encontraron registros de entrega con ese criterio.</p></div>';
+        return;
+    }
+
+    feed.innerHTML = filtered.slice(0, 25).map(deliv => {
+        const client = escapeHTML(deliv.cliente);
+        const folio = escapeHTML(deliv.folio);
+        const prod = escapeHTML(deliv.producto);
+        const sku = escapeHTML(deliv.sku);
+        const waMsg = encodeURIComponent(`Hola ${deliv.cliente}, te contacto de Casa Kuroda para informarte el estatus de tu ${deliv.folio}: actualmente se encuentra *${deliv.statusLabel}* (${deliv.motivo}). Quedamos a tu servicio.`);
+
+        return `
+            <div class="seller-delivery-card ${deliv.color}">
+                <div class="seller-delivery-header">
+                    <span class="seller-delivery-folio">${folio}</span>
+                    <span class="seller-delivery-status-pill ${deliv.color}">${escapeHTML(deliv.statusLabel)}</span>
+                </div>
+                <div class="seller-delivery-client">${client}</div>
+                <div class="seller-delivery-product">
+                    <strong>${deliv.cantidad}x</strong> ${prod} ${sku ? `<small>(${sku})</small>` : ''}
+                </div>
+                <div class="seller-delivery-footer">
+                    <span class="seller-delivery-days">
+                        <i class="fa-regular fa-clock"></i> ${deliv.dias > 0 ? `${deliv.dias} días en almacén` : escapeHTML(deliv.motivo)}
+                    </span>
+                    <a class="seller-btn-notify-delivery" href="https://wa.me/?text=${waMsg}" target="_blank" rel="noopener">
+                        <i class="fa-brands fa-whatsapp"></i> Avisar
+                    </a>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+/* ==========================================================================
+   SELLER MOBILE PREVIEW & DEMO MODE
+   Permite visualizar y probar la UI/UX móvil del vendedor inmediatamente
+   en teléfonos celulares y vistas previas locales.
+   ========================================================================== */
+
+function loadSellerMobilePreview() {
+    const sampleQuotes = [
+        {
+            folio: 'COT-2026-089',
+            cliente_nombre: 'Constructora del Pacífico S.A.',
+            cliente_telefono: '6671234567',
+            producto_destacado: 'Tubería PVC Sanitaria 4"',
+            total: 48500,
+            fecha_registro: new Date().toISOString(),
+            estado: 'Pendiente',
+            seguimiento_urgente: true
+        },
+        {
+            folio: 'COT-2026-092',
+            cliente_nombre: 'Plomería y Materiales San Carlos',
+            cliente_telefono: '6679876543',
+            producto_destacado: 'Válvula Esfera Roscable 2"',
+            total: 19200,
+            fecha_registro: new Date(Date.now() - 86400000 * 2).toISOString(),
+            estado: 'Seguimiento',
+            seguimiento_urgente: false
+        },
+        {
+            folio: 'COT-2026-095',
+            cliente_nombre: 'Desarrollos Urbanos del Humaya',
+            cliente_telefono: '6675551234',
+            producto_destacado: 'Calentador Solar 150L',
+            total: 86000,
+            fecha_registro: new Date(Date.now() - 86400000 * 4).toISOString(),
+            estado: 'Pendiente',
+            seguimiento_urgente: true
+        }
+    ];
+
+    const samplePromos = [
+        {
+            codigo_material: 'TUB-PVC-40',
+            descripcion_material: 'Tubo Sanitario PVC 4" x 6m Reforzado C-40',
+            proveedor: 'Amanco Wavin',
+            familia: 'Tubería',
+            precio_promocion: 385.50,
+            moneda: 'MXN',
+            margen_promocion: 28.5,
+            es_relevante: true
+        },
+        {
+            codigo_material: 'VAL-ESF-20',
+            descripcion_material: 'Válvula de Esfera Latón 2" Paso Completo',
+            proveedor: 'Urrea Tecnología',
+            familia: 'Válvulas',
+            precio_promocion: 540.00,
+            moneda: 'MXN',
+            margen_promocion: 32.0,
+            es_relevante: true
+        },
+        {
+            codigo_material: 'CAL-SOL-150',
+            descripcion_material: 'Calentador Solar Gravedad 150L Acero Inox',
+            proveedor: 'Era Solar',
+            familia: 'Calentadores',
+            precio_promocion: 5890.00,
+            moneda: 'MXN',
+            margen_promocion: 24.0,
+            es_relevante: false
+        }
+    ];
+
+    const sampleDeliveries = [
+        {
+            factura: 'F-45890',
+            id_pedido_erp: 'PED-9021',
+            cliente_nombre: 'Constructora Culiacán Centro',
+            producto_sku: 'PVC-SAN-110',
+            producto_desc: 'Codo PVC Sanitario 4" x 90°',
+            cantidad_pendiente: 45,
+            dias_disponible: 1,
+            estado_crm: 'Verde (Listo)',
+            motivo_estado: 'Material disponible en Almacén Matriz'
+        },
+        {
+            factura: 'F-45912',
+            id_pedido_erp: 'PED-9044',
+            cliente_nombre: 'Residencial Montebello',
+            producto_sku: 'CPVC-075',
+            producto_desc: 'Tubo CPVC FlowGuard 3/4" x 3m',
+            cantidad_pendiente: 20,
+            dias_disponible: 4,
+            estado_crm: 'Amarillo (Tránsito)',
+            motivo_estado: 'En ruta de reparto local'
+        },
+        {
+            factura: '10955',
+            id_pedido_erp: 'PED-7782',
+            cliente_nombre: 'Hospital Santa María',
+            producto_sku: 'URR-5020',
+            producto_desc: 'Mezcladora Urrea Monomando',
+            cantidad_pendiente: 12,
+            estado_crm: 'Rojo (Atención)',
+            motivo_estado: 'Backorder con proveedor'
+        }
+    ];
+
+    state.user = {
+        id: 'vendedor-demo',
+        nombre_completo: 'Carlos Mendoza',
+        email: 'carlos.mendoza@kuroda.com',
+        rol: 'vendedor'
+    };
+    state.cotizaciones = sampleQuotes;
+    state.promociones = samplePromos;
+    state.porEntregar = sampleDeliveries.slice(0, 2);
+    state.sobrepedidos = sampleDeliveries.slice(2);
+    state.sellerGoalProgress = {
+        meta: 250000,
+        venta_facturada: 187500
+    };
+
+    document.body.setAttribute('data-role', 'vendedor');
+    document.body.classList.add('role-vendedor');
+    
+    if (DOM.authContainer) DOM.authContainer.classList.add('hidden');
+    if (DOM.dashboardContainer) DOM.dashboardContainer.classList.remove('hidden');
+
+    initSellerMobileView();
+    renderSellerMobileActividades({
+        quotes: sampleQuotes,
+        goalProgress: state.sellerGoalProgress,
+        plan: {
+            activities_config: [
+                { activity: "Llamadas de prospección", target: 8 },
+                { activity: "Visitas a obra", target: 4 }
+            ]
+        },
+        logToday: {
+            completed_activities: {
+                "Llamadas de prospección": 5,
+                "Visitas a obra": 2
+            }
+        }
+    });
+
+    if (typeof showToast === 'function') {
+        showToast('Vista móvil de vendedor activada en modo propuesta / demo.', 'info');
+    }
+}
+window.loadSellerMobilePreview = loadSellerMobilePreview;
+
+function checkSellerMobileAutoPreview() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        if (
+            params.get("preview") === "vendedor" ||
+            params.get("preview") === "seller" ||
+            params.get("preview") === "1" ||
+            params.get("demo") === "vendedor" ||
+            params.get("demo") === "1" ||
+            params.get("rol") === "vendedor"
+        ) {
+            loadSellerMobilePreview();
+        }
+    } catch (e) {}
+
+    const previewBtn = document.getElementById("btn-preview-seller-mobile");
+    if (previewBtn) {
+        previewBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            loadSellerMobilePreview();
+        });
+    }
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", checkSellerMobileAutoPreview);
+} else {
+    checkSellerMobileAutoPreview();
+}
+
+

@@ -53,8 +53,9 @@ async def lifespan(app: FastAPI):
             # Create all tables defined in models
             await conn.run_sync(Base.metadata.create_all)
             from sqlalchemy import text
-            # Garantizar que la columna es_relevante exista en promociones sin importar el estado de Alembic
+            # Garantizar que las columnas es_relevante y valido_desde existan en promociones sin importar el estado de Alembic
             await conn.execute(text("ALTER TABLE promociones ADD COLUMN IF NOT EXISTS es_relevante BOOLEAN NOT NULL DEFAULT FALSE;"))
+            await conn.execute(text("ALTER TABLE promociones ADD COLUMN IF NOT EXISTS valido_desde TIMESTAMP;"))
             await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_promociones_es_relevante ON promociones (es_relevante);"))
             # Garantizar índices de alto rendimiento para búsqueda de historial por número de cliente
             await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cotizaciones_numero_cliente ON cotizaciones (numero_cliente);"))
