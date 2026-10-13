@@ -28,15 +28,22 @@ async def job_generar_seguimientos_diarios():
     """
     Tarea programada para generar los enlaces de WhatsApp diariamente para todos los vendedores.
     """
+    has_llm_credentials = bool(settings.OPENROUTER_API_KEY or settings.GEMINI_API_KEY)
+    if not has_llm_credentials:
+        logger.warning(
+            "Omitiendo generación de seguimientos automáticos con IA: "
+            "No hay credenciales de LLM configuradas (OPENROUTER_API_KEY o GEMINI_API_KEY)."
+        )
+        return
+
     logger.info("Iniciando generación de seguimientos diarios...")
     hoy = _business_today()
 
     async with SessionLocal() as session:
-        # Obtener todos los vendedores
+        # Obtener todos los vendedores (solo metas; cotizaciones se consultan bajo demanda acotada para proteger RAM)
         result = await session.execute(
             select(Usuario).filter(Usuario.rol == "vendedor").options(
-                selectinload(Usuario.metas),
-                selectinload(Usuario.cotizaciones)
+                selectinload(Usuario.metas)
             )
         )
         vendedores = result.scalars().all()
@@ -53,16 +60,22 @@ async def job_generar_seguimientos_diarios():
                 continue # Ya existe
 
             try:
-                # Filtrar metas y cotizaciones activas/recientes
+                # Filtrar metas vigentes
                 metas_vigentes = [
                     {"descripcion": m.descripcion, "monto_objetivo": str(m.monto_objetivo), "estado": m.estado}
                     for m in vendedor.metas if m.estado != "Completada"
                 ]
                 
-                # Para simplificar, tomamos las últimas 5 cotizaciones del vendedor
+                # Consultar únicamente las últimas 5 cotizaciones del vendedor para evitar desbordar memoria
+                cot_res = await session.execute(
+                    select(Cotizacion.cliente_nombre, Cotizacion.total)
+                    .filter(Cotizacion.vendedor_id == vendedor.id)
+                    .order_by(Cotizacion.fecha_registro.desc().nullslast())
+                    .limit(5)
+                )
                 cotizaciones_recientes = [
-                    {"cliente_nombre": c.cliente_nombre, "total": str(c.total)}
-                    for c in sorted(vendedor.cotizaciones, key=lambda x: x.fecha_registro or date.min, reverse=True)[:5]
+                    {"cliente_nombre": c[0], "total": str(c[1])}
+                    for c in cot_res.all()
                 ]
 
                 # Llamar a la IA
