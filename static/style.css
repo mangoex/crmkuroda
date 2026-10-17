@@ -153,7 +153,20 @@ h1, h2, h3, h4, h5, h6 {
 
 .login-header {
     text-align: center;
-    margin-bottom: 32px;
+    margin-bottom: 28px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 8px 0 4px;
+}
+
+.login-brand-logo {
+    width: 100%;
+    max-width: 310px;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
 }
 
 .logo-circle {
