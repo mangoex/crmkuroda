@@ -134,6 +134,29 @@ async def lifespan(app: FastAPI):
                     for dc in dummy_clients:
                         session.add(dc)
 
+                # Reconciliación de código de vendedor para Mario Navarro si existe y no tiene clave
+                res_mario = await session.execute(select(Usuario).filter(Usuario.email == "mario.navarro@kuroda.com"))
+                mario = res_mario.scalars().first()
+                if mario and not mario.codigo_vendedor:
+                    mario.codigo_vendedor = "K96"
+                    print("[Startup] Asignada clave K96 a mario.navarro@kuroda.com")
+
+                # Reconciliación de cotizaciones huérfanas contra códigos de vendedores registrados
+                from app.models.cotizacion import Cotizacion
+                from sqlalchemy import update, func
+                sellers_res = await session.execute(select(Usuario).filter(Usuario.codigo_vendedor.is_not(None), Usuario.rol == "vendedor"))
+                for s in sellers_res.scalars().all():
+                    if s.codigo_vendedor:
+                        code = s.codigo_vendedor.strip().upper()
+                        await session.execute(
+                            update(Cotizacion)
+                            .where(
+                                Cotizacion.vendedor_id.is_(None),
+                                func.upper(func.trim(Cotizacion.grupo_vendedores)) == code,
+                            )
+                            .values(vendedor_id=s.id, vendedor_nombre=s.nombre_completo or Cotizacion.vendedor_nombre)
+                        )
+
                 await session.commit()
             except Exception as e:
                 await session.rollback()

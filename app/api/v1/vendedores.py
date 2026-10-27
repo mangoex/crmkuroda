@@ -310,6 +310,20 @@ async def update_vendedor(
             db, raw_padre, user.id, target_role
         )
 
+    # Vincular automáticamente cotizaciones históricas si se asigna/actualiza código de vendedor
+    if user.codigo_vendedor and user.rol == "vendedor":
+        from app.models.cotizacion import Cotizacion
+        from sqlalchemy import update
+        clean_code = user.codigo_vendedor.strip().upper()
+        await db.execute(
+            update(Cotizacion)
+            .where(
+                Cotizacion.vendedor_id.is_(None),
+                func.upper(func.trim(Cotizacion.grupo_vendedores)) == clean_code,
+            )
+            .values(vendedor_id=user.id, vendedor_nombre=user.nombre_completo or Cotizacion.vendedor_nombre)
+        )
+
     await db.commit()
     await db.refresh(user)
 

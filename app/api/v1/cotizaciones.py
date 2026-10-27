@@ -457,7 +457,16 @@ async def list_cotizaciones(
                 for user in visible_users
                 if user.nombre_completo and user.nombre_completo.strip()
             ]
+            visible_codes = [
+                user.codigo_vendedor.strip().upper()
+                for user in visible_users
+                if user.codigo_vendedor and user.codigo_vendedor.strip()
+            ]
             seller_filters = [Cotizacion.vendedor_id.in_(ids_visibles)]
+            if visible_codes:
+                seller_filters.append(
+                    func.upper(func.trim(Cotizacion.grupo_vendedores)).in_(visible_codes)
+                )
             if visible_names:
                 seller_filters.append(
                     and_(
@@ -465,6 +474,15 @@ async def list_cotizaciones(
                         func.upper(func.trim(Cotizacion.vendedor_nombre)).in_(visible_names),
                     )
                 )
+                for vname in visible_names:
+                    if len(vname) >= 15:
+                        prefix = vname[:20].strip()
+                        seller_filters.append(
+                            and_(
+                                Cotizacion.vendedor_id.is_(None),
+                                func.upper(func.trim(Cotizacion.vendedor_nombre)).like(f"{prefix}%"),
+                            )
+                        )
             seller_condition = or_(*seller_filters)
             query = query.filter(seller_condition)
             count_query = count_query.filter(seller_condition)
@@ -475,6 +493,10 @@ async def list_cotizaciones(
         if vendedor_id is not None:
             selected_seller = (await db.execute(select(Usuario).where(Usuario.id == vendedor_id))).scalars().first()
             seller_filters = [Cotizacion.vendedor_id == vendedor_id]
+            if selected_seller and selected_seller.codigo_vendedor:
+                seller_filters.append(
+                    func.upper(func.trim(Cotizacion.grupo_vendedores)) == selected_seller.codigo_vendedor.strip().upper()
+                )
             if selected_seller and selected_seller.nombre_completo:
                 # Incluye registros históricos donde el Excel guardó el nombre,
                 # pero no logró vincular el UUID del usuario al importar.
@@ -485,6 +507,14 @@ async def list_cotizaciones(
                         == selected_seller.nombre_completo.strip().upper(),
                     )
                 )
+                if len(selected_seller.nombre_completo.strip()) >= 15:
+                    prefix = selected_seller.nombre_completo.strip().upper()[:20]
+                    seller_filters.append(
+                        and_(
+                            Cotizacion.vendedor_id.is_(None),
+                            func.upper(func.trim(Cotizacion.vendedor_nombre)).like(f"{prefix}%"),
+                        )
+                    )
             seller_condition = or_(*seller_filters)
             query = query.filter(seller_condition)
             count_query = count_query.filter(seller_condition)
@@ -2135,6 +2165,22 @@ async def process_excel_background(contents: bytes, uploaded_by_id: UUID):
                             or (users_by_code.get(_normalize_seller_text(vend_nom)) if vend_nom else None)
                             or (existing.vendedor_id if existing and existing.vendedor_id else None)
                         )
+                        if not vend_id and vend_nom:
+                            norm_v_nom = _normalize_seller_text(vend_nom)
+                            if len(norm_v_nom) >= 6:
+                                for u_norm_name, u_id in users_by_name.items():
+                                    if len(u_norm_name) >= 6:
+                                        if u_norm_name.startswith(norm_v_nom) or norm_v_nom.startswith(u_norm_name) or u_norm_name[:20].strip() == norm_v_nom or norm_v_nom[:20].strip() == u_norm_name:
+                                            vend_id = u_id
+                                            break
+                        if not vend_id and vend_nom:
+                            norm_v_nom = _normalize_seller_text(vend_nom)
+                            if len(norm_v_nom) >= 6:
+                                for u_norm_name, u_id in users_by_name.items():
+                                    if len(u_norm_name) >= 6:
+                                        if u_norm_name.startswith(norm_v_nom) or norm_v_nom.startswith(u_norm_name) or u_norm_name[:20].strip() == norm_v_nom or norm_v_nom[:20].strip() == u_norm_name:
+                                            vend_id = u_id
+                                            break
 
                         if vend_id and not vend_nom:
                             u_match = next((u for u in users if u.id == vend_id), None)

@@ -74,6 +74,7 @@ async def _load_dashboard_data(db: AsyncSession, reference: date, periodo: str) 
                 load_only(
                     Cotizacion.vendedor_id,
                     Cotizacion.vendedor_nombre,
+                    Cotizacion.grupo_vendedores,
                     Cotizacion.organizacion_ventas,
                     Cotizacion.canal,
                     Cotizacion.plazo_entrega,

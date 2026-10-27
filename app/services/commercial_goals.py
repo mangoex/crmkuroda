@@ -176,6 +176,23 @@ def sales_in_period(quotes: Iterable[Any], start: date, end: date) -> Decimal:
     )
 
 
+def _match_seller_by_name(raw_name: Any, seller_by_name: dict[str, str]) -> Optional[str]:
+    if not raw_name:
+        return None
+    norm_name = normalize_text(raw_name)
+    if not norm_name:
+        return None
+    if norm_name in seller_by_name:
+        return seller_by_name[norm_name]
+    if len(norm_name) >= 6:
+        for full_name, s_id in seller_by_name.items():
+            if len(full_name) >= 6:
+                if full_name.startswith(norm_name) or norm_name.startswith(full_name):
+                    return s_id
+                if full_name[:20].strip() == norm_name or norm_name[:20].strip() == full_name:
+                    return s_id
+    return None
+
 def build_goals_dashboard(
     sellers: Iterable[Any],
     quotes: Iterable[Any],
@@ -200,6 +217,11 @@ def build_goals_dashboard(
         for seller in sellers
         if getattr(seller, "email", None)
     }
+    seller_by_code = {
+        normalize_text(seller.codigo_vendedor): str(seller.id)
+        for seller in sellers
+        if getattr(seller, "codigo_vendedor", None)
+    }
     grouped_quotes: dict[str, list[Any]] = {str(seller.id): [] for seller in sellers}
     branches: dict[str, list[Any]] = {}
     channel_quotes: dict[str, list[Any]] = defaultdict(list)
@@ -207,7 +229,9 @@ def build_goals_dashboard(
     for quote in quotes:
         raw_vid = getattr(quote, "vendedor_id", None)
         resolved_id = str(raw_vid) if raw_vid else (
-            seller_by_name.get(normalize_text(getattr(quote, "vendedor_nombre", None)))
+            seller_by_code.get(normalize_text(getattr(quote, "grupo_vendedores", None)))
+            or _match_seller_by_name(getattr(quote, "vendedor_nombre", None), seller_by_name)
+            or seller_by_code.get(normalize_text(getattr(quote, "vendedor_nombre", None)))
             or seller_by_email.get(normalize_text(getattr(quote, "vendedor_nombre", None)))
         )
         if resolved_id and resolved_id in grouped_quotes:

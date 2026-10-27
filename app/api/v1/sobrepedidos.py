@@ -90,8 +90,17 @@ async def list_sobrepedidos(
         if codigos_visibles:
             query = query.filter(Sobrepedido.vendedor_codigo.in_(codigos_visibles))
         else:
-            # Vendedor sin codigo: no ve nada (no hay forma de matchear)
-            query = query.filter(Sobrepedido.vendedor_codigo == "__NO_MATCH__")
+            if current_user.nombre_completo:
+                nom = current_user.nombre_completo.strip().upper()
+                prefix = nom[:20].strip()
+                query = query.filter(
+                    or_(
+                        func.upper(func.trim(Sobrepedido.vendedor_nombre)) == nom,
+                        func.upper(func.trim(Sobrepedido.vendedor_nombre)).like(f"{prefix}%"),
+                    )
+                )
+            else:
+                query = query.filter(Sobrepedido.vendedor_codigo == "__NO_MATCH__")
 
     result = await db.execute(query)
     records = result.scalars().all()

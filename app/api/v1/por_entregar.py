@@ -24,7 +24,17 @@ async def list_por_entregar(
         if codigos_visibles:
             query = query.filter(PorEntregar.vendedor_codigo.in_(codigos_visibles))
         else:
-            query = query.filter(PorEntregar.vendedor_codigo == "__NO_MATCH__")
+            if current_user.nombre_completo:
+                nom = current_user.nombre_completo.strip().upper()
+                prefix = nom[:20].strip()
+                query = query.filter(
+                    or_(
+                        func.upper(func.trim(PorEntregar.vendedor_nombre)) == nom,
+                        func.upper(func.trim(PorEntregar.vendedor_nombre)).like(f"{prefix}%"),
+                    )
+                )
+            else:
+                query = query.filter(PorEntregar.vendedor_codigo == "__NO_MATCH__")
 
     result = await db.execute(query)
     records = result.scalars().all()

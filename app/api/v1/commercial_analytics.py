@@ -69,7 +69,16 @@ async def _seller_condition(
         for user in users
         if user.nombre_completo and user.nombre_completo.strip()
     ]
+    codes = [
+        user.codigo_vendedor.strip().upper()
+        for user in users
+        if user.codigo_vendedor and user.codigo_vendedor.strip()
+    ]
     conditions = [Cotizacion.vendedor_id.in_(seller_ids)]
+    if codes:
+        conditions.append(
+            func.upper(func.trim(Cotizacion.grupo_vendedores)).in_(codes)
+        )
     if names:
         conditions.append(
             and_(
@@ -77,6 +86,15 @@ async def _seller_condition(
                 func.upper(func.trim(Cotizacion.vendedor_nombre)).in_(names),
             )
         )
+        for n in names:
+            if len(n) >= 15:
+                prefix = n[:20].strip()
+                conditions.append(
+                    and_(
+                        Cotizacion.vendedor_id.is_(None),
+                        func.upper(func.trim(Cotizacion.vendedor_nombre)).like(f"{prefix}%"),
+                    )
+                )
     return or_(*conditions)
 
 
