@@ -62,22 +62,17 @@ def upgrade() -> None:
                     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'bot_lectura') THEN
                         EXECUTE 'CREATE ROLE bot_lectura WITH LOGIN PASSWORD ''{bot_pwd}'' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT';
                     END IF;
+                    EXECUTE 'GRANT USAGE ON SCHEMA public TO bot_lectura';
+                    EXECUTE 'REVOKE ALL ON ALL TABLES IN SCHEMA public FROM bot_lectura';
+                    EXECUTE 'GRANT SELECT ON TABLE usuarios, cotizaciones, cotizacion_items, cotizacion_comentarios, metas, metas_comerciales, clientes, recordatorios_seguimiento TO bot_lectura';
+                    EXECUTE 'ALTER ROLE bot_lectura SET default_transaction_read_only = on';
+                EXCEPTION WHEN OTHERS THEN
+                    RAISE NOTICE 'Aviso al configurar rol bot_lectura: %', SQLERRM;
                 END
                 $$;
                 """
             )
         )
-        conn.execute(text("GRANT USAGE ON SCHEMA public TO bot_lectura;"))
-        conn.execute(text("REVOKE ALL ON ALL TABLES IN SCHEMA public FROM bot_lectura;"))
-        conn.execute(
-            text(
-                "GRANT SELECT ON TABLE "
-                "usuarios, cotizaciones, cotizacion_items, cotizacion_comentarios, "
-                "metas, metas_comerciales, clientes, recordatorios_seguimiento "
-                "TO bot_lectura;"
-            )
-        )
-        conn.execute(text("ALTER USER bot_lectura SET default_transaction_read_only = on;"))
 
 
 def downgrade() -> None:

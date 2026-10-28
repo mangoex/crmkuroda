@@ -72,6 +72,25 @@ async def lifespan(app: FastAPI):
             await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cotizaciones_estatus_bot ON cotizaciones (numero_factura, venta_perdida, fecha_registro);"))
             await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_metas_vendedor_id ON metas (vendedor_id);"))
             await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_metas_fechas ON metas (fecha_inicio, fecha_limite);"))
+            # Garantizar rol bot_lectura con SELECT en tablas del módulo /api/v1/bot si el usuario tiene privilegios
+            await conn.execute(
+                text(
+                    """
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'bot_lectura') THEN
+                            CREATE ROLE bot_lectura WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+                        END IF;
+                        GRANT USAGE ON SCHEMA public TO bot_lectura;
+                        GRANT SELECT ON TABLE usuarios, cotizaciones, cotizacion_items, cotizacion_comentarios, metas, metas_comerciales, clientes, recordatorios_seguimiento TO bot_lectura;
+                        ALTER ROLE bot_lectura SET default_transaction_read_only = on;
+                    EXCEPTION WHEN OTHERS THEN
+                        RAISE NOTICE 'Aviso rol bot_lectura: %', SQLERRM;
+                    END
+                    $$;
+                    """
+                )
+            )
     except Exception as exc:
         print(f"Advertencia al sincronizar metadatos de BD: {exc}")
 

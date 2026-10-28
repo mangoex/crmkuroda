@@ -128,8 +128,10 @@ async def get_bot_db() -> AsyncGenerator[AsyncSession, None]:
             if dialect_name == "postgresql":
                 await session.execute(text("SET LOCAL TRANSACTION READ ONLY"))
                 try:
-                    await session.execute(text("SET LOCAL ROLE bot_lectura"))
+                    async with session.begin_nested():
+                        await session.execute(text("SET LOCAL ROLE bot_lectura"))
                 except Exception:
+                    # SAVEPOINT revertido limpiamente; la transacción principal permanece READ ONLY
                     pass
             yield session
         finally:
