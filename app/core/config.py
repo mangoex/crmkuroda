@@ -35,6 +35,16 @@ class Settings(BaseSettings):
     # Commercial reporting
     BUSINESS_TIMEZONE: str = "America/Mazatlan"
     QUOTE_VALID_DAYS: int = 30
+
+    # External Read-Only Bot API (/api/v1/bot)
+    BOT_API_KEY: str = ""
+    BOT_DATABASE_URL: str = ""
+    BOT_DB_USER: str = "bot_lectura"
+    BOT_DB_PASSWORD: str = ""
+    BOT_RATE_LIMIT_PER_MINUTE: int = 60
+    BOT_CORS_ORIGINS: str = ""
+    BOT_REQUIRE_HTTPS: bool = False
+    PUBLIC_BASE_URL: str = "https://crm.kuroda.com.mx"
     
     # Allow loading from .env file
     model_config = SettingsConfigDict(

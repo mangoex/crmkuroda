@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
@@ -6,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.core.database import engine, Base
 
-# We will import these routers shortly
+# API Routers
 from app.api.auth import router as auth_router
 from app.api.v1.vendedores import router as vendedores_router
 from app.api.v1.metas import router as metas_router
@@ -25,6 +26,7 @@ from app.api.v1.actualizaciones_datos import router as actualizaciones_datos_rou
 from app.api.v1.commercial_analytics import router as commercial_analytics_router
 from app.api.v1.clientes import router as clientes_router
 from app.api.v1.investigador_mercado import router as investigador_mercado_router
+from app.api.v1.bot import router as bot_router
 
 from contextlib import asynccontextmanager
 from app.core.scheduler import start_scheduler, scheduler
@@ -57,9 +59,19 @@ async def lifespan(app: FastAPI):
             await conn.execute(text("ALTER TABLE promociones ADD COLUMN IF NOT EXISTS es_relevante BOOLEAN NOT NULL DEFAULT FALSE;"))
             await conn.execute(text("ALTER TABLE promociones ADD COLUMN IF NOT EXISTS valido_desde TIMESTAMP;"))
             await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_promociones_es_relevante ON promociones (es_relevante);"))
-            # Garantizar índices de alto rendimiento para búsqueda de historial por número de cliente
+            # Garantizar columnas de perfil para módulo /api/v1/bot en usuarios
+            await conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS equipo VARCHAR;"))
+            await conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT TRUE;"))
+            await conn.execute(text("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS fecha_alta TIMESTAMPTZ DEFAULT NOW();"))
+            # Garantizar índices de alto rendimiento para búsqueda de historial y módulo /api/v1/bot
             await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cotizaciones_numero_cliente ON cotizaciones (numero_cliente);"))
             await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cotizaciones_upper_trim_numero_cliente ON cotizaciones (upper(trim(numero_cliente)));"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cotizaciones_vendedor_id ON cotizaciones (vendedor_id);"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cotizaciones_fecha_registro ON cotizaciones (fecha_registro);"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cotizaciones_fecha_factura ON cotizaciones (fecha_factura);"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cotizaciones_estatus_bot ON cotizaciones (numero_factura, venta_perdida, fecha_registro);"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_metas_vendedor_id ON metas (vendedor_id);"))
+            await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_metas_fechas ON metas (fecha_inicio, fecha_limite);"))
     except Exception as exc:
         print(f"Advertencia al sincronizar metadatos de BD: {exc}")
 
@@ -187,14 +199,59 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="Backend del CRM Inteligente con Gestión Agéntica",
+    description="Backend del CRM Inteligente con Gestión Agéntica y API de Solo Lectura para Bot Externo (/api/v1/bot)",
     version="1.0.0",
     lifespan=lifespan,
 )
 
+# Activar CORS restringido (el bot llama desde servidor, no desde navegador)
+_allowed_origins = [
+    origin.strip()
+    for origin in (os.getenv("BOT_CORS_ORIGINS") or settings.BOT_CORS_ORIGINS or "").split(",")
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
+)
+
+
+@app.middleware("http")
+async def bot_readonly_and_https_middleware(request: Request, call_next):
+    """Garantiza que /api/v1/bot sea estrictamente GET (405 en cualquier otro método) y soporte validación HTTPS."""
+    if request.url.path.startswith("/api/v1/bot"):
+        require_https = (
+            os.getenv("BOT_REQUIRE_HTTPS", "").strip().lower() == "true"
+            or settings.BOT_REQUIRE_HTTPS
+        )
+        if require_https:
+            proto = request.headers.get("x-forwarded-proto", request.url.scheme).lower()
+            if proto != "https":
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={"detail": "La API del bot solo acepta conexiones seguras mediante HTTPS."},
+                )
+        if request.method != "GET":
+            return JSONResponse(
+                status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
+                content={"detail": "Método no permitido. Este módulo es de solo lectura (solo GET)."},
+                headers={"Allow": "GET"},
+            )
+    return await call_next(request)
+
+
 # Standardized Error Handling
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
+    if request.url.path.startswith("/api/v1/bot"):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+            headers=getattr(exc, "headers", None),
+        )
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -210,6 +267,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         loc = " -> ".join(str(l) for l in err["loc"])
         errors.append(f"{loc}: {err['msg']}")
     
+    if request.url.path.startswith("/api/v1/bot"):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"detail": "; ".join(errors)},
+        )
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
@@ -224,6 +286,11 @@ from sqlalchemy.exc import OperationalError, DBAPIError
 @app.exception_handler(OperationalError)
 @app.exception_handler(DBAPIError)
 async def database_error_handler(request: Request, exc: Exception):
+    if request.url.path.startswith("/api/v1/bot"):
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": "El servicio de base de datos PostgreSQL no está disponible temporalmente."},
+        )
     return JSONResponse(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         content={
@@ -234,6 +301,11 @@ async def database_error_handler(request: Request, exc: Exception):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    if request.url.path.startswith("/api/v1/bot"):
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Error interno del servidor."},
+        )
     # Log the traceback in a real production app (omitted here for security)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -276,6 +348,7 @@ app.include_router(actualizaciones_datos_router, prefix="/api/v1/actualizaciones
 app.include_router(commercial_analytics_router, prefix="/api/v1/analitica", tags=["Analítica comercial"])
 app.include_router(clientes_router, prefix="/api/v1/clientes", tags=["Clientes"])
 app.include_router(investigador_mercado_router, prefix="/api/v1/mercado", tags=["Investigador de Mercado"])
+app.include_router(bot_router, prefix="/api/v1/bot", tags=["Bot Read-Only API"])
 
 # Mount Static Files (CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")

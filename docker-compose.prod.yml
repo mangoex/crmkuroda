@@ -1,0 +1,66 @@
+version: "3.9"
+
+# Despliegue endurecido para producción:
+# - PostgreSQL NO expone el puerto 5432 a internet (solo en la red interna `crm_internal`).
+# - La API usa `BOT_DATABASE_URL` con el rol `bot_lectura` para todo el módulo `/api/v1/bot`.
+# - Exposición pública únicamente por HTTPS con dominio propio mediante proxy TLS.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-crm_kuroda}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD en .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/setup_bot_db_security.sql:/docker-entrypoint-initdb.d/99-setup-bot-security.sql:ro
+    expose:
+      - "5432"
+    # IMPORTANTE: Sin sección `ports:` para que 5432 jamás quede expuesto a internet
+    networks:
+      - crm_internal
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-crm_kuroda}
+      BOT_DATABASE_URL: postgresql+asyncpg://bot_lectura:${BOT_DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-crm_kuroda}
+      BOT_API_KEY: ${BOT_API_KEY:?Defina BOT_API_KEY en .env}
+      BOT_RATE_LIMIT_PER_MINUTE: ${BOT_RATE_LIMIT_PER_MINUTE:-60}
+      BOT_CORS_ORIGINS: ${BOT_CORS_ORIGINS:-}
+      BOT_REQUIRE_HTTPS: "true"
+      BUSINESS_TIMEZONE: America/Mazatlan
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://crm.kuroda.com.mx}
+    expose:
+      - "80"
+    networks:
+      - crm_internal
+      - crm_edge
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "443:443"
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME:-crm.kuroda.com.mx}
+    command: caddy reverse-proxy --from https://${DOMAIN_NAME:-crm.kuroda.com.mx} --to api:80
+    networks:
+      - crm_edge
+
+networks:
+  crm_internal:
+    internal: true
+  crm_edge:
+    driver: bridge
+
+volumes:
+  pgdata:

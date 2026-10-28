@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, ForeignKey
+from sqlalchemy import Boolean, Column, DateTime, String, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, backref
 from app.core.database import Base
@@ -15,6 +15,9 @@ class Usuario(Base):
     codigo_vendedor = Column(String, unique=True, index=True, nullable=True)  # e.g., 'C01'
     nombre_completo = Column(String, nullable=True)
     avatar = Column(String, nullable=True)
+    equipo = Column(String, nullable=True)
+    activo = Column(Boolean, nullable=False, default=True, server_default="true")
+    fecha_alta = Column(DateTime(timezone=True), nullable=True, server_default=func.now())
     # Jerarquia padre->hijos (1 nivel, solo entre vendedores).
     # NULL = sin padre (ver solo sus datos). SET NULL si se borra al padre.
     vendedor_padre_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True)
