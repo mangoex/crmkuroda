@@ -15,7 +15,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
-from sqlalchemy import and_, case, func, literal, or_, select, union_all
+from sqlalchemy import Numeric, and_, case, func, literal, or_, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -918,12 +918,18 @@ async def bot_get_avance(
     )
     vendido_expr = func.coalesce(q_subq.c.vendido_monto, 0)
     avance_pct_expr = case(
-        (meta_expr > 0, func.round((vendido_expr * 100.0) / meta_expr, 2)),
-        else_=0.0,
+        (
+            meta_expr > 0,
+            func.round(
+                func.cast((vendido_expr * Decimal("100")) / meta_expr, Numeric(14, 2)),
+                2,
+            ),
+        ),
+        else_=Decimal("0.00"),
     )
     faltante_expr = case(
         (meta_expr > vendido_expr, meta_expr - vendido_expr),
-        else_=0.0,
+        else_=Decimal("0.00"),
     )
 
     seller_conditions = [Usuario.rol == "vendedor"]
@@ -953,12 +959,18 @@ async def bot_get_avance(
     team_meta_sum = func.coalesce(func.sum(avance_base.c.meta_monto), 0)
     team_vendido_sum = func.coalesce(func.sum(avance_base.c.vendido_monto), 0)
     team_avance_pct = case(
-        (team_meta_sum > 0, func.round((team_vendido_sum * 100.0) / team_meta_sum, 2)),
-        else_=0.0,
+        (
+            team_meta_sum > 0,
+            func.round(
+                func.cast((team_vendido_sum * Decimal("100")) / team_meta_sum, Numeric(14, 2)),
+                2,
+            ),
+        ),
+        else_=Decimal("0.00"),
     )
     team_faltante = case(
         (team_meta_sum > team_vendido_sum, team_meta_sum - team_vendido_sum),
-        else_=0.0,
+        else_=Decimal("0.00"),
     )
     team_stmt = select(
         func.count(avance_base.c.vendedor_id).label("total_vendedores"),
