@@ -263,12 +263,15 @@ async def buscar_productos_catalogo(
             costo_inv = inv["costo_promedio"]
             stock_inv = inv["stock_total"]
             centros = inv["almacenes"]
+            abc_code = str(inv["abc_f"] or "B").strip().upper()
+            es_material_d = abc_code.startswith("D")
             
-            if code in quote_prices:
+            if code in quote_prices and not es_material_d:
                 precio_inv = quote_prices[code]
                 origen_inv = "cotizacion"
             elif costo_inv > 0:
-                precio_inv = round(costo_inv * 1.38, 2)
+                # Para Material D, respetar exactamente el precio/costo unitario cargado en el archivo de inventario
+                precio_inv = round(costo_inv, 2) if es_material_d else round(costo_inv * 1.38, 2)
                 origen_inv = "inventario"
             else:
                 precio_inv = 0.0

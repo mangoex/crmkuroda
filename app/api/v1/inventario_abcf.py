@@ -24,9 +24,9 @@ async def get_reference_pricing_catalog(db: AsyncSession) -> dict[str, float]:
     Construye un catálogo consolidado de respaldo de precios {codigo_material_upper: precio}
     cruzando en orden de prioridad:
     1. Catálogo maestro embebido oficial (Inventario MKS D.XLSX).
-    2. Registros vigentes de Promoción (precio_promocion o costo_promedio > 0).
-    3. Histórico de Cotizaciones (precio_unitario en items JSON).
-    4. Base de datos actual de InventarioAbcf (si ya tenía precios válidos).
+    2. Histórico de Cotizaciones (precio_unitario en items JSON).
+    3. Costo promedio de Promociones (como respaldo contable si no hay costo en inventario).
+    4. Base de datos actual de InventarioAbcf (si ya tenía precios válidos, máxima prioridad de inventario).
     """
     catalog: dict[str, float] = {}
 
@@ -56,7 +56,23 @@ async def get_reference_pricing_catalog(db: AsyncSession) -> dict[str, float]:
     except Exception:
         pass
 
-    # 3. Base de datos actual InventarioAbcf
+    # 3. Costo promedio de Promociones (respaldo si el inventario viene en 0)
+    try:
+        promo_res = await db.execute(
+            select(Promocion.codigo_material, Promocion.precio_promocion, Promocion.costo_promedio).where(
+                or_(Promocion.precio_promocion > 0, Promocion.costo_promedio > 0)
+            )
+        )
+        for row in promo_res.all():
+            sku = str(row[0] or "").strip().upper()
+            # Preferir costo_promedio para respaldo de inventario; usar precio_promocion solo si no hay otro dato
+            p = float(row[2] or 0.0) or float(row[1] or 0.0)
+            if sku and p > 0:
+                catalog[sku] = p
+    except Exception:
+        pass
+
+    # 4. Base de datos actual InventarioAbcf (máxima prioridad de inventario real)
     try:
         inv_res = await db.execute(
             select(InventarioAbcf.codigo_material, InventarioAbcf.costo_promedio_unitario).where(
@@ -67,21 +83,6 @@ async def get_reference_pricing_catalog(db: AsyncSession) -> dict[str, float]:
         for row in inv_res.all():
             sku = str(row[0] or "").strip().upper()
             p = float(row[1] or 0.0)
-            if sku and p > 0:
-                catalog[sku] = p
-    except Exception:
-        pass
-
-    # 4. Promociones vigentes (máxima prioridad de precio comercial)
-    try:
-        promo_res = await db.execute(
-            select(Promocion.codigo_material, Promocion.precio_promocion, Promocion.costo_promedio).where(
-                or_(Promocion.precio_promocion > 0, Promocion.costo_promedio > 0)
-            )
-        )
-        for row in promo_res.all():
-            sku = str(row[0] or "").strip().upper()
-            p = float(row[1] or 0.0) or float(row[2] or 0.0)
             if sku and p > 0:
                 catalog[sku] = p
     except Exception:
@@ -100,8 +101,33 @@ def _normalize_header(value) -> str:
 
 
 def _header_index(headers: list[str], *aliases: str) -> Optional[int]:
-    normalized_aliases = {_normalize_header(alias) for alias in aliases}
-    return next((index for index, header in enumerate(headers) if header in normalized_aliases), None)
+    """
+    Busca el índice de una columna respetando el orden de prioridad de `aliases`
+    (primero evalúa el primer alias contra todas las columnas, luego el segundo, etc.).
+    """
+    for alias in aliases:
+        norm_alias = _normalize_header(alias)
+        for index, header in enumerate(headers):
+            if header == norm_alias:
+                return index
+    return None
+
+
+def _sort_worksheets_material_d_first(worksheets: list):
+    """
+    Ordena las hojas del libro de Excel dando prioridad a las pestañas específicas
+    de 'Material D' (ej. 'Material D Ck Matriz.', 'Material D Ck Conquista', etc.)
+    sobre las hojas generales ('Sheet1', 'Inventario MKS').
+    Así, al deduplicar por (centro, almacen, codigo_material), prevalecen los precios
+    y datos de las hojas de Material D.
+    """
+    def _sheet_priority(ws):
+        title_norm = _normalize_header(getattr(ws, "title", ""))
+        if "materiald" in title_norm or "matd" in title_norm:
+            return 0
+        return 1
+
+    return sorted(worksheets, key=_sheet_priority)
 
 
 def _row_value(row, index: Optional[int], fallback: Optional[int] = None):
@@ -121,6 +147,75 @@ def _as_float(value, default=None):
         return default
 
 
+SALE_PRICE_ALIASES = (
+    "precio venta",
+    "precio de venta",
+    "precio venta civa",
+    "precio venta con iva",
+    "precio venta neto",
+    "precio de venta civa",
+    "precio de venta con iva",
+    "precio material d",
+    "precio remate",
+    "precio liquidacion",
+    "precio liquidación",
+    "precio lista",
+    "precio de lista",
+    "precio lista civa",
+    "precio lista con iva",
+    "precio unitario",
+    "precio unitario civa",
+    "precio unitario con iva",
+    "precio comercial",
+    "precio",
+    "precios",
+    "pvp",
+    "pvp civa",
+    "pvp con iva",
+    "precio promedio",
+    "precio prom",
+    "precio promocion",
+    "precio efectivo promocion",
+    "precio efectivo",
+    "precio base",
+    "precio sugerido",
+    "precio publico",
+    "precio público",
+    "precio mostrador",
+    "precio distribuidor",
+    "valor unitario",
+    "val unitario",
+    "val unit",
+    "p venta",
+    "p vta",
+    "precio vta",
+    "importe venta",
+    "importe unitario",
+    "val neto",
+    "valor neto",
+    "precio ref",
+    "precio referencia",
+)
+
+UNIT_COST_ALIASES = (
+    "costo promedio unitario",
+    "costo promedio unitario moneda de venta",
+    "costo unitario",
+    "costo unit",
+    "costo",
+    "costos",
+    "costo promedio",
+    "costo prom",
+    "costo reposicion",
+    "costo reposición",
+    "costo estandar",
+    "costo estándar",
+    "costo estandar promocion",
+    "cto unit",
+    "cto unitario",
+)
+
+
 @router.get("/")
 async def list_inventario(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(InventarioAbcf))
@@ -128,20 +223,36 @@ async def list_inventario(db: AsyncSession = Depends(get_db)):
     if not inventarios:
         return {"status": "success", "data": []}
 
-    # Auto-curación en caliente: si hay registros sin precio, resolverlos con el catálogo de referencia
+    # Auto-curación en caliente: si hay registros sin precio, resolverlos primero desde sus propios importes
+    # y solo en última instancia con el catálogo de referencia
     unpriced = [i for i in inventarios if not i.costo_promedio_unitario or i.costo_promedio_unitario <= 0]
     if unpriced:
-        ref_catalog = await get_reference_pricing_catalog(db)
+        ref_catalog = None
         repaired_any = False
         for i in unpriced:
-            sku_key = str(i.codigo_material or "").strip().upper()
-            if sku_key in ref_catalog:
-                p = ref_catalog[sku_key]
-                i.costo_promedio_unitario = p
-                if (not i.importe_inventario_propio or i.importe_inventario_propio <= 0) and i.cantidad_propia and i.cantidad_propia > 0:
-                    i.importe_inventario_propio = round(p * i.cantidad_propia, 2)
-                if (not i.valor_consignacion_proveedor or i.valor_consignacion_proveedor <= 0) and i.existencia_consignacion and i.existencia_consignacion > 0:
-                    i.valor_consignacion_proveedor = round(p * i.existencia_consignacion, 2)
+            c_propia = float(i.cantidad_propia or 0.0)
+            e_consig = float(i.existencia_consignacion or 0.0)
+            imp_propio = float(i.importe_inventario_propio or 0.0)
+            val_consig = float(i.valor_consignacion_proveedor or 0.0)
+
+            resolved_p = None
+            if imp_propio > 0 and c_propia > 0:
+                resolved_p = round(imp_propio / c_propia, 2)
+            elif val_consig > 0 and e_consig > 0:
+                resolved_p = round(val_consig / e_consig, 2)
+            else:
+                if ref_catalog is None:
+                    ref_catalog = await get_reference_pricing_catalog(db)
+                sku_key = str(i.codigo_material or "").strip().upper()
+                if sku_key in ref_catalog:
+                    resolved_p = ref_catalog[sku_key]
+
+            if resolved_p and resolved_p > 0:
+                i.costo_promedio_unitario = resolved_p
+                if (not i.importe_inventario_propio or i.importe_inventario_propio <= 0) and c_propia > 0:
+                    i.importe_inventario_propio = round(resolved_p * c_propia, 2)
+                if (not i.valor_consignacion_proveedor or i.valor_consignacion_proveedor <= 0) and e_consig > 0:
+                    i.valor_consignacion_proveedor = round(resolved_p * e_consig, 2)
                 repaired_any = True
         if repaired_any:
             try:
@@ -169,8 +280,12 @@ async def upload_inventario(
         
         items_to_add = []
         seen_keys = set()
+        sheet_price_map: dict[str, float] = {}
         
-        for ws in wb.worksheets:
+        # Priorizar pestañas de Material D sobre hojas generales
+        ordered_sheets = _sort_worksheets_material_d_first(wb.worksheets)
+        
+        for ws in ordered_sheets:
             if ws.sheet_state == 'hidden':
                 continue
 
@@ -199,6 +314,9 @@ async def upload_inventario(
                 headers = [_normalize_header(value) for value in header_row]
                 start_data_row = 2
 
+            precio_venta_idx = _header_index(headers, *SALE_PRICE_ALIASES)
+            costo_unitario_idx = _header_index(headers, *UNIT_COST_ALIASES)
+
             indices = {
                 "centro": _header_index(headers, "centro", "sucursal", "centro distribucion", "nombre centro", "ce", "planta"),
                 "almacen": _header_index(headers, "almacen", "almacen origen"),
@@ -224,67 +342,9 @@ async def upload_inventario(
                 "existencia_bloqueada": _header_index(headers, "existencia bloqueada", "bloqueada"),
                 "existencia_control_calidad": _header_index(headers, "existencia control calidad", "control calidad"),
                 "umb": _header_index(headers, "umb", "unidad medida", "unidad de medida base"),
-                "costo_promedio_unitario": _header_index(
-                    headers,
-                    "precio venta",
-                    "precio de venta",
-                    "precio venta civa",
-                    "precio venta con iva",
-                    "precio venta neto",
-                    "precio de venta civa",
-                    "precio de venta con iva",
-                    "precio lista",
-                    "precio de lista",
-                    "precio lista civa",
-                    "precio lista con iva",
-                    "precio unitario",
-                    "precio unitario civa",
-                    "precio unitario con iva",
-                    "precio comercial",
-                    "precio",
-                    "precios",
-                    "pvp",
-                    "pvp civa",
-                    "pvp con iva",
-                    "costo promedio unitario",
-                    "costo promedio unitario moneda de venta",
-                    "costo unitario",
-                    "costo unit",
-                    "costo",
-                    "costos",
-                    "costo promedio",
-                    "costo prom",
-                    "costo reposicion",
-                    "costo reposición",
-                    "costo estandar",
-                    "costo estándar",
-                    "costo estandar promocion",
-                    "precio promedio",
-                    "precio prom",
-                    "precio promocion",
-                    "precio efectivo promocion",
-                    "precio efectivo",
-                    "precio base",
-                    "precio sugerido",
-                    "precio publico",
-                    "precio público",
-                    "precio mostrador",
-                    "precio distribuidor",
-                    "valor unitario",
-                    "val unitario",
-                    "val unit",
-                    "p venta",
-                    "p vta",
-                    "precio vta",
-                    "importe venta",
-                    "importe unitario",
-                    "val neto",
-                    "valor neto",
-                    "cto unit",
-                    "cto unitario",
-                    "precio ref",
-                    "precio referencia",
-                ),
+                "precio_venta": precio_venta_idx,
+                "costo_unitario": costo_unitario_idx,
+                "costo_promedio_unitario": precio_venta_idx if precio_venta_idx is not None else costo_unitario_idx,
                 "importe_inventario_propio": _header_index(
                     headers,
                     "importe inventario propio",
@@ -335,29 +395,44 @@ async def upload_inventario(
                     if c_propia == 0.0 and e_consig == 0.0:
                         continue
 
-                    centro_val = str(_row_value(row, indices["centro"], 0)) if _row_value(row, indices["centro"], 0) is not None else None
-                    cod_mat = str(_row_value(row, indices["codigo_material"], 1)) if _row_value(row, indices["codigo_material"], 1) is not None else None
-                    almacen_val = str(_row_value(row, indices["almacen"])) if _row_value(row, indices["almacen"]) is not None else None
+                    centro_val = str(_row_value(row, indices["centro"], 0)).strip() if _row_value(row, indices["centro"], 0) is not None else None
+                    cod_mat = str(_row_value(row, indices["codigo_material"], 1)).strip() if _row_value(row, indices["codigo_material"], 1) is not None else None
+                    almacen_val = str(_row_value(row, indices["almacen"])).strip() if _row_value(row, indices["almacen"]) is not None else None
 
                     dedup_key = (centro_val, almacen_val, cod_mat)
                     if dedup_key in seen_keys:
                         continue
                     seen_keys.add(dedup_key)
 
-                    c_unitario = _as_float(_row_value(row, indices["costo_promedio_unitario"], 14))
+                    # Extraer primero Precio de Venta explícito (si la columna existe y tiene valor > 0),
+                    # de lo contrario usar Costo Promedio Unitario del archivo
+                    p_venta_val = _as_float(_row_value(row, indices["precio_venta"])) if indices["precio_venta"] is not None else None
+                    c_costo_val = _as_float(_row_value(row, indices["costo_unitario"], 14))
+                    c_unitario = p_venta_val if (p_venta_val is not None and p_venta_val > 0) else c_costo_val
+
                     imp_propio = _as_float(_row_value(row, indices["importe_inventario_propio"], 15))
                     val_consig = _as_float(_row_value(row, indices["valor_consignacion_proveedor"], 16))
 
                     sku_key = str(cod_mat or "").strip().upper()
 
-                    # Resolución y blindaje de precio unitario
+                    # Resolución y blindaje determinista de precio unitario:
+                    # 1. Valor explícito en el archivo (Precio Venta o Costo Unitario)
+                    # 2. División exacta de Importe Propio / Cantidad Propia del propio archivo
+                    # 3. División exacta de Valor Consignación / Existencia Consignación del propio archivo
+                    # 4. Otro registro del mismo SKU dentro del mismo archivo subido
+                    # 5. Catálogo de referencia en última instancia
                     if c_unitario is None or c_unitario <= 0.0:
                         if imp_propio and imp_propio > 0 and c_propia > 0:
                             c_unitario = round(imp_propio / c_propia, 2)
                         elif val_consig and val_consig > 0 and e_consig > 0:
                             c_unitario = round(val_consig / e_consig, 2)
+                        elif sku_key in sheet_price_map:
+                            c_unitario = sheet_price_map[sku_key]
                         elif sku_key in reference_catalog:
                             c_unitario = reference_catalog[sku_key]
+
+                    if sku_key and c_unitario and c_unitario > 0 and sku_key not in sheet_price_map:
+                        sheet_price_map[sku_key] = c_unitario
 
                     # Auto-completar importes totales si vinieron en 0 o vacíos
                     if (imp_propio is None or imp_propio <= 0.0) and c_unitario and c_unitario > 0 and c_propia > 0:

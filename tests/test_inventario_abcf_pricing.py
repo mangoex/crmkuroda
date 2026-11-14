@@ -171,6 +171,73 @@ class TestInventarioAbcfPricing(unittest.TestCase):
         self.assertEqual(records[0]["importe_inventario_propio"], 2254.35)
         self.assertEqual(records[0]["ubicacion"], "C49")
 
+    def test_material_d_sheets_take_priority_over_sheet1_when_prices_differ(self):
+        """
+        Verifica que si un material existe tanto en Sheet1 como en una hoja de Material D
+        con precios distintos, prevalezca el precio de la hoja de Material D.
+        """
+        from openpyxl import Workbook
+        from seed_inventario import parse_inventario_rows_from_workbook
+
+        wb = Workbook()
+        ws1 = wb.active
+        ws1.title = "Sheet1"
+        headers = [
+            "Nombre Centro", "Almacen", "Numero de Proveedor", "Nombre del Proveedor",
+            "ABC+F", "Codigo Material", "Descripcion Material", "Cantidad Propia",
+            "Existencia en Consignacion de Proveedore", "Entregas Pendientes", "Existencia en Transito",
+            "Existencia Bloqueada", "Existencia Control Calidad", "UMB", "Costo Promedio Unitario",
+            "Importe de Inventario Propio", "Valor de Consignacion Proveedor", "Ubicacion",
+            "Grupo Materiales", "Descrip Gpo Materiales", "Codigo Anterior Material", "ABC", "Fecha del Ultimo Inventario Ciclico"
+        ]
+        ws1.append(headers)
+        # En Sheet1 viene con un precio antiguo/diferente: 3755.03
+        ws1.append([
+            "MKS CASA KURODA", "MA01", "103484", "ARISTON SALES MEXICO SA DE CV",
+            "D5", "VATTIUM10-220", "CALENTADOR ELECT VATTIUM E-10 220V", 3,
+            0, 0, 0, 0, 0, "PZA", 3755.03, 11265.09, 0, "D20", "11", "CALENTADORES", None, "D", None
+        ])
+
+        # En la hoja Material D Ck Matriz. el usuario actualizó el precio a 2890.00
+        ws2 = wb.create_sheet(title="Material D Ck Matriz.")
+        ws2.append(headers)
+        ws2.append([
+            "MKS CASA KURODA", "MA01", "103484", "ARISTON SALES MEXICO SA DE CV",
+            "D5", "VATTIUM10-220", "CALENTADOR ELECT VATTIUM E-10 220V", 3,
+            0, 0, 0, 0, 0, "PZA", 2890.00, 8670.00, 0, "D20", "11", "CALENTADORES", None, "D", None
+        ])
+
+        records = parse_inventario_rows_from_workbook(wb)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["codigo_material"], "VATTIUM10-220")
+        self.assertEqual(records[0]["costo_promedio_unitario"], 2890.00)
+        self.assertEqual(records[0]["importe_inventario_propio"], 8670.00)
+
+    def test_explicit_sale_price_column_takes_priority_over_unit_cost_column(self):
+        """
+        Verifica que cuando un archivo Excel tiene tanto columna 'Costo Promedio Unitario'
+        como 'Precio Venta' (incluso si Costo está antes que Precio Venta), se tome 'Precio Venta'.
+        """
+        from openpyxl import Workbook
+        from seed_inventario import parse_inventario_rows_from_workbook
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Material D Ck Matriz."
+        ws.append([
+            "Nombre Centro", "Almacen", "Codigo Material", "Descripcion Material",
+            "Cantidad Propia", "Existencia Consignacion", "Costo Promedio Unitario", "Precio Venta"
+        ])
+        ws.append([
+            "MKS CASA KURODA", "MA01", "ELEVA4", "CALENTADOR ELEVA4",
+            1, 0, 2733.30, 1999.00
+        ])
+
+        records = parse_inventario_rows_from_workbook(wb)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["codigo_material"], "ELEVA4")
+        self.assertEqual(records[0]["costo_promedio_unitario"], 1999.00)
+
 
 if __name__ == "__main__":
     unittest.main()

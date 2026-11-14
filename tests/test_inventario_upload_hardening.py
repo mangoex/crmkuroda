@@ -39,33 +39,67 @@ async def test_get_reference_pricing_catalog_combines_sources():
 
     mock_db = AsyncMock()
 
-    # 1. Existing InventarioAbcf
-    mock_inv_res = MagicMock()
-    mock_inv_res.all.return_value = [("VATTIUM10-220", 3755.03)]
-
-    # 2. Promocion
-    mock_promo_res = MagicMock()
-    mock_promo_res.all.return_value = [("FORTISG15", 5685.00, 3597.95)]
-
     # 1. Cotizaciones JSONB
     mock_quote_res = MagicMock()
     mock_quote_res.all.return_value = [([{"producto": "MOEN100", "precio_unitario": 1250.00}],)]
 
-    # 2. Existing InventarioAbcf
-    mock_inv_res = MagicMock()
-    mock_inv_res.all.return_value = [("VATTIUM10-220", 3755.03)]
-
-    # 3. Promocion (highest priority)
+    # 2. Promocion (usa costo_promedio como respaldo contable antes que precio_promocion)
     mock_promo_res = MagicMock()
     mock_promo_res.all.return_value = [("FORTISG15", 5685.00, 3597.95)]
 
-    mock_db.execute.side_effect = [mock_quote_res, mock_inv_res, mock_promo_res]
+    # 3. Existing InventarioAbcf (máxima prioridad de inventario)
+    mock_inv_res = MagicMock()
+    mock_inv_res.all.return_value = [("VATTIUM10-220", 3755.03)]
+
+    mock_db.execute.side_effect = [mock_quote_res, mock_promo_res, mock_inv_res]
 
     catalog = await get_reference_pricing_catalog(mock_db)
 
     assert catalog.get("VATTIUM10-220") == 3755.03
-    assert catalog.get("FORTISG15") == 5685.00
+    assert catalog.get("FORTISG15") == 3597.95
     assert catalog.get("MOEN100") == 1250.00
+
+
+@pytest.mark.asyncio
+async def test_upload_prioritizes_material_d_sheets_over_general_sheets(mock_admin_user):
+    from app.api.v1.inventario_abcf import upload_inventario
+
+    wb = Workbook()
+    ws_general = wb.active
+    ws_general.title = "Sheet1"
+    headers = [
+        "Nombre Centro", "Almacen", "Numero de Proveedor", "Nombre del Proveedor",
+        "ABC+F", "Codigo Material", "Descripcion Material", "Cantidad Propia",
+        "Existencia en Consignacion de Proveedore", "Costo Promedio Unitario", "Importe de Inventario Propio"
+    ]
+    ws_general.append(headers)
+    ws_general.append([
+        "MKS CASA KURODA", "MA01", "103484", "ARISTON SALES", "D5", "VATTIUM10-220", "CALENTADOR VATTIUM", 3.0, 0.0, 3755.03, 11265.09
+    ])
+
+    ws_mat_d = wb.create_sheet(title="Material D Ck Matriz.")
+    ws_mat_d.append(headers)
+    ws_mat_d.append([
+        "MKS CASA KURODA", "MA01", "103484", "ARISTON SALES", "D5", "VATTIUM10-220", "CALENTADOR VATTIUM", 3.0, 0.0, 2499.00, 7497.00
+    ])
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    upload_file = UploadFile(filename="inventario_multihoja.xlsx", file=buf)
+
+    mock_db = AsyncMock()
+    saved_items = []
+    mock_db.add = MagicMock(side_effect=lambda item: saved_items.append(item))
+
+    with patch("app.api.v1.inventario_abcf.get_reference_pricing_catalog", new=AsyncMock(return_value={})), \
+         patch("app.api.v1.inventario_abcf.registrar_actualizacion_datos", new=AsyncMock()):
+        res = await upload_inventario(file=upload_file, db=mock_db, current_user=mock_admin_user)
+        assert res["status"] == "success"
+        assert len(saved_items) == 1
+        assert saved_items[0].codigo_material == "VATTIUM10-220"
+        assert saved_items[0].costo_promedio_unitario == 2499.00
+        assert saved_items[0].importe_inventario_propio == 7497.00
 
 
 @pytest.mark.asyncio
@@ -140,3 +174,4 @@ async def test_list_inventario_auto_heals_zero_prices():
         data = res["data"][0]
         assert data["costo_promedio_unitario"] == 3755.03
         assert data["importe_inventario_propio"] == 11265.09
+

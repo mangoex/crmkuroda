@@ -6,7 +6,16 @@ from sqlalchemy.future import select
 from sqlalchemy import func, insert, delete
 from app.core.database import SessionLocal, engine, Base
 from app.models.inventario_abcf import InventarioAbcf
-from app.api.v1.inventario_abcf import _normalize_header, _header_index, _row_value, _as_float
+from app.models.actualizacion_datos import ActualizacionDatos
+from app.api.v1.inventario_abcf import (
+    _normalize_header,
+    _header_index,
+    _row_value,
+    _as_float,
+    _sort_worksheets_material_d_first,
+    SALE_PRICE_ALIASES,
+    UNIT_COST_ALIASES,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,19 +67,45 @@ def get_master_catalog_prices() -> dict[str, float]:
 
 
 def parse_inventario_rows_from_workbook(wb) -> list[dict]:
-    """Extrae y parsea filas con precios y ubicaciones desde un libro openpyxl."""
+    """Extrae y parsea filas con precios y ubicaciones desde un libro openpyxl, priorizando hojas de Material D."""
     records = []
     seen_keys = set()
+    sheet_price_map: dict[str, float] = {}
 
-    for ws in wb.worksheets:
+    ordered_sheets = _sort_worksheets_material_d_first(wb.worksheets)
+
+    for ws in ordered_sheets:
         if ws.sheet_state == "hidden":
             continue
 
-        header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), ())
-        headers = [_normalize_header(value) for value in header_row]
-        
+        headers = []
+        start_data_row = 2
+
+        for cand_row_idx, cand_row in enumerate(ws.iter_rows(min_row=1, max_row=6, values_only=True), start=1):
+            cand_headers = [_normalize_header(value) for value in cand_row]
+            cand_cod = _header_index(
+                cand_headers,
+                "codigo material", "clave material", "codigo producto", "clave producto", "sku", "material", "articulo", "codigo"
+            )
+            cand_centro = _header_index(
+                cand_headers,
+                "centro", "sucursal", "centro distribucion", "nombre centro", "ce"
+            )
+            if cand_cod is not None and cand_centro is not None:
+                headers = cand_headers
+                start_data_row = cand_row_idx + 1
+                break
+
+        if not headers:
+            header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), ())
+            headers = [_normalize_header(value) for value in header_row]
+            start_data_row = 2
+
+        precio_venta_idx = _header_index(headers, *SALE_PRICE_ALIASES)
+        costo_unitario_idx = _header_index(headers, *UNIT_COST_ALIASES)
+
         indices = {
-            "centro": _header_index(headers, "centro", "sucursal", "centro distribucion", "nombre centro"),
+            "centro": _header_index(headers, "centro", "sucursal", "centro distribucion", "nombre centro", "ce", "planta"),
             "almacen": _header_index(headers, "almacen", "almacen origen"),
             "numero_proveedor": _header_index(headers, "numero proveedor", "codigo proveedor", "proveedor codigo", "numero de proveedor"),
             "nombre_proveedor": _header_index(headers, "nombre proveedor", "proveedor", "razon social proveedor", "nombre del proveedor"),
@@ -84,70 +119,18 @@ def parse_inventario_rows_from_workbook(wb) -> list[dict]:
                 "indicador abcf frecuencia de venta",
                 "d",
             ),
-            "codigo_material": _header_index(headers, "codigo material", "clave material", "codigo producto", "clave producto", "sku"),
+            "codigo_material": _header_index(headers, "codigo material", "clave material", "codigo producto", "clave producto", "sku", "material", "articulo", "codigo"),
             "descripcion_material": _header_index(headers, "descripcion del material", "descripcion material", "descripcion producto", "descripcion", "producto"),
-            "cantidad_propia": _header_index(headers, "cantidad propia", "cant propia", "inventario disponible", "existencia propia", "disponible"),
-            "existencia_consignacion": _header_index(headers, "existencia consignacion", "inv consig", "inventario consignacion", "existencia en consignacion de proveedore", "existencia en consignacion de proveedores"),
+            "cantidad_propia": _header_index(headers, "cantidad propia", "cant propia", "inventario disponible", "existencia propia", "disponible", "libre utilizacion", "libre utilización", "existencia", "stock"),
+            "existencia_consignacion": _header_index(headers, "existencia consignacion", "inv consig", "inventario consignacion", "existencia en consignacion de proveedore", "existencia en consignacion de proveedores", "consignacion", "consignación", "stock consignacion"),
             "entregas_pendientes": _header_index(headers, "entregas pendientes"),
             "existencia_transito": _header_index(headers, "existencia transito", "transito"),
             "existencia_bloqueada": _header_index(headers, "existencia bloqueada", "bloqueada"),
             "existencia_control_calidad": _header_index(headers, "existencia control calidad", "control calidad"),
             "umb": _header_index(headers, "umb", "unidad medida", "unidad de medida base"),
-            "costo_promedio_unitario": _header_index(
-                headers,
-                "precio venta",
-                "precio de venta",
-                "precio venta civa",
-                "precio venta con iva",
-                "precio venta neto",
-                "precio de venta civa",
-                "precio de venta con iva",
-                "precio lista",
-                "precio de lista",
-                "precio lista civa",
-                "precio lista con iva",
-                "precio unitario",
-                "precio unitario civa",
-                "precio unitario con iva",
-                "precio comercial",
-                "precio",
-                "precios",
-                "pvp",
-                "pvp civa",
-                "pvp con iva",
-                "costo promedio unitario",
-                "costo promedio unitario moneda de venta",
-                "costo unitario",
-                "costo unit",
-                "costo",
-                "costos",
-                "costo promedio",
-                "costo prom",
-                "costo reposicion",
-                "costo reposición",
-                "costo estandar",
-                "costo estándar",
-                "costo estandar promocion",
-                "precio promedio",
-                "precio prom",
-                "precio promocion",
-                "precio efectivo promocion",
-                "precio efectivo",
-                "precio base",
-                "precio sugerido",
-                "precio publico",
-                "precio público",
-                "precio mostrador",
-                "precio distribuidor",
-                "valor unitario",
-                "val unitario",
-                "val unit",
-                "p venta",
-                "p vta",
-                "precio vta",
-                "importe venta",
-                "importe unitario",
-            ),
+            "precio_venta": precio_venta_idx,
+            "costo_unitario": costo_unitario_idx,
+            "costo_promedio_unitario": precio_venta_idx if precio_venta_idx is not None else costo_unitario_idx,
             "importe_inventario_propio": _header_index(
                 headers,
                 "importe inventario propio",
@@ -161,6 +144,8 @@ def parse_inventario_rows_from_workbook(wb) -> list[dict]:
                 "importe",
                 "valor inventario",
                 "valor propio",
+                "val inventario",
+                "imp inventario",
             ),
             "valor_consignacion_proveedor": _header_index(
                 headers,
@@ -171,6 +156,7 @@ def parse_inventario_rows_from_workbook(wb) -> list[dict]:
                 "importe consignacion",
                 "importe consignado",
                 "consignacion importe",
+                "valor consignado",
             ),
             "ubicacion": _header_index(headers, "ubicacion", "localizacion"),
             "grupo_materiales": _header_index(headers, "grupo materiales"),
@@ -184,7 +170,7 @@ def parse_inventario_rows_from_workbook(wb) -> list[dict]:
         if indices["codigo_material"] is None or indices["centro"] is None:
             continue
 
-        for row in ws.iter_rows(min_row=2, values_only=True):
+        for row in ws.iter_rows(min_row=start_data_row, values_only=True):
             if not row or not _row_value(row, indices["centro"], 0):
                 continue
 
@@ -195,28 +181,39 @@ def parse_inventario_rows_from_workbook(wb) -> list[dict]:
                 if c_propia == 0.0 and e_consig == 0.0:
                     continue
 
-                c_unitario = _as_float(_row_value(row, indices["costo_promedio_unitario"], 14))
-                imp_propio = _as_float(_row_value(row, indices["importe_inventario_propio"], 15))
-                val_consig = _as_float(_row_value(row, indices["valor_consignacion_proveedor"], 16))
+                centro_val = str(_row_value(row, indices["centro"], 0)).strip() if _row_value(row, indices["centro"], 0) is not None else None
+                cod_mat = str(_row_value(row, indices["codigo_material"], 1)).strip() if _row_value(row, indices["codigo_material"], 1) is not None else None
+                almacen_val = str(_row_value(row, indices["almacen"])).strip() if _row_value(row, indices["almacen"]) is not None else None
 
-                if c_unitario is None or c_unitario == 0.0:
-                    if imp_propio and imp_propio > 0 and c_propia > 0:
-                        c_unitario = round(imp_propio / c_propia, 2)
-                    elif val_consig and val_consig > 0 and e_consig > 0:
-                        c_unitario = round(val_consig / e_consig, 2)
-
-                if (imp_propio is None or imp_propio == 0.0) and c_unitario and c_unitario > 0 and c_propia > 0:
-                    imp_propio = round(c_unitario * c_propia, 2)
-
-                centro_val = str(_row_value(row, indices["centro"], 0)) if _row_value(row, indices["centro"], 0) is not None else None
-                cod_mat = str(_row_value(row, indices["codigo_material"], 1)) if _row_value(row, indices["codigo_material"], 1) is not None else None
-                almacen_val = str(_row_value(row, indices["almacen"])) if _row_value(row, indices["almacen"]) is not None else None
-
-                # Clave única para evitar duplicados entre hojas idénticas
+                # Clave única para evitar duplicados entre hojas idénticas (prevalece Material D al procesarse primero)
                 dedup_key = (centro_val, almacen_val, cod_mat)
                 if dedup_key in seen_keys:
                     continue
                 seen_keys.add(dedup_key)
+
+                p_venta_val = _as_float(_row_value(row, indices["precio_venta"])) if indices["precio_venta"] is not None else None
+                c_costo_val = _as_float(_row_value(row, indices["costo_unitario"], 14))
+                c_unitario = p_venta_val if (p_venta_val is not None and p_venta_val > 0) else c_costo_val
+
+                imp_propio = _as_float(_row_value(row, indices["importe_inventario_propio"], 15))
+                val_consig = _as_float(_row_value(row, indices["valor_consignacion_proveedor"], 16))
+                sku_key = str(cod_mat or "").strip().upper()
+
+                if c_unitario is None or c_unitario <= 0.0:
+                    if imp_propio and imp_propio > 0 and c_propia > 0:
+                        c_unitario = round(imp_propio / c_propia, 2)
+                    elif val_consig and val_consig > 0 and e_consig > 0:
+                        c_unitario = round(val_consig / e_consig, 2)
+                    elif sku_key in sheet_price_map:
+                        c_unitario = sheet_price_map[sku_key]
+
+                if sku_key and c_unitario and c_unitario > 0 and sku_key not in sheet_price_map:
+                    sheet_price_map[sku_key] = c_unitario
+
+                if (imp_propio is None or imp_propio == 0.0) and c_unitario and c_unitario > 0 and c_propia > 0:
+                    imp_propio = round(c_unitario * c_propia, 2)
+                if (val_consig is None or val_consig == 0.0) and c_unitario and c_unitario > 0 and e_consig > 0:
+                    val_consig = round(c_unitario * e_consig, 2)
 
                 records.append({
                     "nombre_centro": centro_val,
@@ -261,7 +258,15 @@ async def seed_inventario_from_excel(force=False):
             count_res = await session.execute(select(func.count(InventarioAbcf.id)))
             existing_count = count_res.scalar() or 0
 
-            # Verificar si los registros existentes carecen de precios
+            # Verificar si existe una carga manual realizada por un usuario (para no sobreescribirla al reiniciar)
+            has_user_upload = False
+            try:
+                upload_record = await session.get(ActualizacionDatos, "inventario-abcf")
+                if upload_record is not None:
+                    has_user_upload = True
+            except Exception:
+                pass
+
             if existing_count > 0:
                 valid_price_res = await session.execute(
                     select(func.count(InventarioAbcf.id)).where(
@@ -270,13 +275,20 @@ async def seed_inventario_from_excel(force=False):
                     )
                 )
                 valid_price_count = valid_price_res.scalar() or 0
-                
-                # Si el inventario tiene al menos 2000 precios válidos o más del 95% con precio, se omite siembra
-                if valid_price_count >= 2000 or (existing_count > 0 and (valid_price_count / existing_count) >= 0.95):
+
+                # Si un usuario ya subió su archivo manualmente y tiene precios válidos, respetar su carga sin importar el tamaño
+                if has_user_upload and valid_price_count > 0:
+                    logger.info(
+                        f"Inventario ABC+F cargado por usuario ({existing_count} registros, {valid_price_count} con precio). Se respeta carga manual."
+                    )
+                    return existing_count
+
+                # Si el inventario tiene al menos 2000 precios válidos o más del 90% con precio, se omite siembra
+                if valid_price_count >= 2000 or (existing_count > 0 and (valid_price_count / existing_count) >= 0.90):
                     logger.info(f"Inventario ABC+F ya contiene {existing_count} registros ({valid_price_count} con precio válido). Se omite siembra.")
                     return existing_count
                 
-                logger.info(f"Inventario existente contiene {existing_count} registros pero solo {valid_price_count} con precio válido (< 2000 o < 95%). Reparando y re-sembrando automáticamente...")
+                logger.info(f"Inventario existente contiene {existing_count} registros pero solo {valid_price_count} con precio válido. Reparando y re-sembrando automáticamente...")
 
         print(f"Cargando Inventario ABC+F desde: {excel_file}")
         wb = openpyxl.load_workbook(excel_file, read_only=True, data_only=True)

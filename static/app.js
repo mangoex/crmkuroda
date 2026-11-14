@@ -2733,7 +2733,8 @@ async function loadInventarioAbcfData(forceRefresh = false) {
         if (state.promociones && Array.isArray(state.promociones)) {
             state.promociones.forEach(pr => {
                 const sku = String(pr.codigo_material || "").trim().toUpperCase();
-                const p = Number(pr.precio_promocion || pr.precio_efectivo_promocion || pr.costo_promedio || 0);
+                // Preferir costo_promedio para respaldo de inventario antes que precio_promocion
+                const p = Number(pr.costo_promedio || pr.precio_promocion || pr.precio_efectivo_promocion || 0);
                 if (sku && p > 0 && !priceCatalogMap.has(sku)) {
                     priceCatalogMap.set(sku, p);
                 }
