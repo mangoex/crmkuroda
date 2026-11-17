@@ -175,3 +175,65 @@ async def test_list_inventario_auto_heals_zero_prices():
         assert data["costo_promedio_unitario"] == 3755.03
         assert data["importe_inventario_propio"] == 11265.09
 
+
+@pytest.mark.asyncio
+async def test_upload_evaluates_uncached_excel_formulas_and_flexible_headers(mock_admin_user):
+    from app.api.v1.inventario_abcf import upload_inventario
+
+    headers = [
+        "Nombre Centro", "Almacen", "Codigo Material", "Descripcion Material",
+        "Cantidad Propia", "Costo Promedio Unitario", "Precio Público Final c/IVA"
+    ]
+    # Simula un Excel recién guardado con fórmula en la columna Precio Público Final c/IVA (=F2*1.16)
+    # sin valor cacheado (openpyxl data_only=True devuelve None para esa celda)
+    rows = [
+        ["MKS CASA KURODA", "MA01", 50201070093.0, "CORONA TURBO", 2.0, 1000.0, "=F2*1.16"]
+    ]
+    upload_file = create_excel_upload_file(headers, rows, sheet_name="Material D Ck Matriz.")
+
+    mock_db = AsyncMock()
+    saved_items = []
+    mock_db.add = MagicMock(side_effect=lambda item: saved_items.append(item))
+
+    with patch("app.api.v1.inventario_abcf.get_reference_pricing_catalog", new=AsyncMock(return_value={
+        "50201070093": 9999.0  # No debe usarse porque el archivo sí tiene columnas de precio/costo
+    })), patch("app.api.v1.inventario_abcf.registrar_actualizacion_datos", new=AsyncMock()):
+        res = await upload_inventario(file=upload_file, db=mock_db, current_user=mock_admin_user)
+
+        assert res["status"] == "success"
+        assert len(saved_items) == 1
+        item = saved_items[0]
+        assert item.codigo_material == "50201070093"
+        assert round(item.costo_promedio_unitario, 2) == 1160.00
+
+
+@pytest.mark.asyncio
+async def test_upload_does_not_overwrite_explicit_price_file_with_stale_catalog(mock_admin_user):
+    from app.api.v1.inventario_abcf import upload_inventario
+
+    headers = [
+        "Centro", "Almacen", "Codigo Material", "Descripcion Material",
+        "Cantidad Propia", "Precio Venta"
+    ]
+    rows = [
+        ["MKS CASA KURODA", "MA01", "SKU-NUEVO", "PRODUCTO CON PRECIO", 2.0, "$ 1,250.50 MXN"],
+        ["MKS CASA KURODA", "MA01", "SKU-CERO", "PRODUCTO EN CERO", 3.0, 0.0],
+    ]
+    upload_file = create_excel_upload_file(headers, rows)
+
+    mock_db = AsyncMock()
+    saved_items = []
+    mock_db.add = MagicMock(side_effect=lambda item: saved_items.append(item))
+
+    with patch("app.api.v1.inventario_abcf.get_reference_pricing_catalog", new=AsyncMock(return_value={
+        "SKU-NUEVO": 5000.0,
+        "SKU-CERO": 4500.0,
+    })), patch("app.api.v1.inventario_abcf.registrar_actualizacion_datos", new=AsyncMock()):
+        res = await upload_inventario(file=upload_file, db=mock_db, current_user=mock_admin_user)
+
+        assert res["status"] == "success"
+        nuevo = next(i for i in saved_items if i.codigo_material == "SKU-NUEVO")
+        cero = next(i for i in saved_items if i.codigo_material == "SKU-CERO")
+        assert nuevo.costo_promedio_unitario == 1250.50
+        # No debe contaminarse con los 4500.0 del catálogo viejo cuando el archivo sí trae columna de precio
+        assert cero.costo_promedio_unitario == 0.0

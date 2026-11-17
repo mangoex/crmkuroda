@@ -2488,7 +2488,8 @@ async function loadInventarioAbcfData(forceRefresh = false) {
     
     try {
         if (forceRefresh || !state.inventario_abcf || state.inventario_abcf.length === 0) {
-            const res = await apiRequest("/api/v1/inventario-abcf/");
+            const url = forceRefresh ? `/api/v1/inventario-abcf/?_t=${Date.now()}` : "/api/v1/inventario-abcf/";
+            const res = await apiRequest(url, { cache: "no-store" });
             state.inventario_abcf = res.data || [];
         }
 

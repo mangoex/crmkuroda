@@ -113,6 +113,23 @@ def _header_index(headers: list[str], *aliases: str) -> Optional[int]:
     return None
 
 
+def _find_flexible_price_index(headers: list[str], aliases: tuple[str, ...], keywords: tuple[str, ...], exclude: tuple[str, ...] = ()) -> Optional[int]:
+    """Busca primero por alias exacto en prioridad y luego por coincidencia parcial de palabras clave."""
+    exact_idx = _header_index(headers, *aliases)
+    if exact_idx is not None:
+        return exact_idx
+    for kw in keywords:
+        norm_kw = _normalize_header(kw)
+        for index, header in enumerate(headers):
+            if not header:
+                continue
+            if any(_normalize_header(ex) in header for ex in exclude):
+                continue
+            if norm_kw in header:
+                return index
+    return None
+
+
 def _sort_worksheets_material_d_first(worksheets: list):
     """
     Ordena las hojas del libro de Excel dando prioridad a las pestañas específicas
@@ -123,7 +140,7 @@ def _sort_worksheets_material_d_first(worksheets: list):
     """
     def _sheet_priority(ws):
         title_norm = _normalize_header(getattr(ws, "title", ""))
-        if "materiald" in title_norm or "matd" in title_norm:
+        if "materiald" in title_norm or "matd" in title_norm or "inventariod" in title_norm:
             return 0
         return 1
 
@@ -135,16 +152,115 @@ def _row_value(row, index: Optional[int], fallback: Optional[int] = None):
     return row[target] if target is not None and len(row) > target else None
 
 
+def _clean_code(value) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    text = str(value).strip()
+    if text.endswith(".0") and text[:-2].isdigit():
+        return text[:-2]
+    return text or None
+
+
 def _as_float(value, default=None):
+    import re
+
     if value is None or value == "":
         return default
     if isinstance(value, (int, float)):
         return float(value)
-    val_str = str(value).replace("$", "").replace(",", "").strip()
-    try:
-        return float(val_str)
-    except ValueError:
+    val_str = str(value).replace(",", "").strip()
+    if val_str.startswith("="):
         return default
+    try:
+        return float(val_str.replace("$", "").strip())
+    except ValueError:
+        match = re.search(r"[-+]?\d+(?:\.\d+)?", val_str)
+        if match:
+            try:
+                return float(match.group(0))
+            except ValueError:
+                return default
+        return default
+
+
+def _col_letters_to_index(col_str: str) -> int:
+    idx = 0
+    for ch in col_str.upper():
+        idx = idx * 26 + (ord(ch) - ord("A") + 1)
+    return idx - 1
+
+
+def _safe_eval_arithmetic(expr: str) -> Optional[float]:
+    import ast
+    import operator as op
+
+    operators = {
+        ast.Add: op.add,
+        ast.Sub: op.sub,
+        ast.Mult: op.mul,
+        ast.Div: op.truediv,
+        ast.USub: op.neg,
+        ast.UAdd: op.pos,
+    }
+
+    def _eval(node):
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return float(node.value)
+        if isinstance(node, ast.BinOp) and type(node.op) in operators:
+            return operators[type(node.op)](_eval(node.left), _eval(node.right))
+        if isinstance(node, ast.UnaryOp) and type(node.op) in operators:
+            return operators[type(node.op)](_eval(node.operand))
+        raise ValueError("Unsupported expression")
+
+    try:
+        tree = ast.parse(expr, mode="eval")
+        return float(_eval(tree.body))
+    except Exception:
+        return None
+
+
+def _resolve_formula_cell(formula_val, ws_data_rows: Optional[list], current_row_offset: int, visited: Optional[set] = None) -> Optional[float]:
+    """
+    Evalúa de forma segura fórmulas aritméticas simples en Excel (ej. '=O2*1.16', '=P2/H2')
+    cuando openpyxl(data_only=True) devuelve None por falta de caché de fórmula.
+    """
+    import re
+
+    if formula_val is None:
+        return None
+    if not isinstance(formula_val, str) or not formula_val.strip().startswith("="):
+        return _as_float(formula_val)
+
+    expr = formula_val.strip()[1:].strip()
+    if visited is None:
+        visited = set()
+
+    def _replace_ref(match):
+        col_letters = match.group(1)
+        row_num = int(match.group(2))
+        col_idx = _col_letters_to_index(col_letters)
+        key = (row_num, col_idx)
+        if key in visited or ws_data_rows is None:
+            return "0"
+        row_pos = row_num - 1
+        if 0 <= row_pos < len(ws_data_rows) and col_idx < len(ws_data_rows[row_pos]):
+            cell_v = ws_data_rows[row_pos][col_idx]
+            val = _as_float(cell_v)
+            if val is not None:
+                return str(val)
+        return "0"
+
+    # Solo soportar fórmulas aritméticas puras con referencias de celda
+    if not re.fullmatch(r"[\s0-9.+\-*/()\$A-Za-z]+", expr):
+        return None
+    # Rechazar llamadas a funciones (letras seguidas de '(') excepto si no hay
+    if re.search(r"[A-Za-z_]+\s*\(", expr):
+        return None
+
+    resolved_expr = re.sub(r"\$?([A-Za-z]{1,3})\$?(\d+)", _replace_ref, expr)
+    return _safe_eval_arithmetic(resolved_expr)
 
 
 SALE_PRICE_ALIASES = (
@@ -155,8 +271,16 @@ SALE_PRICE_ALIASES = (
     "precio venta neto",
     "precio de venta civa",
     "precio de venta con iva",
+    "precio venta publico",
+    "precio de venta publico",
+    "precio publico civa",
+    "precio publico con iva",
+    "precio civa",
+    "precio con iva",
     "precio material d",
+    "precio d",
     "precio remate",
+    "precio remate civa",
     "precio liquidacion",
     "precio liquidación",
     "precio lista",
@@ -200,6 +324,7 @@ SALE_PRICE_ALIASES = (
 UNIT_COST_ALIASES = (
     "costo promedio unitario",
     "costo promedio unitario moneda de venta",
+    "costo promedio unitario civa",
     "costo unitario",
     "costo unit",
     "costo",
@@ -275,12 +400,14 @@ async def upload_inventario(
     
     try:
         wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
+        wb_formulas = None
         # Pre-cargar catálogo de respaldo antes de modificar nada en base de datos
         reference_catalog = await get_reference_pricing_catalog(db)
         
         items_to_add = []
         seen_keys = set()
         sheet_price_map: dict[str, float] = {}
+        detected_columns_summary: list[str] = []
         
         # Priorizar pestañas de Material D sobre hojas generales
         ordered_sheets = _sort_worksheets_material_d_first(wb.worksheets)
@@ -289,6 +416,7 @@ async def upload_inventario(
             if ws.sheet_state == 'hidden':
                 continue
 
+            raw_headers = []
             headers = []
             indices = {}
             start_data_row = 2
@@ -305,17 +433,29 @@ async def upload_inventario(
                     "centro", "sucursal", "centro distribucion", "nombre centro", "ce"
                 )
                 if cand_cod is not None and cand_centro is not None:
+                    raw_headers = [str(v or "").strip() for v in cand_row]
                     headers = cand_headers
                     start_data_row = cand_row_idx + 1
                     break
 
             if not headers:
                 header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), ())
+                raw_headers = [str(v or "").strip() for v in header_row]
                 headers = [_normalize_header(value) for value in header_row]
                 start_data_row = 2
 
-            precio_venta_idx = _header_index(headers, *SALE_PRICE_ALIASES)
-            costo_unitario_idx = _header_index(headers, *UNIT_COST_ALIASES)
+            precio_venta_idx = _find_flexible_price_index(
+                headers,
+                SALE_PRICE_ALIASES,
+                ("precioventa", "preciopublico", "precioremate", "preciod", "precio", "pvp"),
+                exclude=("descuento",),
+            )
+            costo_unitario_idx = _find_flexible_price_index(
+                headers,
+                UNIT_COST_ALIASES,
+                ("costopromedio", "costounitario"),
+                exclude=("descuento",),
+            )
 
             indices = {
                 "centro": _header_index(headers, "centro", "sucursal", "centro distribucion", "nombre centro", "ce", "planta"),
@@ -383,44 +523,91 @@ async def upload_inventario(
             if indices["codigo_material"] is None or indices["centro"] is None:
                 continue
 
-            iter_rows = ws.iter_rows(min_row=start_data_row, values_only=True)
-            for row in iter_rows:
+            has_explicit_price_col = (
+                indices["precio_venta"] is not None
+                or indices["costo_unitario"] is not None
+                or indices["importe_inventario_propio"] is not None
+                or indices["valor_consignacion_proveedor"] is not None
+            )
+
+            chosen_col_idx = indices["precio_venta"] if indices["precio_venta"] is not None else indices["costo_unitario"]
+            if chosen_col_idx is not None and chosen_col_idx < len(raw_headers):
+                detected_columns_summary.append(f"{ws.title}: {raw_headers[chosen_col_idx]}")
+
+            ws_all_rows = list(ws.iter_rows(min_row=1, values_only=True))
+            ws_formula_rows = None
+
+            for row_offset, row in enumerate(ws_all_rows[start_data_row - 1:], start=start_data_row - 1):
                 if not row or not _row_value(row, indices["centro"], 0):
                     continue
 
                 try:
-                    c_propia = _as_float(_row_value(row, indices["cantidad_propia"], 7), 0.0)
-                    e_consig = _as_float(_row_value(row, indices["existencia_consignacion"], 8), 0.0)
+                    c_propia = _as_float(_row_value(row, indices["cantidad_propia"], 7 if not has_explicit_price_col else None), 0.0)
+                    e_consig = _as_float(_row_value(row, indices["existencia_consignacion"], 8 if not has_explicit_price_col else None), 0.0)
                     
                     if c_propia == 0.0 and e_consig == 0.0:
                         continue
 
-                    centro_val = str(_row_value(row, indices["centro"], 0)).strip() if _row_value(row, indices["centro"], 0) is not None else None
-                    cod_mat = str(_row_value(row, indices["codigo_material"], 1)).strip() if _row_value(row, indices["codigo_material"], 1) is not None else None
-                    almacen_val = str(_row_value(row, indices["almacen"])).strip() if _row_value(row, indices["almacen"]) is not None else None
+                    centro_val = _clean_code(_row_value(row, indices["centro"], 0))
+                    cod_mat = _clean_code(_row_value(row, indices["codigo_material"], 1))
+                    almacen_val = _clean_code(_row_value(row, indices["almacen"]))
 
                     dedup_key = (centro_val, almacen_val, cod_mat)
                     if dedup_key in seen_keys:
                         continue
                     seen_keys.add(dedup_key)
 
-                    # Extraer primero Precio de Venta explícito (si la columna existe y tiene valor > 0),
-                    # de lo contrario usar Costo Promedio Unitario del archivo
-                    p_venta_val = _as_float(_row_value(row, indices["precio_venta"])) if indices["precio_venta"] is not None else None
-                    c_costo_val = _as_float(_row_value(row, indices["costo_unitario"], 14))
-                    c_unitario = p_venta_val if (p_venta_val is not None and p_venta_val > 0) else c_costo_val
+                    def _get_numeric_with_formula_fallback(col_idx: Optional[int], fallback_idx: Optional[int] = None) -> Optional[float]:
+                        target_idx = col_idx if col_idx is not None else fallback_idx
+                        if target_idx is None:
+                            return None
+                        raw_val = row[target_idx] if len(row) > target_idx else None
+                        parsed = _as_float(raw_val)
+                        if parsed is not None:
+                            return parsed
+                        if raw_val is None:
+                            nonlocal wb_formulas, ws_formula_rows
+                            if wb_formulas is None:
+                                wb_formulas = openpyxl.load_workbook(io.BytesIO(contents), data_only=False)
+                            if ws_formula_rows is None and ws.title in wb_formulas.sheetnames:
+                                ws_formula_rows = list(wb_formulas[ws.title].iter_rows(min_row=1, values_only=True))
+                            if ws_formula_rows and row_offset < len(ws_formula_rows) and target_idx < len(ws_formula_rows[row_offset]):
+                                f_raw = ws_formula_rows[row_offset][target_idx]
+                                if isinstance(f_raw, str) and f_raw.strip().startswith("="):
+                                    return _resolve_formula_cell(f_raw, ws_all_rows, row_offset)
+                        return None
 
-                    imp_propio = _as_float(_row_value(row, indices["importe_inventario_propio"], 15))
-                    val_consig = _as_float(_row_value(row, indices["valor_consignacion_proveedor"], 16))
+                    # Extraer primero Precio de Venta explícito (si la columna existe y tiene valor > 0),
+                    # de lo contrario usar Costo Promedio Unitario del archivo (sin fallback posicional ciego si hay encabezados)
+                    p_venta_val = _get_numeric_with_formula_fallback(indices["precio_venta"])
+                    c_costo_val = _get_numeric_with_formula_fallback(
+                        indices["costo_unitario"],
+                        14 if (not has_explicit_price_col and len(headers) >= 16) else None,
+                    )
+                    if p_venta_val is not None and p_venta_val > 0:
+                        c_unitario = p_venta_val
+                    elif c_costo_val is not None:
+                        c_unitario = c_costo_val
+                    else:
+                        c_unitario = p_venta_val
+
+                    imp_propio = _get_numeric_with_formula_fallback(
+                        indices["importe_inventario_propio"],
+                        15 if (not has_explicit_price_col and len(headers) >= 16) else None,
+                    )
+                    val_consig = _get_numeric_with_formula_fallback(
+                        indices["valor_consignacion_proveedor"],
+                        16 if (not has_explicit_price_col and len(headers) >= 17) else None,
+                    )
 
                     sku_key = str(cod_mat or "").strip().upper()
 
-                    # Resolución y blindaje determinista de precio unitario:
+                    # Resolución determinista del precio unitario:
                     # 1. Valor explícito en el archivo (Precio Venta o Costo Unitario)
                     # 2. División exacta de Importe Propio / Cantidad Propia del propio archivo
                     # 3. División exacta de Valor Consignación / Existencia Consignación del propio archivo
                     # 4. Otro registro del mismo SKU dentro del mismo archivo subido
-                    # 5. Catálogo de referencia en última instancia
+                    # 5. Catálogo de referencia SOLO cuando el archivo no incluye columnas de precio/costo/importe
                     if c_unitario is None or c_unitario <= 0.0:
                         if imp_propio and imp_propio > 0 and c_propia > 0:
                             c_unitario = round(imp_propio / c_propia, 2)
@@ -428,7 +615,7 @@ async def upload_inventario(
                             c_unitario = round(val_consig / e_consig, 2)
                         elif sku_key in sheet_price_map:
                             c_unitario = sheet_price_map[sku_key]
-                        elif sku_key in reference_catalog:
+                        elif not has_explicit_price_col and sku_key in reference_catalog:
                             c_unitario = reference_catalog[sku_key]
 
                     if sku_key and c_unitario and c_unitario > 0 and sku_key not in sheet_price_map:
@@ -443,7 +630,7 @@ async def upload_inventario(
                     inv = InventarioAbcf(
                         nombre_centro=centro_val,
                         almacen=almacen_val,
-                        numero_proveedor=str(_row_value(row, indices["numero_proveedor"])) if _row_value(row, indices["numero_proveedor"]) is not None else None,
+                        numero_proveedor=_clean_code(_row_value(row, indices["numero_proveedor"])),
                         nombre_proveedor=str(_row_value(row, indices["nombre_proveedor"], 2)) if _row_value(row, indices["nombre_proveedor"], 2) is not None else None,
                         abc_f=str(_row_value(row, indices["abc_f"])) if _row_value(row, indices["abc_f"]) is not None else None,
                         codigo_material=cod_mat,
@@ -480,7 +667,12 @@ async def upload_inventario(
             
         await registrar_actualizacion_datos(db, "inventario-abcf", current_user.id)
         await db.commit()
-        return {"status": "success", "message": f"Se han cargado {len(items_to_add)} registros de inventario exitosamente."}
+        col_info = f" (Columna de precio: {', '.join(detected_columns_summary[:3])})" if detected_columns_summary else ""
+        return {
+            "status": "success",
+            "message": f"Se han cargado {len(items_to_add)} registros de inventario exitosamente.{col_info}",
+            "detected_price_columns": detected_columns_summary,
+        }
         
     except HTTPException:
         await db.rollback()

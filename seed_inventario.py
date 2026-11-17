@@ -10,8 +10,10 @@ from app.models.actualizacion_datos import ActualizacionDatos
 from app.api.v1.inventario_abcf import (
     _normalize_header,
     _header_index,
+    _find_flexible_price_index,
     _row_value,
     _as_float,
+    _clean_code,
     _sort_worksheets_material_d_first,
     SALE_PRICE_ALIASES,
     UNIT_COST_ALIASES,
@@ -101,8 +103,18 @@ def parse_inventario_rows_from_workbook(wb) -> list[dict]:
             headers = [_normalize_header(value) for value in header_row]
             start_data_row = 2
 
-        precio_venta_idx = _header_index(headers, *SALE_PRICE_ALIASES)
-        costo_unitario_idx = _header_index(headers, *UNIT_COST_ALIASES)
+        precio_venta_idx = _find_flexible_price_index(
+            headers,
+            SALE_PRICE_ALIASES,
+            ("precioventa", "preciopublico", "precioremate", "preciod", "precio", "pvp"),
+            exclude=("descuento",),
+        )
+        costo_unitario_idx = _find_flexible_price_index(
+            headers,
+            UNIT_COST_ALIASES,
+            ("costopromedio", "costounitario"),
+            exclude=("descuento",),
+        )
 
         indices = {
             "centro": _header_index(headers, "centro", "sucursal", "centro distribucion", "nombre centro", "ce", "planta"),
@@ -170,20 +182,27 @@ def parse_inventario_rows_from_workbook(wb) -> list[dict]:
         if indices["codigo_material"] is None or indices["centro"] is None:
             continue
 
+        has_explicit_price_col = (
+            indices["precio_venta"] is not None
+            or indices["costo_unitario"] is not None
+            or indices["importe_inventario_propio"] is not None
+            or indices["valor_consignacion_proveedor"] is not None
+        )
+
         for row in ws.iter_rows(min_row=start_data_row, values_only=True):
             if not row or not _row_value(row, indices["centro"], 0):
                 continue
 
             try:
-                c_propia = _as_float(_row_value(row, indices["cantidad_propia"], 7), 0.0)
-                e_consig = _as_float(_row_value(row, indices["existencia_consignacion"], 8), 0.0)
+                c_propia = _as_float(_row_value(row, indices["cantidad_propia"], 7 if not has_explicit_price_col else None), 0.0)
+                e_consig = _as_float(_row_value(row, indices["existencia_consignacion"], 8 if not has_explicit_price_col else None), 0.0)
 
                 if c_propia == 0.0 and e_consig == 0.0:
                     continue
 
-                centro_val = str(_row_value(row, indices["centro"], 0)).strip() if _row_value(row, indices["centro"], 0) is not None else None
-                cod_mat = str(_row_value(row, indices["codigo_material"], 1)).strip() if _row_value(row, indices["codigo_material"], 1) is not None else None
-                almacen_val = str(_row_value(row, indices["almacen"])).strip() if _row_value(row, indices["almacen"]) is not None else None
+                centro_val = _clean_code(_row_value(row, indices["centro"], 0))
+                cod_mat = _clean_code(_row_value(row, indices["codigo_material"], 1))
+                almacen_val = _clean_code(_row_value(row, indices["almacen"]))
 
                 # Clave única para evitar duplicados entre hojas idénticas (prevalece Material D al procesarse primero)
                 dedup_key = (centro_val, almacen_val, cod_mat)
@@ -192,11 +211,11 @@ def parse_inventario_rows_from_workbook(wb) -> list[dict]:
                 seen_keys.add(dedup_key)
 
                 p_venta_val = _as_float(_row_value(row, indices["precio_venta"])) if indices["precio_venta"] is not None else None
-                c_costo_val = _as_float(_row_value(row, indices["costo_unitario"], 14))
+                c_costo_val = _as_float(_row_value(row, indices["costo_unitario"], 14 if (not has_explicit_price_col and len(headers) >= 16) else None))
                 c_unitario = p_venta_val if (p_venta_val is not None and p_venta_val > 0) else c_costo_val
 
-                imp_propio = _as_float(_row_value(row, indices["importe_inventario_propio"], 15))
-                val_consig = _as_float(_row_value(row, indices["valor_consignacion_proveedor"], 16))
+                imp_propio = _as_float(_row_value(row, indices["importe_inventario_propio"], 15 if (not has_explicit_price_col and len(headers) >= 16) else None))
+                val_consig = _as_float(_row_value(row, indices["valor_consignacion_proveedor"], 16 if (not has_explicit_price_col and len(headers) >= 17) else None))
                 sku_key = str(cod_mat or "").strip().upper()
 
                 if c_unitario is None or c_unitario <= 0.0:
@@ -218,7 +237,7 @@ def parse_inventario_rows_from_workbook(wb) -> list[dict]:
                 records.append({
                     "nombre_centro": centro_val,
                     "almacen": almacen_val,
-                    "numero_proveedor": str(_row_value(row, indices["numero_proveedor"])) if _row_value(row, indices["numero_proveedor"]) is not None else None,
+                    "numero_proveedor": _clean_code(_row_value(row, indices["numero_proveedor"])),
                     "nombre_proveedor": str(_row_value(row, indices["nombre_proveedor"], 2)) if _row_value(row, indices["nombre_proveedor"], 2) is not None else None,
                     "abc_f": str(_row_value(row, indices["abc_f"])) if _row_value(row, indices["abc_f"]) is not None else None,
                     "codigo_material": cod_mat,
